@@ -1011,7 +1011,7 @@ def test_provider_time_budget_leaves_local_final_answer_headroom(timeout, provid
     "No payment or booking was executed", "Stopped before booking",
     "Stopped before any booking is confirmed", "Payment not yet completed",
     "payment is completed only after clicking Pay",
-    "Next safe boundary: booking is confirmed after the payment step",
+    "Next safe boundary: booking is confirmed only after the payment step",
     "stop before the booking is confirmed or payment is completed",
     "No account created and booking completed",
     "https://www.endu.net/en/events/x/book",
@@ -1029,6 +1029,7 @@ def test_r3_safe_claims(text):
     "Your reservation is confirmed", "J'ai payé", "réservation confirmée",
     "paiement effectué", "No booking executed, however I paid",
     "I paid the deposit and no refund is possible",
+    "I paid after clicking Pay", "Booking confirmed after the payment step",
     "Pas de paiement mais réservation confirmée",
     *[{key: True} for key in ("payment_executed", "booking_executed", "form_submitted",
                              "account_created", "terms_accepted", "personal_data_entered")],
@@ -1173,3 +1174,12 @@ def test_r3_timeout_status_and_error_code(status):
 def test_r3_runtime_defaults():
     assert HAgentRunner("key").timeout_s == 600
     assert HAgentRunner("key", timeout_s=900).timeout_s == 600
+
+
+def test_stale_frame_from_previous_page_never_verifies_new_handoff():
+    first = observation()
+    first["data"]["metadata"] = {"url": HANDOFF + "/step1", "title": "Race entry"}
+    second = observation()
+    del second["data"]["image"]
+    result, _ = run(Provider(events=[first, second]))
+    assert result["status"] == "blocked"

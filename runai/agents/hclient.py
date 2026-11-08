@@ -356,12 +356,12 @@ def _payment_claim(value: object) -> bool:
         for match in unsafe.finditer(sentence):
             prefix = sentence[:match.end()]
             if not re.search(
-                r"\b(?:no|not|never|without|before|prior to|until|unless|if|once|after|when|"
+                r"\b(?:no|not|never|without|before|prior to|until|unless|if|once|"
                 r"would|will|should|must|needs?|required|can|could|avant|sans|pas|aucun|si|jamais)"
                 r"\b|n't\b|\bonly\s+after\b",
                 prefix, re.IGNORECASE,
             ) and not re.search(
-                r"\b(?:only\s+)?(?:after|when|once|if|unless|avant)\b",
+                r"\bonly\s+(?:after|once|when|if)\b|\b(?:until|unless)\b",
                 sentence[match.end():], re.IGNORECASE,
             ):
                 return True
@@ -444,7 +444,7 @@ class HAgentRunner:
             except (httpx.HTTPError, TimeoutError):
                 return False
 
-        async def frame(data: dict, timestamp: str | None):
+        async def frame(data: dict, timestamp: str | None, page_url: str | None):
             nonlocal frame_seen, last_frame_hash
             image = data.get("image") or {}
             if not isinstance(image, dict):
@@ -499,7 +499,7 @@ class HAgentRunner:
             if content:
                 if len(content) > _IMAGE_LIMIT:
                     raise ValueError("Screenshot too large")
-                frame_seen = result["final_url"]
+                frame_seen = page_url
                 digest = hashlib.sha256(content).digest()
                 if digest == last_frame_hash:
                     return
@@ -630,7 +630,7 @@ class HAgentRunner:
                                     raise _PolicyBlocked
                                 result["final_url"] = observed
                                 await emit({"type": "step_progress", "message": "Browsing reviewed site"})
-                                latest_frame = (data, event.get("timestamp"))
+                                latest_frame = (data, event.get("timestamp"), observed)
                     if latest_frame:
                         last_attempt = time.monotonic()
                         try:
