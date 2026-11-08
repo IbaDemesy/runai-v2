@@ -2,6 +2,7 @@ import asyncio
 import importlib
 import os
 from contextlib import asynccontextmanager
+from functools import partial
 from pathlib import Path
 from uuid import uuid4
 
@@ -43,7 +44,9 @@ def _default_guide(mode):
     try:
         module = importlib.import_module("runai.guide")
         if mode == Mode.live:
-            discovery = importlib.import_module("runai.discovery.linkup").discover
+            discovery = partial(
+                importlib.import_module("runai.discovery.linkup").discover, timeout_s=120,
+            )
         else:
             discovery = importlib.import_module("runai.guide.fake").FakeDiscovery()
         return module.GuideEngine(discovery)

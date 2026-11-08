@@ -25,6 +25,9 @@ live never falls back to synthetic results.
 - demo: `runai.guide.GuideEngine(runai.guide.fake.FakeDiscovery())`, `FakeRunner`.
 - replay: same guide, `ReplayRunner(replay_path)` (default checked-in fixture).
 - live: `GuideEngine(runai.discovery.linkup.discover)` and `LiveRunner`.
+  Core binds discovery's `timeout_s=120` for deep searches: observed official
+  race discovery takes longer than the provider's 20-second default. This is
+  still real discovery; errors remain visible and never fall back to fakes.
   Discovery needs `LINKUP_API_KEY`; confirmation needs `HAI_API_KEY` and all H
   task/client modules. Keys are read from environment only, never returned.
 
