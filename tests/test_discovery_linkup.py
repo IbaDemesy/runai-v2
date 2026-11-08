@@ -122,6 +122,23 @@ def test_duplicate_preserves_known_distance_and_label(missing_distance):
     assert result[0]["distance_label"] == "Marathon"
 
 
+@pytest.mark.parametrize("sources", [[], [
+    {"url": "https://race.example/sessions/private-example-id", "race_date": DAY},
+]])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_unsourced_duplicate_cannot_contribute_metadata(sources, reverse):
+    rows = [
+        race(distance_km=None, distance_label="unknown"),
+        race(distance_km=99, distance_label="unsourced", sources=sources,
+             official_url="https://unsourced.example/"),
+    ]
+    result = search(list(reversed(rows)) if reverse else rows)
+    assert len(result) == 1
+    assert result[0]["distance_km"] is None
+    assert result[0]["distance_label"] == "unknown"
+    assert result[0]["official_url"] == "https://race.example/"
+
+
 def test_past_editions_filtered_before_cap_but_returned_if_only_results():
     past = race(edition="2000", sources=[
         {"url": "https://race.example/old", "race_date": "2000-04-01"},

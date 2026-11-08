@@ -113,6 +113,8 @@ def _distance(value: float | None) -> float | None:
 def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
     groups: dict[tuple[str, str], list[_Race]] = {}
     for row in rows:
+        if not any(_url(source.url) for source in row.sources):
+            continue
         key = (_slug(row.name), _edition_key(row.edition))
         if all(key):
             groups.setdefault(key, []).append(row)
