@@ -171,3 +171,17 @@ def test_sync_create_reports_failure_when_redaction_breaks_guide_state():
     assert response.status_code == 201
     body = response.json()
     assert body["error"] and body["turns"] == []
+
+
+def test_long_slug_chip_values_and_url_paths_survive_but_secrets_do_not():
+    from runai.app import sanitize
+
+    slug = "edp-meia-maratona-de-lisboa-2027-half-marathon"
+    assert sanitize(slug, "value") == slug
+    blog = ("https://berlin-laeuft.de/blog/die-anmeldung-ist-geoffnet-sichere-dir-"
+            "deinen-startplatz-fur-den-s-25-berlin-2027/")
+    assert sanitize(blog, "source_urls") == blog
+    assert sanitize("4111 1111 1111 1111", "value") != "4111 1111 1111 1111"
+    assert sanitize("runner@example.com", "value") != "runner@example.com"
+    assert sanitize("https://example.org/r?ref=sk-abcdefghijklmnopqrstuvwxyz123456", "official_url") is None
+    assert sanitize("https://example.org/sk-abcdefghijklmnopqrstuvwxyz123456/x", "official_url") is None
