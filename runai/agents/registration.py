@@ -56,11 +56,10 @@ def build_task(
     official_url = _https_url(race.get("official_url"))
     if not registration_url and not official_url:
         raise ValueError("race needs an https registration_url or official_url")
-    distance = _text(race, "distance_label") or (
-        f"{race['distance_km']} km" if race.get("distance_km") else ""
-    )
-    if not distance:
-        raise ValueError("race distance is required")
+    distance_km = race.get("distance_km")
+    if type(distance_km) not in (int, float) or not 0 < distance_km < 500:
+        raise ValueError("race distance_km is required to verify the selected distance")
+    distance = _text(race, "distance_label") or f"{distance_km} km"
 
     decision = start_url = None
     reasons = []
@@ -120,7 +119,7 @@ def build_task(
         "instructions": instructions,
         "stop_before": list(STOP_BEFORE),
         "success_signal": success,
-        "fallback_url": official_url or start_url,
+        "fallback_url": start_url,
         "max_steps": DEFAULT_MAX_STEPS,
         "expected": expected,
         "allowed_hosts": hosts,

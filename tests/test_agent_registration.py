@@ -29,7 +29,7 @@ def test_reviewed_registration_url():
     assert set(task) == KEYS
     assert task["kind"] == "registration"
     assert task["start_url"] == "https://in.njuko.com/example-marathon-2027"
-    assert task["fallback_url"] == "https://www.example-marathon.test/"
+    assert task["fallback_url"] == task["start_url"]
     assert task["max_steps"] == 80
     assert task["allowed_hosts"] == ["in.njuko.com", "www.example-marathon.test"]
     assert task["expected"]["race_date"] == "2027-04-11"
@@ -78,6 +78,7 @@ def test_committed_owner_rule_platform_allows_other_njuko_event():
 @pytest.mark.parametrize("race", [
     {"race_date": "2026-10-01"}, {"race_date": None}, {"date_status": "conflicting"},
     {"edition": "2026"}, {"distance_label": "", "distance_km": None},
+    {"distance_label": "Marathon", "distance_km": None}, {"distance_km": "42.195"},
     {"registration_url": "http://in.njuko.com/x", "official_url": None},
     {"registration_url": None, "official_url": None}, {"registration_url": 5},
     {"city": ""},
