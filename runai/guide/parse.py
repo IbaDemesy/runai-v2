@@ -97,6 +97,7 @@ def bare_city(text: str) -> str | None:
 
 class Intent(Model):
     distance: str | None = None
+    year: int | None = None
     months: list[str] = Field(default_factory=list)
     country: str | None = None
     city: str | None = None
@@ -117,6 +118,9 @@ def parse_intent(text: str, *, today: date) -> Intent:
         else "fr"
     )
     result.correction = bool(re.search(r"\b(plutot|actually|instead)\b", t))
+    explicit = re.search(r"\b(20\d{2})\b", t)
+    if explicit:
+        result.year = int(explicit[1])
     for pattern, distance in [
         (r"\b(ultra)\b", "ultra"),
         (r"\btrail\b", "trail"),
@@ -158,7 +162,6 @@ def parse_intent(text: str, *, today: date) -> Intent:
         if any(contains(t, alias) for alias in aliases.split()):
             selected = months
     if selected:
-        explicit = re.search(r"\b(20\d{2})\b", t)
         year = int(explicit[1]) if explicit else today.year
         if not explicit and (max(selected) < today.month or contains(t, "next")):
             year += 1

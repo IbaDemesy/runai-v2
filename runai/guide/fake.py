@@ -30,7 +30,7 @@ class FakeDiscovery:
             matching = [m for m in months if int(m[-2:]) == month]
             if months and not matching:
                 continue
-            year = int(matching[0][:4]) if matching else 2027
+            year = int(matching[0][:4]) if matching else hints.get("year", 2027)
             race_date = date(year, month, day) if month else None
             results.append(
                 {

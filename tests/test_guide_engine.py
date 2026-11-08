@@ -248,3 +248,31 @@ def test_question_in_free_text_does_not_create_second_question():
     state, turn = run(e.step(state, {"text": "bonjour, ça va ?"}))
     invariant(turn)
     assert state.stage == "origin" and not turn.error
+
+
+def test_explicit_year_discovery_and_mismatched_candidates():
+    state, turn = run(engine().start("Milan marathon 2028"))
+    assert state.draft.race.race_date.year == 2028
+    assert state.draft.race.edition == "2028"
+
+    async def discover(query, hints):
+        assert hints["year"] == 2028
+        return [
+            {
+                "id": "wrong-date",
+                "name": "Race",
+                "date_status": "official",
+                "race_date": "2027-04-01",
+                "edition": "2028",
+            },
+            {
+                "id": "wrong-edition",
+                "name": "Race",
+                "date_status": "official",
+                "race_date": "2028-04-01",
+                "edition": "2027",
+            },
+        ]
+
+    state, turn = run(engine(discover).start("Milan marathon 2028"))
+    assert not turn.candidates and state.draft.race is None and not turn.ready_to_confirm

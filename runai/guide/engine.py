@@ -1,3 +1,4 @@
+import re
 from collections.abc import Awaitable, Callable
 from datetime import date, timedelta
 
@@ -213,6 +214,12 @@ class GuideEngine:
                     race = RaceOption.model_validate(row)
                 except ValidationError:
                     continue
+                year = state.hints.get("year")
+                if year and (
+                    (race.race_date and race.race_date.year != year)
+                    or any(int(y) != year for y in re.findall(r"\b20\d{2}\b", race.edition or ""))
+                ):
+                    continue
                 if len(state.candidates) < 4:
                     state.candidates.append(race)
         except Exception:  # noqa: BLE001 -- provider failures are returned as scrubbed turns
@@ -357,7 +364,7 @@ class GuideEngine:
         if text.isdecimal() and state.stage in {"nights", "budget"}:
             setattr(intent, "nights" if state.stage == "nights" else "budget_eur", int(text))
         self._update(state, intent)
-        if intent.distance or intent.city or intent.country or intent.months:
+        if intent.distance or intent.city or intent.country or intent.months or intent.year:
             state.query = text
             if intent.country and not intent.city:
                 state.hints.pop("city", None)
@@ -368,7 +375,7 @@ class GuideEngine:
                 {
                     k: v
                     for k, v in intent.model_dump().items()
-                    if k in {"distance", "city", "country", "months", "named"} and v
+                    if k in {"distance", "city", "country", "months", "named", "year"} and v
                 }
             )
             return await self._discover(state)

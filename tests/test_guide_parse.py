@@ -91,3 +91,10 @@ def test_english_and_empty():
 def test_origin_before_destination():
     intent = parse_intent("from Lyon a half marathon in Lisbon", today=TODAY)
     assert intent.origin_city == "Lyon" and intent.city == "Lisbon"
+
+
+@pytest.mark.parametrize(
+    "text,year", [("Milan marathon 2028", 2028), ("le marathon de Rome 2027", 2027)]
+)
+def test_explicit_year_without_month(text, year):
+    assert parse_intent(text, today=TODAY).year == year
