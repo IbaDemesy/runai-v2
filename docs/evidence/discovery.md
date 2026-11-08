@@ -254,8 +254,8 @@ Latency: 4.02s. Error: none
 
 ## Live Linkup smoke 2026-11-08T21:47:58Z (read-only, no H calls, 3 queries in parallel, deep, timeout 120 s, scrubbed)
 
-Real observed output supplied by the lead for this handoff; not a new run by
-this coding session. Hosts only are recorded below; no keys or private URLs.
+Real observed output from one read-only scripted run of `runai.discovery.linkup.discover`
+(R2-04 session). Hosts only are recorded below; no keys or private URLs.
 
 ### un marathon au printemps en Italie
 
