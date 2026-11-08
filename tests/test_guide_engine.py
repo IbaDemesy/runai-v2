@@ -4,9 +4,17 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
+import runai.guide
 from runai.guide.engine import GuideEngine
 from runai.guide.fake import FakeDiscovery
 from runai.guide.types import GuideState, RaceOption
+
+
+def test_package_public_api():
+    assert runai.guide.GuideEngine is GuideEngine
+    assert runai.guide.GuideState is GuideState
+    assert runai.guide.RaceOption is RaceOption
+    assert all(hasattr(runai.guide, name) for name in runai.guide.__all__)
 
 
 def run(awaitable):
