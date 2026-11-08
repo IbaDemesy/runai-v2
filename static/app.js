@@ -82,7 +82,7 @@
   const flag = race => /^[a-z]{2}$/i.test(race.country_code || race.country || '')
     ? [...(race.country_code || race.country).toUpperCase()].map(c => String.fromCodePoint(127397 + c.charCodeAt())).join('') : '';
   const countdown = race => {
-    const days = Math.ceil((Date.parse(race.race_date) - Date.now()) / 86400000);
+    const now = new Date(), days = Math.round((Date.parse(race.race_date) - Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
     return Number.isFinite(days) && days >= 0 ? t(`J−${days}`, `${days} days to go`) : '';
   };
   const agentState = {};
@@ -291,7 +291,7 @@
   const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
   async function send(body, label, attempt = null) {
     if (busy) return;
-    const token = generation; loading(true); $('toast').hidden = true;
+    const token = generation; if (body.text) { detectLanguage(body.text); localize(); } loading(true); $('toast').hidden = true;
     const previousControls = document.querySelectorAll('.chips,.confirm-area');
     if (!attempt) { message('user', label); $('message').value = ''; $('message').style.height = ''; attempt = {reply: message('assistant', ''), id: null}; }
     const reply = attempt.reply; reply.inner.querySelectorAll('.pending').forEach(el => el.remove());
