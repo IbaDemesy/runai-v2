@@ -1,5 +1,40 @@
 # Owner product feedback
 
+## Round 3: owner hands-on feedback after testing round 1 live (2026-11-09)
+
+Strava-inspired beautiful UX is the #1 criterion, not optional polish.
+These owner priorities remain above older scope notes:
+- **(a)** ChatGPT/OpenAI-style suggestion pills/cards under the assistant reply,
+  not raw buttons.
+- **(b)** Each new assistant question BELOW the latest proposals, chronological.
+- **(c)** After launch retain three agent cards; below them show ONLY agents
+  acting live through the final pre-payment step, with genuine changing live
+  screenshots. Never raw task/prompt/JSON/technical logs; at most short friendly
+  status lines. Unavailable footage is honest, never simulated live.
+- **(d)** Immediate streaming/typing/progress feedback: the first reply took
+  ~1 min silently. Use truthful progress, not invented counts.
+
+Exact live success definition: the assistant proposes a sourced race and its
+official date; the user never supplies the date and explicitly confirms the
+plan. Three H agents (registration/hotel/transport) run LIVE in parallel with
+visibly changing frames. Each reaches a verified safe pre-payment stop:
+registration at the first personal-data page untouched, hotel with correct
+room/rate/dates/party/total, transport with correct outbound/return fares,
+dates/party/total. Any earlier mandatory boundary is a blocker, not success;
+synthetic, replay or API-only ready states do not count.
+
+Accor is prohibited; the site-policy gate denies Accor and all prohibited
+entries. Unknown/expired reviews fail closed before H. Review actual terms;
+prefer sites without captchas whose terms allow agents. Never pay, book,
+create accounts, accept terms or consent, submit forms, enter personal data
+or bypass captchas. Adversarial FR/EN coverage remains >=30 conversations
+with safe recovery, no sensitive echo and no unconfirmed launch.
+
+H budget is not a constraint: run agents live in parallel whenever useful.
+Round 3 targets >=1 complete live success, ideally Milan and Lisbon; record
+all five cases and honest blockers after integration.
+
+
 Owner feedback outranks older scope notes. Newest first.
 
 ## Round 2: hands-on test of the round-1 live build (2026-11-08)

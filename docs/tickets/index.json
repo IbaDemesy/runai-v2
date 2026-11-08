@@ -1,71 +1,69 @@
 [
   {
-    "id": "R2-01",
-    "round": 2,
+    "id": "R3-01",
+    "round": 3,
     "priority": "P0",
-    "title": "R2-01: P0 / design-first: screenshot-only live stage and premium chronological ChatGPT-style guidance",
+    "title": "R3-01: P0: site-policy registry fragments, registration adapter validation, coverage() and hotel/transport adapters for the evaluation cities and default origins",
     "depends_on": [],
     "merge_order": 1,
-    "merge_note": "Independent; consumes the pinned background discovery API and registration_access display contract, works against baseline synchronous responses too.",
+    "merge_note": "Independent; implements P1, P2 and P3.",
+    "files": [
+      "runai/agents/site_policy.py",
+      "runai/agents/hotel.py",
+      "runai/agents/transport.py",
+      "docs/site-policy.json",
+      "docs/site-policy.d/hotel.json",
+      "docs/site-policy.d/transport.json",
+      "tests/test_site_policy.py",
+      "tests/test_agent_hotel.py",
+      "tests/test_agent_transport.py",
+      "docs/evidence/site-policy.md",
+      "docs/evidence/hotel.md",
+      "docs/evidence/transport.md",
+      "docs/handoff/R3-01.md"
+    ]
+  },
+  {
+    "id": "R3-02",
+    "round": 3,
+    "priority": "P0",
+    "title": "R3-02: P0: reviewed race-registration adapters (Milan, Lisbon and other evaluation races) reaching the first personal-data page untouched",
+    "depends_on": [],
+    "merge_order": 1,
+    "merge_note": "Consumes P2 adapters; fails closed until R3-01 lands.",
+    "files": [
+      "runai/agents/registration.py",
+      "docs/site-policy.d/registration.json",
+      "tests/test_agent_registration.py",
+      "docs/evidence/registration.md",
+      "docs/handoff/R3-02.md"
+    ]
+  },
+  {
+    "id": "R3-03",
+    "round": 3,
+    "priority": "P0",
+    "title": "R3-03: P0 / design-first: Strava-grade UI, ChatGPT-style suggestion pills, live three-agent stage with fresh frames and friendly reason-code messages, FR/EN localisation",
+    "depends_on": [],
+    "merge_order": 1,
+    "merge_note": "Independent; consumes P4 and P6 with baseline fallbacks.",
     "files": [
       "static/index.html",
       "static/styles.css",
       "static/app.js",
       "tests/test_static_ui.py",
-      "docs/evidence/R2-01-ui.md",
-      "docs/handoff/R2-01.md"
+      "docs/evidence/R3-03-ui.md",
+      "docs/handoff/R3-03.md"
     ]
   },
   {
-    "id": "R2-02",
-    "round": 2,
-    "priority": "P0",
-    "title": "R2-02: P0: policy-reviewed sites and exact-date registration/hotel/transport tasks with reachable safe stops",
-    "depends_on": [],
-    "merge_order": 1,
-    "merge_note": "Independent; implements site_policy.evaluate_url/registration_info and build_task expected/allowed_hosts. Live smokes only after R2-03 no-share runtime lands.",
-    "files": [
-      "runai/agents/registration.py",
-      "runai/agents/hotel.py",
-      "runai/agents/transport.py",
-      "runai/agents/site_policy.py",
-      "docs/site-policy.json",
-      "tests/test_site_policy.py",
-      "tests/test_agent_registration.py",
-      "tests/test_agent_hotel.py",
-      "tests/test_agent_transport.py",
-      "docs/evidence/registration.md",
-      "docs/evidence/hotel.md",
-      "docs/evidence/transport.md",
-      "docs/evidence/site-policy.md",
-      "docs/handoff/R2-02.md"
-    ]
-  },
-  {
-    "id": "R2-03",
-    "round": 2,
-    "priority": "P0",
-    "title": "R2-03: P0: private screenshot-only H runtime, pre-run policy gate and honest verified pre-payment outcomes",
-    "depends_on": [],
-    "merge_order": 1,
-    "merge_note": "Independent; stubs site_policy until R2-02 lands and fails closed when it is missing.",
-    "files": [
-      "runai/agents/hclient.py",
-      "runai/agents/scrub.py",
-      "tests/test_hclient.py",
-      "tests/test_scrub.py",
-      "docs/evidence/h-client.md",
-      "docs/handoff/R2-03.md"
-    ]
-  },
-  {
-    "id": "R2-04",
-    "round": 2,
+    "id": "R3-04",
+    "round": 3,
     "priority": "P1",
-    "title": "R2-04: P1: robust race guidance and adversarial FR/EN conversations with sourced recommendations",
+    "title": "R3-04: P1: guide robustness (live false negatives, distance chips, coherent origin defaults via coverage(), GuidedTurn.language)",
     "depends_on": [],
     "merge_order": 1,
-    "merge_note": "Independent; uses registration_info optionally and adds optional RaceOption.registration_access.",
+    "merge_note": "Independent; consumes P3 lazily and exposes P6.",
     "files": [
       "runai/guide/__init__.py",
       "runai/guide/types.py",
@@ -79,33 +77,39 @@
       "tests/test_discovery_linkup.py",
       "tests/test_guide_adversarial.py",
       "docs/evidence/discovery.md",
-      "docs/handoff/R2-04.md"
+      "docs/handoff/R3-04.md"
     ]
   },
   {
-    "id": "R2-05",
-    "round": 2,
-    "priority": "P1",
-    "title": "R2-05: P1 / integration: immediate discovery API, privacy-safe confirmation, current planning docs and final live acceptance",
+    "id": "R3-05",
+    "round": 3,
+    "priority": "P0",
+    "title": "R3-05: P0 / integration: honest H runtime (no false unsafe verdicts, fresh frames, fast no-inventory stops), reason codes, R3 docs/queue and final 3-agent live acceptance",
     "depends_on": [
-      "R2-01",
-      "R2-02",
-      "R2-03",
-      "R2-04"
+      "R3-01",
+      "R3-02",
+      "R3-03",
+      "R3-04"
     ],
     "merge_order": 2,
-    "merge_note": "Core/docs may merge any time while green; final integrated live acceptance runs after R2-01..R2-04 are merged, on a rebased branch.",
+    "merge_note": "Docs/core may merge any time while green; final live acceptance after R3-01..R3-04 merge, on a rebased branch.",
     "files": [
+      "runai/agents/hclient.py",
+      "runai/agents/scrub.py",
       "runai/app.py",
       "runai/models.py",
       "runai/providers.py",
       "fixtures/synthetic-journey.json",
+      "tests/test_hclient.py",
+      "tests/test_scrub.py",
       "tests/test_api_guided.py",
       "tests/test_units.py",
       "tests/test_journey_e2e.py",
       "tests/test_api_privacy.py",
       "tests/test_api_discovery_progress.py",
       "tests/test_r2_scope_contract.py",
+      "tests/test_r3_scope_contract.py",
+      "docs/evidence/h-client.md",
       "AGENTS.md",
       "PLAN.md",
       "CONTRACTS.md",
@@ -113,13 +117,13 @@
       "HANDOFF.md",
       "docs/feedback/owner.md",
       "docs/tickets/index.json",
-      "docs/tickets/R2-01.md",
-      "docs/tickets/R2-02.md",
-      "docs/tickets/R2-03.md",
-      "docs/tickets/R2-04.md",
-      "docs/tickets/R2-05.md",
-      "docs/handoff/R2-05.md",
-      "docs/eval/round-2.md"
+      "docs/tickets/R3-01.md",
+      "docs/tickets/R3-02.md",
+      "docs/tickets/R3-03.md",
+      "docs/tickets/R3-04.md",
+      "docs/tickets/R3-05.md",
+      "docs/handoff/R3-05.md",
+      "docs/eval/round-3-acceptance.md"
     ]
   }
 ]
