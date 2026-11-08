@@ -1,11 +1,14 @@
 import asyncio
 import base64
 import json
+import sys
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import httpx
 import pytest
 
-from runai.agents.hclient import GUARDRAILS, HAgentRunner, HUnavailable
+from runai.agents.hclient import GUARDRAILS, HAgentRunner, HUnavailable, _reviewed
 from runai.agents.scrub import scrub_text, scrub_url
 
 API = "https://agp.eu.hcompany.ai/api/v2"
@@ -18,11 +21,26 @@ TASK = {
     "instructions": "Read the public registration page and stop before any form.",
     "stop_before": ["form submission", "consent", "payment"],
     "success_signal": "Public registration page found", "fallback_url": START,
+    "expected": {"edition": "2027", "race_date": "2027-04-04", "distance_km": 42.195},
 }
 ANSWER = {
     "status": "ready_for_payment", "handoff_url": HANDOFF,
     "reached_step": "Registration information found; stopped before any form.", "blocker": None,
+    "verification": {
+        **TASK["expected"], "selected": True, "next_safe_boundary": "participant data",
+        "participant_data_untouched": True,
+    },
 }
+
+
+@pytest.fixture(autouse=True)
+def reviewed_policy(monkeypatch):
+    def evaluate(url, kind):
+        return {"allowed": True, "policy_id": "test-reviewed", "screenshot_scope": True,
+                "expires_at": "2099-01-01T00:00:00Z",
+                "allowed_hosts": [httpx.URL(url).host], "allowed_paths": ["/"]}
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy",
+                        SimpleNamespace(evaluate_url=evaluate))
 
 
 def observation(image=None):
@@ -30,7 +48,7 @@ def observation(image=None):
         "type": "AgentEvent", "timestamp": "2026-11-08T20:00:00Z",
         "data": {
             "kind": "observation_event", "type": "web",
-            "metadata": {"url": HANDOFF + "?session=private&distance=42", "title": "Race entry"},
+            "metadata": {"url": HANDOFF + "?session=private", "title": "Race entry"},
             "image": image or {
                 "type": "base64", "media_type": "image/png",
                 "source": base64.b64encode(IMAGE).decode(),
@@ -90,7 +108,7 @@ def run(provider, task=None, **kwargs):
     return asyncio.run(execute()), emitted
 
 
-def test_run_emits_real_api_frames_and_only_documented_public_share():
+def test_run_emits_real_api_frames_without_any_public_share():
     provider = Provider(events=[
         {"type": "LiveViewUrlEvent", "data": {"live_view_url": "https://private.example.org/"}},
         {"type": "AgentEvent", "data": {
@@ -103,8 +121,9 @@ def test_run_emits_real_api_frames_and_only_documented_public_share():
     assert result["status"] == "ready_for_payment"
     assert result["handoff_url"] == HANDOFF
     assert result["start_url"] == START
-    assert result["final_url"] == HANDOFF + "?distance=42"
-    assert result["live_view_url"] == PUBLIC_SHARE
+    assert result["final_url"] == HANDOFF
+    assert result["live_view_url"] is None
+    assert not any(r.url.path.endswith("/share") for r in provider.requests)
     assert result["error"] is None
     frame = next(event for event in events if event["type"] == "live_frame")
     assert frame["image"] == IMAGE
@@ -115,7 +134,7 @@ def test_run_emits_real_api_frames_and_only_documented_public_share():
     assert provider.polls == 2
     assert provider.requests[-1].url.params["from_index"] == "3"
     body = json.loads(provider.requests[0].content)
-    assert body["max_steps"] == 30 and body["max_time_s"] == 600
+    assert body["max_steps"] == 80 and body["max_time_s"] == 510
     assert body["overrides"]["agent.instructions"] == GUARDRAILS
     assert body["overrides"]["agent.environments[kind=web].start_url"] == START
     assert "stop_before" in body["messages"][0]["message"]
@@ -234,7 +253,7 @@ def test_negative_payment_claim_is_not_an_execution_claim(text):
 
 def test_provider_blocker_never_becomes_success():
     result, _ = run(Provider(answer={**ANSWER, "blocker": "Captcha: human intervention required"}))
-    assert result["status"] == "blocked" and "Captcha" in result["error"]
+    assert result["status"] == "blocked" and "human assistance" in result["error"]
 
 
 def test_provider_terminal_failure_is_not_success():
@@ -253,7 +272,7 @@ def test_scrub_url_removes_credentials_fragments_and_sensitive_queries():
     assert scrub_url("https://agp.eu.hcompany.ai/api/v2/sessions/private") is None
     assert scrub_url("https://platform.hcompany.ai/share/other") is None
     assert scrub_url("https://agp.eu.hcompany.ai/share/other") is None
-    assert scrub_url(PUBLIC_SHARE) == PUBLIC_SHARE
+    assert scrub_url(PUBLIC_SHARE) is None
 
 
 @pytest.mark.parametrize("path", [
@@ -290,14 +309,17 @@ def test_public_word_slugs_work_as_start_handoff_and_progress_urls(url):
     assert scrub_url(url) == url
     message = "Read " + url + " then stop"
     assert scrub_text(message) == message
+    expected = {**TASK["expected"], "race_date": "2028-04-02"} if "2028" in url else TASK["expected"]
     provider = Provider(
-        answer={**ANSWER, "handoff_url": url},
-        events=[{"type": "AgentEvent", "data": {"kind": "policy_event", "content": message}}],
+        answer={**ANSWER, "handoff_url": url,
+                "verification": {**ANSWER["verification"], **expected}},
+        events=[{**observation(), "data": {**observation()["data"], "metadata": {"url": url}}},
+                {"type": "AgentEvent", "data": {"kind": "policy_event", "content": message}}],
     )
-    result, events = run(provider, task={**TASK, "start_url": url})
+    result, events = run(provider, task={**TASK, "start_url": url, "expected": expected})
     assert result["status"] == "ready_for_payment"
     assert result["start_url"] == result["handoff_url"] == url
-    assert any(e.get("message") == message for e in events)
+    assert not any(e.get("message") == message for e in events)
     body = json.loads(provider.requests[0].content)
     assert body["overrides"]["agent.environments[kind=web].start_url"] == url
 
@@ -316,12 +338,14 @@ def test_scrub_text_preserves_dates_and_removes_contacts_keys_and_private_urls()
 
 
 def test_all_emitted_messages_and_returned_urls_are_scrubbed():
+    frame = observation()
+    frame["data"]["metadata"]["url"] = HANDOFF + "?token=secret&distance=42"
     provider = Provider(
         answer={**ANSWER, "handoff_url": HANDOFF + "?token=secret&distance=42#private",
                 "reached_step": "runner@example.org +33 6 12 34 56 78 test-api-key"},
         events=[{"type": "AgentEvent", "data": {
             "kind": "policy_event", "content": "runner@example.org test-api-key",
-        }}, observation()],
+        }}, frame],
     )
     result, events = run(provider)
     assert "runner@" not in repr((result, events))
@@ -336,13 +360,13 @@ def test_step_cap_cancels_remote_run_and_clamps_requested_limit():
     def capped(request):
         if request.url.path.endswith("/changes"):
             return httpx.Response(200, json={
-                "status": "running", "new_events": [], "metrics": {"steps": 50},
+                "status": "running", "new_events": [], "metrics": {"steps": 120},
             })
         return provider(request)
 
     result, _ = run(capped, task={**TASK, "max_steps": 500})
     assert result["status"] == "failed" and "step limit" in result["error"]
-    assert json.loads(provider.requests[0].content)["max_steps"] == 50
+    assert json.loads(provider.requests[0].content)["max_steps"] == 120
     assert provider.cancelled
 
 
@@ -385,7 +409,6 @@ def test_screenshot_redirects_cannot_reach_private_or_insecure_targets(target):
 
 @pytest.mark.parametrize("source", [
     API + "/sessions/test-session/resources/screenshots/frame.png",
-    "https://agp.eu.hcompany.ai/api/v1/trajectories/test-session/resources/screenshots/frame.png",
 ])
 def test_authenticated_screenshot_resource_redirect_drops_bearer(source):
     provider = Provider(events=[observation({
@@ -398,7 +421,7 @@ def test_authenticated_screenshot_resource_redirect_drops_bearer(source):
             return httpx.Response(302, headers={"location": "https://images.example.org/frame.png"})
         if request.url.host == "images.example.org":
             assert not request.headers.get("Authorization")
-            return httpx.Response(200, content=IMAGE)
+            return httpx.Response(200, content=IMAGE, headers={"content-type": "image/png"})
         return provider(request)
 
     result, events = run(image_request)
@@ -420,7 +443,7 @@ def test_empty_polls_and_deferred_answer_are_drained():
         return provider(request)
 
     result, _ = run(deferred)
-    assert result["status"] == "ready_for_payment" and polls == 2
+    assert result["status"] == "blocked" and polls == 2
     assert any(r.url.path == "/api/v2/sessions/test-session" for r in provider.requests)
 
 
@@ -441,7 +464,7 @@ def test_terminal_poll_followed_by_204_finishes_instead_of_timing_out():
     assert any(e["type"] == "live_frame" for e in events)
 
 
-def test_progress_uses_action_names_without_echoing_user_prompt_or_tool_arguments():
+def test_progress_never_uses_action_names_or_echoes_user_prompt_or_tool_arguments():
     provider = Provider(events=[
         {"type": "AgentEvent", "data": {
             "kind": "message_event", "caller_id": "user", "content": ["do not echo this task"],
@@ -452,8 +475,8 @@ def test_progress_uses_action_names_without_echoing_user_prompt_or_tool_argument
         }},
     ])
     result, events = run(provider)
-    assert result["status"] == "ready_for_payment"
-    assert "H browser action: scroll_web" in result["steps"]
+    assert result["status"] == "blocked"
+    assert "scroll_web" not in repr(events)
     assert "do not echo" not in repr(events) and "not for logs" not in repr(events)
 
 
@@ -540,7 +563,9 @@ def test_parallel_runs_use_independent_remote_sessions():
                 sessions[sid] += 1
                 return httpx.Response(200, json={
                     "status": "completed", "answer": {**ANSWER, "handoff_url": HANDOFF + "/" + sid},
-                    "new_events": [],
+                    "new_events": [{**observation(), "data": {
+                        **observation()["data"], "metadata": {"url": HANDOFF + "/" + sid},
+                    }}] if sessions[sid] == 1 else [],
                 })
             raise AssertionError("Unexpected concurrent mock request")
 
@@ -552,3 +577,400 @@ def test_parallel_runs_use_independent_remote_sessions():
         assert len(sessions) == 3
 
     asyncio.run(execute())
+
+
+@pytest.mark.parametrize("change", [
+    {"allowed": False}, {"expires_at": "2000-01-01"},
+    {"screenshot_scope": False}, {"allowed_hosts": []}, {"policy_id": None},
+])
+def test_policy_denials_never_create_provider_session(monkeypatch, change):
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(
+        evaluate_url=lambda *_: {
+            "allowed": True, "policy_id": "reviewed", "screenshot_scope": True,
+            "allowed_hosts": ["race.example.org"], "expires_at": "2099-01-01", **change,
+        },
+    ))
+    provider = Provider()
+    result, _ = run(provider)
+    assert result["status"] == "blocked" and not provider.requests
+
+
+def test_missing_policy_fails_closed(monkeypatch):
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", None)
+    provider = Provider()
+    result, _ = run(provider)
+    assert result["status"] == "blocked" and not provider.requests
+
+
+@pytest.mark.parametrize("task", [
+    {**TASK, "start_url": "https://all.accor.com/"},
+    {**TASK, "allowed_hosts": []},
+    {**TASK, "allowed_hosts": ["other.example.org"]},
+    {**TASK, "fallback_url": "https://all.accor.com/"},
+])
+def test_planned_hosts_and_fallback_checked_before_create(task):
+    provider = Provider()
+    result, _ = run(provider, task)
+    assert result["status"] == "blocked" and not provider.requests
+
+
+@pytest.mark.parametrize("budget,expected", [(1, 1), (80, 80), (100, 100), (120, 120), (500, 120)])
+def test_bounded_budget_support(budget, expected):
+    provider = Provider()
+    result, _ = run(provider, {**TASK, "max_steps": budget})
+    assert result["status"] == "ready_for_payment"
+    assert json.loads(provider.requests[0].content)["max_steps"] == expected
+
+
+@pytest.mark.parametrize("field,value", [
+    ("edition", "2026"), ("race_date", "2027-04-05"), ("distance_km", 21.1),
+    ("selected", False), ("participant_data_untouched", False), ("next_safe_boundary", ""),
+])
+def test_forged_verification_is_not_ready(field, value):
+    result, _ = run(Provider(answer={**ANSWER, "verification": {
+        **ANSWER["verification"], field: value,
+    }}))
+    assert result["status"] == "blocked"
+
+
+@pytest.mark.parametrize("answer", [
+    {**ANSWER, "verification": {}}, {**ANSWER, "verification": None},
+    {**ANSWER, "handoff_url": START}, {**ANSWER, "handoff_url": HANDOFF + "?date=2026-04-04"},
+    {**ANSWER, "handoff_url": "https://race.example.org/search"},
+    {**ANSWER, "handoff_url": "https://race.example.org/login"},
+    {**ANSWER, "handoff_url": "https://agp.eu.hcompany.ai/share/api/v1/trajectories/public"},
+])
+def test_unverified_or_unselected_handoffs_blocked(answer):
+    result, _ = run(Provider(answer=answer))
+    assert result["status"] == "blocked"
+
+
+@pytest.mark.parametrize("metadata", [
+    {"url": "https://unreviewed.example.org/entry"},
+    {"url": "https://race.example.org/login"},
+    {"url": HANDOFF, "title": "runner@example.org"},
+    {"url": HANDOFF, "title": "Payment card details"},
+])
+def test_unsafe_observed_context_suppresses_frame_and_cancels(metadata):
+    event = observation()
+    event["data"]["metadata"] = metadata
+    provider = Provider(events=[event])
+    result, events = run(provider)
+    assert result["status"] == "blocked" and provider.cancelled
+    assert not any(e["type"] == "live_frame" for e in events)
+    assert "runner@" not in repr((result, events))
+
+
+def test_terminal_final_frame_drained_through_204():
+    provider = Provider()
+    polls = 0
+
+    def handle(request):
+        nonlocal polls
+        if request.url.path.endswith("/changes"):
+            polls += 1
+            if polls == 1:
+                return httpx.Response(200, json={
+                    "status": "completed", "answer": ANSWER, "first_index": 0,
+                    "new_events": [{"type": "AgentEvent", "data": {"kind": "policy_event"}}],
+                })
+            if polls == 2:
+                return httpx.Response(200, json={
+                    "status": "completed", "first_index": 1, "new_events": [observation()],
+                })
+            return httpx.Response(204)
+        return provider(request)
+
+    result, events = run(handle)
+    assert result["status"] == "ready_for_payment" and polls == 3
+    assert sum(e["type"] == "live_frame" for e in events) == 1
+    assert not any(r.url.path.endswith("/share") for r in provider.requests)
+
+
+@pytest.mark.parametrize("kind", ["hotel", "transport"])
+@pytest.mark.parametrize("mismatch", [None, "arrival_date", "departure_date", "travelers"])
+def test_kind_specific_selection_and_expected_party(kind, mismatch):
+    expected = {"kind": kind, "city": "Rome", "origin_city": "Paris",
+                "arrival_date": "2027-04-03", "departure_date": "2027-04-05", "travelers": 2}
+    verification = {**expected, "selected": True, "next_safe_boundary": "guest details",
+                    "room": "Twin", "rate": "Flexible", "total": "EUR 1200",
+                    "fare": "Return flexible", "outbound_selected": True, "return_selected": True}
+    if mismatch:
+        verification[mismatch] = 3 if mismatch == "travelers" else "2027-04-06"
+    result, _ = run(Provider(answer={**ANSWER, "verification": verification}),
+                    {**TASK, "kind": kind, "expected": expected})
+    assert result["status"] == ("blocked" if mismatch else "ready_for_payment")
+
+
+@pytest.mark.parametrize("mime,size", [("text/html", 20), ("image/png", 5 * 1024 * 1024 + 1)])
+def test_invalid_resource_mime_or_size_cancels(mime, size):
+    provider = Provider(events=[observation({
+        "type": "url", "source": "https://images.example.org/frame", "media_type": "image/png",
+    })])
+
+    def handle(request):
+        if request.url.host == "images.example.org":
+            return httpx.Response(200, content=b"x" * size, headers={"content-type": mime})
+        return provider(request)
+
+    result, events = run(handle)
+    assert result["status"] == "failed" and provider.cancelled
+    assert not any(e["type"] == "live_frame" for e in events)
+
+
+@pytest.mark.parametrize("text", ["Login required", "Account wall", "Registration closed"])
+def test_self_reported_wall_cannot_be_ready(text):
+    result, _ = run(Provider(answer={**ANSWER, "reached_step": text}))
+    assert result["status"] == "blocked"
+    assert text not in result["summary"]
+
+
+@pytest.mark.parametrize("claim", ["I accepted terms", "I created an account", "Form submitted"])
+def test_forbidden_action_claim_cancels(claim):
+    provider = Provider(answer={**ANSWER, "reached_step": claim})
+    result, _ = run(provider)
+    assert result["status"] == "failed" and provider.cancelled
+
+
+def test_sentinel_payloads_never_appear_in_results_events_or_logs(caplog):
+    sentinel = "runner@example.org 4111-1111-1111-1111 password=sentinel test-api-key"
+    provider = Provider(events=[
+        {"type": "AgentEvent", "data": {"kind": "policy_event", "content": sentinel}},
+        observation(),
+    ], answer={**ANSWER, "reached_step": sentinel})
+    result, events = run(provider)
+    rendered = repr((result, events)) + caplog.text
+    for value in ("runner@", "4111-1111", "password=sentinel", "test-api-key"):
+        assert value not in rendered
+    assert result["status"] == "ready_for_payment"
+
+
+def test_missing_expected_blocks_even_with_structured_answer():
+    result, _ = run(Provider(), {**TASK, "expected": {}})
+    assert result["status"] == "blocked"
+
+
+def test_partial_outcome_blocks_even_with_verification():
+    provider = Provider()
+
+    def handle(request):
+        response = provider(request)
+        if request.url.path.endswith("/changes"):
+            return httpx.Response(200, json={**response.json(), "outcome": "partial"})
+        return response
+
+    result, _ = run(handle)
+    assert result["status"] == "blocked"
+
+
+def test_other_session_resource_never_receives_bearer():
+    provider = Provider(events=[observation({
+        "type": "url", "source": API + "/sessions/other/resources/screenshots/frame.png",
+        "media_type": "image/png",
+    })])
+
+    def handle(request):
+        if "/sessions/other/" in request.url.path:
+            assert not request.headers.get("Authorization")
+            return httpx.Response(403)
+        return provider(request)
+
+    result, _ = run(handle)
+    assert result["status"] == "failed" and provider.cancelled
+
+
+def test_navigation_login_text_is_not_a_forbidden_page():
+    event = observation()
+    event["data"]["metadata"]["text"] = "Log in | Account | Payment checkout | Race information"
+    provider = Provider(events=[event])
+    result, events = run(provider)
+    assert result["status"] == "ready_for_payment" and not provider.cancelled
+    assert any(event["type"] == "live_frame" for event in events)
+
+
+def test_checkout_observation_does_not_cancel_but_handoff_remains_blocked():
+    event = observation()
+    event["data"]["metadata"] = {"url": HANDOFF + "/checkout", "title": "Checkout"}
+    provider = Provider(events=[event], answer={**ANSWER, "handoff_url": HANDOFF + "/checkout"})
+    result, events = run(provider)
+    assert result["status"] == "blocked" and not provider.cancelled
+    assert any(event["type"] == "live_frame" for event in events)
+
+
+def test_policy_no_expiry_and_reviewed_hosts_without_synthetic_root_calls(monkeypatch):
+    calls = []
+
+    def evaluate(url, kind):
+        calls.append((url, kind))
+        assert url == START
+        return {"allowed": True, "policy_id": "reviewed", "screenshot_scope": True,
+                "expires_at": None, "allowed_hosts": ["race.example.org", "entry.example.org"]}
+
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(evaluate_url=evaluate))
+    provider = Provider()
+    result, _ = run(provider, {**TASK, "allowed_hosts": ["race.example.org", "entry.example.org"]})
+    assert result["status"] == "ready_for_payment"
+    assert calls == [(START, "registration"), (START, "registration")]
+
+
+def test_extra_planned_host_outside_review_blocks_without_create(monkeypatch):
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(
+        evaluate_url=lambda *_: {
+            "allowed": True, "policy_id": "reviewed", "screenshot_scope": True,
+            "expires_at": None, "allowed_hosts": ["race.example.org"],
+        },
+    ))
+    provider = Provider()
+    result, _ = run(provider, {**TASK, "allowed_hosts": ["race.example.org", "outside.example.org"]})
+    assert result["status"] == "blocked" and not provider.requests
+
+
+@pytest.mark.parametrize("distance", [42.2, "42.195 km", "42,2"])
+def test_registration_only_compares_relevant_normalized_expected(distance):
+    expected = {**TASK["expected"], "kind": "registration", "race_name": "Marathon de Milan",
+                "arrival_date": "2027-04-03", "departure_date": "2027-04-05", "travelers": 2,
+                "city": "Milan", "country": "Italy"}
+    provider = Provider(answer={**ANSWER, "verification": {
+        **ANSWER["verification"], "race_date": "2027-04-04T12:00:00Z", "distance_km": distance,
+        "race_name": "MARATHON DE MILANÓ",
+    }})
+    result, _ = run(provider, {**TASK, "expected": expected})
+    assert result["status"] == "ready_for_payment"
+    properties = json.loads(provider.requests[0].content)["overrides"]["agent.answer_format"][
+        "properties"]["verification"]["properties"]
+    assert not {"arrival_date", "departure_date", "travelers", "city", "country", "kind"} & (
+        properties.keys()
+    )
+
+
+@pytest.mark.parametrize("kind", ["hotel", "transport"])
+def test_trip_verification_normalizes_city_party_and_dates_without_race_fields(kind):
+    expected = {"kind": kind, "city": "Milan", "origin_city": "Paris", "country": "Italy",
+                "arrival_date": "2027-04-03T00:00:00Z", "departure_date": "2027-04-05",
+                "travelers": 2, "race_date": "2027-04-04", "race_name": "Other race"}
+    verification = {"city": "Milano", "origin_city": "PARÍS", "arrival_date": "2027-04-03",
+                    "departure_date": "2027-04-05T18:00:00Z", "travelers": "2",
+                    "selected": True, "next_safe_boundary": "guest details", "room": "Twin",
+                    "rate": "Flexible", "fare": "Flexible", "total": "EUR 1200",
+                    "outbound_selected": True, "return_selected": True}
+    provider = Provider(answer={**ANSWER, "verification": verification})
+    result, _ = run(provider, {**TASK, "kind": kind, "expected": expected})
+    assert result["status"] == "ready_for_payment"
+    properties = json.loads(provider.requests[0].content)["overrides"]["agent.answer_format"][
+        "properties"]["verification"]["properties"]
+    assert not {"race_date", "race_name", "country", "kind"} & properties.keys()
+
+
+@pytest.mark.parametrize("format_kind", ["aware", "naive", "date"])
+def test_policy_expiry_uses_timestamp_precision_and_date_inclusive_day(monkeypatch, format_kind):
+    earlier = datetime.now(UTC) - timedelta(seconds=1)
+    expiry = earlier.isoformat()
+    if format_kind == "naive":
+        expiry = earlier.replace(tzinfo=None).isoformat()
+    elif format_kind == "date":
+        expiry = datetime.now(UTC).date().isoformat()
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(
+        evaluate_url=lambda *_: {
+            "allowed": True, "policy_id": "reviewed", "screenshot_scope": True,
+            "expires_at": expiry, "allowed_hosts": ["race.example.org"],
+        },
+    ))
+    provider = Provider()
+    result, _ = run(provider)
+    if format_kind == "date":
+        assert result["status"] == "ready_for_payment"
+    else:
+        assert result["status"] == "blocked" and not provider.requests
+
+
+@pytest.mark.parametrize("prefix,path,allowed", [
+    ("/race", "/race", True), ("/race", "/race/entry", True),
+    ("/race/", "/race/entry", True), ("/race", "/race-private", False),
+    ("/", "/race-private", True), ("/race/", "/race", False),
+    ("/", "", True), ("", "", True), ("/race", "", False),
+])
+def test_reviewed_paths_respect_segment_boundaries(prefix, path, allowed):
+    assert _reviewed("https://race.example.org" + path,
+                     [({"race.example.org"}, (prefix,))]) is allowed
+
+
+def test_start_path_outside_reviewed_segment_never_creates_session(monkeypatch):
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(
+        evaluate_url=lambda *_: {
+            "allowed": True, "policy_id": "reviewed", "screenshot_scope": True,
+            "expires_at": None, "allowed_hosts": ["race.example.org"], "allowed_paths": ["/race"],
+        },
+    ))
+    provider = Provider()
+    result, _ = run(provider, {**TASK, "start_url": "https://race.example.org/race-private"})
+    assert result["status"] == "blocked" and not provider.requests
+
+
+def test_homepage_without_trailing_slash_is_in_reviewed_root_scope(monkeypatch):
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(
+        evaluate_url=lambda *_: {
+            "allowed": True, "policy_id": "reviewed", "screenshot_scope": True,
+            "expires_at": None, "allowed_hosts": ["race.example.org"], "allowed_paths": ["/"],
+        },
+    ))
+    provider = Provider()
+    result, _ = run(provider, {**TASK, "start_url": START.rstrip("/"),
+                             "fallback_url": START.rstrip("/")})
+    assert result["status"] == "ready_for_payment"
+    assert any(r.method == "POST" and r.url.path == "/api/v2/sessions" for r in provider.requests)
+
+
+@pytest.mark.parametrize("query", ["room=twin", "fare=flexible"])
+def test_handoff_query_must_match_observed_selection(query):
+    provider = Provider(answer={**ANSWER, "handoff_url": HANDOFF + "?" + query})
+    result, _ = run(provider)
+    assert result["status"] == "blocked"
+
+
+@pytest.mark.parametrize("kind,day,ready", [
+    ("transport", "2027-04-02", True), ("transport", "2027-04-01", False),
+    ("hotel", "2027-04-02", False),
+])
+def test_transport_overnight_outbound_date_allowance(kind, day, ready):
+    expected = {"city": "Rome", "origin_city": "Paris", "arrival_date": "2027-04-03",
+                "departure_date": "2027-04-05", "travelers": 2}
+    verification = {**expected, "selected": True, "next_safe_boundary": "guest details",
+                    "room": "Twin", "rate": "Flexible", "fare": "Return", "total": "EUR 1200",
+                    "outbound_selected": True, "return_selected": True}
+    url = HANDOFF + "?outbound=" + day
+    event = observation()
+    event["data"]["metadata"]["url"] = url
+    result, _ = run(Provider(events=[event], answer={
+        **ANSWER, "handoff_url": url, "verification": verification,
+    }), {**TASK, "kind": kind, "expected": expected})
+    assert result["status"] == ("ready_for_payment" if ready else "blocked")
+
+
+@pytest.mark.parametrize("query,ready", [
+    ("outbound=2027-04-02&return=2027-04-05", True),
+    ("outbound=2027-04-03&return=2027-04-02", False),
+    ("outbound=2027-04-03&inbound=2027-04-04", False),
+    ("outbound=2027-04-03&return=2027-04-05&returnUrl=/trips", True),
+    ("outbound=2027-04-03&return=2027-04-02&returnUrl=/trips", False),
+])
+def test_transport_return_date_must_match_departure(query, ready):
+    expected = {"city": "Rome", "origin_city": "Paris", "arrival_date": "2027-04-03",
+                "departure_date": "2027-04-05", "travelers": 2}
+    verification = {**expected, "selected": True, "next_safe_boundary": "passenger details",
+                    "fare": "Return", "total": "EUR 300",
+                    "outbound_selected": True, "return_selected": True}
+    url = HANDOFF + "?" + query
+    event = observation()
+    event["data"]["metadata"]["url"] = url
+    result, _ = run(Provider(events=[event], answer={
+        **ANSWER, "handoff_url": url, "verification": verification,
+    }), {**TASK, "kind": "transport", "expected": expected})
+    assert result["status"] == ("ready_for_payment" if ready else "blocked")
+
+
+@pytest.mark.parametrize("timeout,provider_budget", [(600, 510), (120, 30), (90, 45), (10, 5)])
+def test_provider_time_budget_leaves_local_final_answer_headroom(timeout, provider_budget):
+    provider = Provider()
+    result, _ = run(provider, timeout_s=timeout)
+    assert result["status"] == "ready_for_payment"
+    assert json.loads(provider.requests[0].content)["max_time_s"] == provider_budget
