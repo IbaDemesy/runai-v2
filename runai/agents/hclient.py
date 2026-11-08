@@ -242,7 +242,8 @@ def _verified(task, answer, handoff, observed, frame_seen, reviews):
         returning = str(date.fromisoformat(str(expected["departure_date"])[:10]))
         for url in (handoff, observed):
             for name, value in parse_qsl(urlsplit(url).query):
-                if _RETURN_PARAM.search(name) and value[:10] != returning:
+                if (_RETURN_PARAM.search(name) and re.match(r"^\d{4}-\d{2}-\d{2}", value)
+                        and value[:10] != returning):
                     return False
         expected_dates.add((date.fromisoformat(str(expected["arrival_date"])[:10])
                             - timedelta(days=1)).isoformat())

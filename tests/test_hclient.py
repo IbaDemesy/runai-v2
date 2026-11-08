@@ -950,6 +950,8 @@ def test_transport_overnight_outbound_date_allowance(kind, day, ready):
     ("outbound=2027-04-02&return=2027-04-05", True),
     ("outbound=2027-04-03&return=2027-04-02", False),
     ("outbound=2027-04-03&inbound=2027-04-04", False),
+    ("outbound=2027-04-03&return=2027-04-05&returnUrl=/trips", True),
+    ("outbound=2027-04-03&return=2027-04-02&returnUrl=/trips", False),
 ])
 def test_transport_return_date_must_match_departure(query, ready):
     expected = {"city": "Rome", "origin_city": "Paris", "arrival_date": "2027-04-03",
