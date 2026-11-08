@@ -252,6 +252,8 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     assert.equal(ui.safeURL('https://example.org/?token=secret'),null);
     assert.equal(ui.safeURL('https://example.org/register?race=123&lang=fr'), 'https://example.org/register?race=123&lang=fr');
     assert.equal(ui.safeURL('https://example.org/register?email=runner%40example.org'), null);
+    assert.equal(ui.safeURL('https://example.org/register?booking_id=ABC123'), null);
+    assert.equal(ui.safeURL('http://example.org/register'), null);
   } else if (scenario === 'disconnect') {
     await initial(true); ui.event(frame('hotel','valid',1)); await loaded(images.at(-1));
     respond('/api/missions/m1/events?after=1', {}, 500); await ui.poll(0);
