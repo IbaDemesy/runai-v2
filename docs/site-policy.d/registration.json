@@ -1,0 +1,1102 @@
+{
+ "schema_version": 1,
+ "entries": [
+  {
+   "id": "milanomarathon-it",
+   "name": "Wizz Air Milano Marathon organizer (milanomarathon.it)",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "milanomarathon.it",
+     "path_prefix": "/"
+    },
+    {
+     "host": "www.milanomarathon.it",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.milanomarathon.it/privacy/",
+    "https://www.milanomarathon.it/wizz-air-milano-marathon/regolamento/"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Privacy policy (full text keyword review); Regolamento landing page; Iscriviti page; footer legal-link search",
+   "justification": "No website terms of use are published (footer/legal-link search); the reviewed pages contain no robot, scraping or automated-agent prohibition. Iscriviti links to the reviewed Njuko event page (milano-marathon-2027-njuko). Allowed read-only by owner rule: no forms, accounts, consent or payment; screenshots in-session only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [
+    "in.njuko.com"
+   ],
+   "registration_observations": [
+    {
+     "host": "www.milanomarathon.it",
+     "path_prefix": "/wizz-air-milano-marathon/iscriviti",
+     "account_required": null,
+     "captcha": null,
+     "source": "https://www.milanomarathon.it/wizz-air-milano-marathon/iscriviti/",
+     "observed_at": "2026-11-08",
+     "note": "Iscriviti links to in.njuko.com 2027 event; Njuko page is a JavaScript app, availability unverified."
+    }
+   ],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "milano\\s*marathon",
+       "maratona\\s+di\\s+milano",
+       "milan\\s+marathon"
+      ],
+      "countries": [
+       "IT"
+      ]
+     },
+     "url_template": "https://in.njuko.com/wizz-air-milano-marathon-20271776152378557",
+     "success_evidence": "njuko event page shows the 2027 (4 April 2027) edition, the Marathon 42.195 km competition can be selected with public buttons and the next page is the participant information form (left untouched).",
+     "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition.",
+     "platform_hosts": [
+      "in.njuko.com"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "maratonaclubedeportugal-com",
+   "name": "Maratona Clube de Portugal (EDP Lisbon half/marathon) and its own registration service",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "maratonaclubedeportugal.com",
+     "path_prefix": "/"
+    },
+    {
+     "host": "www.maratonaclubedeportugal.com",
+     "path_prefix": "/"
+    },
+    {
+     "host": "meia-maratona.inscricoes.maratonaportugal.com",
+     "path_prefix": "/"
+    },
+    {
+     "host": "rnr.inscricoes.maratonaportugal.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://maratonaclubedeportugal.com/politica_de_privacidade.pdf",
+    "https://maratonaclubedeportugal.com/wp-content/uploads/REGULAMENTO_EDP_MEIA-_MARATONA_DE-LISBOA_2027_PT-.docx.pdf"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Privacy policy PDF; EDP Meia Maratona de Lisboa 2027 regulamento PDF; footer legal-link search on organizer and inscricoes.maratonaportugal.com",
+   "justification": "No website terms of use are published (footer/legal-link search); the reviewed pages contain no robot, scraping or automated-agent prohibition. The own-branded inscricoes.maratonaportugal.com service publishes no separate terms. Allowed read-only by owner rule: no forms, accounts, consent or payment; screenshots in-session only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "registration_observations": [
+    {
+     "host": "meia-maratona.inscricoes.maratonaportugal.com",
+     "path_prefix": "/",
+     "account_required": null,
+     "captcha": false,
+     "source": "https://meia-maratona.inscricoes.maratonaportugal.com/default.aspx?prova_id=3769",
+     "observed_at": "2026-11-08",
+     "note": "2027 half (prova_id=3769, 21 km) redirects to waitinglist.aspx: Esgotada (sold out); waiting-list form only."
+    }
+   ],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "meia\\s+maratona\\s+de\\s+lisboa",
+       "lisbon\\s+half",
+       "semi(-|\\s)?marathon\\s+de\\s+lisbonne",
+       "lisboa\\s+half"
+      ],
+      "countries": [
+       "PT"
+      ]
+     },
+     "url_template": "https://meia-maratona.inscricoes.maratonaportugal.com/default.aspx?prova_id=3769",
+     "success_evidence": "Registration page for EDP Meia Maratona de Lisboa 2027 (7 March 2027), 21 km selected; the next page is the participant data form (left untouched).",
+     "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. Observed 2026-11-08: Esgotada with a waiting-list form (report sold_out).",
+     "platform_hosts": []
+    }
+   ]
+  },
+  {
+   "id": "mein-freiburgmarathon-de",
+   "name": "Mein Freiburg Marathon organizer",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "mein-freiburgmarathon.de",
+     "path_prefix": "/"
+    },
+    {
+     "host": "www.mein-freiburgmarathon.de",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://mein-freiburgmarathon.de/impressum/",
+    "https://my.raceresult.com/imprint/termsofuse"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Impressum: Urheberrechte, Hyperlink, Markenzeichen, Haftung, Lizenz/Nutzungsrechte, Recht; RACE RESULT Allgemeine Nutzungsbedingungen (keyword review)",
+   "justification": "No express automated-access, robot or scraping prohibition in the Impressum or the embedded RACE RESULT terms; general copyright restrictions only. Allowed read-only by owner rule: no forms, accounts, consent or payment; screenshots in-session only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "registration_observations": [
+    {
+     "host": "mein-freiburgmarathon.de",
+     "path_prefix": "/lauf",
+     "account_required": null,
+     "captcha": true,
+     "source": "https://mein-freiburgmarathon.de/lauf/marathon/anmeldung/",
+     "observed_at": "2026-11-08",
+     "note": "Embedded RACE RESULT registration; organizer says entry only with an existing code and codes are allocated."
+    }
+   ],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "freiburg.*(halb|half|semi)"
+      ],
+      "countries": [
+       "DE"
+      ]
+     },
+     "url_template": "https://mein-freiburgmarathon.de/lauf/halbmarathon/anmeldung/",
+     "success_evidence": "Embedded registration for the 2027 Freiburg half marathon (21.0975 km) shows the first participant data step (left untouched).",
+     "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. Observed 2026-11-08: entry only with an allocated code (report registration_closed).",
+     "platform_hosts": []
+    },
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "freiburg(?!.*(halb|half|semi)).*marath",
+       "marath(?!.*(halb|half|semi)).*freiburg"
+      ],
+      "countries": [
+       "DE"
+      ]
+     },
+     "url_template": "https://mein-freiburgmarathon.de/lauf/marathon/anmeldung/",
+     "success_evidence": "Embedded registration for the 2027 Freiburg marathon (42.195 km) shows the first participant data step (left untouched).",
+     "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. Observed 2026-11-08: entry only with an allocated code (report registration_closed).",
+     "platform_hosts": []
+    }
+   ]
+  },
+  {
+   "id": "jungfrau-marathon-ch",
+   "name": "Jungfrau-Marathon organizer",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "jungfrau-marathon.ch",
+     "path_prefix": "/"
+    },
+    {
+     "host": "www.jungfrau-marathon.ch",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.jungfrau-marathon.ch/de/impressum.html"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Impressum (full text keyword review)",
+   "justification": "No express robot, scraping or automated-access prohibition in the Impressum. Allowed read-only by owner rule: no forms, accounts, consent or payment; screenshots in-session only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "registration_observations": [
+    {
+     "host": "www.jungfrau-marathon.ch",
+     "path_prefix": "/de/anmeldung.html",
+     "account_required": null,
+     "captcha": false,
+     "source": "https://www.jungfrau-marathon.ch/de/anmeldung.html",
+     "observed_at": "2026-11-08",
+     "note": "Anmeldung says the 2026 online registration is closed; 2027 entry (10/11 Sept 2027) not yet linked."
+    }
+   ],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "jungfrau"
+      ],
+      "countries": [
+       "CH"
+      ]
+     },
+     "url_template": "https://www.jungfrau-marathon.ch/de/anmeldung.html",
+     "success_evidence": "Anmeldung page offers the 2027 Jungfrau-Marathon entry and the next page is the participant data form (left untouched).",
+     "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. Observed 2026-11-08: 2026 registration closed, 2027 not yet open (report registration_closed).",
+     "platform_hosts": []
+    }
+   ]
+  },
+  {
+   "id": "eiger-utmb-world",
+   "name": "Eiger Ultra Trail by UTMB organizer site",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "eiger.utmb.world",
+     "path_prefix": "/"
+    },
+    {
+     "host": "eigerultratrail.ch",
+     "path_prefix": "/"
+    },
+    {
+     "host": "www.eigerultratrail.ch",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://utmb.world/terms-and-conditions"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "UTMB terms & conditions: Editor information; Intellectual property; Personal data (keyword review)",
+   "justification": "No express bot or scraping prohibition in the UTMB website terms (broad reproduction limits only). The in.ch.byutmb.world registration host is NOT reviewed: navigation there must stop as unreviewed_redirect. Allowed read-only by owner rule: no forms, accounts, consent or payment; screenshots in-session only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "eiger"
+      ],
+      "countries": [
+       "CH"
+      ]
+     },
+     "url_template": "https://eiger.utmb.world/registration",
+     "success_evidence": "Registration page shows the 2027 edition and the chosen distance entry; any jump to an unreviewed registration host is reported as unreviewed_redirect.",
+     "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. Lottery distances (E101/E51/E35) and the unreviewed in.ch.byutmb.world host are blocked.",
+     "platform_hosts": []
+    }
+   ]
+  },
+  {
+   "id": "zurichmaratonsevilla-es",
+   "name": "Zurich Maratón de Sevilla organizer",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "www.zurichmaratonsevilla.es",
+     "path_prefix": "/"
+    },
+    {
+     "host": "zurichmaratonsevilla.es",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.zurichmaratonsevilla.es/web-aviso-legal"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Aviso legal: conditions of use, intellectual property, liability (full text keyword review)",
+   "justification": "No express automation or scraping prohibition in the organizer legal notice; registration runs on reviewed Njuko. Allowed read-only by owner rule: no forms, accounts, consent or payment; screenshots in-session only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [
+    "in.njuko.com"
+   ],
+   "registration_observations": [
+    {
+     "host": "www.zurichmaratonsevilla.es",
+     "path_prefix": "/zms-inscripciones",
+     "account_required": null,
+     "captcha": null,
+     "source": "https://www.zurichmaratonsevilla.es/zms-inscripciones",
+     "observed_at": "2026-11-08",
+     "note": "Inscripciones page describes 2027 phases; embedded Njuko link still labelled 2026."
+    }
+   ],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "marat[oó]n\\s+de\\s+sevilla",
+       "sevill[ae]\\s+marathon"
+      ],
+      "countries": [
+       "ES"
+      ]
+     },
+     "url_template": "https://www.zurichmaratonsevilla.es/zms-inscripciones",
+     "success_evidence": "The 2027 (21 Feb 2027) marathon entry on Njuko is selected and the next page is the participant information form (left untouched).",
+     "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. A 2026 Njuko event must be reported as date_mismatch.",
+     "platform_hosts": [
+      "in.njuko.com"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "generaligenevemarathon-com",
+   "name": "Generali Genève Marathon organizer",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "www.generaligenevemarathon.com",
+     "path_prefix": "/"
+    },
+    {
+     "host": "generaligenevemarathon.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.generaligenevemarathon.com/mentions-legales",
+    "https://www.generaligenevemarathon.com/rules"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Mentions légales: 1 Éditeur, 2 Hébergeur, 3 Propriété intellectuelle; rules/CGV landing page",
+   "justification": "No express automated-access or scraping prohibition in the organizer legal notice; registration runs on reviewed Njuko. Allowed read-only by owner rule: no forms, accounts, consent or payment; screenshots in-session only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [
+    "in.njuko.com"
+   ],
+   "registration_observations": [],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "gen[eè]v[ea]\\s+(half\\s+)?marathon",
+       "geneva\\s+(half\\s+)?marathon",
+       "semi(-|\\s)?marathon\\s+de\\s+gen[eè]ve"
+      ],
+      "countries": [
+       "CH"
+      ]
+     },
+     "url_template": "https://in.njuko.com/generali-geneve-marathon-2027-1782304695994",
+     "success_evidence": "njuko event page shows the 2027 (8-9 May 2027) edition, the selected competition can be selected with public buttons and the next page is the participant information form (left untouched).",
+     "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition.",
+     "platform_hosts": [
+      "in.njuko.com"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "runromethemarathon-com",
+   "name": "Run Rome The Marathon organizer",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "www.runromethemarathon.com",
+     "path_prefix": "/"
+    },
+    {
+     "host": "runromethemarathon.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.runromethemarathon.com/privacy-policy-2/"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Privacy policy / Condizioni generali di utilizzo page (privacy text only); homepage footer legal-link search",
+   "justification": "No website terms of use are published (footer/legal-link search); the reviewed pages contain no robot, scraping or automated-agent prohibition. ISCRIVITI links to the reviewed ENDU host rrtm.endu.net. Allowed read-only by owner rule: no forms, accounts, consent or payment; screenshots in-session only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [
+    "rrtm.endu.net"
+   ],
+   "registration_observations": [],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "run\\s+rome",
+       "maratona\\s+di\\s+roma",
+       "rome\\s+marathon"
+      ],
+      "countries": [
+       "IT"
+      ]
+     },
+     "url_template": "https://rrtm.endu.net/",
+     "success_evidence": "ENDU page for RUN ROME THE MARATHON 2027 (14 March 2027) with the event selected; the next page asks for participant data or login (left untouched).",
+     "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition.",
+     "platform_hosts": [
+      "rrtm.endu.net"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "bolognamarathon-run",
+   "name": "Termal Bologna Marathon organizer",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "www.bolognamarathon.run",
+     "path_prefix": "/"
+    },
+    {
+     "host": "bolognamarathon.run",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.bolognamarathon.run/regolamento"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Regolamento 2027 (full text keyword review); footer legal-link search",
+   "justification": "No website terms of use are published (footer/legal-link search); the reviewed pages contain no robot, scraping or automated-agent prohibition. ISCRIVITI SU ENDU leads to the reviewed www.endu.net book page. Allowed read-only by owner rule: no forms, accounts, consent or payment; screenshots in-session only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [
+    "www.endu.net"
+   ],
+   "registration_observations": [],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "bologna\\s+marathon",
+       "maratona\\s+di\\s+bologna"
+      ],
+      "countries": [
+       "IT"
+      ]
+     },
+     "url_template": "https://www.endu.net/events/bologna-marathon/book",
+     "success_evidence": "ENDU book page for the 2027 Bologna Marathon (7 March 2027) with the distance selected; the next page asks for participant data or login (left untouched). /book is not a booking.",
+     "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition.",
+     "platform_hosts": [
+      "www.endu.net"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "padovamarathon-com",
+   "name": "Padova Marathon organizer",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "padovamarathon.com",
+     "path_prefix": "/"
+    },
+    {
+     "host": "www.padovamarathon.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://padovamarathon.com/termini-e-condizioni/"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Condizioni generali di vendita B2C: premises, 1-4 sales/contract, 9 obligations (keyword review)",
+   "justification": "No express automation, robot or scraping prohibition in the published terms; ISCRIVITI ONLINE leads to the reviewed ENDU host. Allowed read-only by owner rule: no forms, accounts, consent or payment; screenshots in-session only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [
+    "www.endu.net"
+   ],
+   "registration_observations": [],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "padova\\s+marathon",
+       "maratona\\s+di\\s+padova"
+      ],
+      "countries": [
+       "IT"
+      ]
+     },
+     "url_template": "https://www.endu.net/events/padovamarathon/book",
+     "success_evidence": "ENDU book page for Padova Marathon 2027 (18 April 2027) with the distance selected; the next page asks for participant data or login (left untouched). /book is not a booking.",
+     "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition.",
+     "platform_hosts": [
+      "www.endu.net"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "firenzemarathon-it",
+   "name": "Estra Firenze Marathon organizer",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "www.firenzemarathon.it",
+     "path_prefix": "/"
+    },
+    {
+     "host": "firenzemarathon.it",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.firenzemarathon.it/regolamento-maratona/"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Regolamento maratona (full text keyword review); footer legal-link search",
+   "justification": "No website terms of use are published (footer/legal-link search); the reviewed pages contain no robot, scraping or automated-agent prohibition. Registration runs on the reviewed ENDU host. Allowed read-only by owner rule: no forms, accounts, consent or payment; screenshots in-session only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [
+    "www.endu.net"
+   ],
+   "registration_observations": [
+    {
+     "host": "www.endu.net",
+     "path_prefix": "/it/events/firenze-marathon-3",
+     "account_required": null,
+     "captcha": false,
+     "source": "https://www.endu.net/it/events/firenze-marathon-3/",
+     "observed_at": "2026-11-08",
+     "note": "ENDU event page shows the 2026 edition; 2027 registration not verified."
+    }
+   ],
+   "adapters": []
+  },
+  {
+   "id": "vienna-marathon-com",
+   "name": "Vienna City Marathon organizer and registration (haku)",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "www.vienna-marathon.com",
+     "path_prefix": "/"
+    },
+    {
+     "host": "vienna-marathon.com",
+     "path_prefix": "/"
+    },
+    {
+     "host": "events.vienna-marathon.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.vienna-marathon.com/?go=impressum",
+    "https://www.hakuapp.com/legal"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Organizer Impressum (keyword review); haku Terms of Service for organizers and participants (automated-access keyword review)",
+   "justification": "No express bot, crawler, scraping or automated-access ban in the organizer Impressum or haku terms. Allowed read-only by owner rule: no forms, accounts, consent or payment; screenshots in-session only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "registration_observations": [
+    {
+     "host": "events.vienna-marathon.com",
+     "path_prefix": "/",
+     "account_required": null,
+     "captcha": true,
+     "source": "https://events.vienna-marathon.com/events/c0af0e08b2f9d796d7fd/registration_options",
+     "observed_at": "2026-11-08",
+     "note": "Registration options: waiting list for marathon/half/relay; individual entry for shorter runs."
+    }
+   ],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "vienna\\s+(city\\s+)?marathon",
+       "vienna\\s+city",
+       "wien\\s+marathon"
+      ],
+      "countries": [
+       "AT"
+      ]
+     },
+     "url_template": "https://events.vienna-marathon.com/events/c0af0e08b2f9d796d7fd/registration_options",
+     "success_evidence": "Registration options for the 2027 Vienna City Marathon (18 April 2027) with the chosen distance selected; the next page is the participant data form (left untouched).",
+     "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. Observed 2026-11-08: waiting list for marathon and half (report sold_out).",
+     "platform_hosts": []
+    }
+   ]
+  },
+  {
+   "id": "runczech-com",
+   "name": "RunCzech (Prague) organizer and own registration",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "www.runczech.com",
+     "path_prefix": "/"
+    },
+    {
+     "host": "runczech.com",
+     "path_prefix": "/"
+    },
+    {
+     "host": "register.runczech.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.runczech.com/en/web-information",
+    "https://www.runczech.com/en/common-general-terms-and-conditions"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Web information: Obligations of Users, Limitation of Liability; Common General Terms: formation of contract, RunnersID",
+   "justification": "No express automation or scraping prohibition in the website-use or general entry terms. Online entry needs a RunnersID account (login wall). Allowed read-only by owner rule: no forms, accounts, consent or payment; screenshots in-session only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "registration_observations": [
+    {
+     "host": "register.runczech.com",
+     "path_prefix": "/",
+     "account_required": true,
+     "captcha": false,
+     "source": "https://register.runczech.com/2027/vodafone-prague-marathon-2027",
+     "observed_at": "2026-11-08",
+     "note": "Race selection loads anonymously; RunnersID account required to register (report login_required)."
+    }
+   ],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "prague\\s+(half\\s+)?marathon",
+       "praha\\s+marathon",
+       "marathon\\s+de\\s+prague"
+      ],
+      "countries": [
+       "CZ"
+      ]
+     },
+     "url_template": "https://register.runczech.com/2027/vodafone-prague-marathon-2027",
+     "success_evidence": "2027 Vodafone Prague Marathon race selection with the distance chosen; the next page asks for participant data (left untouched).",
+     "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. RunnersID login or account creation is required (report login_required).",
+     "platform_hosts": []
+    }
+   ]
+  },
+  {
+   "id": "tcsamsterdammarathon-eu",
+   "name": "TCS Amsterdam Marathon organizer",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "www.tcsamsterdammarathon.eu",
+     "path_prefix": "/"
+    },
+    {
+     "host": "tcsamsterdammarathon.eu",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.tcsamsterdammarathon.eu/general-terms-and-conditions",
+    "https://do.occdn.net/p/75/f/am26-algemene-voorwaarden-stichtingsevenementen-individueel-en-groepen-eng.pdf",
+    "https://do.occdn.net/p/75/f/am26-reglement-individueel-en-business-tcsam-eng2.pdf"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "General terms download page; 2026 individual/group conditions Articles 1-7; 2026 regulations Articles 1-25",
+   "justification": "No express automation ban in the published terms and regulations (2026 versions; re-review 2027 terms when released). Allowed read-only by owner rule: no forms, accounts, consent or payment; screenshots in-session only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "registration_observations": [
+    {
+     "host": "www.tcsamsterdammarathon.eu",
+     "path_prefix": "/registration",
+     "account_required": null,
+     "captcha": false,
+     "source": "https://www.tcsamsterdammarathon.eu/registration",
+     "observed_at": "2026-11-08",
+     "note": "2027 registration opens 19 December 2026."
+    }
+   ],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "amsterdam\\s+(half\\s+)?marathon"
+      ],
+      "countries": [
+       "NL"
+      ]
+     },
+     "url_template": "https://www.tcsamsterdammarathon.eu/registration",
+     "success_evidence": "Registration page for the 2027 edition (30-31 Oct 2027) with the distance chosen; the next page is the participant data form (left untouched).",
+     "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. Observed 2026-11-08: 2027 entry opens 19 December 2026 (report registration_closed).",
+     "platform_hosts": []
+    }
+   ]
+  },
+  {
+   "id": "10kvalencia-com",
+   "name": "10K Valencia Ibercaja (organizer and registration.10kvalencia.com)",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "10kvalencia.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://10kvalencia.com/condiciones-generales/",
+    "https://registration.10kvalencia.com/inscripcion/10k-valencia-ibercaja-by-kiprun-2027/registration-terms"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Condiciones de uso de la Web; Normas de uso; Derechos de Propiedad Intelectual e Industrial",
+   "justification": "Express restriction on automated access/extraction: \"Los Contenidos de la Web no se podrán extraer por terceros, ya sea de forma manual o a través de cualquier técnica.\" Denied; never start or navigate an H agent here.",
+   "automation": "prohibited",
+   "screenshot_scope": "none",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": []
+  },
+  {
+   "id": "valenciaciudaddelrunning-com",
+   "name": "Valencia Ciudad del Running (Valencia marathon/half)",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "valenciaciudaddelrunning.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.valenciaciudaddelrunning.com/terminos-y-condiciones-vcr/",
+    "https://www.valenciaciudaddelrunning.com/terminos-y-condiciones-sdc/"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Condiciones de uso de la Web; Normas de uso; Derechos de Propiedad Intelectual e Industrial (Fundación and SD Correcaminos)",
+   "justification": "Express restriction on automated access/extraction: \"Los Contenidos de la Web no se podrán extraer por terceros, ya sea de forma manual o a través de cualquier técnica.\" Denied; never start or navigate an H agent here.",
+   "automation": "prohibited",
+   "screenshot_scope": "none",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": []
+  },
+  {
+   "id": "swisscanyontrail-com",
+   "name": "Swiss Canyon Trail",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "swisscanyontrail.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.swisscanyontrail.com/policies/terms-of-service"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Terms of service: Section 12 Prohibited uses",
+   "justification": "Express restriction on automated access/extraction: \"(i) to spam, phish, pharm, pretext, spider, crawl, or scrape;\" Denied; never start or navigate an H agent here.",
+   "automation": "prohibited",
+   "screenshot_scope": "none",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": []
+  },
+  {
+   "id": "zurichmaratobarcelona-es",
+   "name": "Zurich Marató Barcelona",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "zurichmaratobarcelona.es",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://zurichmaratobarcelona.es/avis-legal/"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Avis legal: condiciones de acceso y uso; propiedad intelectual",
+   "justification": "Express restriction on automated access/extraction: \"La extracción y uso de elementos del sitio ... (intellectual-property/extraction clause)\" Denied; never start or navigate an H agent here.",
+   "automation": "prohibited",
+   "screenshot_scope": "none",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": []
+  },
+  {
+   "id": "rockthesport-com",
+   "name": "RockTheSport registration platform",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "rockthesport.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://web.rockthesport.com/es/documentation/legal-notice",
+    "https://web.rockthesport.com/es/documentation/general-terms"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Aviso legal: intellectual-property/extraction paragraph; Términos y condiciones",
+   "justification": "Express restriction on automated access/extraction: \"La extracción y uso de elementos del sitio causando o no un perjuicio cualquiera a Nuonet ...\" Denied; never start or navigate an H agent here.",
+   "automation": "prohibited",
+   "screenshot_scope": "none",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": []
+  },
+  {
+   "id": "rocknrollmadridrun-com",
+   "name": "Zurich Rock 'n' Roll Running Series Madrid",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "rocknrollmadridrun.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://rocknrollmadridrun.com/aviso-legal/"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Aviso legal: intellectual-property/extraction paragraph",
+   "justification": "Express restriction on automated access/extraction: \"La extracción y uso de elementos del sitio causando o no un perjuicio cualquiera a Elipse ...\" Denied; never start or navigate an H agent here.",
+   "automation": "prohibited",
+   "screenshot_scope": "none",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": []
+  },
+  {
+   "id": "asicsmarathondeparis-com",
+   "name": "ASICS Marathon de Paris",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "asicsmarathondeparis.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.asicsmarathondeparis.com/fr/conditions-generales-dutilisation"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Conditions générales d'utilisation: accès et utilisation du site (extraction automatisée)",
+   "justification": "Express restriction on automated access/extraction: \"Vous n'êtes pas autorisé à utiliser, ni à permettre à des tiers d'utiliser, tout système automatisé ou logiciel permettant d'extraire des contenus ou données depuis le Site\" Denied; never start or navigate an H agent here.",
+   "automation": "prohibited",
+   "screenshot_scope": "none",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": []
+  },
+  {
+   "id": "hokasemimarathondeparis-com",
+   "name": "HOKA Semi de Paris",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "hokasemimarathondeparis.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.hokasemimarathondeparis.com/fr/conditions-generales-dutilisation"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Conditions générales d'utilisation: accès et utilisation du site (extraction automatisée)",
+   "justification": "Express restriction on automated access/extraction: \"Vous n'êtes pas autorisé à utiliser, ni à permettre à des tiers d'utiliser, tout système automatisé ou logiciel permettant d'extraire des contenus ou données depuis le Site\" Denied; never start or navigate an H agent here.",
+   "automation": "prohibited",
+   "screenshot_scope": "none",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": []
+  },
+  {
+   "id": "runinlyon-com",
+   "name": "Run in Lyon",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "runinlyon.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.runinlyon.com/fr/mentions-legales"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "CGU: user conduct / prohibited uses",
+   "justification": "Express restriction on automated access/extraction: \"Utiliser un robot, un agent numérique ... ou tout autre dispositif ou processus manuel ou automatisé\" Denied; never start or navigate an H agent here.",
+   "automation": "prohibited",
+   "screenshot_scope": "none",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": []
+  },
+  {
+   "id": "timeto-com",
+   "name": "time to registration platform",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "timeto.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.timeto.com/fr/cgu"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "CGU 4.19 (robots, extraction, CAPTCHA)",
+   "justification": "Express restriction on automated access/extraction: \"Utiliser un robot, un agent numérique ... ou tout autre dispositif ou processus manuel ou automatisé\" Denied; never start or navigate an H agent here.",
+   "automation": "prohibited",
+   "screenshot_scope": "none",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": []
+  },
+  {
+   "id": "nnmarathonrotterdam",
+   "name": "NN Marathon Rotterdam",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "nnmarathonrotterdam.nl",
+     "path_prefix": "/"
+    },
+    {
+     "host": "nnmarathonrotterdam.org",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://nnmarathonrotterdam.nl/wp-content/uploads/sites/52/2026/10/Algemene-Voorwaarden-NNMR-Pre-registratie-2027.pdf"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Algemene voorwaarden pre-registratie 2027: Artikel 2.2, Artikel 4.5",
+   "justification": "Express restriction on automated access/extraction: \"Meerdere pre-registraties ... met geautomatiseerde middelen (zoals bots of scripts) zijn verboden.\" Denied; never start or navigate an H agent here.",
+   "automation": "prohibited",
+   "screenshot_scope": "none",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": []
+  },
+  {
+   "id": "nnmarathonrotterdam-2027-njuko",
+   "name": "NN Marathon Rotterdam 2027 event on Njuko (organizer terms forbid bots)",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "in.njuko.com",
+     "path_prefix": "/nn-marathon-rotterdam-20271784203024537"
+    }
+   ],
+   "terms_urls": [
+    "https://nnmarathonrotterdam.nl/wp-content/uploads/sites/52/2026/10/Algemene-Voorwaarden-NNMR-Pre-registratie-2027.pdf"
+   ],
+   "reviewed_at": "2026-11-08",
+   "expires_at": "2027-02-06",
+   "reviewed_sections": "Algemene voorwaarden pre-registratie 2027: Artikel 2.2, Artikel 4.5 (event-path scope so the Njuko host stays usable for other events)",
+   "justification": "Express restriction on automated access/extraction: \"Meerdere pre-registraties ... met geautomatiseerde middelen (zoals bots of scripts) zijn verboden.\" Denied; never start or navigate an H agent here.",
+   "automation": "ambiguous",
+   "screenshot_scope": "none",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": []
+  }
+ ]
+}
