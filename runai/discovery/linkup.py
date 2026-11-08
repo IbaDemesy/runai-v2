@@ -236,7 +236,7 @@ async def _registration_access(url: str, registry: Callable) -> dict | None:
         access.source = evidence
         access.note = _data_text(access.note) if access.note else None
         return access.model_dump(mode="json")
-    except (RuntimeError, ValueError, TypeError, OSError, httpx.HTTPError):
+    except Exception:
         # Optional evidence lookup cannot turn missing evidence into an access claim.
         return None
 

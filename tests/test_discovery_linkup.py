@@ -378,6 +378,21 @@ def test_async_registration_registry_and_registry_error():
     assert search([race()], registration_info=broken)[0]["registration_access"] is None
 
 
+@pytest.mark.parametrize("error", [KeyError, Exception, AssertionError])
+@pytest.mark.parametrize("asynchronous", [False, True])
+def test_registration_lookup_exceptions_preserve_candidate(error, asynchronous):
+    def broken(url):
+        raise error("unknown registration URL")
+
+    async def async_broken(url):
+        return broken(url)
+
+    candidates = search([race()], registration_info=async_broken if asynchronous else broken)
+    assert len(candidates) == 1
+    assert candidates[0]["registration_access"] is None
+    assert candidates[0]["date_status"] == "official"
+
+
 def test_registration_schema_forbids_extra_fields():
     with pytest.raises(ValidationError):
         RaceOption.model_validate(search([race()])[0] | {"untrusted": True})
