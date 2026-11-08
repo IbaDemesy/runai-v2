@@ -62,7 +62,7 @@ Dates are ISO dates; retrieval/event timestamps are ISO datetimes. RaceOption is
 the `race` object above, defined and validated by discovery/guide modules.
 
 `StepResult`: `{kind,status,summary,handoff_url?,start_url?,final_url?,
-live_view_url?,error?,synthetic,payment_executed:false}`.
+live_view_url?,error?,reason_code?,synthetic,payment_executed:false}`.
 Statuses: `ready_for_payment | blocked | failed`. `ready_for_payment` requires
 a genuine handoff URL. `payment_executed` is literal false; no paid status exists.
 Demo/replay handoffs are only official public homepages, **not prepared carts**.
@@ -74,7 +74,7 @@ step_progress | live_view_available | live_frame | step_finished`. `observed_at`
 `recorded_at` preserves original replay time. Frame bytes never enter mission JSON.
 
 `Mission`: `{id,mode,synthetic,status,error: string|null,turns: [dict],trip: dict|null,
-results: [StepResult],events: [Event]}`. No frozen framing or TARGET constant.
+results: [StepResult],events: [Event],language?}`. No frozen framing or TARGET constant.
 Statuses: `[discovering] -> guiding <-> ready -> running -> completed | partial | failed`.
 `completed` means all three ready; `partial` means one/two ready; `failed`
 means none ready (including three blocked outcomes). Individual blockers remain
@@ -217,3 +217,52 @@ they treat the value as unknown and fail closed for H runs.
    `fallback_url`, otherwise `null`. For registration, the sourced race URL is
    used. No result is ever upgraded to `ready_for_payment`. Demo/replay
    hotel/transport handoffs are neutral synthetic example.com URLs.
+
+## Round-3 pinned additive interfaces
+
+Consumers import sibling modules lazily and fail closed when missing. These
+additive interfaces supersede conflicting R2 runtime limits, not its safety rules.
+
+### P1 Registry fragments
+`site_policy.load_registry()` merges `docs/site-policy.json` with every
+`docs/site-policy.d/*.json`, sorted by filename, using the same schema
+`{schema_version, entries}`. Duplicate entry ids or overlapping
+`(host,path_prefix)` scopes with different decisions raise `PolicyError`:
+everything fails closed. R3-01 implements; R3-02 only ADDS
+`docs/site-policy.d/registration.json`.
+
+### P2 Registration adapters
+Entries may carry adapters with `{kind:'registration',
+race_match:{name_patterns:[regex], countries:[ISO2]?}, url_template,
+success_evidence, blocked_evidence, platform_hosts:[str]}`. `url_template`
+must use HTTPS on a reviewed host; placeholders occur only in query/fragment.
+R3-01 makes `_adapter()` accept and validate them. Each `platform_hosts` entry
+must be covered by an allowed, unexpired entry for purpose `registration`.
+R3-02 consumes them.
+
+### P3 Coverage
+`site_policy.coverage(kind, *, country=None, city=None, origin_city=None,
+today=None) -> {covered: bool, policy_ids:[str]}` never raises. R3-01 implements;
+R3-04 may use it to order origin chips; R3-05 may use it for friendly blocked reasons.
+
+### P4 Terminal reason codes
+`StepResult.reason_code` is optional: null or one of `no_site_coverage`,
+`policy_denied`, `date_mismatch`, `no_inventory`, `sold_out`,
+`registration_closed`, `login_required`, `captcha`, `consent_required`,
+`unreviewed_redirect`, `over_budget`, `step_limit`, `session_failed`, `timeout`,
+`unsafe_claim`, `provider_error`. R3-05 adds it in models/providers; hclient sets
+`result['reason_code']`. The UI maps it to a friendly FR/EN sentence plus next
+step and falls back to status when absent. Builder ValueError maps to blocked
+with `no_site_coverage`, or `policy_denied` when its message says denied, and
+a friendly summary. No result is upgraded to success.
+
+### P5 Live frame cadence
+R3-05/hclient attempts a new screenshot fetch every <=3 s while the H session
+is running, de-duplicated by image hash. Missing frames are never fabricated.
+R3 runtime caps `max_steps` at 80 and each agent at 10 minutes, with remote
+cancellation; it retries once on session failure only before progress.
+
+### P6 Mission language
+`Mission.language` is optional `'fr'|'en'`, from the latest guide turn language.
+R3-04 exposes `GuidedTurn.language`; R3-05 copies it; R3-03 localizes plan and
+agent cards, defaulting to browser/thread language when absent.

@@ -19,8 +19,7 @@ come from sources, never from an assumption the user must supply.
    confirmation; H preparation may not.
 3. After confirmation, start registration, hotel and transport H agents in
    parallel on appropriate real sites, not race-specific hard-coded paths.
-   Show all three working live using genuine authorized live views or streamed
-   screenshots and step logs. Desktop panels stack cleanly on mobile.
+   Show all three working live using genuine streamed screenshots and only short friendly status lines. Desktop panels stack cleanly on mobile.
 4. Stop before payment or any earlier prohibited action; hand off a safe public
    URL. A captcha, disallowed automation, missing inventory, required consent,
    form submission or account requirement is an honest blocker, not success.
@@ -35,21 +34,20 @@ not a substitute for design work.
 The conversation should feel natural in French and English, with chat bubbles,
 streaming-like replies, a bottom composer, one-click defaults and typed corrections.
 
-## Architecture and round-2 ownership
-- `runai/guide/`, `runai/discovery/`: guided FR/EN dialogue, adversarial
-  robustness, sourced Linkup recommendations, `registration_access` (R2-04).
-- `runai/agents/site_policy.py` + `docs/site-policy.json`: dated, fail-closed
-  site terms reviews; registration/hotel/transport builders with exact-date
-  deep links and kind-specific safe stops (R2-02).
-- `runai/agents/hclient.py`, `scrub.py`: private screenshot-only H runtime (no
-  public trace sharing), pre-run policy gate, verified outcomes (R2-03).
-- `static/`: premium chronological chat, ChatGPT-style suggestions, immediate
-  progress feedback and a screenshot-only three-agent live stage (R2-01).
-- `runai/app.py`, `models.py`, `providers.py`: background discovery API,
-  input redaction, confirmation gate, concurrent launch, honest fallbacks;
-  shared docs/contracts and the integrated live acceptance (R2-05).
+## Architecture and round-3 ownership
+- R3-01: site-policy registry fragments, registration adapter validation,
+  coverage(), reviewed exact-date hotel/transport adapters.
+- R3-02: registration builders and the registration registry fragment;
+  first personal-data page reached untouched.
+- R3-03: premium Strava UI, chronological ChatGPT-style suggestions, fresh
+  screenshot-only three-agent stage, friendly reason codes and FR/EN cards.
+- R3-04: guide/discovery robustness, distance chips, coverage-aware origins
+  and GuidedTurn.language; >=30 adversarial FR/EN conversations.
+- R3-05: core app/models/providers plus hclient/scrub, reason codes, language,
+  honest outcomes, fresh frames, runtime limits, shared docs and final acceptance.
 
-CONTRACTS.md (owned by R2-05) pins every cross-ticket interface.
+CONTRACTS.md (owned by R3-05) pins P1–P6. Import sibling modules lazily and
+fail closed when absent.
 
 ## Modes and truthfulness
 - `demo`: synthetic race options and simulated preparation; no keys.
@@ -67,18 +65,23 @@ does not prove this product works. Live success requires dated observed evidence
 ## Evaluation set and success criterion
 | Case | Runner's starting wish | What to establish |
 | --- | --- | --- |
-| Spring Italy marathon | « un marathon au printemps en Italie » | Propose real matching races and official dates |
-| Swiss summer trail | « un trail en Suisse cet été » | Different distance/type, country and season |
-| Lisbon half | « le semi de Lisbonne » | Resolve a named race's official edition/date |
-| Berlin spring 10k (EN) | "a 10k in Berlin in spring" | English conversation, short distance |
-| Spain February marathon | « un marathon en Espagne en février » | Winter month, different country |
+| Milan marathon | « le marathon de Milan au printemps » | Official April 2027 edition |
+| Lisbon half | « le semi de Lisbonne » | Official March 2027 edition |
+| Valencia 10K | « un 10 km en Espagne cet hiver » | Official January 2027 edition |
+| Swiss summer trail | « un trail en Suisse cet été » | Sourced summer edition/distance |
+| Freiburg half (EN) | "a half marathon in Germany next spring" | Official April 2027 edition |
+
+Default origin: Paris; also evaluate Lyon/Bruxelles/Genève against coverage().
+Prefer near-term editions for live acceptance: rail horizons are about
+3–6 months. Never invent dates or quietly substitute a named race.
 
 The exact live-success definition is in
 [docs/feedback/owner.md](docs/feedback/owner.md): assistant-proposed sourced
 date, explicit confirmation, three overlapping live H agents, changing on-page
 screenshots and verified safe pre-payment stops for all three. An earlier
 mandatory safety stop is a blocker. Never quietly swap a named request to force
-a pass. Round-2 target: at least two complete successes in different countries.
+a pass. Round-3 target: >=1 complete success, ideally Milan and Lisbon.
+Record >=5 cases in docs/eval/round-3-acceptance.md after the other four merge.
 
 ## Safety and evidence boundary
 The owner has approved read/prepare-only live H runs, not transactions. Never
@@ -86,16 +89,15 @@ pay, book, create accounts, accept terms/consent or medical declarations, submit
 forms, enter personal data or bypass captchas. Cookie banners may only be
 dismissed without consent. Prefer sites without captchas and whose terms permit
 agents; document the selection and stop honestly if authorization is unclear.
-No H API budget optimization should replace useful parallel live verification;
-respect each ticket's run limit. Never include secrets, tokens, private H URLs,
+H budget is not a constraint: run agents live in parallel whenever useful. Never include secrets, tokens, private H URLs,
 emails or personal data in code, fixtures, logs or evidence. Use only safe public
 handoff links and scrubbed evidence. Never claim unobserved results.
 
 ## Continuous implementation loop
 Each ticket has one branch/PR and non-overlapping allowed files listed in
-docs/tickets/index.json (validated by tests/test_r2_scope_contract.py). Round
-2: R2-01..R2-04 merge in any order; R2-05 integrates and certifies live last.
-R1-* and T* ticket files are history and grant no current scope.
+docs/tickets/index.json (validated by tests/test_r3_scope_contract.py). Round
+3: R3-01..R3-04 merge in any order; R3-05 integrates and certifies live last.
+R2-*, R1-* and T* ticket files are history and grant no current scope.
 
 Keep main green: Python 3.12, `uv sync --frozen`,
 `uv run ruff check . && uv run pytest -q`, including the journey E2E tests.

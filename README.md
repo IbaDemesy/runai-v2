@@ -9,19 +9,18 @@ editable travel defaults, and ask one focused question at a time. You do not
 need to know the race date.
 
 After explicit plan confirmation, three H Company browser agents prepare race
-registration, hotel and transport **in parallel**, with genuine live views or
-streamed screenshots and step logs, then hand off before payment or any earlier
+registration, hotel and transport **in parallel**, with genuine streamed screenshots and short friendly status lines, then hand off before payment or any earlier
 consent/commitment boundary. A premium, responsive Strava-inspired chat with
-chips, plan cards and three agent panels is the round-one UI goal.
+chips, plan cards and three agent panels is the design priority.
 The chat should feel natural in French and English, with streaming-like replies,
 a bottom composer and one-click defaults or free-text corrections.
 
-**Status:** round 1 integrated generic discovery, guided dialogue, live agents
-and the UI, but its live evaluation had 0/5 visible live successes
-([docs/eval/round-1.md](docs/eval/round-1.md)). Round 2 (R2-01..R2-05) fixes
-the owner feedback, site policy, screenshot-only live stage and honest stops;
-see [HANDOFF.md](HANDOFF.md) and [docs/eval/round-2.md](docs/eval/round-2.md)
-for the current evidence boundary. Milan is one evaluation case only.
+**Status:** round 2 recorded 0/5 visible live successes
+([docs/eval/round-2.md](docs/eval/round-2.md)). Round 3 (R3-01..R3-05)
+targets reviewed adapter coverage, coherent origins, honest H outcomes, fresh
+frames and Strava-grade FR/EN UX. Read [HANDOFF.md](HANDOFF.md) for the evidence
+boundary. R3-05 owns core/shared docs and final acceptance after the other four
+merge. Milan is one evaluation case only.
 
 ## Run locally (Python 3.12)
 ```sh
@@ -76,8 +75,9 @@ CI tests never call live providers. Live verification requires separate dated,
 scrubbed observed evidence. See [AGENTS.md](AGENTS.md) for scoped branch/PR and
 safety rules, [PLAN.md](PLAN.md) for the architecture/evaluation set,
 [CONTRACTS.md](CONTRACTS.md) for API contracts, and
-[docs/tickets/index.json](docs/tickets/index.json) for the current R2 queue.
-R1 and T01..T12 tickets are history. Keep main green; R2-01..R2-04 merge in
-any order, then R2-05 integrates and runs the live acceptance.
+[docs/tickets/index.json](docs/tickets/index.json) for the current round-3 queue.
+R2, R1 and T01..T12 tickets are history. Keep main green; R3-01..R3-04 merge
+in any order, then R3-05 runs final live acceptance on a rebased branch in
+docs/eval/round-3-acceptance.md.
 
 `render.yaml` is an unverified deployment blueprint, not a deployed URL.
