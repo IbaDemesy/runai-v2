@@ -82,12 +82,17 @@ class GuideEngine:
                            for value in re.findall(r"\d+(?:[.,]\d+)?", match[0]))
         return list(dict.fromkeys(value for value in numbers if value > 0))
 
-    def _pending_distances(self, state):
+    def _sourced_distances(self, state):
         race = state.draft.race
-        if self._eligible(race) and race.distance_km is None:
+        if race:
             return next((item["distances"] for item in state.hints.get("_race_distances", [])
                          if item["race_id"] == race.id), [])
         return []
+
+    def _pending_distances(self, state):
+        race = state.draft.race
+        return (self._sourced_distances(state)
+                if self._eligible(race) and race.distance_km is None else [])
 
     def _turn(self, state, message=None, error=None):
         d = state.draft
@@ -110,8 +115,8 @@ class GuideEngine:
             if d.race:
                 explanation = self._say(
                     state,
-                    "La date de cette course reste à confirmer ; choisissons une autre option.",
-                    "This race's date needs confirmation; let's try another option.",
+                    "Les sources actuelles ne permettent pas de confirmer la date de cette course ; choisissons une autre option.",
+                    "This race's date cannot be confirmed from the current sources; let's try another option.",
                 )
                 message = (message + " " if message else "") + explanation
                 chips.append(
@@ -220,7 +225,7 @@ class GuideEngine:
                                  " Synthetic dates, not live-verified.")
         if d.race:
             message += self._access_warning(state, d.race)
-            if d.race.distance_km is None and not self._pending_distances(state):
+            if d.race.distance_km is None and not self._sourced_distances(state):
                 message += self._say(state, " Distance inconnue dans les sources.",
                                      " Distance is unknown in the sources.")
         if d.race and d.race.date_status == "unverified":

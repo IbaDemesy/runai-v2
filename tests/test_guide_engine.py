@@ -440,7 +440,9 @@ def test_unverified_distance_race_keeps_valid_alternatives_visible(lang):
     assert state.stage == "choose_race"
     assert not turn.ready_to_confirm
     assert turn.question == ("Laquelle te tente ?" if lang == "fr" else "Which one catches your eye?")
-    assert ("reste à confirmer" if lang == "fr" else "needs confirmation") in turn.message
+    assert ("ne permettent pas de confirmer" if lang == "fr" else "cannot be confirmed") in turn.message
+    assert ("Distance inconnue" if lang == "fr" else "Distance is unknown") not in turn.message
+    assert state.draft.race.distance_label == "16–111 km"
     alternative = next(chip for chip in turn.suggestions if chip.value == "official-trail")
     assert alternative.kind == "choose_race"
     assert not any(chip.value.endswith(" km") for chip in turn.suggestions)
