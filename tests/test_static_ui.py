@@ -1,5 +1,9 @@
+import json
 import re
+import subprocess
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 HTML = (ROOT / "static/index.html").read_text()
@@ -97,3 +101,180 @@ def test_guided_mission_contract():
     assert "p.departure_date" in JS
     assert "api('/api/health')" in JS
     assert "health.live_ready" in JS
+
+
+DOM_HARNESS = r"""
+const assert = require('node:assert/strict');
+const vm = require('node:vm');
+const {source, scenario} = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
+class Element {
+  constructor(tag, className = '') {
+    Object.assign(this, {tag, className, children: [], dataset: {}, style: {},
+      hidden: false, disabled: false, value: '', ownText: ''});
+    this.classList = {
+      add: name => { this.className += ' ' + name; },
+      remove: name => { this.className = this.className.split(' ').filter(x => x !== name).join(' '); }
+    };
+  }
+  set textContent(value) { this.replaceChildren(); this.ownText = String(value); }
+  get textContent() { return this.ownText + this.children.map(x => x.textContent).join(''); }
+  append(...items) {
+    for (const child of items) { child.remove(); child.parent = this; this.children.push(child); }
+  }
+  remove() {
+    if (this.parent) this.parent.children = this.parent.children.filter(x => x !== this);
+    this.parent = null;
+  }
+  replaceChildren(...items) {
+    for (const child of [...this.children]) child.remove();
+    this.ownText = '';
+    this.append(...items);
+  }
+  setAttribute(name, value) { this[name] = value; }
+  matches(selector) {
+    const parts = selector.trim().split(/\s+/);
+    const last = parts.pop();
+    const attribute = /^\[data-(\w+)="([^"]+)"\]$/.exec(last);
+    const match = last.startsWith('.') ? this.className.split(/\s+/).includes(last.slice(1))
+      : attribute ? this.dataset[attribute[1]] === attribute[2] : this.tag === last;
+    if (!match || !parts.length) return match;
+    for (let p = this.parent; p; p = p.parent) if (p.matches(parts.join(' '))) return true;
+    return false;
+  }
+  querySelectorAll(selector) {
+    const descendants = this.children.flatMap(x => [x, ...x.querySelectorAll('*')]);
+    return selector === '*' ? descendants
+      : descendants.filter(x => selector.split(',').some(s => x.matches(s)));
+  }
+  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+}
+const root = new Element('main');
+const ids = {};
+for (const id of ['mode', 'send', 'message', 'toast', 'thread', 'welcome',
+                  'agents', 'workspace', 'composer', 'mode-badge', 'live-hint']) {
+  ids[id] = new Element(id === 'message' ? 'textarea' : 'div');
+  root.append(ids[id]);
+}
+ids.mode.value = 'demo';
+ids.agents.hidden = ids.toast.hidden = true;
+ids.toast.append(new Element('p'), new Element('button'));
+const kinds = ['registration', 'hotel', 'transport'];
+for (const kind of kinds) {
+  const card = new Element('article', 'agent');
+  card.dataset.agent = kind;
+  for (const cls of ['status', 'preview', 'steps', 'handoff']) card.append(new Element('div', cls));
+  ids.agents.append(card);
+}
+const document = {
+  getElementById: id => { assert.ok(ids[id], id); return ids[id]; },
+  createElement: tag => new Element(tag),
+  querySelectorAll: selector => root.querySelectorAll(selector),
+  querySelector: selector => root.querySelector(selector)
+};
+const responses = [], calls = [], timers = [];
+const respond = (path, data, status = 200) => responses.push({path, data, status});
+respond('/api/health', {mode: 'demo', live_ready: {linkup: false, h: false}});
+vm.runInNewContext(source, {document, URL,
+  location: {href: 'https://runai.example/', origin: 'https://runai.example'},
+  matchMedia: () => ({matches: true}),
+  setTimeout: fn => { timers.push(fn); return timers.length; },
+  clearTimeout: () => {},
+  fetch: async (path, options) => {
+    calls.push({path, body: options?.body && JSON.parse(options.body)});
+    const response = responses.shift();
+    assert.ok(response, 'Unexpected request: ' + path);
+    assert.equal(path, response.path);
+    return {ok: response.status < 400, json: async () => response.data};
+  }
+});
+const flush = async () => { for (let i = 0; i < 5; i++) await new Promise(setImmediate); };
+const submit = async value => {
+  ids.message.value = value;
+  ids.composer.onsubmit({preventDefault() {}});
+  await flush();
+};
+const turn = ready => ({message: ready ? 'Plan prêt' : 'Choisissez une course',
+  question: ready ? null : 'Laquelle ?', error: null, ready_to_confirm: ready,
+  candidates: [{name: 'Course synthétique', race_date: '2027-04-08', distance_km: 42.195}],
+  draft: ready ? {race: {name: 'Course synthétique', race_date: '2027-04-08'},
+    origin_city: 'Paris', nights: 2, budget_eur: 450} : {},
+  suggestions: [{id: 'choice', label: 'Choisir', kind: 'choose_race', provenance: 'synthetic'}]});
+const mission = ready => ({id: 'test-mission', turns: [turn(ready)], events: [], results: []});
+(async () => {
+  await flush();
+  if (scenario === 'empty') {
+    await submit('   ');
+    assert.equal(calls.length, 1);
+    assert.equal(root.querySelectorAll('.message').length, 0);
+    respond('/api/missions', {id: 'test-mission', turns: [{}]});
+    await submit('une course');
+    assert.ok(ids.thread.textContent.includes('Aucune proposition pour le moment'));
+    assert.equal(root.querySelector('.confirm'), null);
+    assert.equal(ids.agents.hidden, true);
+  } else {
+    respond('/api/missions', mission(scenario === 'error'), 201);
+    await submit('un marathon au printemps');
+    assert.deepEqual(calls[1].body, {text: 'un marathon au printemps', mode: 'demo'});
+    assert.ok(ids.thread.textContent.includes('Course synthétique'));
+    assert.equal(ids.agents.hidden, true);
+    const choice = root.querySelector('.chip');
+    if (scenario === 'error') {
+      const controls = root.querySelectorAll('.chips,.confirm-area');
+      respond('/api/missions/test-mission/messages', {detail: 'Choix invalide'}, 422);
+      await choice.onclick();
+      assert.equal(ids.toast.hidden, false);
+      assert.equal(ids.toast.querySelector('p').textContent, 'Choix invalide');
+      for (const control of controls) assert.ok(control.parent, 'Retry control was removed');
+      assert.equal(choice.disabled, false);
+      assert.equal(root.querySelector('.confirm').disabled, false);
+      respond('/api/missions/test-mission/messages', mission(false));
+      await choice.onclick();
+      assert.deepEqual(calls.at(-1).body, {suggestion_id: 'choice'});
+      assert.ok(controls.every(control => !control.parent));
+      assert.equal(ids.toast.hidden, true);
+      assert.equal(ids.send.disabled, false);
+    } else {
+      assert.equal(root.querySelector('.confirm'), null);
+      respond('/api/missions/test-mission/messages', mission(true));
+      await choice.onclick();
+      assert.deepEqual(calls.at(-1).body, {suggestion_id: 'choice'});
+      assert.ok(ids.thread.textContent.includes('450 €'));
+      assert.equal(ids.agents.hidden, true);
+      respond('/api/missions/test-mission/confirm', {...mission(true), status: 'running'}, 202);
+      const events = kinds.map((kind, i) => ({sequence: i + 1, type: 'live_frame', kind,
+        frame_id: 'frame-' + kind, observed_at: '2026-11-08T20:00:00Z'}));
+      respond('/api/missions/test-mission/events?after=0', events);
+      respond('/api/missions/test-mission', {status: 'completed', events,
+        results: kinds.map(kind => ({kind, status: 'ready_for_payment',
+          handoff_url: 'https://example.org/' + kind, summary: 'Synthétique'}))});
+      await root.querySelector('.confirm').onclick();
+      await flush();
+      assert.deepEqual(calls.find(x => x.path.endsWith('/confirm')).body, {confirmed: true});
+      assert.equal(ids.agents.hidden, false);
+      for (const kind of kinds) {
+        const card = root.querySelector(`[data-agent="${kind}"]`);
+        assert.equal(card.querySelector('.status').dataset.status, 'ready_for_payment');
+        assert.equal(card.querySelector('img').src, '/api/frames/frame-' + kind);
+        assert.equal(card.querySelector('.handoff').querySelector('a').href, 'https://example.org/' + kind);
+      }
+      assert.equal(timers.length, 0, 'Terminal snapshot must stop polling');
+      assert.equal(root.querySelector('.confirm'), null);
+      assert.equal(ids.toast.hidden, true);
+    }
+  }
+  assert.equal(responses.length, 0, 'All expected responses must be consumed');
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+
+
+@pytest.mark.parametrize("scenario", ["normal", "empty", "error"])
+def test_executable_chat_paths(scenario):
+    result = subprocess.run(
+        ["node", "-e", DOM_HARNESS],
+        input=json.dumps({"source": JS, "scenario": scenario}),
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
