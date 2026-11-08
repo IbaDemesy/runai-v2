@@ -1,59 +1,157 @@
-# Contracts
+# Generic guided-mission contract
 
-Executable source: runai/models.py; Pydantic v2, extra fields forbidden.
-OpenAPI: /docs. Provider protocols: runai/providers.py.
+Pydantic v2 schemas: `runai/models.py`; unknown request/model fields are forbidden.
+The product supports any discoverable race. Milan is one evaluation, not a path.
+No agent starts before explicit confirmation. No purchase, booking, account,
+consent, personal-data entry, form submission or captcha bypass is permitted.
 
-- Framing: race, race_date, origin_city, nights (1–14), budget_eur (>0).
-- JourneyPlan: framing, departure, return_date, sites keyed by Kind.
-- Kind: registration | hotel | transport.
-- StepResult: kind, status (ready_for_payment | failed), summary, handoff_url,
-  error, synthetic, payment_executed (literal false).
-- Event: sequence, type (confirmed | step_started | step_finished), kind,
-  message, synthetic. Ordered per mission, no external provider evidence implied.
-- Mission: id, mode, synthetic, description, plan, confirmed, status, results, events.
-- SearchProvider.search(Framing) -> JourneyPlan (async).
-- AgentRunner.run(Kind, JourneyPlan) -> StepResult (async).
-- VoiceProvider.transcribe(bytes) -> str (async).
+## Dependency injection and lazy defaults
+
+`create_app(*, guide=None, runner_factory=None, replay_path=None)` creates an
+isolated in-memory store. Sibling-ticket modules are imported only at request
+time, never on module import. Missing modules/keys produce explicit HTTP 501;
+live never falls back to synthetic results.
+
+- `guide.start(text)` asynchronously returns `(state, turn)`.
+- `guide.step(state, {text?, suggestion_id?})` returns `(state, turn)`.
+- State can be a Pydantic model or dict. Its `trip` is the builder input; when
+  absent, the ready turn's `draft` is the complete trip. When the engine exposes
+  `trip_payload(state)`, its clean payload is preferred for ready plans. State is private to the
+  mission. Turns are serialized with FastAPI's JSON encoder.
+- `runner_factory(mode)` supplies an object with asynchronous
+  `run(kind, trip: dict, emit: async callable(dict)) -> StepResult`.
+  The factory is called independently for each concurrent kind; it may return
+  a shared instance. Tests inject fakes and never contact providers.
+- demo: `runai.guide.GuideEngine(runai.guide.fake.FakeDiscovery())`, `FakeRunner`.
+- replay: same guide, `ReplayRunner(replay_path)` (default checked-in fixture).
+- live: `GuideEngine(runai.discovery.linkup.discover)` and `LiveRunner`.
+  Core binds discovery's `timeout_s=120` for deep searches: observed official
+  race discovery takes longer than the provider's 20-second default. This is
+  still real discovery; errors remain visible and never fall back to fakes.
+  The live wrapper translates guide `months` to `month_from/month_to` (retaining
+  a winter wraparound such as 12 -> 2) and `named` to `race_name`.
+  Discovery needs `LINKUP_API_KEY`; confirmation needs `HAI_API_KEY` and all H
+  task/client modules. Keys are read from environment only, never returned.
+
+## JSON shapes
+
+`Mode`: `demo | replay | live`; `Kind`: `registration | hotel | transport`.
+
+`GuidedTurn` (owned by the guide):
+
+```text
+{message, question: string|null,
+ suggestions: [{id,label,value,kind,provenance}], candidates: [RaceOption],
+ draft, ready_to_confirm: boolean, error: string|null}
+```
+
+At most one focused question, clickable chips, and proposed official dates:
+the user does not need to supply a date. Suggested origin/nights/budget are
+clearly distinct from sourced race facts. No-results/date conflicts remain
+visible; they must not silently become invented dates.
+
+Complete trip dict passed to task builders:
+
+```text
+{race: {id,name,edition,distance_km,distance_label,race_date,date_status,
+        city,country,official_url,registration_url,source_urls,retrieved_at,synthetic},
+ origin_city, travelers, nights, budget_eur, arrival_date, departure_date}
+```
+
+Dates are ISO dates; retrieval/event timestamps are ISO datetimes. RaceOption is
+the `race` object above, defined and validated by discovery/guide modules.
+
+`StepResult`: `{kind,status,summary,handoff_url?,start_url?,final_url?,
+live_view_url?,error?,synthetic,payment_executed:false}`.
+Statuses: `ready_for_payment | blocked | failed`. `ready_for_payment` requires
+a genuine handoff URL. `payment_executed` is literal false; no paid status exists.
+Demo/replay handoffs are only official public homepages, **not prepared carts**.
+
+`Event`: `{sequence,type,kind?,message,synthetic,observed_at,recorded_at?,
+frame_id?,live_view_url?}`. Sequence is increasing from 1 per mission. Types:
+`turn | confirmed | step_started | step_progress | live_view_available |
+live_frame | step_finished`. `observed_at` is current UTC observation time;
+`recorded_at` preserves original replay time. Frame bytes never enter mission JSON.
+
+`Mission`: `{id,mode,synthetic,status,turns: [dict],trip: dict|null,
+results: [StepResult],events: [Event]}`. No frozen framing or TARGET constant.
+Statuses: `guiding -> ready -> running -> completed | partial | failed`.
+`completed` means all three ready; `partial` means one/two ready; `failed`
+means none ready (including three blocked outcomes). Individual blockers remain
+visible in results. Synthetic is true for demo/replay, false for live.
 
 ## HTTP
-POST /api/missions {description, mode?}: 201, fixed framing, no agents yet.
-POST /api/missions/{id}/reply {framing}: acknowledge frozen framing; 422 if changed.
-POST /api/missions/{id}/confirm {confirmed:true}: await three concurrent runners.
-GET /api/missions/{id}: poll status, results and ordered events during preparation.
-404 unknown mission; 422 invalid input; 400 missing explicit confirmation;
-409 already confirmed; 501 unavailable live search (missing implementation/key).
-Runner failures produce failed StepResults rather than success fallbacks.
 
-## Planned contract evolution (T02/T03/T07/T08; not implemented yet)
-- RaceOption: id, race name, edition, distance_km, official race_date,
-  official_url, registration_url if verified, source URLs, retrieved_at,
-  synthetic. Unknown or conflicting dates are explicit, never guessed facts.
-- Suggestion: id, label, action/value, provenance (source | suggested_default),
-  source URLs if factual. Chips select an option or answer the current question.
-- GuidedTurn: assistant message, candidate options, suggestions, at most one
-  focused question, partial framing, selected option, confirmation_required.
-  Origin/nights/budget defaults are editable and distinct from official facts.
-- SearchProvider discovery accepts vague intent before complete Framing exists;
-  T03 supplies official race candidates to T02's guided assistant. Demo uses
-  labelled synthetic candidates; no-results/conflicts/errors ask one useful
-  follow-up, never require the runner to know the official date.
-- AgentLiveFrame: mission_id, kind, sequence, observed_at, mode, synthetic,
-  frame_url or real public live_view_url/share_url, step message, availability.
-  Extend events with live_frame/live_view_available/step_progress in T07/T08.
-  Serve only scrubbed, authorized public URLs/frames, no private H session URLs.
-  Record frames for replay, label replay/synthetic provenance and original time;
-  missing frames show unavailable, not animated or fabricated live footage.
-- T03 defines shared adapter interface/export and registry hooks in
-  runai/adapters/__init__.py and providers.py. T04/T05/T06 implement isolated
-  modules against it; T07 integrates without forcing cross-ticket file edits.
-  Voice adapters/UI module are isolated by T09; T08 owns app/UI wiring.
-- Existing HTTP/schema notes above describe bootstrap only. T02/T03 document
-  their guided-turn requests/responses here; T07/T08 document frame polling or
-  streaming. Plan confirmation remains mandatory before H actions.
+| Request | Response |
+| --- | --- |
+| `POST /api/missions {text, mode?}` | 201 Mission with first guided turn |
+| `POST /api/missions/{id}/messages {text?,suggestion_id?}` | 200 updated Mission |
+| `POST /api/missions/{id}/confirm {confirmed:true}` | **202**, running Mission; background preparation |
+| `GET /api/missions/{id}` | 200 current Mission, results and ordered events |
+| `GET /api/missions/{id}/events?after=N` | 200 event array with sequence strictly greater than N |
+| `GET /api/frames/{frame_id}` | image bytes with MIME, no-store/nosniff and restrictive CSP |
+| `GET /api/health` | `{mode,live_ready:{linkup:bool,h:bool}}`; booleans indicate key presence only |
+| `GET /`, `GET /static/*` | index.html / static assets |
 
-## Safety and limitations
-In-memory store, single process, no restart durability or authentication.
-No purchase/submit API exists. Live adapters must enforce pre-consent stops in
-their actual browser tools; a result schema alone is not a live safety boundary.
-Replay schema_version 1: provenance synthetic, results array with all three kinds.
-Homepage handoffs carry no prepared cart; no invented live view URLs.
+400: confirmation is false. 404: unknown mission/frame. 409: plan not ready,
+duplicate confirmation, or message after confirmation. 422: invalid/empty text,
+empty message (both answer fields absent/blank), unknown mode, invalid guide
+answer, non-boolean confirmation, negative event cursor. Both text and chip may
+be sent together for guide-defined interpretation. Server `RUNAI_MODE` defaults
+to demo; an unknown value raises a clean startup ValueError, not a request 500.
+501: missing guide/live modules or required keys. Legacy `/reply` is removed.
+
+Confirmation launches three asyncio tasks concurrently without waiting for them.
+Each emits started/progress/frames/finished independently. Exceptions are isolated
+as visible failed results; their raw text is not returned (may contain secrets).
+Startup is single-process; shutdown cancels pending preparation tasks. The API
+does not persist state across restarts or expose authentication; production
+storage, quotas and authenticated access remain out of scope.
+
+## Frames and live adapter boundary
+
+`FakeRunner` emits three labelled SVG frames per kind and progress events.
+SVG contains no third-party URLs or user-provided HTML. Live frames accept only
+PNG/JPEG/WebP/GIF; maximum frame size is 5 MiB. Unsupported/empty frames become
+an explicit unavailable progress message, never fabricated live footage.
+The process retains at most 256 frames / 32 MiB, evicting the oldest across
+missions. Evicted frame IDs return 404; clients should keep the latest frame
+and treat expired earlier footage as unavailable rather than re-create it.
+
+Live adapter: `runai.agents.<kind>.build_task(trip)` followed by
+`runai.agents.hclient.HAgentRunner().run(task, on_event)`. Callback events:
+`{type:"step_progress",message}`, `{type:"live_view_available",live_view_url}`,
+`{type:"live_frame",image:bytes,mime,message?}`. Kind is assigned by the core,
+not trusted from provider events. Only supported event types are forwarded.
+Public authorized view URLs/frames and scrubbed step logs are the H client's
+responsibility: never expose private H session URLs, tokens or personal data.
+Core event/result validators also suppress credential/session/token URLs and
+private H paths. Only the documented HTTPS regional H share path
+`/share/api/v1/trajectories/{id}` is permitted for H-hosted public links.
+The three task builders enforce site-specific pre-consent/pre-commitment stops;
+the response schema is not itself a browser safety boundary.
+
+`build_task` ValueError maps to blocked with the race official registration
+page or genuine public hotel/transport homepage. H blocked results use the
+task's `fallback_url` for manual continuation. Other exceptions become failed,
+without synthetic success fallback; malformed ready results fail validation.
+
+## Replay schema v2
+
+`fixtures/synthetic-journey.json`:
+
+```text
+{schema_version:2, provenance:"synthetic", agents:{
+ registration:{result:StepResult,steps:[{recorded_at,message,frame?:"<svg ...>SYNTHETIC...</svg>"}]},
+ hotel:{result:StepResult,steps:[...]}, transport:{result:StepResult,steps:[...]}
+}}
+```
+
+All three kinds required, result kind/provenance validated, payment false;
+step timestamps must be ordered and timezone-aware. Other versions/provenance
+are rejected. Original recorded timestamps appear on progress/frame events;
+observed time remains current. Missing/corrupt/invalid replay files fail all
+three steps visibly after 202 rather than causing an HTTP 500. Replay frames
+are recorded synthetic illustrations and never evidence of a live booking.
+Registration's manual homepage handoff follows the currently selected race,
+not the example race in the synthetic recording; its summary states this.

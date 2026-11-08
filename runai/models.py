@@ -1,8 +1,45 @@
-from datetime import date
+import re
+from datetime import UTC, datetime
 from enum import StrEnum
+from ipaddress import ip_address
 from typing import Literal
+from urllib.parse import parse_qsl, unquote, urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
+
+
+def public_url(value):
+    if value is None:
+        return None
+    url = str(value)
+    try:
+        parsed = urlsplit(url)
+        host = parsed.hostname or ""
+        if parsed.scheme not in {"http", "https"} or not host:
+            return None
+        if parsed.username or parsed.password or parsed.fragment or parsed.port not in {None, 80, 443}:
+            return None
+        if host == "localhost" or host.endswith((".localhost", ".local", ".internal")):
+            return None
+        try:
+            if not ip_address(host).is_global:
+                return None
+        except ValueError:
+            pass
+        if any(re.search(r"token|session|sid|auth|key|signature|email", name, re.IGNORECASE)
+               for name, _ in parse_qsl(parsed.query)):
+            return None
+        if re.search(r"jsessionid|(?:token|session|auth|key)=", unquote(parsed.path), re.IGNORECASE):
+            return None
+        if (host == "hcompany.ai" or host.endswith(".hcompany.ai")) and not (
+            parsed.scheme == "https" and host in {"agp.eu.hcompany.ai", "agp.hcompany.ai"}
+            and re.fullmatch(r"/share/api/v1/trajectories/[\w-]+", parsed.path)
+            and not parsed.query
+        ):
+            return None
+        return url
+    except ValueError:
+        return None
 
 
 class Model(BaseModel):
@@ -21,48 +58,56 @@ class Kind(StrEnum):
     transport = "transport"
 
 
-class Framing(Model):
-    race: str = Field(min_length=1)
-    race_date: date
-    origin_city: str = Field(min_length=1)
-    nights: int = Field(ge=1, le=14)
-    budget_eur: float = Field(gt=0, le=100000)
-
-
-class JourneyPlan(Model):
-    framing: Framing
-    departure: date = date(2027, 4, 3)
-    return_date: date = date(2027, 4, 5)
-    sites: dict[Kind, HttpUrl]
-
-
 class StepResult(Model):
     kind: Kind
-    status: Literal["ready_for_payment", "failed"]
+    status: Literal["ready_for_payment", "blocked", "failed"]
     summary: str
     handoff_url: HttpUrl | None = None
+    start_url: HttpUrl | None = None
+    final_url: HttpUrl | None = None
+    live_view_url: HttpUrl | None = None
     error: str | None = None
     synthetic: bool
     payment_executed: Literal[False] = False
 
+    @field_validator("handoff_url", "start_url", "final_url", "live_view_url", mode="before")
+    @classmethod
+    def only_public_urls(cls, value):
+        return public_url(value)
+
+    @model_validator(mode="after")
+    def require_handoff(self):
+        if self.status == "ready_for_payment" and self.handoff_url is None:
+            raise ValueError("ready_for_payment requires a handoff_url")
+        return self
+
 
 class Event(Model):
-    sequence: int
-    type: Literal["confirmed", "step_started", "step_finished"]
+    sequence: int = Field(ge=1)
+    type: Literal[
+        "turn", "confirmed", "step_started", "step_progress", "live_view_available",
+        "live_frame", "step_finished",
+    ]
     kind: Kind | None = None
     message: str
     synthetic: bool
+    observed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    recorded_at: datetime | None = None
+    frame_id: str | None = None
+    live_view_url: HttpUrl | None = None
+
+    @field_validator("live_view_url", mode="before")
+    @classmethod
+    def only_public_view(cls, value):
+        return public_url(value)
 
 
 class Mission(Model):
     id: str
     mode: Mode
     synthetic: bool
-    description: str
-    plan: JourneyPlan
-    confirmed: bool = False
-    status: Literal["awaiting_confirmation", "running", "completed", "failed"] = (
-        "awaiting_confirmation"
-    )
+    status: Literal["guiding", "ready", "running", "completed", "partial", "failed"] = "guiding"
+    turns: list[dict] = Field(default_factory=list)
+    trip: dict | None = None
     results: list[StepResult] = Field(default_factory=list)
     events: list[Event] = Field(default_factory=list)
