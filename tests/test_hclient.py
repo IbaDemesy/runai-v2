@@ -204,6 +204,8 @@ def test_no_safe_https_handoff_downgrades_to_blocked(url):
     "Payment executed", "The booking was confirmed", "I paid the entry fee",
     "We have booked a room", "Purchase completed", "Paiement effectué",
     "Payment has been successfully processed", "I completed the purchase",
+    "No form submitted, but I paid", "No account created and booking completed",
+    "No payment executed, but I booked the room",
 ])
 def test_payment_claim_fails_and_cancels(claim):
     provider = Provider(answer={**ANSWER, "reached_step": claim})
@@ -222,8 +224,11 @@ def test_unsafe_progress_cancels_before_emitting_claim():
     assert "I booked" not in repr(events)
 
 
-def test_negative_payment_claim_is_not_an_execution_claim():
-    result, _ = run(Provider(answer={**ANSWER, "reached_step": "No payment executed. Not booked."}))
+@pytest.mark.parametrize("text", [
+    "No payment executed. Not booked.", "I never booked the hotel", "I have not yet paid the fee",
+])
+def test_negative_payment_claim_is_not_an_execution_claim(text):
+    result, _ = run(Provider(answer={**ANSWER, "reached_step": text}))
     assert result["status"] == "ready_for_payment"
 
 

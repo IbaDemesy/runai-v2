@@ -92,8 +92,12 @@ def _payment_claim(value: object) -> bool:
         return False
     for sentence in re.split(r"[.!?;\n]", value):
         for match in _PAYMENT.finditer(sentence):
-            context = sentence[max(0, match.start() - 40):match.end()]
-            if not re.search(r"\b(?:no|not|never|without|before|aucun|pas)\b", context, re.IGNORECASE):
+            prefix = sentence[:match.start()]
+            if not re.search(
+                r"\b(?:no|not|never|without|before|aucun|pas)"
+                r"(?:\s+(?:yet|actually|ever|any|real|actual))?\s*$",
+                prefix, re.IGNORECASE,
+            ):
                 return True
     return False
 
