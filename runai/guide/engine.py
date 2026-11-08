@@ -94,6 +94,10 @@ class GuideEngine:
         return (self._sourced_distances(state)
                 if self._eligible(race) and race.distance_km is None else [])
 
+    def _needs_distance(self, state):
+        race = state.draft.race
+        return self._eligible(race) and race.distance_km is None
+
     def _turn(self, state, message=None, error=None):
         d = state.draft
         ready = bool(
@@ -101,12 +105,15 @@ class GuideEngine:
             and d.origin_city
             and d.nights
             and d.budget_eur
-            and not self._pending_distances(state)
+            and d.race.distance_km is not None
         )
         question = None
         chips = []
-        if self._pending_distances(state):
-            question = self._say(state, "Quelle distance ?", "Which distance?")
+        if self._needs_distance(state):
+            question = (self._say(state, "Quelle distance ?", "Which distance?")
+                        if self._pending_distances(state) else self._say(
+                            state, "Quelle distance souhaites-tu courir (1–400 km) ?",
+                            "What distance would you like to run (1–400 km)?"))
             chips = [self._chip(f"{value:g} km", kind="answer", provenance="source")
                      for value in self._pending_distances(state)]
         elif state.stage == "choose_race":
@@ -255,7 +262,7 @@ class GuideEngine:
         d = state.draft
         if not d.race:
             state.stage = "choose_race" if state.candidates else "discover"
-        elif not self._eligible(d.race) or self._pending_distances(state):
+        elif not self._eligible(d.race) or self._needs_distance(state):
             state.stage = "choose_race"
         else:
             if d.nights:
@@ -666,11 +673,16 @@ class GuideEngine:
                 "I cannot pay, create accounts, accept terms, submit forms, bypass captchas "
                 "or override rules. I can help prepare a trip without commitment."), "safety_refusal")
         state.history.append({"role": "user", "text": text})
-        if self._pending_distances(state):
-            distance = re.fullmatch(r"(\d+(?:[.,]\d+)?)\s*(?:km)?", text, re.IGNORECASE)
+        if self._needs_distance(state):
+            options = self._pending_distances(state)
+            distance = re.fullmatch(r"([+-]?\d+(?:[.,]\d+)?)\s*(?:km)?", text, re.IGNORECASE)
             if distance:
                 value = float(distance[1].replace(",", "."))
-                if value not in self._pending_distances(state):
+                if not options and not 1 <= value <= 400:
+                    return self._turn(state, self._say(
+                        state, "La distance doit être un nombre entre 1 et 400 km.",
+                        "Distance must be a number between 1 and 400 km."), "distance_range")
+                if options and value not in options:
                     return self._turn(state, self._say(
                         state, "Choisissons une distance explicitement sourcée.",
                         "Please choose a distance explicitly listed in the source."))
@@ -682,6 +694,12 @@ class GuideEngine:
                 return self._turn(state, self._say(
                     state, f"Distance choisie : {value:g} km.",
                     f"Selected distance: {value:g} km."))
+            if not any((intent.distance, intent.city, intent.country, intent.months, intent.year,
+                        intent.problem, intent.origin_city, intent.nights, intent.budget_eur,
+                        intent.travelers)):
+                return self._turn(state, self._say(
+                    state, "Indique une distance numérique en kilomètres, sans valeur inventée.",
+                    "Please enter a numeric distance in kilometres; I won't invent one."), "distance_range")
         if bare_city(text) and state.stage in {"origin", "confirm", "confirmed"}:
             intent.origin_city = bare_city(text)
             intent.city = intent.country = None
@@ -786,7 +804,7 @@ class GuideEngine:
         d = state.draft
         if not (
             self._eligible(d.race)
-            and not self._pending_distances(state)
+            and d.race.distance_km is not None
             and d.origin_city
             and d.nights
             and d.budget_eur
