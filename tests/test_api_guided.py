@@ -304,3 +304,57 @@ def test_frame_store_is_bounded_across_finished_missions(monkeypatch):
             available = [fid for fid in ids if c.get(f"/api/frames/{fid}").status_code == 200]
             assert available == ids[-2:]
             previous = available
+
+
+def test_default_live_guide_and_builder_contracts_without_network(monkeypatch):
+    import importlib
+
+    pytest.importorskip("runai.guide")
+    original = importlib.import_module
+    calls = []
+
+    async def discover(query, hints, *, timeout_s):
+        assert timeout_s == 120
+        race = deepcopy(TRIP["race"])
+        race["synthetic"] = False
+        return [race]
+
+    class HClient:
+        async def run(self, task, on_event):
+            calls.append(task["kind"])
+            await on_event({"type": "step_progress", "message": "Injected offline client"})
+            return {"status": "blocked", "summary": "Injected offline client stopped",
+                    "handoff_url": task["fallback_url"]}
+
+    def modules(name):
+        if name == "runai.discovery.linkup":
+            return SimpleNamespace(discover=discover)
+        if name == "runai.agents.hclient":
+            return SimpleNamespace(HAgentRunner=HClient)
+        return original(name)
+
+    monkeypatch.setattr("runai.app.importlib.import_module", modules)
+    monkeypatch.setenv("LINKUP_API_KEY", "test-only-placeholder")
+    monkeypatch.setenv("HAI_API_KEY", "test-only-placeholder")
+    with TestClient(create_app()) as client:
+        response = client.post("/api/missions", json={"text": "le semi de Lisbonne", "mode": "live"})
+        assert response.status_code == 201, response.text
+        mission = response.json()
+        url = f"/api/missions/{mission['id']}"
+        for _ in range(12):
+            turn = mission["turns"][-1]
+            if turn["ready_to_confirm"]:
+                break
+            assert turn["suggestions"], turn
+            response = client.post(url + "/messages", json={
+                "suggestion_id": turn["suggestions"][0]["id"],
+            })
+            assert response.status_code == 200, response.text
+            mission = response.json()
+        assert mission["status"] == "ready"
+        assert mission["trip"]["race"]["distance_label"] == "Semi-marathon"
+        assert client.post(url + "/confirm", json={"confirmed": True}).status_code == 202
+        result = terminal(client, url)
+        assert set(calls) == {kind.value for kind in Kind}
+        assert all(step["status"] == "blocked" for step in result["results"])
+        assert all(not step["payment_executed"] for step in result["results"])
