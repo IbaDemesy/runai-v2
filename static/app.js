@@ -172,7 +172,7 @@
     reply.inner.querySelectorAll('.pending').forEach(el => el.remove());
     reply.bubble.textContent = redact(turn.assistant_message || 'Aucune proposition pour le moment. Essayons une autre envie de course.');
     if (turn.plan) reply.inner.append(planCard(turn.plan, turn.ready_to_confirm));
-    else if (turn.candidates.length) reply.inner.append(candidates(turn.candidates));
+    if (turn.candidates.length && (!turn.plan || !['official', 'unverified'].includes(turn.plan.race.date_status))) reply.inner.append(candidates(turn.candidates));
     if (turn.question) reply.inner.append(node('p', 'question', turn.question));
     const chips = node('div', 'chips'); chips.dataset.testid = 'chips';
     for (const suggestion of turn.suggestions) {

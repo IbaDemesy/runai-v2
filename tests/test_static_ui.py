@@ -148,6 +148,12 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     assert.ok(root.querySelector('.confirm')); assert.equal(ids.agents.hidden, true);
     assert.ok(root.querySelector('.chip').disabled);
     assert.equal(root.querySelectorAll('.assistant').length, 2);
+  } else if (scenario === 'uncertain') {
+    const result = mission(false); result.turns[0].draft = {race: {...race, race_date: null, date_status: 'unknown'}};
+    respond('/api/missions', result); await submit('une course');
+    const inner = root.querySelector('.assistant').querySelector('.message-content');
+    assert.deepEqual(inner.children.map(x => x.className), ['message-name', 'bubble', 'plan-card', 'candidates', 'question', 'chips']);
+    assert.equal(root.querySelector('.confirm'), null);
   } else if (scenario === 'english') {
     const english = mission(false); english.turns[0].message = "Here's your race.";
     english.turns[0].question = 'Which one catches your eye?';
@@ -270,7 +276,7 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
 
 
 @pytest.mark.parametrize("scenario", [
-    "chronology", "english", "pending", "background", "sync", "retry", "sensitive", "empty",
+    "chronology", "uncertain", "english", "pending", "background", "sync", "retry", "sensitive", "empty",
     "generation", "frames", "stale", "decode", "replay", "launch", "disconnect",
 ])
 def test_executable_browser_states(scenario):
