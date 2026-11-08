@@ -3,7 +3,15 @@
 import re
 from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
-_SENSITIVE_PARAM = re.compile(r"token|session|sid|auth|key|signature|email", re.IGNORECASE)
+_SENSITIVE_PARAM = re.compile(
+    r"token|session|sid|auth|key|signature|email|password|passwd|card|cvv|cvc|iban|phone|contact",
+    re.IGNORECASE,
+)
+_IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?:[ -]?[A-Z0-9]){11,30}\b", re.IGNORECASE)
+_JWT = re.compile(r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b")
+_FINANCIAL = re.compile(
+    r"\b(?:cvv|cvc|expiry|expiration|card number|iban)\s*[:=]?\s*[\w /-]+", re.IGNORECASE,
+)
 _EMAIL = re.compile(r"[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}")
 _PHONE = re.compile(r"(?<!\w)(?:\+?\d[\d ().-]{7,}\d)(?!\w)")
 _DATE = re.compile(
@@ -18,7 +26,8 @@ _KEY = re.compile(
     re.IGNORECASE,
 )
 _ASSIGNED_KEY = re.compile(
-    r"\b(?:api[_-]?key|access[_-]?token|secret|authorization)\s*[:=]\s*[\"']?[^\s,;\"']+",
+    r"(?<![\w?&])(?:api[_-]?key|access[_-]?token|token|password|passwd|secret|authorization)"
+    r"\s*[:=]\s*[\"']?[^\s,;\"']+",
     re.IGNORECASE,
 )
 _URL = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
@@ -39,11 +48,7 @@ def scrub_url(url: str | None) -> str | None:
         if parts.scheme not in {"http", "https"} or not parts.hostname:
             return None
         host = parts.hostname
-        if (host == "hcompany.ai" or host.endswith(".hcompany.ai")) and (
-            host not in {"agp.eu.hcompany.ai", "agp.hcompany.ai"} or not re.fullmatch(
-                r"/share/api/v1/trajectories/[^/]+/?", parts.path,
-            )
-        ):
+        if host == "hcompany.ai" or host.endswith(".hcompany.ai"):
             return None
         if ":" in host:
             host = f"[{host}]"
@@ -64,6 +69,8 @@ def scrub_url(url: str | None) -> str | None:
             (name, value) for name, value in parse_qsl(parts.query, keep_blank_values=True)
             if not _SENSITIVE_PARAM.search(name)
             and not _EMAIL.search(value) and not _KEY.search(value)
+            and not _IBAN.search(value) and not _JWT.search(value)
+            and not _FINANCIAL.search(value) and not _ASSIGNED_KEY.search(value)
             and (not _PHONE.search(value) or _DATE.fullmatch(value))
         ])
         return urlunsplit((parts.scheme, netloc, path, query, ""))
@@ -72,6 +79,9 @@ def scrub_url(url: str | None) -> str | None:
 
 
 def _scrub_plain_text(value: str) -> str:
+    value = _FINANCIAL.sub("[redacted financial]", value)
+    value = _IBAN.sub("[redacted financial]", value)
+    value = _JWT.sub("[redacted key]", value)
     value = _EMAIL.sub("[redacted email]", value)
     value = _PHONE.sub(
         lambda match: match.group() if _DATE.fullmatch(match.group()) else "[redacted phone]",
