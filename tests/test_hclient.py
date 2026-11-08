@@ -263,6 +263,7 @@ def test_scrub_url_removes_credentials_fragments_and_sensitive_queries():
     "/entry/race-2027-123456789012345678901234567890",
     "/entry/runner-+33-6-12-34-56-78", "/entry/runner-%2B33-6-12-34-56-78",
     "/entry/road-sk-12345678",
+    "/entry/sk-1234567", "/entry/road-hai-short",
 ])
 def test_private_session_and_contact_paths_are_not_returned_as_public_urls(path):
     url = "https://race.example.org" + path
