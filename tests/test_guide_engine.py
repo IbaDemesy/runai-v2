@@ -320,3 +320,30 @@ def test_month_refinement_preserves_explicit_year():
     assert turn.candidates[0].race_date == date(2028, 7, 10)
     state, turn = run(e.step(state, {"text": "in July 2029"}))
     assert state.hints["year"] == 2029 and state.hints["months"] == ["2029-07"]
+
+
+def test_winter_months_take_precedence_over_single_year():
+    async def discover(query, hints):
+        assert hints["year"] == 2028
+        assert hints["months"] == ["2028-12", "2029-01", "2029-02"]
+        return [
+            {
+                "id": value,
+                "name": "Synthetic winter example",
+                "race_date": value,
+                "edition": value[:4],
+                "date_status": "official",
+                "synthetic": True,
+            }
+            for value in ["2028-12-10", "2029-01-10", "2029-02-10", "2028-06-10", "2029-12-10"]
+        ]
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon winter 2028"))
+    assert [r.race_date.isoformat() for r in turn.candidates] == [
+        "2028-12-10",
+        "2029-01-10",
+        "2029-02-10",
+    ]
+    state, turn = click(e, state, turn, 1)
+    assert state.draft.race.race_date == date(2029, 1, 10) and state.stage == "origin"

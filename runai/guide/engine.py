@@ -215,9 +215,18 @@ class GuideEngine:
                 except ValidationError:
                     continue
                 year = state.hints.get("year")
-                if year and (
-                    (race.race_date and race.race_date.year != year)
-                    or any(int(y) != year for y in re.findall(r"\b20\d{2}\b", race.edition or ""))
+                months = state.hints.get("months")
+                if months and race.race_date and race.race_date.isoformat()[:7] not in months:
+                    continue
+                if (
+                    not months
+                    and year
+                    and (
+                        (race.race_date and race.race_date.year != year)
+                        or any(
+                            int(y) != year for y in re.findall(r"\b20\d{2}\b", race.edition or "")
+                        )
+                    )
                 ):
                     continue
                 if len(state.candidates) < 4:
