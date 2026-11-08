@@ -96,7 +96,7 @@ def _policy(task):
                     if date.fromisoformat(expiry_text) < now.date():
                         raise _PolicyBlocked
                 else:
-                    expires_at = datetime.fromisoformat(expiry_text.replace("Z", "+00:00"))
+                    expires_at = datetime.fromisoformat(expiry_text)
                     if expires_at.tzinfo is None:
                         expires_at = expires_at.replace(tzinfo=UTC)
                     if expires_at <= now:
