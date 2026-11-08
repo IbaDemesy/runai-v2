@@ -263,6 +263,194 @@ def test_new_date_or_season_replaces_stale_date_hints(initial, followup, expecte
     assert state.draft.race.race_date == date.fromisoformat(expected)
 
 
+@pytest.mark.parametrize("ids", [
+    ["edp-lisbon-half-marathon-official-edition-2027",
+     "descobrimentos-lisbon-half-marathon-official-edition-2027"],
+    ["race-" + "alpine-run-" * 17 + "finishxx", "race-" + "summer-run-" * 17 + "finishxx"],
+    ["edp-lisbon-half-marathon-2027", "gornergrat-zermatt-marathon-ultra-2027"],
+    ["repeated-race-slug-with-more-than-thirty-two-characters"] * 3,
+    ["race", "race", "race:2"],
+])
+def test_race_identifiers_remain_unique_and_select_correct_candidate(ids):
+    async def discover(query, hints):
+        return [{"id": value, "name": f"Race {index}", "race_date": "2027-04-10",
+                 "date_status": "official"} for index, value in enumerate(ids)]
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon"))
+    candidate_ids = [race.id for race in state.candidates]
+    if len(set(ids)) == len(ids):
+        assert candidate_ids == ids
+    assert len(set(candidate_ids)) == len(ids)
+    assert [chip.value for chip in turn.suggestions] == candidate_ids
+    assert len({chip.id for chip in turn.suggestions}) == len(ids)
+    for index, chip in enumerate(turn.suggestions):
+        selected, response = run(e.step(state, {"suggestion_id": chip.id}))
+        assert response.error is None
+        assert selected.draft.race.id == candidate_ids[index]
+        assert selected.draft.race.name == f"Race {index}"
+    repeated, _turn = run(e.start("a marathon"))
+    assert [race.id for race in repeated.candidates] == candidate_ids
+
+
+@pytest.mark.parametrize("identifier", [
+    "4111111111111111", "race-4111111111111111", "4111 1111 1111 1111",
+    "runner-sentinel@example.test", "sk-artificial-sentinel-not-a-real-key",
+    "FR1420041010050500013M02606", "secret:artificial_private_value",
+    "a8f3k29xq7m4p1z6w0r5t8y2u3i9o4e7", "race-a8f3k29xq7m4p1z6w0r5t8y2",
+    "a" * 32,
+])
+def test_sensitive_race_identifiers_remain_redacted_and_selectable(identifier):
+    async def discover(query, hints):
+        return [{"id": identifier, "name": "Race", "race_date": "2027-04-10",
+                 "date_status": "official"}] * 2
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon"))
+    assert identifier not in state.model_dump_json()
+    assert identifier not in turn.model_dump_json()
+    assert all("[redacted" in race.id for race in state.candidates)
+    assert len({race.id for race in state.candidates}) == 2
+    for chip in turn.suggestions:
+        selected, response = run(e.step(state, {"suggestion_id": chip.id}))
+        assert response.error is None
+        assert selected.draft.race.id == chip.value
+        assert identifier not in selected.model_dump_json()
+
+
+def test_only_structured_identifier_fields_bypass_opaque_text_redaction():
+    e = engine()
+    slug = "gornergrat-switzerland-mountain-marathon-edition-2027"
+    scrubbed = e._scrub_data({"id": slug, "race_id": slug, "name": slug,
+                              "nested": [{"event_id": slug}], "empty_id": ""})
+    assert scrubbed["id"] == scrubbed["race_id"] == slug
+    assert scrubbed["nested"][0]["event_id"] == slug
+    assert scrubbed["name"] == "[redacted key]"
+    assert scrubbed["empty_id"] == ""
+
+
+@pytest.mark.parametrize("lang", ["fr", "en"])
+@pytest.mark.parametrize("typed", [False, True])
+def test_sourced_distance_range_requires_user_choice_before_ready(lang, typed):
+    async def discover(query, hints):
+        return [{"id": "swiss-trail-official-mountain-running-edition-2026",
+                 "name": "Swiss Trail", "race_date": "2026-04-10",
+                 "date_status": "official", "source_urls": ["https://race.example/edition"],
+                 "distance_label": "Multiple trail distances 16–111 km announced on official site"}]
+
+    e = engine(discover)
+    state, turn = run(e.start("peu importe" if lang == "fr" else "you choose"))
+    assert turn.question == ("Quelle distance ?" if lang == "fr" else "Which distance?")
+    assert not turn.ready_to_confirm
+    assert state.candidates[0].distance_label == "16–111 km"
+    assert [chip.value for chip in turn.suggestions] == ["16 km", "111 km"]
+    assert all(chip.provenance == "source" for chip in turn.suggestions)
+    with pytest.raises(ValueError, match="not ready"):
+        e.trip_payload(state)
+    invalid, rejected = run(e.step(state, {"text": "50 km"}))
+    assert invalid.draft.race.distance_km is None
+    assert not rejected.ready_to_confirm
+    assert rejected.question == turn.question
+    action = {"text": "111 km"} if typed else {"suggestion_id": turn.suggestions[-1].id}
+    state, turn = run(e.step(state, action))
+    assert turn.ready_to_confirm
+    assert state.draft.race.distance_km == 111
+    assert state.draft.provenance["distance_km"] == "user"
+    assert state.candidates[0].distance_km is None
+    assert state.draft.race.race_date == date(2026, 4, 10)
+    assert ("Début de l'événement" if lang == "fr" else "Event start date") in turn.message
+    assert turn.message.count("?") + (turn.question or "").count("?") <= 1
+
+
+@pytest.mark.parametrize("lang", ["fr", "en"])
+def test_unknown_source_distance_is_not_invented(lang):
+    async def discover(query, hints):
+        return [{"id": "swiss-trail", "name": "Swiss Trail", "race_date": "2026-04-10",
+                 "date_status": "official", "source_urls": ["https://race.example/edition"],
+                 "distance_label": "Trail distance will be announced on the official site"}]
+
+    state, turn = run(engine(discover).start("peu importe" if lang == "fr" else "you choose"))
+    assert len(state.candidates[0].distance_label) <= 24
+    assert state.draft.race.distance_km is None
+    assert "distance_km" not in state.draft.provenance
+    assert ("Distance inconnue" if lang == "fr" else "Distance is unknown") in turn.message
+    assert turn.ready_to_confirm
+    assert not any("km" in chip.value for chip in turn.suggestions)
+
+
+def test_distance_list_proposes_only_explicit_source_values():
+    e = engine()
+    assert e._distance_values("Trails of 16, 33, 61 and 111 km on the official site") == [16, 33, 61, 111]
+    assert e._distance_values("16 km / 33 km / 111 km") == [16, 33, 111]
+    assert e._distance_values("Event in 2027; distances unknown") == []
+
+
+@pytest.mark.parametrize("sources", [[], ["not a URL"], ["javascript:alert(1)"],
+                                     ["https://hcompany.ai/sessions/artificial"]])
+@pytest.mark.parametrize("lang", ["fr", "en"])
+def test_unsourced_official_dates_are_unverified_and_never_ready(sources, lang):
+    async def discover(query, hints):
+        return [{"id": "berlin", "name": "Berlin 10k", "race_date": "2027-04-10",
+                 "date_status": "official", "source_urls": sources}]
+
+    e = engine(discover)
+    query = ("le marathon de Berlin depuis Lyon 2 nuits budget 800" if lang == "fr"
+             else "the Berlin marathon from Lyon 2 nights budget 800")
+    state, turn = run(e.start(query))
+    assert state.candidates[0].date_status == "unverified"
+    assert not turn.ready_to_confirm
+    assert ("aucune source publique" if lang == "fr" else "no public source") in turn.message
+    with pytest.raises(ValueError, match="not ready"):
+        e.trip_payload(state)
+
+
+@pytest.mark.parametrize("synthetic,sources", [
+    (False, ["https://race.example/edition"]), (True, []),
+])
+def test_sourced_official_or_explicit_synthetic_date_can_be_ready(synthetic, sources):
+    async def discover(query, hints):
+        return [{"id": "berlin", "name": "Berlin 10k", "race_date": "2027-04-10",
+                 "date_status": "official", "source_urls": sources, "synthetic": synthetic}]
+
+    e = engine(discover)
+    state, turn = run(e.start("the Berlin marathon from Lyon 2 nights budget 800"))
+    assert turn.ready_to_confirm
+    assert state.draft.race.date_status == "official"
+    assert e.trip_payload(state)["race"]["race_date"] == "2027-04-10"
+
+
+@pytest.mark.parametrize("lang", ["fr", "en"])
+def test_unverified_distance_race_keeps_valid_alternatives_visible(lang):
+    async def discover(query, hints):
+        return [
+            {"id": "unverified-trail", "name": "Unverified Trail", "race_date": "2027-04-10",
+             "date_status": "unverified", "source_urls": ["https://race.example/unverified"],
+             "distance_label": "Multiple trail distances 16–111 km announced on official site"},
+            {"id": "official-trail", "name": "Official Trail", "race_date": "2027-04-11",
+             "date_status": "official", "source_urls": ["https://race.example/official"],
+             "distance_km": 21, "distance_label": "21 km"},
+        ]
+
+    e = engine(discover)
+    query = ("un marathon depuis Lyon 2 nuits budget 800" if lang == "fr"
+             else "a marathon from Lyon 2 nights budget 800")
+    state, turn = run(e.start(query))
+    state, turn = click(e, state, turn)
+    assert state.draft.race.id == "unverified-trail"
+    assert state.stage == "choose_race"
+    assert not turn.ready_to_confirm
+    assert turn.question == ("Laquelle te tente ?" if lang == "fr" else "Which one catches your eye?")
+    assert ("ne permettent pas de confirmer" if lang == "fr" else "cannot be confirmed") in turn.message
+    assert ("Distance inconnue" if lang == "fr" else "Distance is unknown") not in turn.message
+    assert state.draft.race.distance_label == "16–111 km"
+    alternative = next(chip for chip in turn.suggestions if chip.value == "official-trail")
+    assert alternative.kind == "choose_race"
+    assert not any(chip.value.endswith(" km") for chip in turn.suggestions)
+    state, turn = run(e.step(state, {"suggestion_id": alternative.id}))
+    assert state.draft.race.id == "official-trail"
+    assert turn.ready_to_confirm
+
+
 def run(awaitable):
     return asyncio.run(awaitable)
 
@@ -455,6 +643,7 @@ def test_official_date_edit_and_yes_confirmation():
                 "city": "Paris",
                 "race_date": "2027-04-01",
                 "date_status": "official",
+                "source_urls": ["https://race.example/edition"],
             }
         ]
 

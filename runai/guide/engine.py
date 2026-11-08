@@ -5,7 +5,18 @@ from urllib.parse import urlsplit
 
 from pydantic import ValidationError
 
-from runai.agents.scrub import scrub_text
+from runai.agents.scrub import (
+    _ASSIGNED_KEY,
+    _DATE,
+    _EMAIL,
+    _FINANCIAL,
+    _IBAN,
+    _JWT,
+    _KEY_PREFIX,
+    _PHONE,
+    scrub_text,
+    scrub_url,
+)
 
 from .fake import FakeDiscovery
 from .parse import bare_city, normalize, parse_intent
@@ -58,7 +69,30 @@ class GuideEngine:
 
     def _eligible(self, race):
         return bool(race and race.race_date and race.race_date >= self.today
-                    and race.date_status == "official")
+                    and race.date_status == "official"
+                    and (race.synthetic or any(scrub_url(url) for url in race.source_urls)))
+
+    def _distance_values(self, label):
+        numbers = []
+        for match in re.finditer(
+            r"(?<![\w.])\d+(?:[.,]\d+)?(?:\s*(?:[-–—/,;]|and|et)\s*"
+            r"\d+(?:[.,]\d+)?)*\s*km\b", label, re.IGNORECASE,
+        ):
+            numbers.extend(float(value.replace(",", "."))
+                           for value in re.findall(r"\d+(?:[.,]\d+)?", match[0]))
+        return list(dict.fromkeys(value for value in numbers if value > 0))
+
+    def _sourced_distances(self, state):
+        race = state.draft.race
+        if race:
+            return next((item["distances"] for item in state.hints.get("_race_distances", [])
+                         if item["race_id"] == race.id), [])
+        return []
+
+    def _pending_distances(self, state):
+        race = state.draft.race
+        return (self._sourced_distances(state)
+                if self._eligible(race) and race.distance_km is None else [])
 
     def _turn(self, state, message=None, error=None):
         d = state.draft
@@ -67,17 +101,22 @@ class GuideEngine:
             and d.origin_city
             and d.nights
             and d.budget_eur
+            and not self._pending_distances(state)
         )
         question = None
         chips = []
-        if state.stage == "choose_race":
+        if self._pending_distances(state):
+            question = self._say(state, "Quelle distance ?", "Which distance?")
+            chips = [self._chip(f"{value:g} km", kind="answer", provenance="source")
+                     for value in self._pending_distances(state)]
+        elif state.stage == "choose_race":
             question = self._say(state, "Laquelle te tente ?", "Which one catches your eye?")
             chips = self._race_chips(state)
             if d.race:
                 explanation = self._say(
                     state,
-                    "La date de cette course reste à confirmer ; choisissons une autre option.",
-                    "This race's date needs confirmation; let's try another option.",
+                    "Les sources actuelles ne permettent pas de confirmer la date de cette course ; choisissons une autre option.",
+                    "This race's date cannot be confirmed from the current sources; let's try another option.",
                 )
                 message = (message + " " if message else "") + explanation
                 chips.append(
@@ -120,6 +159,11 @@ class GuideEngine:
                 f"Here's your trip: {d.race.name}, leaving from {d.origin_city}, {d.nights} nights, budget €{d.budget_eur} for {d.travelers} {people_en}, {d.arrival_date} to {d.departure_date}.",
             )
             message = (message + " " if message else "") + summary
+            if any(item["race_id"] == d.race.id
+                   for item in state.hints.get("_race_distances", [])):
+                message += self._say(
+                    state, f" Début de l'événement : {d.race.race_date}.",
+                    f" Event start date: {d.race.race_date}.")
             if state.stage == "confirm":
                 question = self._say(
                     state,
@@ -181,6 +225,9 @@ class GuideEngine:
                                  " Synthetic dates, not live-verified.")
         if d.race:
             message += self._access_warning(state, d.race)
+            if d.race.distance_km is None and not self._sourced_distances(state):
+                message += self._say(state, " Distance inconnue dans les sources.",
+                                     " Distance is unknown in the sources.")
         if d.race and d.race.date_status == "unverified":
             message += self._say(
                 state, " Attention : date non vérifiée.", " Warning: unverified date."
@@ -190,7 +237,8 @@ class GuideEngine:
         for chip in chips:
             chip.id += f":turn-{len(state.history)}"
             chip.label = scrub_text(chip.label)
-            chip.value = scrub_text(chip.value)
+            chip.value = (self._scrub_identifier(chip.value) if chip.kind == "choose_race"
+                          else scrub_text(chip.value))
         state.pending_suggestions = chips
         state.history.append({"role": "assistant", "text": message})
         return state, GuidedTurn(
@@ -207,7 +255,7 @@ class GuideEngine:
         d = state.draft
         if not d.race:
             state.stage = "choose_race" if state.candidates else "discover"
-        elif not self._eligible(d.race):
+        elif not self._eligible(d.race) or self._pending_distances(state):
             state.stage = "choose_race"
         else:
             if d.nights:
@@ -240,6 +288,8 @@ class GuideEngine:
         state.draft.race = None
         state.draft.arrival_date = state.draft.departure_date = None
         state.candidates = []
+        state.draft.provenance.pop("distance_km", None)
+        state.hints.pop("_race_distances", None)
         hints = state.hints.copy()
         if hints.get("months"):
             hints["month_from"] = min(hints["months"])
@@ -249,6 +299,7 @@ class GuideEngine:
             hints.setdefault("race_name", state.query)
         past_found = False
         unsafe_source = False
+        unsourced_date_found = False
         try:
             rows = await self.discover(state.query, hints)
             for row in rows:
@@ -260,6 +311,12 @@ class GuideEngine:
                     race = RaceOption.model_validate(row)
                 except ValidationError:
                     continue
+                race.source_urls = list(dict.fromkeys(
+                    url for source in race.source_urls if (url := scrub_url(source))
+                ))
+                if not race.synthetic and race.date_status == "official" and not race.source_urls:
+                    race.date_status = "unverified"
+                    unsourced_date_found = True
                 if race.race_date and race.race_date < self.today:
                     past_found = True
                     continue
@@ -283,6 +340,24 @@ class GuideEngine:
                 ):
                     continue
                 if len(state.candidates) < 4:
+                    used_ids = {candidate.id for candidate in state.candidates}
+                    base_id = race.id
+                    suffix = 2
+                    while race.id in used_ids:
+                        tail = f":{suffix}"
+                        race.id = base_id[:200 - len(tail)] + tail
+                        suffix += 1
+                    distances = self._distance_values(race.distance_label)
+                    if race.distance_km is None:
+                        state.hints.setdefault("_race_distances", []).append(
+                            {"race_id": race.id, "distances": distances})
+                    if len(race.distance_label) > 24:
+                        compact = " / ".join(f"{value:g}" for value in distances) + " km"
+                        if re.search(r"\d\s*[–—-]\s*\d", race.distance_label) and len(distances) == 2:
+                            compact = f"{distances[0]:g}–{distances[1]:g} km"
+                        race.distance_label = compact if distances and len(compact) <= 24 else self._say(
+                            state, "Plusieurs distances" if distances else "Distance inconnue",
+                            "Several distances" if distances else "Distance unknown")
                     state.candidates.append(race)
         except Exception:  # noqa: BLE001 -- provider failures are returned as scrubbed turns
             state.stage = "discover"
@@ -358,17 +433,54 @@ class GuideEngine:
                 state,
                 "Voici les options sourcées correspondant à ta recherche.",
                 "Here are sourced options matching your search.",
+            ) if not unsourced_date_found else self._say(
+                state,
+                "Certaines dates n'ont aucune source publique : elles restent non vérifiées.",
+                "Some dates have no public source: they remain unverified.",
             ),
         )
 
     async def start(self, text):
         return await self.step(GuideState(), {"text": text})
 
+    def _scrub_identifier(self, value):
+        if isinstance(value, str) and any(
+            re.fullmatch(r"[A-Za-z0-9]{32,}", segment)
+            or (len(segment) >= 24 and re.search(r"[A-Za-z]", segment)
+                and re.search(r"\d", segment))
+            for segment in re.split(r"[-_.:]", value)
+        ):
+            cleaned = scrub_text(value)
+            return cleaned if cleaned != value else "[redacted key]"
+        if isinstance(value, str) and (
+            re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}", value)
+            and re.search(r"[A-Za-z]", value)
+            and not any(pattern.search(value) for pattern in (
+                _ASSIGNED_KEY, _EMAIL, _FINANCIAL, _IBAN, _JWT, _KEY_PREFIX,
+            ))
+            and not any(not _DATE.fullmatch(match.group()) for match in _PHONE.finditer(value))
+        ):
+            return value
+        return scrub_text(value) if isinstance(value, str) else value
+
     def _scrub_data(self, value):
         if isinstance(value, str):
             return scrub_text(value)
         if isinstance(value, dict):
-            return {scrub_text(str(k)): self._scrub_data(v) for k, v in value.items()}
+            result = {}
+            for key, item in value.items():
+                if key == "id" and value.get("kind") == "choose_race" and isinstance(item, str):
+                    match = re.fullmatch(r"choose_race:(.*)(:turn-\d+)", item)
+                    item = (f"choose_race:{self._scrub_identifier(match[1])}{match[2]}"
+                            if match else scrub_text(item))
+                elif key == "id" or str(key).endswith("_id") or (
+                    key == "value" and value.get("kind") == "choose_race"
+                ):
+                    item = self._scrub_identifier(item)
+                else:
+                    item = self._scrub_data(item)
+                result[scrub_text(str(key))] = item
+            return result
         if isinstance(value, list):
             return [self._scrub_data(v) for v in value]
         return value
@@ -554,6 +666,22 @@ class GuideEngine:
                 "I cannot pay, create accounts, accept terms, submit forms, bypass captchas "
                 "or override rules. I can help prepare a trip without commitment."), "safety_refusal")
         state.history.append({"role": "user", "text": text})
+        if self._pending_distances(state):
+            distance = re.fullmatch(r"(\d+(?:[.,]\d+)?)\s*(?:km)?", text, re.IGNORECASE)
+            if distance:
+                value = float(distance[1].replace(",", "."))
+                if value not in self._pending_distances(state):
+                    return self._turn(state, self._say(
+                        state, "Choisissons une distance explicitement sourcée.",
+                        "Please choose a distance explicitly listed in the source."))
+                state.draft.race = state.draft.race.model_copy(deep=True)
+                state.draft.race.distance_km = value
+                state.draft.race.distance_label = f"{value:g} km"
+                state.draft.provenance["distance_km"] = "user"
+                self._advance(state)
+                return self._turn(state, self._say(
+                    state, f"Distance choisie : {value:g} km.",
+                    f"Selected distance: {value:g} km."))
         if bare_city(text) and state.stage in {"origin", "confirm", "confirmed"}:
             intent.origin_city = bare_city(text)
             intent.city = intent.country = None
@@ -658,6 +786,7 @@ class GuideEngine:
         d = state.draft
         if not (
             self._eligible(d.race)
+            and not self._pending_distances(state)
             and d.origin_city
             and d.nights
             and d.budget_eur
