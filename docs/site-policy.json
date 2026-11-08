@@ -1,0 +1,2583 @@
+{
+  "schema_version": 1,
+  "comment": "Dated terms reviews gating every H agent navigation. Unknown, expired, prohibited or ambiguous scopes fail closed. robots.txt is never treated as authorization. See docs/evidence/site-policy.md.",
+  "entries": [
+    {
+      "id": "nh-hotels-com",
+      "name": "nh-hotels.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "nh-hotels.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.nh-hotels.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.nh-hotels.com/en/legal-notice"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "User obligations; Intellectual Property",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: curl HTTP 403; browser fetched Minor Hotels/NH legal notice. Copying restriction found, no express automation clause found.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": [
+        {
+          "kind": "hotel",
+          "destination_countries": [
+            "PT"
+          ],
+          "url_template": "https://www.nh-hotels.com/es/booking/step1-rates?destinationId={place_name}&fini={arrival_dmy_slash}&fout={departure_dmy_slash}&gvoucher=false&hotelId={place_id}&nadults1={travelers}&nbabies1=0&nchilds1=0&pcode=",
+          "places": {
+            "lisbon": {
+              "place_id": "PT11.LIBER",
+              "place_name": "Lisbon"
+            },
+            "lisboa": {
+              "place_id": "PT11.LIBER",
+              "place_name": "Lisbon"
+            },
+            "lisbonne": {
+              "place_id": "PT11.LIBER",
+              "place_name": "Lisbon"
+            }
+          },
+          "success_evidence": "NH step1-rates page shows fini/fout dates DD/MM/YYYY equal to the stay, the party, then a selected room category AND rate with the total price for all nights (observed 2026-11-08: 6 room categories for NH Collection Lisboa Liberdade 13-15/03/2027).",
+          "blocked_evidence": "No rooms/rates listed for these dates (no_inventory), dates differ from the stay (date_mismatch), a login/NH Discovery account prompt, captcha, or the next step asks for guest details."
+        }
+      ]
+    },
+    {
+      "id": "ihg-com",
+      "name": "ihg.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "ihg.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.ihg.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.ihg.com/content/gb/en/customer-care/tc.html"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "LIMITED LICENCE TO VIEW AND COPY; PROHIBITED CONDUCT",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: curl HTTP 403; browser fetched. Copying/personal-use restrictions found; no express automation clause found. Verbatim excerpts capped at 600 characters; full selected paragraphs retained in clause evidence.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": [
+        {
+          "kind": "hotel",
+          "destination_countries": [
+            "PT"
+          ],
+          "url_template": "https://www.ihg.com/redirect?path=rates&brandCode={place_code}&localeCode=en&regionCode=1&hotelCode={place_id}&checkInDate={arrival_day}&checkInMonthYear={arrival_monthyear0}&checkOutDate={departure_day}&checkOutMonthYear={departure_monthyear0}&numberOfRooms=1&numberOfAdults={travelers}&numberOfChildren=0",
+          "places": {
+            "lisbon": {
+              "place_id": "LISPO",
+              "place_code": "6C"
+            },
+            "lisboa": {
+              "place_id": "LISPO",
+              "place_code": "6C"
+            },
+            "lisbonne": {
+              "place_id": "LISPO",
+              "place_code": "6C"
+            }
+          },
+          "success_evidence": "IHG rates page for the hotel shows the exact check-in/check-out dates (IHG encodes months zero-based in the URL; verify the rendered dates, not the URL), the adults count, and a selected room AND rate with the stay total (observed 2026-11-08: 8 room options for Holiday Inn Lisbon 13-15 March 2027).",
+          "blocked_evidence": "Rendered dates are one month off or otherwise differ (date_mismatch), no availability, IHG One Rewards sign-in required to see the rate, captcha, or the next step is guest details."
+        }
+      ]
+    },
+    {
+      "id": "melia-com",
+      "name": "melia.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "melia.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.melia.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.melia.com/en/legal-notice"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Intellectual property; use of website content",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: curl HTTP 403; browser fetched. Personal/non-commercial and copying restrictions; no express robot/scraping prohibition found.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": [
+        {
+          "kind": "hotel",
+          "destination_countries": [
+            "PT"
+          ],
+          "url_template": "https://www.melia.com/en/booking/destination-results?search=%7B%22type%22%3A%22booking%22%2C%22destination%22%3A%7B%22type%22%3A%22destination%22%2C%22location%22%3A%7B%22country%22%3A%7B%22name%22%3A%22{place_country}%22%7D%2C%22city%22%3A%7B%22name%22%3A%22{place_name}%22%7D%2C%22latitude%22%3Anull%2C%22longitude%22%3Anull%7D%2C%22name%22%3A%22{place_name}%22%2C%22hotelCodeList%22%3A%5B{place_extra}%5D%2C%22id%22%3A%22{place_id}%22%7D%2C%22dates%22%3A%7B%22checkIn%22%3A%22{arrival_date}%22%2C%22checkOut%22%3A%22{departure_date}%22%7D%2C%22occupation%22%3A%5B%7B%22adults%22%3A%7B%22total%22%3A{travelers}%7D%7D%5D%7D",
+          "places": {
+            "lisbon": {
+              "place_id": "e3e94277-aeee-4677-92d4-6746bc77fa08",
+              "place_name": "Lisbon",
+              "place_country": "Portugal",
+              "place_extra": "\"5692\",\"5689\",\"5827\""
+            },
+            "lisboa": {
+              "place_id": "e3e94277-aeee-4677-92d4-6746bc77fa08",
+              "place_name": "Lisbon",
+              "place_country": "Portugal",
+              "place_extra": "\"5692\",\"5689\",\"5827\""
+            },
+            "lisbonne": {
+              "place_id": "e3e94277-aeee-4677-92d4-6746bc77fa08",
+              "place_name": "Lisbon",
+              "place_country": "Portugal",
+              "place_extra": "\"5692\",\"5689\",\"5827\""
+            }
+          },
+          "success_evidence": "Meliá destination results show the exact check-in/check-out and adults; then one hotel opened and a room AND rate selected with the stay total (observed 2026-11-08: 3 Lisbon hotels listed for 13-15 March 2027; room/rate selection not yet observed).",
+          "blocked_evidence": "No hotels/rates for the dates, dates differ, MeliáRewards login required for the rate, captcha, or the next step is guest details."
+        }
+      ]
+    },
+    {
+      "id": "cp-pt",
+      "name": "cp.pt",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "cp.pt",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.cp.pt",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.cp.pt/info/pt/aviso-legal"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Direitos de autor / utilização do sítio (aviso legal)",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Official Portuguese legal notice. Copying/commercial reuse restriction; no express robot/scraping clause found.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": [
+        {
+          "kind": "transport",
+          "destination_countries": [
+            "PT"
+          ],
+          "origin_countries": [
+            "PT"
+          ],
+          "url_template": "https://www.cp.pt/pt/resultado-pesquisa?departureStation={origin_place_id}&arrivalStation={place_id}&startDate={arrival_date}&endDate={departure_date}&passageiros={travelers}&selectedClass=2",
+          "places": {
+            "lisbon": {
+              "place_id": "94-31039"
+            },
+            "lisboa": {
+              "place_id": "94-31039"
+            },
+            "lisbonne": {
+              "place_id": "94-31039"
+            },
+            "porto": {
+              "place_id": "94-2006"
+            }
+          },
+          "origin_places": {
+            "lisbon": {
+              "origin_place_id": "94-31039"
+            },
+            "lisboa": {
+              "origin_place_id": "94-31039"
+            },
+            "lisbonne": {
+              "origin_place_id": "94-31039"
+            },
+            "porto": {
+              "origin_place_id": "94-2006"
+            }
+          },
+          "success_evidence": "CP results show the outbound date = arrival date and return date = departure date, the passenger count, a selected outbound train AND a selected return train with fares/total, before passenger data (observed 2026-11-08: one-way Lisboa Oriente-Porto Campanhã fares for 2026-11-23).",
+          "blocked_evidence": "'Não foram encontrados resultados' (no inventory / sales horizon not open, observed for March 2027), wrong dates or one-way only, login, captcha, or passenger-data step."
+        }
+      ]
+    },
+    {
+      "id": "accor",
+      "name": "Accor (all.accor.com and brand subdomains)",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "accor.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://all.accor.com/a/en/information/legal-conditions.html"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "COPYRIGHT; database reproduction and commercial use",
+      "justification": "Legal conditions forbid copying/reproduction except strictly personal use, any communication of site content to the public and commercial use (Code IP L.342-1/2 database right). No express robot clause, but reproduction in an agent product is not permitted; ticket R2-02 also requires Accor to be denied. Denied for all accor.com subdomains.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "hilton-com",
+      "name": "hilton.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "hilton.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.hilton.com/en/p/site-usage-agreement/"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "III. RESTRICTIONS ON USE OF MATERIALS; site-use restrictions",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "booking-com",
+      "name": "booking.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "booking.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.booking.com/content/terms.html"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "A15. Intellectual property rights (including automated assistants and booking agents)",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Automation prohibition includes AI/automated assistants, not just scraping. Any permission exception must be read in the full clause.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "hotels-com",
+      "name": "hotels.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "hotels.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.hotels.com/legal/terms"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Your use of our Service (restricted activities)",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: curl HTTP 429; browser-rendered terms fetched without solving any challenge.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "marriott-com",
+      "name": "marriott.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "marriott.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.marriott.com/about/terms-of-use.mi"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "4.B Restrictions; 7.A Intellectual Property",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: curl HTTP 403; complete rendered terms recovered from browser console capture. Standard search-engine linking exception stated.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "hrs-com",
+      "name": "hrs.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "hrs.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.hrs.com/en/termsandconditions"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "A18. Use of the HRS Internet Portal",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "kayak-com",
+      "name": "kayak.com",
+      "purposes": [
+        "hotel",
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "kayak.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.kayak.com/terms-of-use"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "4. Play nice on the playground; 6.1 Our content",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: One record covers KAYAK in both hotel and transport lists.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "agoda-com",
+      "name": "agoda.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "agoda.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.agoda.com/info/termsofuse.html"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "1.3 (Platform use restrictions)",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Browser-rendered official terms. Explicit scraping and automated-assistant restrictions; prior-written-permission exception. Verbatim excerpts capped at 600 characters; full selected paragraphs retained in clause evidence.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "hostelworld-com",
+      "name": "hostelworld.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "hostelworld.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.hostelworld.com/legal/hostel-terms-and-conditions/"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "7.4 (restricted use of website/content); 3.20 (currency information)",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: 7.4 prohibits specified access/copying methods; additional commercial-use quote concerns the currency-rate information in 3.20, not the entire service. Verbatim excerpts capped at 600 characters; full selected paragraphs retained in clause evidence.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "airbnb-com",
+      "name": "airbnb.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "airbnb.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.airbnb.com/help/article/2908"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "11.1 Rules; 22.9 Airbnb Platform Content",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Official article contains region-specific versions; quoted platform rules appear in fetched terms. No inference that one locale is universally applicable. Verbatim excerpts capped at 600 characters; full selected paragraphs retained in clause evidence.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "hotel-bb-com",
+      "name": "hotel-bb.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "hotel-bb.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.hotel-bb.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.hotel-bb.com/fr/conditions-utilisation"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Propriété intellectuelle",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: B&B Hotels French website/application terms. Reproduction/commercial exploitation restricted; no express automation clause found.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "motel-one-com",
+      "name": "motel-one.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "motel-one.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.motel-one.com/en/terms-of-use/"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "V) Your rights, items 1–9",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "premierinn-com",
+      "name": "premierinn.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "premierinn.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.premierinn.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.premierinn.com/gb/en/terms/terms-of-use.html"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "5. Your use of the site; 7. Intellectual property rights",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: UK/Ireland terms. Personal viewing-copy exception, no express automation clause found. robots.txt is not treated as authorization.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "trenitalia-com",
+      "name": "trenitalia.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "trenitalia.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.trenitalia.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.trenitalia.com/it/informazioni/termini-e-condizioni-di-utilizzo-sito-trenitalia.html"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Proprietà intellettuale; Utilizzo del Sito. Divieti.",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Italian website terms. Reproduction/download and commercial-use restrictions; no express robot/scraping clause found.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "italotreno-com",
+      "name": "italotreno.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "italotreno.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.italotreno.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "italotreno.it",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.italotreno.it",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.italotreno.com/en/copyright-legal-notes"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "7 Site Restrictions",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Copying/download and personal/non-commercial restrictions; no express automation clause found. Verbatim excerpts capped at 600 characters; full selected paragraphs retained in clause evidence.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "sbb-ch",
+      "name": "sbb.ch",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "sbb.ch",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.sbb.ch",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.sbb.ch/en/meta/legallines/legal-information.html"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Use of the SBB Websites",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Official footer legal-information page fetched. No explicit automation clause found here; copying/public/commercial use restricted.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "sncf-connect-com",
+      "name": "sncf-connect.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "sncf-connect.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.sncf-connect.com/statics/cgv/cgv-fr-fr.pdf"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Article 2.1 (site access/use; automated processes and extraction)",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Official French CGV PDF fetched with curl and text-extracted. Whitespace/line wraps normalized only.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "renfe-com",
+      "name": "renfe.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "renfe.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.renfe.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://grupo.renfe.com/es/es/informacion-legal/renfe---operadora/nuestra-web"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Propiedad intelectual e industrial",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Official Renfe legal notice. Reproduction/reuse restriction, no express automation clause found.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "thetrainline-com",
+      "name": "thetrainline.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "thetrainline.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.thetrainline.com/terms"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "12.2 Using Trainline",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "omio-com",
+      "name": "omio.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "omio.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.omio.com/terms-of-use"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "7. Intellectual Property",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Browser fetched official terms. Written-consent exception for automated access, scraping and direct API access.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "google-travel-google-terms",
+      "name": "Google Travel / Google Terms",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "google.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://policies.google.com/terms"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Using Google services: respecting others; abuse restrictions",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Google general Terms, not travel-specific terms. Automation prohibition is conditional on violating machine-readable instructions. robots.txt is not independently treated as authorization.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "skyscanner-net",
+      "name": "skyscanner.net",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "skyscanner.net",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.skyscanner.net/terms-of-service"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Using our Services; intellectual property",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: curl redirected to captcha; browser-rendered terms fetched without solving a challenge. Verbatim excerpts capped at 600 characters; full selected paragraphs retained in clause evidence.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "ryanair-com",
+      "name": "ryanair.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "ryanair.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.ryanair.com/us/en/lp/legal/terms-of-use"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Permitted use; screen scraping; intellectual property",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Screen-scraping prohibition quoted is expressly for commercial data extraction, not a blanket statement about every automated activity.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "easyjet-com",
+      "name": "easyjet.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "easyjet.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.easyjet.com/en/help-centre/policy-terms-and-conditions/acceptable-use-policy"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Acceptable use policy (extraction, re-utilisation and screen scraping)",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Official policy linked from terms; rendered browser content fetched. Restrictions include other automated extraction means, with a Distribution Charter reseller exception.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "vueling-com",
+      "name": "vueling.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "vueling.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.vueling.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.vueling.com/en/customer-services/website-conditions-of-use"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "02. User obligations; 07. Intellectual and industrial property",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Official browser HTML embeds accordion terms as JSON; decoded exact content. No express robot/scraping clause found.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "flytap-com",
+      "name": "flytap.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "flytap.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.flytap.com/en-ca/legal-info/terms-and-conditions"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "3. Copyright; Website use obligations",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: TAP Air Portugal official terms.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "lufthansa-com",
+      "name": "lufthansa.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "lufthansa.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.lufthansa.com/us/en/terms-of-use"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "3.5 (commercial reproduction; robots and automatic mechanisms)",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: curl HTTP 403; browser fetched. Clause concerns commercial reproduction, with robots/automatic-mechanism language.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "airfrance-com",
+      "name": "airfrance.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "airfrance.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://wwws.airfrance.us/information/legal/edito-preambule"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Intellectual property; Conditions of use of our websites",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Air France official US-English legal page; automation/extraction clause expressly addresses direct/indirect commercial use.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "ita-airways-com",
+      "name": "ita-airways.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "ita-airways.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.ita-airways.com/us/en/legal/terms-and-conditions-of-use.html"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Site Content / intellectual property; obligations and prohibited use",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "eurostar-com",
+      "name": "eurostar.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "eurostar.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.eurostar.com/uk-en/website-terms-and-conditions"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "5 (copyright/trademarks); website-use restrictions (screen scraping)",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "blablacar",
+      "name": "BlaBlaCar",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "blablacar.co.uk",
+          "path_prefix": "/"
+        },
+        {
+          "host": "blablacar.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://legal.blablacar.com/en-gb/terms-and-conditions/"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "6 Non-commercial purpose; 11 Intellectual property (Platform use)",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Official UK-English legal page. Automation prohibition quoted targets extraction of a substantial part of platform data.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "njuko-com-njuko-net",
+      "name": "njuko.com / njuko.net",
+      "purposes": [
+        "registration"
+      ],
+      "scopes": [
+        {
+          "host": "in.njuko.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "njuko.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.njuko.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "njuko.net",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.njuko.net",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://njuko.com/fr/legal-notices.html"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "5. Propriété intellectuelle et contrefaçons",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Corporate website legal notice; separate application CGU read in Milano registration footer and had no explicit automation clause. Do not infer corporate-page restrictions cover every engine instance.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "ahotu-com",
+      "name": "ahotu.com",
+      "purposes": [
+        "registration"
+      ],
+      "scopes": [
+        {
+          "host": "ahotu.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.ahotu.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "help.ahotu.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "register.ahotu.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://help.ahotu.com/article/53-terms-of-service"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "14. Intellectual property",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: curl HTTP 403; browser fetched official help-center ToS. IP ownership asserted; no express automation clause found. No positive permission inferred.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "my-raceresult-com",
+      "name": "my.raceresult.com",
+      "purposes": [
+        "registration"
+      ],
+      "scopes": [
+        {
+          "host": "my.raceresult.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "raceresult.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.raceresult.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://my.raceresult.com/imprint/termsofuse"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Allgemeine Nutzungsbedingungen §§1–6",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Official German Terms of Use fetched in full; no robot/crawler, content-copying, or commercial-use prohibition located. This is not positive permission for automation.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "endu-net",
+      "name": "endu.net",
+      "purposes": [
+        "registration"
+      ],
+      "scopes": [
+        {
+          "host": "endu.net",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.endu.net",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.endu.net/en/terms"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "3. User guidelines (IP/content restrictions)",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Official terms fetched. Extraction/copying prohibited unless expressly permitted; no specific robot/automated-agent clause found.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "active-com",
+      "name": "active.com",
+      "purposes": [
+        "registration"
+      ],
+      "scopes": [
+        {
+          "host": "active.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://passport.active.com/waiver?waiverId=1673924&waiverLocale=en_US"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "2. Code of Conduct; 3. Ownership and Restrictions on Use; 11. Suspected Violation",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Official ACTIVE Terms of Use delivered at passport.active.com. Public-search-engine exception is stated in full robot clause. Verbatim excerpts capped at 600 characters; full selected paragraphs retained in clause evidence.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "eventbrite-com",
+      "name": "eventbrite.com",
+      "purposes": [
+        "registration"
+      ],
+      "scopes": [
+        {
+          "host": "eventbrite.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.eventbrite.com/help/en-us/articles/251210/eventbrite-terms-of-service/"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "13. Scraping or Commercial Use of Site Content is Prohibited",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: curl HTTP 403; browser fetched terms without login.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "sportstiming-dk",
+      "name": "sportstiming.dk",
+      "purposes": [
+        "registration"
+      ],
+      "scopes": [
+        {
+          "host": "sportstiming.dk",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.sportstiming.dk",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.sportstiming.dk/terms"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Handelsbetingelser / Terms and conditions",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Official public sales/registration terms fetched; no express robot/crawler, copying or commercial-data-use clause located. No positive authorization inferred.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "athlinks-com",
+      "name": "athlinks.com",
+      "purposes": [
+        "registration"
+      ],
+      "scopes": [
+        {
+          "host": "athlinks.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.athlinks.com/terms"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Prohibited Uses; Intellectual Property Rights",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Athlinks Terms fetched by browser after curl returned an empty application shell. Association with ChronoTrack does not prove these terms govern ChronoTrack itself. Verbatim excerpts capped at 600 characters; full selected paragraphs retained in clause evidence.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "raceroster-com",
+      "name": "raceroster.com",
+      "purposes": [
+        "registration"
+      ],
+      "scopes": [
+        {
+          "host": "raceroster.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.raceroster.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://raceroster.com/legal/tos-for-event-registrants"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "3.1 The Services",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Registrant/non-organizer terms, explicitly also applying to visitors. Copying/commercial restriction; no robot clause found. User’s RMP alias not independently established.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "letsdothis-com",
+      "name": "letsdothis.com",
+      "purposes": [
+        "registration"
+      ],
+      "scopes": [
+        {
+          "host": "letsdothis.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.letsdothis.com/terms"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Participant Terms: Your use of the Services; automated access/content restrictions",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Additional possible match for requested letsdoitregistration; that identity is unverified. Official Let’s Do This participant terms were actually fetched.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "datasport-com",
+      "name": "datasport.com",
+      "purposes": [
+        "registration"
+      ],
+      "scopes": [
+        {
+          "host": "datasport.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://datasport.com/en/terms-and-conditions"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "6.1 Use of myDatasport; 6.2 Use of other Datasport Services",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Official athlete terms. Express manual-only and no-crawler rule applies to myDatasport; other services have separate private/non-commercial restriction.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "milano-marathon-2027-njuko",
+      "name": "Milano Marathon 2027 registration (Njuko event page)",
+      "purposes": [
+        "registration"
+      ],
+      "scopes": [
+        {
+          "host": "in.njuko.com",
+          "path_prefix": "/wizz-air-milano-marathon-20271776152378557"
+        }
+      ],
+      "terms_urls": [
+        "https://in.njuko.com/wizz-air-milano-marathon-20271776152378557"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Njuko platform Conditions Générales (footer modal), sections 1–12",
+      "justification": "Njuko application CGU (footer of this event page) read in full: no automation, copying or commercial-use restriction found. Only this event path is in scope; the organizer site milanomarathon.it terms were not reviewed and other Njuko events are not covered. Njuko corporate legal notice (njuko.com) restricts reproduction of its own site, so screenshots stay in-session only and are never published.",
+      "automation": "allowed_read_only",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "rome-marathon-registration-host",
+      "name": "Rome Marathon registration host",
+      "purposes": [
+        "registration"
+      ],
+      "scopes": [
+        {
+          "host": "endu.net",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.endu.net",
+          "path_prefix": "/"
+        },
+        {
+          "host": "rrtm.endu.net",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.endu.net/en/terms"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "ENDU T&C §3. User guidelines",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Official Rome site ISCRIVITI ORA link leads to rrtm.endu.net; applies platform-level ENDU terms, not unread event waivers. Requested maratonaderoma.it spelling was not assumed identical without official link discovery.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "berlin-marathon-registration-host",
+      "name": "Berlin Marathon registration host",
+      "purposes": [
+        "registration"
+      ],
+      "scopes": [
+        {
+          "host": "bmw-berlin-marathon.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "generali-berlin-marathon.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "login.scc-events.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.generali-berlin-marathon.com/fileadmin/media/content/AGB/general_terms_and_conditions_SCC_events.pdf"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "SCC EVENTS General Terms §12 Lists of Results",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Official current Berlin site links registration to SCC Events login. Public SCC terms PDF fetched without logging in. Express restriction quoted covers result lists, not necessarily all registration automation. PDF text extraction emitted object-offset repair warnings.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "bestwestern-it",
+      "name": "bestwestern.it",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "bestwestern.it",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.bestwestern.it/best-western-italia/termini-e-condizioni/default-eng.asp"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "License and Site Access",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. No captcha/bot wall observed on successful curl terms fetch. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted. Quotes are capped excerpts; full selected clauses retained in evidence.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "radissonhotels-com",
+      "name": "radissonhotels.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "radissonhotels.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.radissonhotels.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.radissonhotels.com/en-us/site-usage"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Use of Site / Contents",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. curl empty/blocked; browser terms fetched without captcha. Single lawful personal non-commercial copy allowed, preserving notices; no express automation prohibition found. Other-website/networked-use restriction remains. Deep-link: Indexed property availability link: /en-us/hotels/radisson-c",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "barcelo-com",
+      "name": "barcelo.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "barcelo.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.barcelo.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.barcelo.com/en-us/general-information/legal-notice/"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Intellectual and industrial property",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha observed. No explicit automation ban found, but prior-authorization wording makes copying/screenshot suitability unclear. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "leonardo-hotels",
+      "name": "Leonardo Hotels",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "business.leonardohotels.co.uk",
+          "path_prefix": "/"
+        },
+        {
+          "host": "leonardo-hotels.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.leonardo-hotels.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "static.leonardo-hotels.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://static.leonardo-hotels.com/image/7d32669cbd6c57631ca08c5ead753923_Disclaimer%202026.pdf"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Disclaimer (Benelux); Intellectual property",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. No captcha on fetched regional documents. Benelux disclaimer prohibits public-place use without permission, not private screenshots expressly. UK disclaimer also read. NOT a blanket finding for every Leonardo region; personal copying is not affirmatively licensed. Deep-link: Not found: no co",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "room-mate",
+      "name": "Room Mate",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "room-matehotels.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://room-matehotels.com/downloads/paginas-legales/roommate_terms_of_use_en.pdf"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "4 User obligations; 5 Intellectual property",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. Official PDF fetched, no captcha. Spider/scraper/copy/deep-link restriction expressly concerns commercial or competitive activity. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "pestana-com",
+      "name": "pestana.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "pestana.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.pestana.com/en/terms-conditions"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Website Terms of Use: access; reservation interface license",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. No captcha observed; expressly prohibits automated access including scripts/web crawlers. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "vilagale-com",
+      "name": "vilagale.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "vilagale.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.vilagale.com/pt-pt/aviso-legal/"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Aviso legal: utilização do site",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. No captcha observed. Automatic mechanisms and manual monitoring/copying require prior consent. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "meininger-hotels-com",
+      "name": "meininger-hotels.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "meininger-hotels.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.meininger-hotels.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.meininger-hotels.com/en/imprint/"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Disclaimer & imprint §3 Copyright and trademark rights",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. No captcha observed. Restricts reproduction/use in other electronic or print publications; private in-session screenshots are not expressly mentioned or affirmatively licensed. Deep-link: Official homepage href: https://book.meininger-hotels.com/deep-links?step=stay&hotel=AMS-OP&lang=en (hot",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "aohostels-com",
+      "name": "aohostels.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "aohostels.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.aohostels.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.aohostels.com/en/imprint/"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Imprint: Copyright",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. No captcha observed on imprint, GTC or indexed-link GET. Private non-commercial downloads/copies expressly permitted. GTC also fetched; no automation clause located. Deep-link: Indexed exact example: https://www.aohostels.com/en/buchungstool/?arrival=24.05.2023&currency=HUF&departure=25.05.2",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "generator",
+      "name": "Generator",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "staygenerator.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://staygenerator.com/information/terms-and-conditions"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Use of Site; Intellectual Property",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. No captcha observed; robot/automatic or manual monitoring/copying restriction. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "citizenm",
+      "name": "citizenM",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "citizenm.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "marriott.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.marriott.com/about/terms-of-use.mi"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "4.B Restrictions; 7.A Intellectual Property",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. CitizenM official terms route redirects to Marriott brand page; its footer links /about/terms-of-use.mi on marriott.com. Shared current Marriott terms prohibit robots. Prior captured Marriott website terms reused with ORIGINAL fetch time; current curl 403/rendered terms collapsed. Deep-link:",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "scandichotels-com",
+      "name": "scandichotels.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "scandichotels.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.scandichotels.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.scandichotels.com/en/customer-service/policies/website-terms"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "2.2 Copyright",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha observed. No automation clause found, but exception is printing only; other copying needs written permission, so screenshots not cleared. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "wyndhamhotels-com",
+      "name": "wyndhamhotels.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "wyndhamhotels.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.wyndhamhotels.com/wyndham/about-us/terms-of-use"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "5. Use of Web Services; prohibited activities",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. curl initial route was robots.txt (not legal evidence); corrected terms fetched in browser. Express intelligent-agent restriction; normal-browser exception must be read in context. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms ",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "novum-hotels-com",
+      "name": "novum-hotels.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "novum-hotels.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.novum-hotels.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.novum-hotels.com/en/legal-notice"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Legal notice: Copyright",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. No captcha observed. Private non-commercial unprocessed use on one workstation permitted; not a redistribution license. Deep-link: No city+dates+party URL found. Official homepage links some brands to external ihg.com reservation; those links do not establish Novum terms cover IHG. No forms ",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "moxy-marriott",
+      "name": "Moxy (Marriott)",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "marriott.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "moxyhotels.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.marriott.com/about/terms-of-use.mi"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "4.B Restrictions; 7.A Intellectual Property",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. Requested Marriott brand; shared Marriott site-use terms used, not claimed as separately fetched Moxy-specific terms. Prior captured Marriott website terms reused with ORIGINAL fetch time; current curl 403/rendered terms collapsed. Deep-link: no complete public format verified.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "h10hotels-com",
+      "name": "h10hotels.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "h10hotels.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.h10hotels.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.h10hotels.com/en/legal-notice"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Legal notice: Intellectual and industrial property",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. Official browser HTML contained JSON-encoded legal text, decoded verbatim. No captcha. Broad reproduction ban plus private documentary-use exception leaves result screenshots unclear. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No for",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "riu-com",
+      "name": "riu.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "riu.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.riu.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.riu.com/en/corporate/legal-notice"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Legal notice: Obligations of users; Intellectual property",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. curl challenge/empty response; browser legal notice fetched without solving captcha. Allows viewing and, where applicable, authorized private copies; no transfer to third parties/network servers/exploitation. Conditional, not blanket screenshot authorization. Deep-link: Not found: no complet",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "iberostar-com",
+      "name": "iberostar.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "iberostar.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.iberostar.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.iberostar.com/en/legal-notice/"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Intellectual/industrial property",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. curl 403; browser fetched. No express automation clause found but reproduction requires authorization or legal permission. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted. Quotes are capped excerpts",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "cataloniahotels-com",
+      "name": "cataloniahotels.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "cataloniahotels.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.cataloniahotels.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.cataloniahotels.com/en/legal/disclaimer"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Legal disclaimer: Intellectual and industrial property",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha observed. Personal/private use stated but reproduction rights expressly withheld absent written consent; screenshot exception unclear. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted. Quo",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "eurostarshotels-com",
+      "name": "eurostarshotels.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "eurostarshotels.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.eurostarshotels.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.eurostarshotels.com/aviso-legal.html"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Aviso legal: propiedad intelectual",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha observed; untouched cookie banner. Private use permitted but almacenamiento para cualquier finalidad/storage for any purpose restricted; not a clear screenshot candidate. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "oebb",
+      "name": "ÖBB",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "oebb.at",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.oebb.at",
+          "path_prefix": "/"
+        },
+        {
+          "host": "tickets.oebb.at",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.oebb.at/en/rechtliches/nutzungsbedingungen"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Use rights; Intellectual property",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha on general website-use terms. No explicit automation clause found; copying requires written consent. tickets.oebb.at may have additional terms not independently cleared. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms ",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "sncb-nmbs",
+      "name": "SNCB / NMBS",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "belgiantrain.be",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.belgiantrain.be",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.belgiantrain.be/en/support/customer-service/copyright-declaration"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Copyright Statement",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. curl robot-verification wall; browser copyright notice fetched without solving challenge. Broad reproduction prohibition, no personal screenshot exception found. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no conse",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "ns-international",
+      "name": "NS International",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "nsinternational.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.nsinternational.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.nsinternational.com/en/disclaimer-ns"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Disclaimer NS: Copyright",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. No captcha observed. Copyright ownership asserted; no express automation or copying prohibition in this website disclaimer. Booking-conditions index also reviewed; this is not affirmative screenshot permission. Deep-link: Official homepage href /nl/treintickets-v3/#/to/FRPNO (destination sta",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "ouigo-france",
+      "name": "Ouigo France",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "ouigo.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.ouigo.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.ouigo.com/infos-legales"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Crédits et droits de reproduction",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha wall on legal fetch. Personal site use allowed but copying/reproduction requires permission; Wi-Fi portal terms were not substituted. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "ouigo-espana",
+      "name": "Ouigo España",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "ouigo.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.ouigo.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.ouigo.com/es/informacion-legal"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Información legal: propiedad intelectual",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha observed; actual website legal notice, not app conditions. Copying for any purpose requires authorization. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "flixbus-website-terms",
+      "name": "FlixBus website terms",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "flixbus.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.flixbus.com/online-terms-of-use"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "License; prohibited uses / technological means",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. No captcha observed. IMPORTANT: separately located Online Terms of Use contain automation/screen-scraping prohibitions, superseding the first-pass booking-document-only absence finding. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No f",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "alsa-com",
+      "name": "alsa.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "alsa.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.alsa.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.alsa.com/en/legal-notice"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Industrial and Intellectual Property Rights",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. curl entered queue/waiting redirect; browser legal text fetched, cookie banner untouched. No specific automation clause found, but copying/reproduction requires written authorization. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No for",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "swiss-com",
+      "name": "swiss.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "swiss.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.swiss.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.swiss.com/ch/en/terms-conditions/copyright"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Copyright information",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. curl 403; browser official copyright page fetched. Use/duplication/reproduction require express written consent; no personal-copy exception found. Separate general site-use terms not located. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "eurowings-com",
+      "name": "eurowings.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "eurowings.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.eurowings.com/en/legal-information/terms-of-use.html"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "2 Copyright; 3.5 Commercial reproduction",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. curl 403; browser HTML contains full hidden accordion text. Express robots/automated-mechanism restriction; no consent accepted. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "wizz-air",
+      "name": "Wizz Air",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "wizzair.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://filemanager-cdn.mziq.com/published/f33cff8c-9600-4e77-8b65-b797eb10bc4e/c578cc53-0644-4cae-acb5-383b8daa8be8_website_terms_and_conditions_en_d150c153_9446_4acf_b707_5bd246326d18.pdf"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "3 Permitted use; 4 Copyright",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. Official website-terms page links English PDF on filemanager CDN; PDF fetched, no captcha. Applies to website, not merely corporate investor pages. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "transavia",
+      "name": "Transavia",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "transavia.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.transavia.com/en-EU/conditions/services-access-and-distribution/"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Services Access and Distribution Policy §§1–2; 8.4",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. curl 403; browser fetched. Professional/commercial parties (including technology providers) may not access consumer data via bots/scripts without authorization; scoped, not universal consumer-agent prohibition. Deep-link: Not found: no complete destination+dates+party result URL verified fro",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "aegean",
+      "name": "Aegean",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "aegeanair.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.aegeanair.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://en.aegeanair.com/conditions-notices/conditions-notices/"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Copyright and Trademark Notice / website use terms",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. curl 403; browser combined conditions page includes website terms. Personal non-commercial use but express copying/reproduction ban; no screenshot exception found. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no con",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "airbaltic-com",
+      "name": "airbaltic.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "airbaltic.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.airbaltic.com/en/rules-and-regulations/terms-of-use"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Permitted use §6; Intellectual property",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. No captcha wall; cookie banner untouched. Accordion body was absent from visible DOM; official embedded Nuxt/CMS legal strings decoded, revealing explicit screen-scraping ban. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submi",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "volotea-com",
+      "name": "volotea.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "volotea.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.volotea.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.volotea.com/en/legal-conditions/terms-of-use/"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Intellectual property / website content",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. curl 403; browser fetched. No express automation clause found, but content use/reproduction requires prior written consent. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "iberia-com",
+      "name": "iberia.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "iberia.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.iberia.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.iberia.com/us/informacion-legal/"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Propiedad Intelectual e Industrial",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. curl 403; browser HTML contains full collapsed accordion text. Private non-commercial download expressly allowed; public/commercial reproduction prohibited. No express automation clause found. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/doc",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "aerlingus-com",
+      "name": "aerlingus.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "aerlingus.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.aerlingus.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.aerlingus.com/localized/en/modals/terms-of-use.html"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Terms of Use: Internet bookings; Conditions of Carriage",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. No captcha on small modal terms document. No automation/content-copying clause located in fetched website terms; no affirmative screenshot license. Scope is the internet-booking terms, not every linked ancillary policy. Deep-link: Not found: no complete destination+dates+party result URL ver",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "klm",
+      "name": "KLM",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "klm.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.klm.com/information/legal/website-terms-use"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Reservation features; Intellectual property",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. curl failed; browser fetched terms. Robot/screen-scraping restriction is expressly for direct/indirect commercial use. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "brusselsairlines-com",
+      "name": "brusselsairlines.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "brusselsairlines.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.brusselsairlines.com/gb/en/legal-notices/terms-of-use"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Use of Website",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. curl 403; browser fetched. Automated/manual monitoring or copying requires prior written permission. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "rome2rio-com",
+      "name": "rome2rio.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "rome2rio.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.rome2rio.com/terms-of-use/"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Prohibited activities",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. curl 403; browser fetched without solving captcha. Automated and non-automated scraping restrictions. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted. Quotes are capped excerpts; full selected claus",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
+      "id": "busbud-com",
+      "name": "busbud.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "busbud.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.busbud.com/en/terms-of-use/"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Restrictions on use of Website",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Pass 2. Browser fetched actual terms. Robot/spider/scraper or manual monitoring/copying requires express written permission. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "automation": "prohibited",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    }
+  ]
+}

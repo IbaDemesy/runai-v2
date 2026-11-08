@@ -1,164 +1,94 @@
-"""Offline transport task specification; not execution or site authorization.
+"""Transport task: a policy-reviewed public deep link for the confirmed round trip.
 
-Trip uses race: {city, country, ...RaceOption fields}, origin_city,
-arrival_date, departure_date (ISO strings or datetime.date). Optional travelers
-is an integer >=1, default 1; budget_eur is a positive finite number, optional,
-and a total EUR hint. Optional origin_country overrides city inference.
-Other Trip fields (nights, race metadata) are unused. Countries accept English
-names or two-letter codes. Unknown origins conservatively use flight search.
-Outbound must arrive on arrival_date before evening (depart on or before that
-date); the return departs on departure_date.
-
-Rule table: domestic IT/CH/FR/ES/PT/DE uses Trenitalia/SBB/SNCF Connect/Renfe/CP/DB.
-Cross-border rail: FR-IT, CH-IT use Trenitalia; FR-CH, DE-CH use SBB;
-DE-FR uses DB. All other pairs use read-only Google Flights then human handoff
-to an official carrier. Country rules are planning heuristics, not proof of a
-viable timetable: verify routes and report blocked if unavailable. Known origin
-cities may supply a missing origin_country; explicit origin_country takes priority.
+Adapters come only from docs/site-policy.json; a route no reviewed adapter covers raises
+ValueError (blocked) instead of falling back to a generic search or homepage.
 """
+
+from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import date
 from math import isfinite
+from typing import Any
+
+from runai.agents.site_policy import city_country, country_code, select_adapter, trip_expected
+
+KIND = "transport"
+MAX_STEPS = 80
+STOP_BEFORE = [
+    "passenger details / personal data form", "login or account creation", "payment page",
+    "booking confirmation", "terms or consent checkbox", "cookie consent acceptance",
+    "captcha or bot challenge", "any form submission", "redirect to a host not in allowed_hosts",
+]
 
 
-def _text(trip: Mapping, key: str) -> str:
-    value = trip.get(key)
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"Missing or invalid {key}")
-    return value.strip()
-
-
-def _dates(trip: Mapping) -> tuple[date, date]:
-    try:
-        values = []
-        for key in ("arrival_date", "departure_date"):
-            value = trip.get(key)
-            if type(value) is date:
-                values.append(value)
-            elif isinstance(value, str):
-                values.append(date.fromisoformat(value))
-            else:
-                raise ValueError(key)
-        arrival, departure = values
-    except (TypeError, ValueError) as exc:
-        raise ValueError("Expected valid arrival_date and departure_date") from exc
-    if departure <= arrival:
-        raise ValueError("departure_date must be after arrival_date")
-    return arrival, departure
-
-
-def _adults(trip: Mapping) -> int:
-    value = trip.get("travelers", 1)
-    if type(value) is not int or value < 1:
-        raise ValueError("travelers must be a positive integer")
-    return value
-
-
-def _race(trip: Mapping) -> Mapping:
-    race = trip.get("race")
-    if not isinstance(race, Mapping):
-        raise ValueError("Missing or invalid race")  # noqa: TRY004
-    return race
-
-
-def _budget(trip: Mapping) -> int | float | None:
-    if "budget_eur" not in trip:
+def _budget(trip: Mapping[str, Any]) -> int | float | None:
+    value = trip.get("budget_eur")
+    if value is None:
         return None
-    value = trip["budget_eur"]
     if type(value) not in (int, float) or value <= 0 or not isfinite(value):
         raise ValueError("budget_eur must be a finite positive number")
     return value
 
 
-_COUNTRIES = {
-    "italy": "IT", "switzerland": "CH", "france": "FR", "spain": "ES",
-    "portugal": "PT", "germany": "DE",
-}
-_ORIGINS = {
-    "paris": "FR", "lyon": "FR", "milan": "IT", "rome": "IT",
-    "zurich": "CH", "geneva": "CH", "bern": "CH", "zermatt": "CH",
-    "lisbon": "PT", "porto": "PT", "madrid": "ES", "barcelona": "ES",
-    "berlin": "DE", "munich": "DE",
-}
-_RAIL = {
-    "IT": ("Trenitalia", "https://www.trenitalia.com"),
-    "CH": ("SBB", "https://www.sbb.ch"),
-    "FR": ("SNCF Connect", "https://www.sncf-connect.com"),
-    "ES": ("Renfe", "https://www.renfe.com"),
-    "PT": ("CP", "https://www.cp.pt"),
-    "DE": ("DB", "https://int.bahn.de"),
-}
-_CROSS_BORDER = {
-    frozenset(("FR", "IT")): "IT", frozenset(("CH", "IT")): "IT",
-    frozenset(("FR", "CH")): "CH", frozenset(("DE", "CH")): "CH",
-    frozenset(("DE", "FR")): "DE",
-}
+def origin_country(trip: Mapping[str, Any]) -> str | None:
+    if trip.get("origin_country") is not None:
+        code = country_code(trip.get("origin_country"))
+        if code is None:
+            raise ValueError("unknown origin_country")
+        return code
+    return city_country(trip.get("origin_city"))
 
 
-def _country(value: str) -> str:
-    return _COUNTRIES.get(value.strip().lower(), value.strip().upper())
-
-
-def select_site(trip: Mapping) -> tuple[str, str, str]:
-    """Return mode, official site name and public homepage using the rule table."""
-    destination = _country(_text(_race(trip), "country"))
-    origin = _text(trip, "origin_city")
-    source = (
-        _country(_text(trip, "origin_country"))
-        if "origin_country" in trip else _ORIGINS.get(origin.lower())
-    )
-    operator = (
-        destination if source == destination and destination in _RAIL
-        else _CROSS_BORDER.get(frozenset((source, destination)))
-    )
-    if operator:
-        return ("rail", *_RAIL[operator])
-    return ("flight", "Google Flights", "https://www.google.com/travel/flights")
-
-
-def build_task(trip: Mapping) -> dict:
-    race = _race(trip)
-    city, country = (_text(race, key) for key in ("city", "country"))
-    origin = _text(trip, "origin_city")
-    arrival, departure = _dates(trip)
-    adults = _adults(trip)
-    mode, site, url = select_site(trip)
+def build_task(
+    trip: Mapping[str, Any], *, today: date | None = None, registry: Any = None,
+) -> dict[str, Any]:
+    expected = trip_expected(trip, KIND, today=today)
     budget = _budget(trip)
-    budget_hint = (
-        f"Total budget hint: EUR {budget}." if budget is not None else "No budget supplied."
+    adapter, url, decision = select_adapter(
+        KIND, expected, origin_country=origin_country(trip), today=today, registry=registry,
+    )
+    origin, city = expected["origin_city"], expected["city"]
+    arrival, departure, adults = (
+        expected["arrival_date"], expected["departure_date"], expected["travelers"]
+    )
+    hosts = decision["allowed_hosts"]
+    budget_hint = f"Total budget hint: EUR {budget}." if budget is not None else "No budget given."
+    instructions = (
+        f"Goal: select a viable round trip {origin} -> {city}, {expected['country']} for "
+        f"{adults} adults: outbound arriving on or before {arrival}, return departing on "
+        f"{departure}; stop before passenger data.\n"
+        f"1. The start URL already encodes the route, dates and party. Allowed navigation hosts: "
+        f"{', '.join(hosts)}. If any page redirects to another host (including a carrier or "
+        "reseller), STOP at once and report BLOCKED unreviewed_redirect with that host.\n"
+        f"2. DATE CHECK before anything else: the page must show outbound {arrival}, return "
+        f"{departure}, {origin} -> {city} and {adults} adults. If it shows other dates (e.g. "
+        "today's), a one-way trip, swapped dates, another route or party, or they can only be "
+        "changed by submitting a search form, STOP and report BLOCKED date_mismatch.\n"
+        "3. Cookie banners: reject or close only, never accept optional consent.\n"
+        f"4. {budget_hint} Select one outbound that arrives in {city} no later than {arrival} AND "
+        f"one return departing {departure}, then the fare, using only public select buttons. "
+        "Never fill or submit any form.\n"
+        f"5. Site-specific success evidence: {adapter['success_evidence']}\n"
+        f"6. Site-specific blocked evidence: {adapter['blocked_evidence']}\n"
+        "7. STOP at the first passenger-details, login, account, consent, captcha or payment "
+        "page. Never type personal data, log in, create accounts, tick terms, solve captchas "
+        "or pay. Unselected result lists or a homepage are NOT ready."
     )
     return {
-        "kind": "transport",
-        "site_name": site,
+        "kind": KIND,
+        "site_name": decision["policy_id"],
         "start_url": url,
-        "instructions": (
-            f"Use {mode} search from {origin} to {city}, {country}, for {adults} adults. "
-            f"Outbound must arrive on {arrival.isoformat()} before evening; depart on or "
-            f"before {arrival.isoformat()}. Return departs on {departure.isoformat()}. "
-            f"{budget_hint} Verify a viable route, dates and available fares; select fares "
-            "only without commitment. Stop before passenger details, login "
-            "or payment, or any earlier guardrail. For flights, use read-only search only "
-            "and hand off to the human for an official carrier; do not enter carrier checkout. "
-            "Report blocked on no availability, unsuitable routes, or bot protection. "
-            "Use the site's public search controls/result navigation to view availability "
-            "and fares (read-only); prefer deep-linked/public result pages where available. "
-            "Never pay, book, create accounts, accept terms or cookie consent beyond dismissing, "
-            "enter personal data, or bypass captchas. Never submit any form, including "
-            "guest/passenger details, login, account, booking, payment, consent or newsletter. "
-            "If viewing results is impossible without a forbidden step, report blocked "
-            "with the public homepage for human handoff."
-        ),
-        "stop_before": ["guest details", "passenger details", "login", "payment", "booking",
-                        "account creation", "terms", "cookie consent",
-                        "form submission",
-                        "personal data", "captcha"],
+        "instructions": instructions,
+        "stop_before": list(STOP_BEFORE),
         "success_signal": (
-            "Outbound arrival on the arrival_date before evening, return departure on "
-            "departure_date, fares, route and total price are visible with a public "
-            "handoff link, before passenger details or any earlier guardrail. Flights are "
-            "search-only carrier handoffs, not reservations. Otherwise report blocked."
+            f"READY only when a selected outbound (arriving by {arrival}) and return "
+            f"({departure}) with fare and total price for {adults} adults are shown, stopped "
+            "before passenger details; report that URL. Otherwise BLOCKED (date_mismatch, "
+            "no_inventory, login, captcha, consent, unreviewed_redirect) with reason and last URL."
         ),
         "fallback_url": url,
-        "max_steps": 30,
+        "max_steps": MAX_STEPS,
+        "expected": expected,
+        "allowed_hosts": hosts,
     }

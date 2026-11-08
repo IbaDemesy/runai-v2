@@ -1,121 +1,88 @@
-"""Offline hotel task specification; not execution or site authorization.
+"""Hotel task: a policy-reviewed public deep link for the exact confirmed stay.
 
-Trip uses race: {city, country, ...RaceOption fields}, origin_city,
-arrival_date, departure_date (ISO strings or datetime.date). Optional travelers
-is an integer >=1, default 1; budget_eur is a positive finite number, optional,
-and is a total hint in EUR. Other Trip fields (nights, race metadata) are unused.
-hotel_preference may be accor (default) or hilton: only these official chain
-homepages are allowlisted. Unsupported preferences fail closed.
-Actual site authorization and availability must be reviewed before execution.
+The site comes only from docs/site-policy.json adapters whose reviewed terms allow read-only
+automation with in-session screenshots. Unsupported destinations raise ValueError (blocked);
+there is no default chain or homepage fallback.
 """
+
+from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import date
 from math import isfinite
+from typing import Any
+
+from runai.agents.site_policy import select_adapter, trip_expected
+
+KIND = "hotel"
+MAX_STEPS = 80
+STOP_BEFORE = [
+    "guest details / personal data form", "login or account creation", "payment page",
+    "booking confirmation", "terms or consent checkbox", "cookie consent acceptance",
+    "captcha or bot challenge", "any form submission", "redirect to a host not in allowed_hosts",
+]
 
 
-def _text(trip: Mapping, key: str) -> str:
-    value = trip.get(key)
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"Missing or invalid {key}")
-    return value.strip()
-
-
-def _dates(trip: Mapping) -> tuple[date, date]:
-    try:
-        values = []
-        for key in ("arrival_date", "departure_date"):
-            value = trip.get(key)
-            if type(value) is date:
-                values.append(value)
-            elif isinstance(value, str):
-                values.append(date.fromisoformat(value))
-            else:
-                raise ValueError(key)
-        arrival, departure = values
-    except (TypeError, ValueError) as exc:
-        raise ValueError("Expected valid arrival_date and departure_date") from exc
-    if departure <= arrival:
-        raise ValueError("departure_date must be after arrival_date")
-    return arrival, departure
-
-
-def _adults(trip: Mapping) -> int:
-    value = trip.get("travelers", 1)
-    if type(value) is not int or value < 1:
-        raise ValueError("travelers must be a positive integer")
-    return value
-
-
-def _race(trip: Mapping) -> Mapping:
-    race = trip.get("race")
-    if not isinstance(race, Mapping):
-        raise ValueError("Missing or invalid race")  # noqa: TRY004
-    return race
-
-
-def _budget(trip: Mapping) -> int | float | None:
-    if "budget_eur" not in trip:
+def _budget(trip: Mapping[str, Any]) -> int | float | None:
+    value = trip.get("budget_eur")
+    if value is None:
         return None
-    value = trip["budget_eur"]
     if type(value) not in (int, float) or value <= 0 or not isfinite(value):
         raise ValueError("budget_eur must be a finite positive number")
     return value
 
 
-def select_site(trip: Mapping) -> tuple[str, str]:
-    """Select an allowlisted worldwide official chain, never an arbitrary URL."""
-    preference = trip.get("hotel_preference", "accor")
-    sites = {
-        "accor": ("Accor", "https://all.accor.com"),
-        "hilton": ("Hilton", "https://www.hilton.com"),
-    }
-    if not isinstance(preference, str) or preference.lower() not in sites:
-        raise ValueError("Unsupported hotel_preference")
-    return sites[preference.lower()]
-
-
-def build_task(trip: Mapping) -> dict:
-    race = _race(trip)
-    city, country = (_text(race, key) for key in ("city", "country"))
-    origin = _text(trip, "origin_city")
-    arrival, departure = _dates(trip)
-    adults = _adults(trip)
-    site, url = select_site(trip)
+def build_task(
+    trip: Mapping[str, Any], *, today: date | None = None, registry: Any = None,
+) -> dict[str, Any]:
+    expected = trip_expected(trip, KIND, today=today)
     budget = _budget(trip)
+    adapter, url, decision = select_adapter(KIND, expected, today=today, registry=registry)
+    arrival, departure, adults = (
+        expected["arrival_date"], expected["departure_date"], expected["travelers"]
+    )
+    hosts = decision["allowed_hosts"]
     budget_hint = (
-        f"Total stay budget hint: EUR {budget}; do not treat it as a nightly limit."
-        if budget is not None else "No budget supplied; ask the human before choosing a rate."
+        f"Total stay budget: EUR {budget} (whole stay, not per night). Select a rate whose "
+        "total is at most this budget; if none fits, report BLOCKED over_budget with the "
+        "cheapest total seen."
+        if budget is not None else "No budget supplied: pick the cheapest suitable rate."
+    )
+    instructions = (
+        f"Goal: show one available hotel room AND rate in {expected['city']}, "
+        f"{expected['country']} for check-in {arrival}, check-out {departure}, {adults} adults "
+        f"(traveling from {expected['origin_city']}), then stop before guest data.\n"
+        f"1. The start URL already encodes the city, dates and party. Allowed navigation hosts: "
+        f"{', '.join(hosts)}. If any page redirects to another host, STOP at once and report "
+        "BLOCKED unreviewed_redirect with that host; do not interact with it.\n"
+        f"2. DATE CHECK before anything else: the page must show check-in {arrival}, check-out "
+        f"{departure} and {adults} adults. If it shows other dates (e.g. today's), swapped dates "
+        "or another party, or they can only be changed by submitting a search form, STOP and "
+        "report BLOCKED date_mismatch with what was shown. Never change the dates yourself.\n"
+        "3. Cookie banners: reject or close only, never accept optional consent.\n"
+        f"4. {budget_hint} Open one available hotel and select one room and rate whose page shows "
+        f"the full stay {arrival} to {departure}, {adults} adults and a total price. Only use "
+        "public links/select buttons; never fill or submit any form.\n"
+        f"5. Site-specific success evidence: {adapter['success_evidence']}\n"
+        f"6. Site-specific blocked evidence: {adapter['blocked_evidence']}\n"
+        "7. STOP at the first guest-details, login, account, consent, captcha or payment page. "
+        "Never type personal data, log in, create accounts, tick terms, solve captchas or pay.\n"
+        "Search results without a selected room and rate are NOT ready."
     )
     return {
-        "kind": "hotel",
-        "site_name": site,
+        "kind": KIND,
+        "site_name": decision["policy_id"],
         "start_url": url,
-        "instructions": (
-            f"Search hotels near the race city/start area {city}, {country}, for "
-            f"{arrival.isoformat()} to {departure.isoformat()}, {adults} adults "
-            f"traveling from {origin}. {budget_hint} "
-            "Choose an available room/rate within the total budget only if this is possible "
-            "without commitment. Stop at the guest-details page or any earlier "
-            "guardrail, always before payment. Report blocked if no availability, no suitable "
-            "rate, or a bot-protection challenge. Do not claim a reservation. "
-            "Use the site's public search controls/result navigation to view availability "
-            "and fares (read-only); prefer deep-linked/public result pages where available. "
-            "Never pay, book, create accounts, accept terms or cookie consent beyond dismissing, "
-            "enter personal data, or bypass captchas. Never submit any form, including "
-            "guest/passenger details, login, account, booking, payment, consent or newsletter. "
-            "If viewing results is impossible without a forbidden step, report blocked "
-            "with the public homepage for human handoff."
-        ),
-        "stop_before": ["guest details", "passenger details", "login", "payment", "booking",
-                        "account creation", "terms", "cookie consent",
-                        "form submission",
-                        "personal data", "captcha"],
+        "instructions": instructions,
+        "stop_before": list(STOP_BEFORE),
         "success_signal": (
-            "An available room/rate and total price are visible within budget, with a public "
-            "handoff link; stopped before guest details or any earlier guardrail. "
-            "If not observable, report blocked, never success."
+            f"READY only when a selected room and rate show check-in {arrival}, check-out "
+            f"{departure}, {adults} adults and a total price, stopped before guest details; "
+            "report that URL. Otherwise BLOCKED (date_mismatch, no_inventory, login, captcha, "
+            "consent, unreviewed_redirect) with the reason and last URL."
         ),
         "fallback_url": url,
-        "max_steps": 30,
+        "max_steps": MAX_STEPS,
+        "expected": expected,
+        "allowed_hosts": hosts,
     }
