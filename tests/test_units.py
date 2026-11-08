@@ -106,3 +106,21 @@ def test_builder_value_error_is_blocked_and_does_not_start_h(monkeypatch):
     assert result.status == "blocked"
     assert str(result.handoff_url) == TRIP["race"]["official_url"]
     assert result.payment_executed is False
+
+
+def test_invalid_registration_url_cannot_escape_failure_boundary(monkeypatch):
+    def build(trip):
+        raise ValueError("Invalid registration URL")
+
+    monkeypatch.setattr("runai.providers.importlib.import_module", lambda name: SimpleNamespace(
+        build_task=build,
+    ))
+
+    async def emit(event):
+        pytest.fail("No H events expected")
+
+    result = asyncio.run(LiveRunner().run(Kind.registration, {
+        "race": {"official_url": "not-a-url", "registration_url": "also-invalid"},
+    }, emit))
+    assert result.status == "blocked"
+    assert result.handoff_url is None

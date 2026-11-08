@@ -7,6 +7,8 @@ from html import escape
 from pathlib import Path
 from typing import Protocol
 
+from pydantic import HttpUrl, TypeAdapter
+
 from runai.models import Kind, StepResult
 
 FIXTURE = Path(__file__).resolve().parent.parent / "fixtures/synthetic-journey.json"
@@ -33,10 +35,17 @@ class LiveVoice:
         raise NotImplementedError("Live Gladia voice not implemented; requires GLADIA_API_KEY")
 
 
+def _valid_url(value):
+    try:
+        return str(TypeAdapter(HttpUrl).validate_python(value))
+    except ValueError:
+        return None
+
+
 def _fallback(kind, trip):
     if kind == Kind.registration:
         race = trip.get("race", {})
-        return race.get("registration_url") or race.get("official_url")
+        return _valid_url(race.get("registration_url")) or _valid_url(race.get("official_url"))
     return "https://all.accor.com/" if kind == Kind.hotel else "https://www.omio.com/"
 
 
@@ -133,7 +142,7 @@ class LiveRunner:
                     kind=kind, status="blocked", summary="Plan unsupported; continue on public site",
                     error="Task builder rejected this plan", handoff_url=fallback, synthetic=False,
                 )
-            fallback = (task.get("fallback_url") if isinstance(task, dict) else getattr(
+            fallback = _valid_url(task.get("fallback_url") if isinstance(task, dict) else getattr(
                 task, "fallback_url", fallback,
             )) or fallback
             client = importlib.import_module("runai.agents.hclient").HAgentRunner()

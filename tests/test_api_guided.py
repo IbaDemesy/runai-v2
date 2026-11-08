@@ -230,3 +230,18 @@ def test_replay_load_failure_is_three_visible_failures(tmp_path):
         assert len(mission["results"]) == 3
         assert all(r["status"] == "failed" for r in mission["results"])
         assert sum(e["type"] == "step_finished" for e in mission["events"]) == 3
+
+
+def test_guide_trip_payload_is_preferred_and_missions_are_isolated():
+    class PayloadGuide(StubGuide):
+        def trip_payload(self, state):
+            return {**state.trip, "origin_city": "Lyon"}
+
+    with TestClient(create_app(guide=PayloadGuide())) as c:
+        first = c.post("/api/missions", json={"text": "a race"}).json()
+        second = c.post("/api/missions", json={"text": "another race"}).json()
+        first_url, second_url = (f"/api/missions/{m['id']}" for m in (first, second))
+        result = c.post(first_url + "/messages", json={"text": "yes"}).json()
+        assert result["trip"]["origin_city"] == "Lyon"
+        assert c.get(second_url).json()["status"] == "guiding"
+        assert len(c.get(second_url).json()["turns"]) == 1
