@@ -82,7 +82,8 @@ def registry(*entries):
     ]}
 
 
-KEYS = {"allowed", "reason", "policy_id", "screenshot_scope", "allowed_hosts", "expires_at"}
+KEYS = {"allowed", "reason", "policy_id", "screenshot_scope", "allowed_hosts", "allowed_paths",
+        "expires_at"}
 
 
 def check(url, kind="hotel", reg=None, today=TODAY):
@@ -326,3 +327,24 @@ def test_city_without_reviewed_place_ids_blocks():
 def test_place_template_without_places_is_invalid():
     with pytest.raises(PolicyError):
         parse_registry(_place_registry(places=None))
+
+
+def test_allowed_paths_keep_event_scope():
+    url = "https://in.njuko.com/wizz-air-milano-marathon-20271776152378557/registration"
+    result = evaluate_url(url, "registration", today=TODAY)
+    assert result["allowed"] is True
+    assert result["allowed_paths"] == ["/wizz-air-milano-marathon-20271776152378557"]
+    path_scoped = check("https://www.hotels.example/search", reg=registry(entry()))
+    assert path_scoped["allowed_paths"] == ["/search"]
+    assert check("https://unknown.example/")["allowed_paths"] == []
+
+
+def test_registry_reload_picks_up_revocation(tmp_path):
+    path = tmp_path / "policy.json"
+    path.write_text(json.dumps(registry(entry())), encoding="utf-8")
+    assert load_registry(path)[0]["automation"] == "allowed_read_only"
+    revoked = registry(entry(automation="prohibited"))
+    path.write_text(json.dumps(revoked), encoding="utf-8")
+    import os
+    os.utime(path, ns=(1, 1))
+    assert load_registry(path)[0]["automation"] == "prohibited"

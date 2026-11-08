@@ -235,12 +235,12 @@ def parse_registry(data: Any) -> list[dict[str, Any]]:
 
 
 @lru_cache(maxsize=4)
-def _load(path: str) -> tuple[dict[str, Any], ...]:
+def _load(path: str, mtime_ns: int) -> tuple[dict[str, Any], ...]:
     return tuple(parse_registry(json.loads(Path(path).read_text(encoding="utf-8"))))
 
 
 def load_registry(path: Path | str = REGISTRY_PATH) -> list[dict[str, Any]]:
-    return list(_load(str(path)))
+    return list(_load(str(path), Path(path).stat().st_mtime_ns))
 
 
 def _split(url: Any) -> tuple[str, str] | None:
@@ -274,7 +274,7 @@ def _deny(reason: str, entry: Mapping[str, Any] | None = None) -> dict[str, Any]
     return {
         "allowed": False, "reason": reason,
         "policy_id": entry["id"] if entry else None,
-        "screenshot_scope": False, "allowed_hosts": [],
+        "screenshot_scope": False, "allowed_hosts": [], "allowed_paths": [],
         "expires_at": entry["expires_at"].isoformat() if entry else None,
     }
 
@@ -340,6 +340,7 @@ def evaluate_url(
             "allowed read-only by owner decision"
         ),
         "policy_id": entry["id"], "screenshot_scope": True, "allowed_hosts": hosts,
+        "allowed_paths": sorted({s["path_prefix"] for s in entry["scopes"]}),
         "expires_at": entry["expires_at"].isoformat(),
     }
 
