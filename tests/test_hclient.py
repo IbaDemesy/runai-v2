@@ -409,6 +409,8 @@ def test_screenshot_redirects_cannot_reach_private_or_insecure_targets(target):
 
 @pytest.mark.parametrize("source", [
     API + "/sessions/test-session/resources/screenshots/frame.png",
+    "https://agp.eu.hcompany.ai/api/v1/trajectories/test-session/resources/screenshots/frame.png",
+    "/api/v1/trajectories/test-session/resources/screenshots/frame.png?version=latest",
 ])
 def test_authenticated_screenshot_resource_redirect_drops_bearer(source):
     provider = Provider(events=[observation({
@@ -417,6 +419,8 @@ def test_authenticated_screenshot_resource_redirect_drops_bearer(source):
 
     def image_request(request):
         if request.url.path.endswith("/resources/screenshots/frame.png"):
+            assert request.url.path == "/api/v2/sessions/test-session/resources/screenshots/frame.png"
+            assert request.url.query == httpx.URL(source).query
             assert request.headers["Authorization"] == "Bearer test-api-key"
             return httpx.Response(302, headers={"location": "https://images.example.org/frame.png"})
         if request.url.host == "images.example.org":
@@ -426,7 +430,31 @@ def test_authenticated_screenshot_resource_redirect_drops_bearer(source):
 
     result, events = run(image_request)
     assert result["status"] == "ready_for_payment"
-    assert any(e["type"] == "live_frame" for e in events)
+    assert next(e for e in events if e["type"] == "live_frame")["image"] == IMAGE
+
+
+@pytest.mark.parametrize("source", [
+    "https://agp.eu.hcompany.ai/api/v1/trajectories/other-session/resources/screenshots/frame.png",
+    "https://images.example.org/api/v1/trajectories/test-session/resources/screenshots/frame.png",
+])
+def test_legacy_foreign_or_cross_session_resource_is_not_authenticated_or_rewritten(source):
+    provider = Provider(events=[observation({
+        "type": "url", "source": source, "media_type": "image/png",
+    })])
+    resource_requests = []
+
+    def handle(request):
+        if "/resources/" in request.url.path:
+            resource_requests.append(request)
+            assert str(request.url) == source
+            assert not request.headers.get("Authorization")
+            return httpx.Response(404)
+        return provider(request)
+
+    result, events = run(handle)
+    assert len(resource_requests) == 1
+    assert result["status"] == "failed" and provider.cancelled
+    assert not any(event["type"] == "live_frame" for event in events)
 
 
 def test_empty_polls_and_deferred_answer_are_drained():

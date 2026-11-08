@@ -15,7 +15,10 @@ Reviewed official H Agents API documentation before changing requests:
   allowed public trajectory URLs. A broken share endpoint is irrelevant.
 - Images come from genuine observation-event base64 or URL sources. Only the
   exact API-origin `/api/v2/sessions/<own session>/resources/` path gets bearer
-  authentication. Legacy trajectory paths do not. At most six download hops;
+  authentication. Same-origin, own-session legacy trajectory resource URLs are
+  normalized to that documented v2 endpoint before fetching (query preserved).
+  Foreign-host or cross-session legacy URLs are never normalized/authenticated.
+  At most six download hops;
   each destination must be public HTTPS without URL credentials. External hops
   have empty Authorization (also overriding a supplied client's default).
   PNG/JPEG/WebP MIME agreement and a 5 MiB content limit are checked. Consumers
