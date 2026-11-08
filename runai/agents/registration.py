@@ -57,7 +57,7 @@ def build_task(
     if not registration_url and not official_url:
         raise ValueError("race needs an https registration_url or official_url")
     distance_km = race.get("distance_km")
-    if type(distance_km) not in (int, float) or not 0 < distance_km < 500:
+    if type(distance_km) not in (int, float) or not 0 < distance_km < float("inf"):
         raise ValueError("race distance_km is required to verify the selected distance")
     distance = _text(race, "distance_label") or f"{distance_km} km"
 

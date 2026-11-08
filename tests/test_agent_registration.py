@@ -114,3 +114,8 @@ def test_guardrails():
         assert any(item in s for s in task["stop_before"])
     for item in ("Never type personal data", "submit a form", "bypass a captcha"):
         assert item in task["instructions"]
+
+
+def test_ultra_distance_is_accepted():
+    data = _trip(distance_km=1000.0, distance_label="1000 km ultra")
+    assert "1000 km ultra" in build(data)["instructions"]
