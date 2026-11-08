@@ -1,7 +1,7 @@
 """Remove contact details and credentials from provider-facing evidence."""
 
 import re
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
 _SENSITIVE_PARAM = re.compile(r"token|session|sid|auth|key|signature|email", re.IGNORECASE)
 _EMAIL = re.compile(r"[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}")
@@ -18,6 +18,11 @@ _ASSIGNED_KEY = re.compile(
     re.IGNORECASE,
 )
 _URL = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
+_PRIVATE_PATH = re.compile(
+    r"(?:tokens?|sessions?|sid|auth|api[-_]?key|signature|email|jsessionid)(?:[=:;].*)?",
+    re.IGNORECASE,
+)
+_OPAQUE_PATH = re.compile(r"(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9_-]{24,}|[a-fA-F0-9]{24,}")
 
 
 def scrub_url(url: str | None) -> str | None:
@@ -39,12 +44,17 @@ def scrub_url(url: str | None) -> str | None:
             host = f"[{host}]"
         netloc = host + (f":{parts.port}" if parts.port else "")
         path = re.sub(r";jsessionid=[^/;?]*", "", parts.path, flags=re.IGNORECASE)
-        path = _EMAIL.sub("[redacted]", path)
+        if host not in {"agp.eu.hcompany.ai", "agp.hcompany.ai"}:
+            for segment in unquote(path).split("/"):
+                if _PRIVATE_PATH.fullmatch(segment) or _OPAQUE_PATH.fullmatch(segment) or (
+                    _EMAIL.search(segment) or re.match(r"(?:sk|hai|linkup|gladia)[-_]", segment)
+                ):
+                    return None
         query = urlencode([
             (name, value) for name, value in parse_qsl(parts.query, keep_blank_values=True)
             if not _SENSITIVE_PARAM.search(name)
             and not _EMAIL.search(value) and not _KEY.search(value)
-            and not _PHONE.search(value)
+            and (not _PHONE.search(value) or _DATE.fullmatch(value))
         ])
         return urlunsplit((parts.scheme, netloc, path, query, ""))
     except (ValueError, UnicodeError):

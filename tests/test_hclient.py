@@ -256,6 +256,23 @@ def test_scrub_url_removes_credentials_fragments_and_sensitive_queries():
     assert scrub_url(PUBLIC_SHARE) == PUBLIC_SHARE
 
 
+@pytest.mark.parametrize("path", [
+    "/session/synthetic-private-token", "/entry/auth/synthetic-token", "/token=synthetic-value",
+    "/entry/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "/entry/runner%40example.org",
+])
+def test_private_session_and_contact_paths_are_not_returned_as_public_urls(path):
+    url = "https://race.example.org" + path
+    assert scrub_url(url) is None
+    assert path not in scrub_text("Observed " + url)
+    result, _ = run(Provider(answer={**ANSWER, "handoff_url": url}))
+    assert result["status"] == "blocked" and result["handoff_url"] is None
+
+
+def test_trip_dates_survive_url_scrubbing():
+    url = "https://hotel.example.org/stay?checkin=2027-04-04&checkout=2027-04-06&token=private"
+    assert scrub_url(url) == "https://hotel.example.org/stay?checkin=2027-04-04&checkout=2027-04-06"
+
+
 def test_scrub_text_preserves_dates_and_removes_contacts_keys_and_private_urls():
     value = scrub_text(
         "Race 2027-04-04. Contact runner@example.org or +33 6 12 34 56 78. "
