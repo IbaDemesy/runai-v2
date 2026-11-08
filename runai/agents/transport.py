@@ -111,14 +111,21 @@ def build_task(trip: Mapping) -> dict:
             f"Use {mode} search from {origin} to {city}, {country}, for {adults} adults. "
             f"Outbound on {arrival.isoformat()}; return on {departure.isoformat()}. "
             f"{budget_hint} Verify a viable route, dates and available fares; select fares "
-            "only without submission or commitment. Stop before passenger details, login "
+            "only without commitment. Stop before passenger details, login "
             "or payment, or any earlier guardrail. For flights, use read-only search only "
             "and hand off to the human for an official carrier; do not enter carrier checkout. "
             "Report blocked on no availability, unsuitable routes, or bot protection. "
-            "Never pay, book, create accounts, accept terms or cookie consent (dismissing is allowed), submit forms, enter personal data, or bypass captchas. If searching requires form submission or consent, stop and report blocked with the public homepage for human handoff."
+            "Public search is allowed: type destination/dates/travellers into public search "
+            "fields, press Search, and select a room/fare without commitment. "
+            "Never pay, book, create accounts, accept terms or cookie consent beyond dismissing, "
+            "submit personal-data or booking forms, enter personal data, or bypass captchas. "
+            "Stop before guest/passenger details, login, account, booking or payment forms. "
+            "If continuing requires consent or commitment, stop and report blocked with "
+            "the public homepage for human handoff."
         ),
         "stop_before": ["guest details", "passenger details", "login", "payment", "booking",
-                        "account creation", "terms", "cookie consent", "form submission",
+                        "account creation", "terms", "cookie consent",
+                        "submitting personal-data or booking forms",
                         "personal data", "captcha"],
         "success_signal": (
             "Outbound and return fares, route and total price are visible with a public "

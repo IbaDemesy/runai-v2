@@ -16,9 +16,9 @@ authorization; authorization review remains a prerequisite to execution.
 | Google Flights — https://www.google.com/travel/flights | assumed: read-only round-trip search and carrier links | assumed: search-results carrier handoff, not carrier checkout | assumed: challenges may block; not tested; stop, no workarounds | assumed: permission unverified; review current terms and authorization |
 
 For every site, stop even earlier if continuing requires consent, account
-creation, form submission or personal data. Dismissal is not consent acceptance.
-Search form submission is forbidden by the ticket, so many real search flows
-may be blocked before fares can be reached.
+creation, personal-data or booking form submission, or personal data.
+Dismissal is not consent acceptance. Public search fields, pressing Search and
+noncommitting fare selection are allowed.
 
 ## Routing and evidence limitations
 

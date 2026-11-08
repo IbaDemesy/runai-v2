@@ -76,13 +76,20 @@ def build_task(trip: Mapping) -> dict:
             f"{arrival.isoformat()} to {departure.isoformat()}, {adults} adults "
             f"traveling from {origin}. {budget_hint} "
             "Choose an available room/rate within the total budget only if this is possible "
-            "without submission or commitment. Stop at the guest-details page or any earlier "
+            "without commitment. Stop at the guest-details page or any earlier "
             "guardrail, always before payment. Report blocked if no availability, no suitable "
             "rate, or a bot-protection challenge. Do not claim a reservation. "
-            "Never pay, book, create accounts, accept terms or cookie consent (dismissing is allowed), submit forms, enter personal data, or bypass captchas. If searching requires form submission or consent, stop and report blocked with the public homepage for human handoff."
+            "Public search is allowed: type destination/dates/travellers into public search "
+            "fields, press Search, and select a room/fare without commitment. "
+            "Never pay, book, create accounts, accept terms or cookie consent beyond dismissing, "
+            "submit personal-data or booking forms, enter personal data, or bypass captchas. "
+            "Stop before guest/passenger details, login, account, booking or payment forms. "
+            "If continuing requires consent or commitment, stop and report blocked with "
+            "the public homepage for human handoff."
         ),
         "stop_before": ["guest details", "passenger details", "login", "payment", "booking",
-                        "account creation", "terms", "cookie consent", "form submission",
+                        "account creation", "terms", "cookie consent",
+                        "submitting personal-data or booking forms",
                         "personal data", "captcha"],
         "success_signal": (
             "An available room/rate and total price are visible within budget, with a public "

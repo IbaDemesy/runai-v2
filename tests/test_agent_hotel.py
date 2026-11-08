@@ -72,12 +72,19 @@ def test_dates_defaults_and_guardrails():
     data["travelers"] = 3
     assert "3 adults" in build_task(data)["instructions"]
     for rule in ("guest details", "passenger details", "login", "payment", "booking",
-                 "account creation", "terms", "cookie consent", "form submission",
+                 "account creation", "terms", "cookie consent",
+                 "submitting personal-data or booking forms",
                  "personal data", "captcha"):
         assert rule in task["stop_before"]
     for rule in ("Never pay", "book", "create accounts", "accept terms", "cookie consent",
-                 "submit forms", "enter personal data", "bypass captchas", "report blocked"):
+                 "submit personal-data or booking forms", "enter personal data",
+                 "bypass captchas", "report blocked", "beyond dismissing"):
         assert rule in task["instructions"]
+    assert "form submission" not in task["stop_before"]
+    for allowed in ("Public search is allowed", "destination/dates/travellers",
+                    "press Search", "select a room/fare without commitment"):
+        assert allowed in task["instructions"]
+    assert "If searching requires form submission" not in task["instructions"]
     assert "blocked" in task["success_signal"]
     source = Path(__file__).parents[1] / "runai" / "agents" / "hotel.py"
     assert all(term not in source.read_text().lower() for term in ("booking.com", "flytap"))
