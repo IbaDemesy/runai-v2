@@ -115,3 +115,19 @@ def test_explicit_year_without_month(text, year):
 def test_city_context_and_explicit_country(text, country, city):
     intent = parse_intent(text, today=TODAY)
     assert (intent.country, intent.city) == (country, city)
+
+
+@pytest.mark.parametrize(
+    "text,today,months",
+    [
+        ("cet hiver", date(2027, 1, 10), ["2027-01", "2027-02"]),
+        ("this winter", date(2027, 2, 10), ["2027-02"]),
+        ("cet hiver", date(2026, 12, 10), ["2026-12", "2027-01", "2027-02"]),
+        ("ce printemps", date(2027, 4, 10), ["2027-04", "2027-05"]),
+        ("this summer", date(2027, 7, 10), ["2027-07", "2027-08"]),
+        ("this autumn", date(2027, 10, 10), ["2027-10", "2027-11"]),
+        ("winter 2028", date(2027, 1, 10), ["2028-12", "2029-01", "2029-02"]),
+    ],
+)
+def test_current_season_remaining_months(text, today, months):
+    assert parse_intent(text, today=today).months == months

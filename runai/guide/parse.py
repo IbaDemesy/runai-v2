@@ -160,6 +160,7 @@ def parse_intent(text: str, *, today: date) -> Intent:
             result.named = result.distance is not None
             break
     selected = []
+    season = False
     for month, aliases in enumerate(MONTHS, 1):
         if any(contains(t, alias) for alias in aliases.split()):
             selected.append(month)
@@ -171,8 +172,11 @@ def parse_intent(text: str, *, today: date) -> Intent:
     ]:
         if any(contains(t, alias) for alias in aliases.split()):
             selected = months
+            season = True
     if selected:
         year = int(explicit[1]) if explicit else today.year
+        if season and today.month in selected and year == today.year and not contains(t, "next"):
+            selected = selected[selected.index(today.month) :]
         if not explicit and (max(selected) < today.month or contains(t, "next")):
             year += 1
         result.months = [f"{year + (1 if m < selected[0] else 0):04d}-{m:02d}" for m in selected]
