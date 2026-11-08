@@ -84,8 +84,18 @@ def _policy(task):
             if decision is not True:
                 raise _PolicyBlocked
             expiry = _field(review, "expires_at")
-            if expiry is not None and date.fromisoformat(str(expiry)[:10]) < datetime.now(UTC).date():
-                raise _PolicyBlocked
+            if expiry is not None:
+                expiry_text = str(expiry)
+                now = datetime.now(UTC)
+                if len(expiry_text) == 10:
+                    if date.fromisoformat(expiry_text) < now.date():
+                        raise _PolicyBlocked
+                else:
+                    expires_at = datetime.fromisoformat(expiry_text.replace("Z", "+00:00"))
+                    if expires_at.tzinfo is None:
+                        expires_at = expires_at.replace(tzinfo=UTC)
+                    if expires_at <= now:
+                        raise _PolicyBlocked
             if _field(review, "screenshot_scope") is not True:
                 raise _PolicyBlocked
             if not _field(review, "policy_id"):

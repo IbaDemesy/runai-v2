@@ -44,7 +44,9 @@ destination blocks with zero provider create calls. The pinned result is
 The actual start and fallback URLs are reviewed for the task kind; no synthetic
 domain-root evaluations are made. Every task `allowed_hosts` entry must be
 included in the returned reviewed scope. Effective hosts intersect task and
-policy lists. A null expiry means no expiry; a past date is blocked. Optional `allowed_paths` prefixes are
+policy lists. A null expiry means no expiry. Date-only reviews remain valid
+through that UTC date; timestamp expiries compare the full instant (naive
+timestamps mean UTC). Optional `allowed_paths` prefixes are
 honored; the pinned host-wide interface otherwise uses `/`.
 
 The reviewed hosts/path prefixes are explicit in the hosted instructions.

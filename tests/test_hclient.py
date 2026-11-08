@@ -2,6 +2,7 @@ import asyncio
 import base64
 import json
 import sys
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import httpx
@@ -856,3 +857,25 @@ def test_trip_verification_normalizes_city_party_and_dates_without_race_fields(k
     properties = json.loads(provider.requests[0].content)["overrides"]["agent.answer_format"][
         "properties"]["verification"]["properties"]
     assert not {"race_date", "race_name", "country", "kind"} & properties.keys()
+
+
+@pytest.mark.parametrize("format_kind", ["aware", "naive", "date"])
+def test_policy_expiry_uses_timestamp_precision_and_date_inclusive_day(monkeypatch, format_kind):
+    earlier = datetime.now(UTC) - timedelta(seconds=1)
+    expiry = earlier.isoformat()
+    if format_kind == "naive":
+        expiry = earlier.replace(tzinfo=None).isoformat()
+    elif format_kind == "date":
+        expiry = datetime.now(UTC).date().isoformat()
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(
+        evaluate_url=lambda *_: {
+            "allowed": True, "policy_id": "reviewed", "screenshot_scope": True,
+            "expires_at": expiry, "allowed_hosts": ["race.example.org"],
+        },
+    ))
+    provider = Provider()
+    result, _ = run(provider)
+    if format_kind == "date":
+        assert result["status"] == "ready_for_payment"
+    else:
+        assert result["status"] == "blocked" and not provider.requests
