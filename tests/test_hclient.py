@@ -264,6 +264,7 @@ def test_scrub_url_removes_credentials_fragments_and_sensitive_queries():
     "/entry/runner-+33-6-12-34-56-78", "/entry/runner-%2B33-6-12-34-56-78",
     "/entry/road-sk-12345678",
     "/entry/sk-1234567", "/entry/road-hai-short",
+    "/entry/runner-2028-04-02-25-30",
 ])
 def test_private_session_and_contact_paths_are_not_returned_as_public_urls(path):
     url = "https://race.example.org" + path
@@ -283,6 +284,7 @@ def test_trip_dates_survive_url_scrubbing():
     "https://inscripciones.rpmsports.es/es/evento/zurich-marato-barcelona-2027/my-registration",
     "https://race.example.org/northern-city-road-marathon-2028-04-02",
     "https://race.example.org/event/1234567890",
+    "https://race.example.org/northern-city-road-marathon-2028-04-02-10-30",
 ])
 def test_public_word_slugs_work_as_start_handoff_and_progress_urls(url):
     assert scrub_url(url) == url

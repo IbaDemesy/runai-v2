@@ -6,7 +6,10 @@ from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 _SENSITIVE_PARAM = re.compile(r"token|session|sid|auth|key|signature|email", re.IGNORECASE)
 _EMAIL = re.compile(r"[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}")
 _PHONE = re.compile(r"(?<!\w)(?:\+?\d[\d ().-]{7,}\d)(?!\w)")
-_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_DATE = re.compile(
+    r"\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])"
+    r"(?:[-T](?:[01]\d|2[0-3])[-:][0-5]\d(?:[-:][0-5]\d)?)?"
+)
 _BEARER = re.compile(r"\bBearer\s+[^\s,;\"']+", re.IGNORECASE)
 _KEY_PREFIX = re.compile(r"\b(?:sk|hai|linkup|gladia)[-_][A-Za-z0-9_-]+", re.IGNORECASE)
 _KEY = re.compile(
