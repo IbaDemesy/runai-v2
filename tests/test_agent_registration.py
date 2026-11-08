@@ -115,3 +115,11 @@ def test_generic_across_races(name, city, country, official, registration):
     assert not any(o in task["instructions"] for o in others)
     if "Milano" not in name:
         assert "milan" not in task["instructions"].lower()
+
+
+def test_login_wall_is_blocked_not_ready():
+    signal = build_task(_trip())["success_signal"]
+    ready, blocked = signal.split("BLOCKED:")
+    assert "login" not in ready.lower()
+    assert "login" in blocked.lower()
+    assert "captcha" in blocked.lower()

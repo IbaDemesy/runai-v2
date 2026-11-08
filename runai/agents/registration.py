@@ -33,9 +33,9 @@ KNOWN_PLATFORMS = (
 
 SUCCESS_SIGNAL = (
     "READY: the registration flow for the selected distance is open and the next step asks for "
-    "personal data, login, medical certificate, consent or payment; report its https URL. "
-    "BLOCKED: registration is closed, sold out, not yet open, lottery-only, or behind a captcha "
-    "or login wall; report the reason and the last public URL."
+    "personal data, a medical certificate, consent or payment; report its https URL. "
+    "BLOCKED: registration is closed, sold out, not yet open, lottery-only, or requires an "
+    "account login/creation or a captcha before that step; report the reason and the last URL."
 )
 
 
