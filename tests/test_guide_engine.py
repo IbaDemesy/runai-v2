@@ -309,3 +309,14 @@ def test_budget_is_not_a_race_year(answer):
     assert state.draft.budget_eur == 2028 and turn.ready_to_confirm
     state, turn = run(e.step(state, {"text": "budget 2029 euros"}))
     assert len(calls) == 1 and state.draft.budget_eur == 2029
+
+
+def test_month_refinement_preserves_explicit_year():
+    e = engine()
+    state, turn = run(e.start("un trail en Suisse 2028"))
+    state, turn = run(e.step(state, {"text": "plutôt en juillet"}))
+    assert state.hints["year"] == 2028 and state.hints["months"] == ["2028-07"]
+    assert len(turn.candidates) == 1
+    assert turn.candidates[0].race_date == date(2028, 7, 10)
+    state, turn = run(e.step(state, {"text": "in July 2029"}))
+    assert state.hints["year"] == 2029 and state.hints["months"] == ["2029-07"]

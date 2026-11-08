@@ -370,6 +370,12 @@ class GuideEngine:
                 state.hints = {}
             elif intent.year:
                 state.hints.pop("months", None)
+            elif intent.months and state.hints.get("year"):
+                first_month = int(intent.months[0][-2:])
+                intent.months = [
+                    f"{state.hints['year'] + (int(month[-2:]) < first_month):04d}-{month[-2:]}"
+                    for month in intent.months
+                ]
             state.hints.update(
                 {
                     k: v
