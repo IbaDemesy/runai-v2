@@ -213,7 +213,7 @@ class GuideEngine:
             hints["month_to"] = max(hints["months"])
             hints.setdefault("year", int(hints["month_from"][:4]))
         if hints.get("named"):
-            hints["race_name"] = state.query
+            hints.setdefault("race_name", state.query)
         try:
             rows = await self.discover(state.query, hints)
             for row in rows:
@@ -381,10 +381,14 @@ class GuideEngine:
             setattr(intent, "nights" if state.stage == "nights" else "budget_eur", int(text))
         self._update(state, intent)
         if intent.distance or intent.city or intent.country or intent.months or intent.year:
-            state.query = text
             if intent.distance or intent.country or intent.city:
+                state.query = text
                 state.hints = {}
-            elif intent.year:
+            elif not state.query:
+                state.query = text
+            if intent.named:
+                state.hints["race_name"] = text
+            if intent.year:
                 state.hints.pop("months", None)
             elif intent.months and state.hints.get("year"):
                 first_month = int(intent.months[0][-2:])

@@ -390,3 +390,33 @@ def test_r1_03_race_contract_and_hint_bridge():
     assert all(
         row["distance_label"] for row in run(FakeDiscovery()("trail", {"distance": "trail"}))
     )
+
+
+def test_named_race_refinement_keeps_base_query_and_race_name():
+    observed = []
+
+    async def discover(query, hints):
+        observed.append((query, hints.copy()))
+        month = hints.get("month_from", "2027-03")
+        return [
+            {
+                "id": "lisbon",
+                "name": "Synthetic Lisbon half",
+                "city": "Lisbon",
+                "race_date": f"{month}-14",
+                "date_status": "unverified",
+                "synthetic": True,
+            }
+        ]
+
+    e = engine(discover)
+    state, turn = run(e.start("le semi de Lisbonne"))
+    state, turn = run(e.step(state, {"text": "plutôt en mai"}))
+    query, hints = observed[-1]
+    assert query == "le semi de Lisbonne" and hints["race_name"] == query
+    assert hints["city"] == "Lisbon" and hints["distance"] == "half" and hints["named"]
+    assert hints["month_from"] == hints["month_to"] == "2026-05"
+    assert state.query == query and state.draft.race.city == "Lisbon" and turn.candidates
+    state, turn = run(e.step(state, {"text": "un marathon à Rome"}))
+    assert observed[-1][0] == "un marathon à Rome"
+    assert observed[-1][1]["race_name"] == "un marathon à Rome"
