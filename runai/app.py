@@ -98,6 +98,8 @@ def sanitize(value, key=""):
     safe_id = (key in {"id", "value", "path_segment"} or key.endswith("_id")) and re.fullmatch(
         r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}", value,
     )
+    if safe_id and key == "path_segment" and any(len(chunk) > 20 for chunk in re.split(r"[_.:-]", value)):
+        safe_id = None
     if key.endswith("_url") or key == "source_urls":
         url = public_url(value)
         if url is None:
@@ -116,7 +118,7 @@ def sanitize(value, key=""):
                     r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")
     value = re.sub(card_pattern, "[redacted card]", value)
     if safe_id:
-        return _fallback_scrub(value, scrub_phone=not bool(re.search(r"[A-Za-z]", value)))
+        return _fallback_scrub(value, scrub_phone=key == "path_segment" or not re.search(r"[A-Za-z]", value))
     try:
         from runai.agents.scrub import scrub_text
         return scrub_text(value)

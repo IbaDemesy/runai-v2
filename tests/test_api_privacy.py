@@ -185,3 +185,12 @@ def test_long_slug_chip_values_and_url_paths_survive_but_secrets_do_not():
     assert sanitize("runner@example.com", "value") != "runner@example.com"
     assert sanitize("https://example.org/r?ref=sk-abcdefghijklmnopqrstuvwxyz123456", "official_url") is None
     assert sanitize("https://example.org/sk-abcdefghijklmnopqrstuvwxyz123456/x", "official_url") is None
+
+
+def test_url_paths_with_opaque_tokens_or_phones_are_dropped():
+    from runai.app import sanitize
+
+    assert sanitize("https://example.org/r/a8f3k2q9z7x1m4n6b5v0c2l8p3w9e1t7/x", "official_url") is None
+    assert sanitize("https://example.org/contact-0612345678/", "official_url") is None
+    assert sanitize("https://example.org/events/2027-04-18/s-25-berlin-2027", "official_url") == (
+        "https://example.org/events/2027-04-18/s-25-berlin-2027")
