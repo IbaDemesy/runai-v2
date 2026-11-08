@@ -134,7 +134,7 @@ def test_run_emits_real_api_frames_without_any_public_share():
     assert provider.polls == 2
     assert provider.requests[-1].url.params["from_index"] == "3"
     body = json.loads(provider.requests[0].content)
-    assert body["max_steps"] == 80 and body["max_time_s"] == 600
+    assert body["max_steps"] == 80 and body["max_time_s"] == 510
     assert body["overrides"]["agent.instructions"] == GUARDRAILS
     assert body["overrides"]["agent.environments[kind=web].start_url"] == START
     assert "stop_before" in body["messages"][0]["message"]
@@ -929,3 +929,11 @@ def test_transport_overnight_outbound_date_allowance(kind, day, ready):
         **ANSWER, "handoff_url": url, "verification": verification,
     }), {**TASK, "kind": kind, "expected": expected})
     assert result["status"] == ("ready_for_payment" if ready else "blocked")
+
+
+@pytest.mark.parametrize("timeout,provider_budget", [(600, 510), (120, 30), (90, 45), (10, 5)])
+def test_provider_time_budget_leaves_local_final_answer_headroom(timeout, provider_budget):
+    provider = Provider()
+    result, _ = run(provider, timeout_s=timeout)
+    assert result["status"] == "ready_for_payment"
+    assert json.loads(provider.requests[0].content)["max_time_s"] == provider_budget

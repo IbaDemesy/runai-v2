@@ -26,6 +26,9 @@ Reviewed official H Agents API documentation before changing requests:
   asks for a final answer; it does not kill the agent. Likewise `max_time_s`
   requests an answer and allows a further 60 seconds before provider failure.
   Independent local timeout defaults to 600 seconds and is bounded at 900.
+  Provider `max_time_s` is 90 seconds shorter (510 by default) to leave room for
+  its final-answer grace period; local timeouts of 90 seconds or less instead
+  give the provider half the local budget.
   Active step-cap observation, timeout, client cancellation, unsafe claims,
   HTTP/parse/callback failures and unauthorized observations trigger DELETE.
   Failed remote cancellation is explicitly reported, not treated as success.

@@ -479,7 +479,9 @@ class HAgentRunner:
                 body = {
                     "agent": "h/web-surfer-flash",
                     "messages": [{"type": "user_message", "message": clean_text(prompt)}],
-                    "max_time_s": self.timeout_s,
+                    "max_time_s": max(1, self.timeout_s - 90) if self.timeout_s > 90 else (
+                        self.timeout_s / 2
+                    ),
                     "max_steps": max_steps,
                     "delete_after_min": 60,
                     "delete_screenshot_after_min": 60,
