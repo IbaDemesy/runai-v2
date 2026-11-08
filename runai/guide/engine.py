@@ -366,10 +366,9 @@ class GuideEngine:
         self._update(state, intent)
         if intent.distance or intent.city or intent.country or intent.months or intent.year:
             state.query = text
-            if intent.country and not intent.city:
-                state.hints.pop("city", None)
-                state.hints.pop("named", None)
-            if intent.city:
+            if intent.distance or intent.country or intent.city:
+                state.hints = {}
+            elif intent.year:
                 state.hints.pop("months", None)
             state.hints.update(
                 {

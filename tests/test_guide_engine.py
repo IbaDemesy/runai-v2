@@ -276,3 +276,17 @@ def test_explicit_year_discovery_and_mismatched_candidates():
 
     state, turn = run(engine(discover).start("Milan marathon 2028"))
     assert not turn.candidates and state.draft.race is None and not turn.ready_to_confirm
+
+
+def test_new_race_search_resets_hints_but_month_refines():
+    e = engine()
+    state, turn = run(e.start("un marathon en Italie au printemps 2028"))
+    state, turn = run(e.step(state, {"text": "un trail en Suisse"}))
+    assert len(turn.candidates) == 3
+    assert state.hints == {"distance": "trail", "country": "Switzerland"}
+    state, turn = run(e.step(state, {"text": "plutôt en juillet"}))
+    assert state.hints["distance"] == "trail" and state.hints["country"] == "Switzerland"
+    assert len(turn.candidates) == 1 and turn.candidates[0].city == "Zermatt"
+    state, turn = run(e.step(state, {"text": "le semi de Lisbonne"}))
+    assert state.draft.race.city == "Lisbon"
+    assert "months" not in state.hints and "year" not in state.hints
