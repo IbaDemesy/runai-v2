@@ -13,6 +13,7 @@ class RaceOption(Model):
     name: str
     edition: str | None = None
     distance_km: float | None = None
+    distance_label: str = ""
     city: str | None = None
     country: str | None = None
     race_date: date | None = None

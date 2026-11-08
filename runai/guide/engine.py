@@ -207,8 +207,15 @@ class GuideEngine:
         state.draft.race = None
         state.draft.arrival_date = state.draft.departure_date = None
         state.candidates = []
+        hints = state.hints.copy()
+        if hints.get("months"):
+            hints["month_from"] = min(hints["months"])
+            hints["month_to"] = max(hints["months"])
+            hints.setdefault("year", int(hints["month_from"][:4]))
+        if hints.get("named"):
+            hints["race_name"] = state.query
         try:
-            rows = await self.discover(state.query, state.hints)
+            rows = await self.discover(state.query, hints)
             for row in rows:
                 try:
                     race = RaceOption.model_validate(row)

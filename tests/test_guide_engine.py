@@ -347,3 +347,46 @@ def test_winter_months_take_precedence_over_single_year():
     ]
     state, turn = click(e, state, turn, 1)
     assert state.draft.race.race_date == date(2029, 1, 10) and state.stage == "origin"
+
+
+def test_r1_03_race_contract_and_hint_bridge():
+    row = {
+        "id": "example-2028",
+        "name": "Synthetic contract example",
+        "edition": "2028",
+        "distance_km": 21.1,
+        "distance_label": "Semi-marathon",
+        "race_date": "2028-03-14",
+        "date_status": "official",
+        "city": "Lisbon",
+        "country": "Portugal",
+        "official_url": "https://example.org/race",
+        "registration_url": None,
+        "source_urls": ["https://example.org/race"],
+        "retrieved_at": "2026-01-01T00:00:00Z",
+        "synthetic": True,
+    }
+    assert set(row) == set(RaceOption.model_fields)
+    assert RaceOption.model_validate(row).distance_label == "Semi-marathon"
+    observed = []
+
+    async def discover(query, hints):
+        observed.append(hints)
+        return [row]
+
+    e = engine(discover)
+    state, turn = run(e.start("le semi de Lisbonne au printemps 2028"))
+    hints = observed[-1]
+    assert hints["month_from"] == "2028-03" and hints["month_to"] == "2028-05"
+    assert hints["year"] == 2028 and hints["race_name"] == "le semi de Lisbonne au printemps 2028"
+    assert hints["distance"] == "half" and hints["named"]
+    assert hints["months"] == ["2028-03", "2028-04", "2028-05"]
+    assert state.draft.race.distance_label == "Semi-marathon"
+    state, turn = run(e.step(state, {"text": "un trail en Suisse cet été"}))
+    assert observed[-1]["year"] == 2026 and "race_name" not in observed[-1]
+    assert not turn.ready_to_confirm
+    assert observed[-1]["month_from"] == "2026-06" and observed[-1]["month_to"] == "2026-08"
+    assert "year" not in state.hints
+    assert all(
+        row["distance_label"] for row in run(FakeDiscovery()("trail", {"distance": "trail"}))
+    )

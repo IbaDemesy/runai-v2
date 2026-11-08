@@ -40,6 +40,12 @@ class FakeDiscovery:
                     "distance_km": {"marathon": 42.195, "half": 21.1, "trail": 30, "ultra": 80}[
                         distance
                     ],
+                    "distance_label": {
+                        "marathon": "Marathon",
+                        "half": "Semi-marathon",
+                        "trail": "Trail 30 km",
+                        "ultra": "Ultra 80 km",
+                    }[distance],
                     "city": city,
                     "country": country,
                     "race_date": race_date.isoformat() if race_date else None,
