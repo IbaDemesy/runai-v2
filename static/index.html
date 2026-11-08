@@ -29,6 +29,7 @@
     </div>
     <main id="workspace">
       <section class="conversation" aria-label="Conversation">
+        <button id="history-toggle" type="button" hidden aria-expanded="false">Voir le plan et la conversation ↓</button>
         <div id="thread" role="log" aria-live="polite" aria-label="Messages">
           <section id="welcome">
             <p class="eyebrow">VOTRE PROCHAINE LIGNE DE DÉPART</p>
@@ -82,8 +83,9 @@
               <h3>Inscription / dossard</h3>
               <span class="status" data-status="pending">En attente</span>
             </header>
-            <div class="preview">Aperçu indisponible</div>
-            <ol class="steps"></ol>
+            <div class="preview">En attente de la première capture</div>
+            <p class="frame-meta" aria-live="polite">Aucune image reçue</p>
+            <p class="steps" aria-live="polite">L’agent se prépare.</p>
             <div class="handoff"></div>
           </article>
           <article class="agent" data-agent="hotel">
@@ -92,8 +94,9 @@
               <h3>Hôtel</h3>
               <span class="status" data-status="pending">En attente</span>
             </header>
-            <div class="preview">Aperçu indisponible</div>
-            <ol class="steps"></ol>
+            <div class="preview">En attente de la première capture</div>
+            <p class="frame-meta" aria-live="polite">Aucune image reçue</p>
+            <p class="steps" aria-live="polite">L’agent se prépare.</p>
             <div class="handoff"></div>
           </article>
           <article class="agent" data-agent="transport">
@@ -102,8 +105,9 @@
               <h3>Transport</h3>
               <span class="status" data-status="pending">En attente</span>
             </header>
-            <div class="preview">Aperçu indisponible</div>
-            <ol class="steps"></ol>
+            <div class="preview">En attente de la première capture</div>
+            <p class="frame-meta" aria-live="polite">Aucune image reçue</p>
+            <p class="steps" aria-live="polite">L’agent se prépare.</p>
             <div class="handoff"></div>
           </article>
         </div>
