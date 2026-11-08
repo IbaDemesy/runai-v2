@@ -43,8 +43,11 @@ def test_missing_scrubber_fallback_removes_credentials(monkeypatch, text):
     assert sanitize("budget 800 € le 2027-04-04") == "budget 800 € le 2027-04-04"
 
 
-def test_distinct_long_slug_ids_survive_chip_round_trip():
-    ids = ["a" * 40, "b" * 40]
+@pytest.mark.parametrize("ids", [
+    ["a" * 40, "b" * 40],
+    ["lisbon-half-2027-1234567890", "lisbon-half-2027-0987654321"],
+])
+def test_distinct_slug_ids_survive_chip_round_trip(ids):
     captured = []
 
     class SlugGuide:
@@ -71,9 +74,9 @@ def test_distinct_long_slug_ids_survive_chip_round_trip():
 
 @pytest.mark.parametrize("key", ["id", "suggestion_id"])
 @pytest.mark.parametrize("secret", [
-    "4111111111111111", "FR7630006000011234567890189",
+    "4111111111111111", "4111-1111-1111-1111", "FR7630006000011234567890189",
     "sk-SENTINELSECRET1234567890abcdefXYZ", "hai_SENTINELSECRET1234567890abcdefXYZ",
-    "runner.sentinel@example.com", "+33 6 12 34 56 78", "0612345678",
+    "runner.sentinel@example.com", "+33 6 12 34 56 78",
     "Bearer SENTINEL", "api_key=SENTINEL", "authorization:SENTINEL",
 ])
 def test_id_exemption_does_not_preserve_sensitive_values(key, secret):

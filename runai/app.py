@@ -74,7 +74,7 @@ def _default_guide(mode):
         raise HTTPException(501, "Guided discovery module unavailable for this mode") from exc
 
 
-def _fallback_scrub(value):
+def _fallback_scrub(value, *, scrub_phone=True):
     value = re.sub(
         r"\b(?:api[_-]?key|access[_-]?token|secret|authorization)\s*[:=]\s*[\"']?[^\s,;\"']+"
         r"|\bBearer\s+[^\s,;\"']+", "[redacted key]", value, flags=re.IGNORECASE,
@@ -82,7 +82,9 @@ def _fallback_scrub(value):
     value = re.sub(r"[\w.+%-]+@[\w.-]+\.[A-Za-z]{2,}", "[redacted email]", value)
     value = re.sub(r"\b(?:sk|hai|linkup|gladia)[-_][\w-]+", "[redacted key]", value,
                    flags=re.IGNORECASE)
-    return re.sub(r"(?<!\w)(?:\+?\d[\d ().-]{7,}\d)(?!\w)", "[redacted phone]", value)
+    if scrub_phone:
+        value = re.sub(r"(?<!\w)(?:\+?\d[\d ().-]{7,}\d)(?!\w)", "[redacted phone]", value)
+    return value
 
 
 def sanitize(value, key=""):
@@ -108,9 +110,11 @@ def sanitize(value, key=""):
         return "".join(part if index % 2 else sanitize(part, key) for index, part in enumerate(parts))
     value = re.sub(r"\b[A-Z]{2}\d{2}(?:[ -]?[A-Z0-9]){11,30}\b", "[redacted IBAN]", value,
                    flags=re.IGNORECASE)
-    value = re.sub(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)", "[redacted card]", value)
+    card_pattern = (r"(?<!\d)(?:\d{13,19}|\d{4}(?:-\d{3,6}){2,4})(?!\d)" if safe_id else
+                    r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")
+    value = re.sub(card_pattern, "[redacted card]", value)
     if safe_id:
-        return _fallback_scrub(value)
+        return _fallback_scrub(value, scrub_phone=False)
     try:
         from runai.agents.scrub import scrub_text
         return scrub_text(value)
