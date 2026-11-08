@@ -5,7 +5,17 @@ from urllib.parse import urlsplit
 
 from pydantic import ValidationError
 
-from runai.agents.scrub import scrub_text
+from runai.agents.scrub import (
+    _ASSIGNED_KEY,
+    _DATE,
+    _EMAIL,
+    _FINANCIAL,
+    _IBAN,
+    _JWT,
+    _KEY_PREFIX,
+    _PHONE,
+    scrub_text,
+)
 
 from .fake import FakeDiscovery
 from .parse import bare_city, normalize, parse_intent
@@ -190,7 +200,8 @@ class GuideEngine:
         for chip in chips:
             chip.id += f":turn-{len(state.history)}"
             chip.label = scrub_text(chip.label)
-            chip.value = scrub_text(chip.value)
+            chip.value = (self._scrub_identifier(chip.value) if chip.kind == "choose_race"
+                          else scrub_text(chip.value))
         state.pending_suggestions = chips
         state.history.append({"role": "assistant", "text": message})
         return state, GuidedTurn(
@@ -283,6 +294,13 @@ class GuideEngine:
                 ):
                     continue
                 if len(state.candidates) < 4:
+                    used_ids = {candidate.id for candidate in state.candidates}
+                    base_id = race.id
+                    suffix = 2
+                    while race.id in used_ids:
+                        tail = f":{suffix}"
+                        race.id = base_id[:200 - len(tail)] + tail
+                        suffix += 1
                     state.candidates.append(race)
         except Exception:  # noqa: BLE001 -- provider failures are returned as scrubbed turns
             state.stage = "discover"
@@ -364,11 +382,36 @@ class GuideEngine:
     async def start(self, text):
         return await self.step(GuideState(), {"text": text})
 
+    def _scrub_identifier(self, value):
+        if isinstance(value, str) and (
+            re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}", value)
+            and re.search(r"[A-Za-z]", value)
+            and not any(pattern.search(value) for pattern in (
+                _ASSIGNED_KEY, _EMAIL, _FINANCIAL, _IBAN, _JWT, _KEY_PREFIX,
+            ))
+            and not any(not _DATE.fullmatch(match.group()) for match in _PHONE.finditer(value))
+        ):
+            return value
+        return scrub_text(value) if isinstance(value, str) else value
+
     def _scrub_data(self, value):
         if isinstance(value, str):
             return scrub_text(value)
         if isinstance(value, dict):
-            return {scrub_text(str(k)): self._scrub_data(v) for k, v in value.items()}
+            result = {}
+            for key, item in value.items():
+                if key == "id" and value.get("kind") == "choose_race" and isinstance(item, str):
+                    match = re.fullmatch(r"choose_race:(.*)(:turn-\d+)", item)
+                    item = (f"choose_race:{self._scrub_identifier(match[1])}{match[2]}"
+                            if match else scrub_text(item))
+                elif key == "id" or str(key).endswith("_id") or (
+                    key == "value" and value.get("kind") == "choose_race"
+                ):
+                    item = self._scrub_identifier(item)
+                else:
+                    item = self._scrub_data(item)
+                result[scrub_text(str(key))] = item
+            return result
         if isinstance(value, list):
             return [self._scrub_data(v) for v in value]
         return value

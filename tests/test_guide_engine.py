@@ -263,6 +263,69 @@ def test_new_date_or_season_replaces_stale_date_hints(initial, followup, expecte
     assert state.draft.race.race_date == date.fromisoformat(expected)
 
 
+@pytest.mark.parametrize("ids", [
+    ["edp-lisbon-half-marathon-official-edition-2027",
+     "descobrimentos-lisbon-half-marathon-official-edition-2027"],
+    ["race-" + "a" * 195, "race-" + "b" * 195],
+    ["repeated-race-slug-with-more-than-thirty-two-characters"] * 3,
+    ["race", "race", "race:2"],
+])
+def test_race_identifiers_remain_unique_and_select_correct_candidate(ids):
+    async def discover(query, hints):
+        return [{"id": value, "name": f"Race {index}", "race_date": "2027-04-10",
+                 "date_status": "official"} for index, value in enumerate(ids)]
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon"))
+    candidate_ids = [race.id for race in state.candidates]
+    if len(set(ids)) == len(ids):
+        assert candidate_ids == ids
+    assert len(set(candidate_ids)) == len(ids)
+    assert [chip.value for chip in turn.suggestions] == candidate_ids
+    assert len({chip.id for chip in turn.suggestions}) == len(ids)
+    for index, chip in enumerate(turn.suggestions):
+        selected, response = run(e.step(state, {"suggestion_id": chip.id}))
+        assert response.error is None
+        assert selected.draft.race.id == candidate_ids[index]
+        assert selected.draft.race.name == f"Race {index}"
+    repeated, _turn = run(e.start("a marathon"))
+    assert [race.id for race in repeated.candidates] == candidate_ids
+
+
+@pytest.mark.parametrize("identifier", [
+    "4111111111111111", "race-4111111111111111", "4111 1111 1111 1111",
+    "runner-sentinel@example.test", "sk-artificial-sentinel-not-a-real-key",
+    "FR1420041010050500013M02606", "secret:artificial_private_value",
+])
+def test_sensitive_race_identifiers_remain_redacted_and_selectable(identifier):
+    async def discover(query, hints):
+        return [{"id": identifier, "name": "Race", "race_date": "2027-04-10",
+                 "date_status": "official"}] * 2
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon"))
+    assert identifier not in state.model_dump_json()
+    assert identifier not in turn.model_dump_json()
+    assert all("[redacted" in race.id for race in state.candidates)
+    assert len({race.id for race in state.candidates}) == 2
+    for chip in turn.suggestions:
+        selected, response = run(e.step(state, {"suggestion_id": chip.id}))
+        assert response.error is None
+        assert selected.draft.race.id == chip.value
+        assert identifier not in selected.model_dump_json()
+
+
+def test_only_structured_identifier_fields_bypass_opaque_text_redaction():
+    e = engine()
+    slug = "gornergrat-switzerland-mountain-marathon-edition-2027"
+    scrubbed = e._scrub_data({"id": slug, "race_id": slug, "name": slug,
+                              "nested": [{"event_id": slug}], "empty_id": ""})
+    assert scrubbed["id"] == scrubbed["race_id"] == slug
+    assert scrubbed["nested"][0]["event_id"] == slug
+    assert scrubbed["name"] == "[redacted key]"
+    assert scrubbed["empty_id"] == ""
+
+
 def run(awaitable):
     return asyncio.run(awaitable)
 
