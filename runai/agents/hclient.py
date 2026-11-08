@@ -185,19 +185,27 @@ class HAgentRunner:
                 content = base64.b64decode(source, validate=True)
             elif image.get("type") == "url":
                 # Never attach the API bearer to a presigned/external image URL.
-                url = urlsplit(urljoin(self.base_url + "/", source))
+                target = urljoin(self.base_url + "/", source)
                 api = urlsplit(self.base_url)
-                if not _public_https(url.geturl()) or url.username or url.password:
-                    return
-                headers = {"Authorization": f"Bearer {self.api_key}"} if (
-                    url.netloc == api.netloc and url.path.startswith("/api/")
-                    and session_id in url.path.split("/") and "/resources/" in url.path
-                ) else {"Authorization": ""}
-                response = await client.get(
-                    url.geturl(), headers=headers, follow_redirects=True, timeout=30,
-                )
-                response.raise_for_status()
-                content = response.content
+                for _ in range(6):
+                    url = urlsplit(target)
+                    if not _public_https(target) or url.username or url.password:
+                        raise ValueError("Unsafe screenshot URL")
+                    headers = {"Authorization": f"Bearer {self.api_key}"} if (
+                        url.netloc == api.netloc and url.path.startswith("/api/")
+                        and session_id in url.path.split("/") and "/resources/" in url.path
+                    ) else {"Authorization": ""}
+                    response = await client.get(
+                        target, headers=headers, follow_redirects=False, timeout=30,
+                    )
+                    if response.status_code in {301, 302, 303, 307, 308}:
+                        target = urljoin(target, response.headers["location"])
+                        continue
+                    response.raise_for_status()
+                    content = response.content
+                    break
+                else:
+                    raise ValueError("Too many screenshot redirects")
             if content:
                 await emit({
                     "type": "live_frame", "image": content, "mime": mime,

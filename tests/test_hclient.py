@@ -312,6 +312,26 @@ def test_inline_image_url_download_does_not_leak_authorization():
     assert next(e for e in events if e["type"] == "live_frame")["image"] == IMAGE
 
 
+@pytest.mark.parametrize("target", [
+    "https://127.0.0.1/private", "https://169.254.169.254/private",
+    "http://images.example.org/insecure", "https://localhost/private",
+])
+def test_screenshot_redirects_cannot_reach_private_or_insecure_targets(target):
+    provider = Provider(events=[observation({
+        "type": "url", "source": "https://images.example.org/frame.png", "media_type": "image/png",
+    })])
+
+    def image_request(request):
+        if request.url.host == "images.example.org":
+            return httpx.Response(302, headers={"location": target})
+        assert request.url.host == "agp.eu.hcompany.ai"
+        return provider(request)
+
+    result, events = run(image_request)
+    assert result["status"] == "failed" and provider.cancelled
+    assert not any(e["type"] == "live_frame" for e in events)
+
+
 @pytest.mark.parametrize("source", [
     API + "/sessions/test-session/resources/screenshots/frame.png",
     "https://agp.eu.hcompany.ai/api/v1/trajectories/test-session/resources/screenshots/frame.png",
