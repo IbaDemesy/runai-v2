@@ -1,3 +1,4 @@
+import builtins
 from urllib.parse import quote
 
 import pytest
@@ -23,6 +24,23 @@ def test_url_fields_reject_sensitive_components(secret, location):
     }
     safe = "https://example.org/race/2027-04-04?budget=800&distance=42.195"
     assert sanitize(safe, "official_url") == safe
+
+
+@pytest.mark.parametrize("text", [
+    "Bearer SENTINEL", "api_key=SENTINEL", "access_token: SENTINEL",
+    "secret=SENTINEL", "authorization: SENTINEL",
+])
+def test_missing_scrubber_fallback_removes_credentials(monkeypatch, text):
+    original_import = builtins.__import__
+
+    def unavailable(name, *args, **kwargs):
+        if name == "runai.agents.scrub":
+            raise ImportError("Scrubber unavailable")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", unavailable)
+    assert "SENTINEL" not in sanitize(text)
+    assert sanitize("budget 800 € le 2027-04-04") == "budget 800 € le 2027-04-04"
 
 
 def test_inputs_state_output_validation_and_logs_are_private(caplog):

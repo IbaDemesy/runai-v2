@@ -99,6 +99,10 @@ def sanitize(value, key=""):
         from runai.agents.scrub import scrub_text
         return scrub_text(value)
     except ImportError:
+        value = re.sub(
+            r"\b(?:api[_-]?key|access[_-]?token|secret|authorization)\s*[:=]\s*[\"']?[^\s,;\"']+"
+            r"|\bBearer\s+[^\s,;\"']+", "[redacted key]", value, flags=re.IGNORECASE,
+        )
         value = re.sub(r"[\w.+%-]+@[\w.-]+\.[A-Za-z]{2,}", "[redacted email]", value)
         value = re.sub(r"\b(?:sk|hai|linkup|gladia)[-_][\w-]+", "[redacted key]", value)
         return re.sub(r"(?<!\w)\+\d[\d ().-]{7,}\d", "[redacted phone]", value)
