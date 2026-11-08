@@ -74,6 +74,17 @@ def _default_guide(mode):
         raise HTTPException(501, "Guided discovery module unavailable for this mode") from exc
 
 
+def _fallback_scrub(value):
+    value = re.sub(
+        r"\b(?:api[_-]?key|access[_-]?token|secret|authorization)\s*[:=]\s*[\"']?[^\s,;\"']+"
+        r"|\bBearer\s+[^\s,;\"']+", "[redacted key]", value, flags=re.IGNORECASE,
+    )
+    value = re.sub(r"[\w.+%-]+@[\w.-]+\.[A-Za-z]{2,}", "[redacted email]", value)
+    value = re.sub(r"\b(?:sk|hai|linkup|gladia)[-_][\w-]+", "[redacted key]", value,
+                   flags=re.IGNORECASE)
+    return re.sub(r"(?<!\w)(?:\+?\d[\d ().-]{7,}\d)(?!\w)", "[redacted phone]", value)
+
+
 def sanitize(value, key=""):
     if isinstance(value, dict):
         return {name: sanitize(item, name) for name, item in value.items()}
@@ -81,10 +92,9 @@ def sanitize(value, key=""):
         return [sanitize(item, key) for item in value]
     if not isinstance(value, str):
         return value
-    if (key == "id" or key.endswith("_id")) and re.fullmatch(
+    safe_id = (key == "id" or key.endswith("_id")) and re.fullmatch(
         r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}", value,
-    ):
-        return value
+    )
     if key.endswith("_url") or key == "source_urls":
         url = public_url(value)
         if url is None:
@@ -95,21 +105,17 @@ def sanitize(value, key=""):
         return url if all(sanitize(item) == item for item in components) else None
     parts = re.split(r"(\b\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)?\b)", value)
     if len(parts) > 1:
-        return "".join(part if index % 2 else sanitize(part) for index, part in enumerate(parts))
+        return "".join(part if index % 2 else sanitize(part, key) for index, part in enumerate(parts))
     value = re.sub(r"\b[A-Z]{2}\d{2}(?:[ -]?[A-Z0-9]){11,30}\b", "[redacted IBAN]", value,
                    flags=re.IGNORECASE)
     value = re.sub(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)", "[redacted card]", value)
+    if safe_id:
+        return _fallback_scrub(value)
     try:
         from runai.agents.scrub import scrub_text
         return scrub_text(value)
     except ImportError:
-        value = re.sub(
-            r"\b(?:api[_-]?key|access[_-]?token|secret|authorization)\s*[:=]\s*[\"']?[^\s,;\"']+"
-            r"|\bBearer\s+[^\s,;\"']+", "[redacted key]", value, flags=re.IGNORECASE,
-        )
-        value = re.sub(r"[\w.+%-]+@[\w.-]+\.[A-Za-z]{2,}", "[redacted email]", value)
-        value = re.sub(r"\b(?:sk|hai|linkup|gladia)[-_][\w-]+", "[redacted key]", value)
-        return re.sub(r"(?<!\w)\+\d[\d ().-]{7,}\d", "[redacted phone]", value)
+        return _fallback_scrub(value)
 
 
 def sanitize_state(state):

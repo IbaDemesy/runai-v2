@@ -69,6 +69,17 @@ def test_distinct_long_slug_ids_survive_chip_round_trip():
     assert sanitize("runner.sentinel@example.com", "id") != "runner.sentinel@example.com"
 
 
+@pytest.mark.parametrize("key", ["id", "suggestion_id"])
+@pytest.mark.parametrize("secret", [
+    "4111111111111111", "FR7630006000011234567890189",
+    "sk-SENTINELSECRET1234567890abcdefXYZ", "hai_SENTINELSECRET1234567890abcdefXYZ",
+    "runner.sentinel@example.com", "+33 6 12 34 56 78", "0612345678",
+    "Bearer SENTINEL", "api_key=SENTINEL", "authorization:SENTINEL",
+])
+def test_id_exemption_does_not_preserve_sensitive_values(key, secret):
+    assert secret not in sanitize(secret, key)
+
+
 def test_inputs_state_output_validation_and_logs_are_private(caplog):
     captured = []
 
