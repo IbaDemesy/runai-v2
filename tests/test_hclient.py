@@ -1191,3 +1191,5 @@ def test_next_safe_boundary_description_is_not_an_execution_claim():
         "selected": True, "next_safe_boundary": "booking is confirmed after payment",
     }})
     assert _payment_claim({"verification": {"next_safe_boundary": "x"}, "summary": "I paid"})
+    for claim in ("I paid", "We have booked the room", "J'ai payé"):
+        assert _payment_claim({"verification": {"next_safe_boundary": claim}})
