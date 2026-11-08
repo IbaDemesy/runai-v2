@@ -420,3 +420,132 @@ def test_lazy_registry_receives_only_public_registration_or_official_url(monkeyp
     assert search([race()])[0]["registration_access"]["note"] is None
     assert search([race(registration_url=None)])[0]["registration_access"] is not None
     assert seen == ["https://entries.example/race", "https://race.example/"]
+
+
+SPAIN_HALVES = [
+    ("Medio Maratón de Sevilla", "Seville", "https://www.mediomaratondesevilla.es/"),
+    ("Mitja Marató Internacional Vila de Santa Pola", "Santa Pola", "https://mitjasantapola.com/"),
+    ("Media Maratón Ciudad de Getafe", "Getafe", "https://www.mediadegetafe.com/"),
+    ("Hyundai Mitja Marató Barcelona by Brooks", "Barcelona", "https://www.mitjamarato.barcelona/"),
+    ("Movistar Madrid Medio Maratón", "Madrid", "https://www.mediomaratonmadrid.es/"),
+]
+
+
+def spain_rows(day, *, edition_year=None):
+    """Recorded (scrubbed) 2026-11-08 Linkup shape for 'un semi en Espagne'."""
+    return [{
+        "name": name, "edition": f"{index + 26}ª edición, {edition_year or day[:4]}",
+        "distance_km": 21.097, "distance_label": "Half marathon", "city": city,
+        "country": "Spain", "official_url": url, "registration_url": None,
+        "registration_source_url": None,
+        "sources": [{"url": url, "race_date": day}, {"url": url + "inscripciones", "race_date": None}],
+    } for index, (name, city, url) in enumerate(SPAIN_HALVES)]
+
+
+def test_semi_en_espagne_query_construction_names_distance_country_and_window():
+    seen = {}
+
+    def handler(request):
+        seen["q"] = json.loads(request.content)["q"]
+        return httpx.Response(200, json={"candidates": spain_rows(DAY)})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await discover("un semi en Espagne", {"distance": "half", "country": "Spain"},
+                                  api_key=KEY, client=client)
+
+    results = asyncio.run(run())
+    assert "half marathon (21.0975 km" in seen["q"] and "medio marat" in seen["q"]
+    assert '"country_code": "ES"' in seen["q"] and "Race dates should fall between" in seen["q"]
+    assert len(results) == 5 and all(r["country"] == "Spain" for r in results)
+    assert all(r["date_status"] == "official" and r["distance_km"] == 21.097 for r in results)
+
+
+def test_semi_en_espagne_recovers_from_past_only_strict_reply_with_one_broadened_query():
+    from runai.app import _discovery_hints
+    from runai.guide.engine import GuideEngine
+
+    past = (datetime.now(UTC).date() - timedelta(days=30)).isoformat()
+    calls = []
+
+    def handler(request):
+        q = json.loads(request.content)["q"]
+        calls.append(q)
+        broad = '"broaden": true' in q
+        assert ("Broadened search" in q) == broad
+        return httpx.Response(200, json={"candidates": spain_rows(DAY if broad else past)})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            async def provider(query, hints):
+                return await discover(query, _discovery_hints(hints), api_key=KEY, client=client)
+            engine = GuideEngine(provider, today=datetime.now(UTC).date())
+            return await engine.start("un semi en Espagne")
+
+    _state, turn = asyncio.run(run())
+    assert len(calls) == 2
+    assert len(turn.candidates) == 4 and not turn.error
+    assert all(r.country == "Spain" and r.distance_km == 21.097 for r in turn.candidates)
+    assert all(len(r.source_urls) == 1 for r in turn.candidates)  # one provenance per domain
+    assert "élargissant" in turn.message and turn.language == "fr"
+    assert {s.kind for s in turn.suggestions} == {"choose_race"}
+
+
+def test_one_malformed_row_does_not_hide_valid_candidates():
+    missing = race(name="Missing Optional Fields")
+    for field in ("registration_url", "registration_source_url", "distance_km"):
+        missing.pop(field)
+    rows = [race(), race(name="Extra Field", unexpected="x"), missing,
+            race(name="Bad Sources", sources="invalid")]
+    results = search(rows)
+    assert [r["name"] for r in results] == ["Example Marathon", "Missing Optional Fields"]
+    assert results[1]["distance_km"] is None and results[1]["registration_url"] is None
+
+
+def test_blank_edition_falls_back_to_single_sourced_year():
+    results = search([race(edition="")])
+    assert len(results) == 1 and results[0]["id"] == f"example-marathon-{YEAR}"
+
+
+@pytest.mark.parametrize("changes,expected", [
+    ({}, "https://entries.example/race"),
+    ({"registration_url": "https://race.example/inscription", "registration_source_url": None,
+      "sources": [{"url": "https://race.example/edition", "race_date": DAY},
+                  {"url": "https://race.example/inscription", "race_date": None}]},
+     "https://race.example/inscription"),
+    ({"registration_url": "https://race.example/inscription", "registration_source_url": None},
+     None),
+    ({"registration_source_url": "https://other.example/page"}, None),
+    ({"registration_url": "https://entries.example/race?session=1"}, None),
+])
+def test_registration_url_requires_official_sourced_link(changes, expected):
+    assert search([race(**changes)])[0]["registration_url"] == expected
+
+
+def test_official_url_must_match_a_source_host():
+    result = search([race(official_url="https://unrelated.example/")])[0]
+    assert result["official_url"] is None and result["registration_url"] is None
+    assert result["date_status"] == "unverified"
+
+
+def test_upcoming_official_editions_sorted_near_term_first():
+    later = (datetime.fromisoformat(DAY).date() + timedelta(days=40)).isoformat()
+    rows = [race(name="Later", sources=[{"url": "https://race.example/l", "race_date": later}]),
+            race(name="Sooner")]
+    assert [r["name"] for r in search(rows)] == ["Sooner", "Later"]
+
+
+def test_broaden_hint_is_forwarded_as_wider_window():
+    seen = {}
+
+    def handler(request):
+        seen["q"] = json.loads(request.content)["q"]
+        return httpx.Response(200, json={"candidates": []})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await discover("x", {"distance": "half", "broaden": True,
+                                        "month_from": "2027-07"}, api_key=KEY, client=client)
+
+    assert asyncio.run(run()) == []
+    assert "Broadened search" in seen["q"] and "20-22 km" in seen["q"]

@@ -50,7 +50,8 @@ def test_deferral_recommends_one_future_option_with_editable_defaults(text):
     state, turn = run(e.step(state, {"text": text}))
     assert state.draft.race in state.candidates
     assert state.draft.race.race_date >= e.today
-    assert "recommande" in turn.message
+    assert ("I recommend" if text == "what do you think?" else "recommande") in turn.message
+    assert turn.language == state.lang == ("en" if text == "what do you think?" else "fr")
     assert turn.ready_to_confirm and state.stage == "confirm"
     assert {s.value for s in turn.suggestions if s.kind == "edit"} == {"origin", "nights", "budget"}
     assert all(state.draft.provenance[f] == "suggested_default"
@@ -69,7 +70,10 @@ def test_deferral_searches_stated_direction_without_inventing_results(result):
             return []
         return await FakeDiscovery(today=date(2026, 1, 1))(query, hints)
     state, turn = run(engine(discover).start("whatever"))
-    assert len(seen) == 1 and seen[0][1]["country"] == "Italy"
+    assert len(seen) == (2 if result == "empty" else 1) and seen[0][1]["country"] == "Italy"
+    if result == "empty":
+        assert seen[1][1]["broaden"] is True and "month_from" not in seen[1][1]
+        assert "year" not in seen[1][1] and seen[1][1]["country"] == "Italy"
     assert "spring" in turn.message
     assert bool(state.draft.race) == (result == "normal")
     assert bool(turn.error) == (result == "error")
@@ -80,10 +84,12 @@ def test_language_is_sticky_questions_are_preserved_and_offtopic_refocuses():
     e = engine()
     state, turn = run(e.start("un marathon en Italie au printemps ?"))
     assert state.history[0]["text"].endswith("?")
-    state, turn = run(e.step(state, {"text": "from Lyon, 2 nights please"}))
+    state, turn = run(e.step(state, {"text": "depuis Lyon, 2 nuits"}))
     assert state.lang == "fr" and state.draft.nights == 2 and state.draft.origin_city == "Lyon"
-    state, turn = run(e.step(state, {"text": "tell me about cats?"}))
-    assert "cats" not in turn.message and "projet de course" in turn.message
+    state, turn = run(e.step(state, {"text": "ok"}))
+    assert state.lang == "fr" and turn.language == "fr"
+    state, turn = run(e.step(state, {"text": "parle-moi des chats ?"}))
+    assert "chats" not in turn.message and "projet de course" in turn.message
     invariant(turn)
     state, turn = run(e.step(state, {"text": "in English please"}))
     assert state.lang == "en" and "Which" in turn.question
@@ -176,7 +182,8 @@ def test_access_unknown_or_blocked_warns_before_selection(access):
                  "date_status": "official", "registration_access": access}]
     state, turn = run(engine(discover).start("Lisbon half marathon"))
     combined = turn.message + " ".join(s.label for s in turn.suggestions)
-    assert ("access unknown" if access is None else "human handoff") in combined
+    assert "access unknown" not in combined and "accès inconnu" not in combined
+    assert ("human handoff" in combined) == (access is not None)
     if access:
         assert state.draft.race is None and state.stage == "choose_race"
 
@@ -376,8 +383,10 @@ def test_unknown_source_distance_is_not_invented(lang):
     assert "distance_km" not in state.draft.provenance
     assert ("Distance inconnue" if lang == "fr" else "Distance is unknown") in turn.message
     assert not turn.ready_to_confirm
-    assert not any("km" in chip.value for chip in turn.suggestions)
-    assert "1–400 km" in turn.question
+    assert [chip.value for chip in turn.suggestions] == ["5 km", "10 km", "21.1 km", "42.195 km"]
+    assert {(chip.kind, chip.provenance) for chip in turn.suggestions} == {
+        ("distance", "suggested_default")}
+    assert ("suggestion" in turn.question) and turn.question.count("?") == 1
 
 
 def test_distance_list_proposes_only_explicit_source_values():
@@ -457,7 +466,7 @@ def test_unverified_distance_race_keeps_valid_alternatives_visible(lang):
 @pytest.mark.parametrize("lang", ["fr", "en"])
 @pytest.mark.parametrize("label,options", [
     ("Multiple distances 16–111 km announced on official site", ["16 km", "111 km"]),
-    ("Multiple distances announced on official site", []),
+    ("Multiple distances announced on official site", ["5 km", "10 km", "21.1 km", "42.195 km"]),
     ("A trail of 111 km announced on official site", ["111 km"]),
 ])
 def test_swiss_canyon_event_start_cannot_be_ready_without_numeric_distance(lang, label, options):
@@ -477,7 +486,8 @@ def test_swiss_canyon_event_start_cannot_be_ready_without_numeric_distance(lang,
     assert (turn.question or "").count("?") == 1
     with pytest.raises(ValueError, match="not ready"):
         e.trip_payload(state)
-    action = {"suggestion_id": turn.suggestions[-1].id} if options else {"text": "111 km"}
+    action = ({"suggestion_id": turn.suggestions[-1].id} if options[-1] == "111 km"
+              else {"text": "111 km"})
     state, turn = run(e.step(state, action))
     assert state.draft.race.distance_km == 111 and turn.ready_to_confirm
     assert state.draft.provenance["distance_km"] == "user"
@@ -500,7 +510,8 @@ def test_unknown_distance_invalid_answers_explain_and_stay_unready(text, lang):
     assert turn.error == "distance_range" and not turn.ready_to_confirm
     assert state.draft.race.distance_km is None
     assert "distance_km" not in state.draft.provenance
-    assert "1–400 km" in turn.question and not turn.suggestions
+    assert "suggestion" in turn.question
+    assert [chip.kind for chip in turn.suggestions] == ["distance"] * 4
     assert "distance" in turn.message.lower()
     state, turn = run(e.step(state, {"text": "21,1 km"}))
     assert turn.ready_to_confirm and state.draft.race.distance_km == 21.1
@@ -545,6 +556,11 @@ def test_distance_question_keeps_numeric_race_alternatives_selectable(lang, labe
     assert "distance" in turn.question.lower()
     choices = [chip for chip in turn.suggestions if chip.kind == "choose_race"]
     assert [chip.value for chip in choices] == ["numeric"]
+    assert turn.suggestions[0].kind == "distance"
+    first_race = next(i for i, chip in enumerate(turn.suggestions) if chip.kind == "choose_race")
+    assert all(chip.kind == "distance" for chip in turn.suggestions[:first_race])
+    assert all(chip.kind == "choose_race" and chip.group == ("Autres courses" if lang == "fr"
+               else "Other races") for chip in turn.suggestions[first_race:])
     state, turn = run(e.step(state, {"suggestion_id": choices[0].id}))
     assert turn.ready_to_confirm and state.draft.race.id == "numeric"
     assert state.draft.race.distance_km == 21
@@ -608,12 +624,13 @@ def test_distance_deferral_without_source_options_suggests_only_known_alternativ
     invariant(turn)
     if has_alternative:
         assert "Numeric Trail" in turn.message and "21 km" in turn.message
-        assert [chip.value for chip in turn.suggestions] == ["numeric"]
-        state, turn = click(e, state, turn)
+        assert [chip.value for chip in turn.suggestions] == [
+            "5 km", "10 km", "21.1 km", "42.195 km", "numeric"]
+        state, turn = click(e, state, turn, index=4)
         assert state.draft.race.id == "numeric" and state.draft.race.distance_km == 21
         assert state.draft.provenance["distance_km"] == "source"
     else:
-        assert not turn.suggestions and "1–400 km" in turn.question
+        assert [chip.kind for chip in turn.suggestions] == ["distance"] * 4
         state, turn = run(e.step(state, {"text": "21 km"}))
         assert state.draft.race.id == "unknown" and state.draft.race.distance_km == 21
         assert state.draft.provenance["distance_km"] == "user"
@@ -648,7 +665,8 @@ def test_distance_deferral_saves_trip_corrections_before_recommending(lang, labe
                for field in ["origin_city", "nights", "budget_eur", "travelers"])
     assert state.draft.race.id == "unknown" and state.draft.race.distance_km is None
     assert state.draft.arrival_date is None and state.draft.departure_date is None
-    state, turn = click(e, state, turn)
+    numeric = next(i for i, chip in enumerate(turn.suggestions) if chip.kind == "choose_race")
+    state, turn = click(e, state, turn, index=0 if label == "16–111 km" else numeric)
     assert turn.ready_to_confirm
     assert state.draft.race.id == ("unknown" if label == "16–111 km" else "numeric")
     assert state.draft.race.distance_km == (16 if label == "16–111 km" else 21)
@@ -694,7 +712,7 @@ def invariant(turn):
     assert (turn.message + (turn.question or "")).count("?") <= 1
     assert turn.question or not turn.suggestions
     assert len({s.kind for s in turn.suggestions}) == 1 or {s.kind for s in turn.suggestions} <= {
-        "answer", "choose_race"
+        "answer", "distance", "choose_race"
     } or all(
         s.kind in {"confirm", "edit", "choose_race", "retry"} for s in turn.suggestions
     )
@@ -1057,9 +1075,10 @@ def test_r1_03_race_contract_and_hint_bridge():
     assert hints["months"] == ["2028-03", "2028-04", "2028-05"]
     assert state.draft.race.distance_label == "Semi-marathon"
     state, turn = run(e.step(state, {"text": "un trail en Suisse cet été"}))
-    assert observed[-1]["year"] == 2026 and "race_name" not in observed[-1]
+    first = next(item for item in reversed(observed) if not item.get("broaden"))
+    assert first["year"] == 2026 and "race_name" not in first
     assert not turn.ready_to_confirm
-    assert observed[-1]["month_from"] == "2026-06" and observed[-1]["month_to"] == "2026-08"
+    assert first["month_from"] == "2026-06" and first["month_to"] == "2026-08"
     assert "year" not in state.hints
     assert all(
         row["distance_label"] for row in run(FakeDiscovery()("trail", {"distance": "trail"}))
@@ -1094,3 +1113,52 @@ def test_named_race_refinement_keeps_base_query_and_race_name():
     state, turn = run(e.step(state, {"text": "un marathon à Rome"}))
     assert observed[-1][0] == "un marathon à Rome"
     assert observed[-1][1]["race_name"] == "un marathon à Rome"
+
+
+def _coverage_module(monkeypatch, covered=None, error=False):
+    import sys
+    import types
+
+    calls = []
+
+    def coverage(kind, *, country=None, city=None, origin_city=None, today=None):
+        calls.append((kind, country, city, origin_city))
+        if error:
+            raise RuntimeError("policy unavailable")
+        return {"covered": origin_city in (covered or set()), "policy_ids": []}
+
+    module = types.ModuleType("runai.agents.site_policy")
+    module.coverage = coverage
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", module)
+    return calls
+
+
+def test_origin_chips_rank_transport_covered_cities_first(monkeypatch):
+    calls = _coverage_module(monkeypatch, covered={"Genève", "Lyon"})
+    state, turn = run(engine().start("le semi de Lisbonne"))
+    state, turn = run(engine().step(state, {"text": "Lisbon Half Marathon"}))
+    if state.stage != "origin":
+        state, turn = run(engine().start("le semi de Lisbonne, 2 nuits, budget 800"))
+    assert state.stage == "origin"
+    assert [s.value for s in turn.suggestions][:2] == ["Lyon", "Genève"]
+    assert {c[0] for c in calls} == {"transport"} and all(c[2] == "Lisbon" for c in calls)
+    assert "couvert" not in turn.message + turn.question
+    assert "coverage" not in (turn.message + turn.question).lower()
+
+
+@pytest.mark.parametrize("covered,error", [(set(), False), (None, True)])
+def test_origin_chips_fall_back_to_default_order(monkeypatch, covered, error):
+    _coverage_module(monkeypatch, covered=covered, error=error)
+    state, turn = run(engine().start("le semi de Lisbonne, 2 nuits, budget 800"))
+    assert state.stage == "origin"
+    assert [s.value for s in turn.suggestions] == ["Paris", "Lyon", "Bruxelles", "Genève"]
+
+
+def test_dodge_applies_all_defaults_in_one_sentence(monkeypatch):
+    _coverage_module(monkeypatch, covered={"Lyon"})
+    state, turn = run(engine().start("je ne sais pas, choisis pour moi"))
+    sentences = [s for s in turn.message.split(".") if "par défaut" in s]
+    assert len(sentences) == 1
+    assert all(part in sentences[0] for part in ["départ de Lyon", "2 nuits", "budget de 450 €"])
+    assert state.draft.origin_city == "Lyon"
+    assert state.draft.provenance["origin_city"] == "suggested_default"

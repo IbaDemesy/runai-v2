@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from runai.guide.parse import bare_city, parse_intent
+from runai.guide.parse import bare_city, country_name, parse_intent
 
 TODAY = date(2026, 9, 1)
 
@@ -177,3 +177,33 @@ def test_deferral_intents(text):
 ])
 def test_impossible_or_conflicting_intents(text, problem):
     assert parse_intent(text, today=TODAY).problem == problem
+
+
+@pytest.mark.parametrize("text,lang,fr,en", [
+    ("depuis Lyon 2 nuits", "fr", 2, 0),
+    ("from Lyon, 2 nights please", "en", 0, 3),
+    ("ok", "fr", 0, 0),
+    ("je veux runner un semi marathn a Lisbone next spring plz", "fr", 3, 2),
+])
+def test_language_cue_counts(text, lang, fr, en):
+    intent = parse_intent(text, today=date(2026, 1, 1))
+    assert (intent.lang, intent.fr_cues, intent.en_cues) == (lang, fr, en)
+
+
+@pytest.mark.parametrize("text,distance,country", [
+    ("un semi en Espagne", "half", "Spain"),
+    ("🏃 un semiii en espagnee svp 🙏", "half", "Spain"),
+    ("a half maraton in spainn plz", "half", "Spain"),
+    ("un traill en suise", "trail", "Switzerland"),
+])
+def test_typos_and_emoji_keep_distance_and_country(text, distance, country):
+    intent = parse_intent(text, today=date(2026, 1, 1))
+    assert (intent.distance, intent.country) == (distance, country)
+
+
+@pytest.mark.parametrize("value,expected", [
+    ("Spain", "Spain"), ("Espagne", "Spain"), ("españa", "Spain"), ("ES", "Spain"),
+    ("Suisse", "Switzerland"), ("Atlantis", None), (None, None),
+])
+def test_country_name_normalisation(value, expected):
+    assert country_name(value) == expected
