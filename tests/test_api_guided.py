@@ -332,7 +332,18 @@ def test_default_live_guide_and_builder_contracts_without_network(monkeypatch):
             return SimpleNamespace(discover=discover)
         if name == "runai.agents.hclient":
             return SimpleNamespace(HAgentRunner=HClient)
+        if name in builders:
+            return builders[name]
         return original(name)
+
+    def builder(kind):
+        def build_task(trip):
+            return {"kind": kind, "start_url": "https://example.org/start",
+                    "fallback_url": "https://example.org/", "instructions": "offline",
+                    "max_steps": 1}
+        return SimpleNamespace(build_task=build_task)
+
+    builders = {f"runai.agents.{kind.value}": builder(kind.value) for kind in Kind}
 
     monkeypatch.setattr("runai.app.importlib.import_module", modules)
     monkeypatch.setenv("LINKUP_API_KEY", "test-only-placeholder")
@@ -359,3 +370,38 @@ def test_default_live_guide_and_builder_contracts_without_network(monkeypatch):
         assert set(calls) == {kind.value for kind in Kind}
         assert all(step["status"] == "blocked" for step in result["results"])
         assert all(not step["payment_executed"] for step in result["results"])
+
+
+def test_live_builder_rejection_blocks_without_h_calls(monkeypatch):
+    import importlib
+
+    from runai.providers import LiveRunner
+
+    original = importlib.import_module
+    calls = []
+
+    class HClient:
+        async def run(self, task, on_event):
+            calls.append(task["kind"])
+            return {"status": "ready_for_payment", "summary": "must not run"}
+
+    def reject(trip):
+        raise ValueError("no reviewed site policy")
+
+    def modules(name):
+        if name == "runai.agents.hclient":
+            return SimpleNamespace(HAgentRunner=HClient)
+        if name.startswith("runai.agents."):
+            return SimpleNamespace(build_task=reject)
+        return original(name)
+
+    monkeypatch.setattr("runai.providers.importlib.import_module", modules)
+
+    async def emit(event):
+        pass
+
+    for kind in Kind:
+        result = asyncio.run(LiveRunner().run(kind, deepcopy(TRIP), emit))
+        assert result.status == "blocked"
+        assert result.payment_executed is False
+    assert calls == []

@@ -1,44 +1,29 @@
-# Transport site evidence — R1-06
+# Transport site evidence: R2-02 (supersedes R1-06)
 
-Offline task-builder delivery only. No homepage, robots.txt, terms page, search,
-fare or checkout was inspected. All site-flow claims are **assumed**, not observed.
-No live H runs occurred. These official-site allowlists do not grant automation
-authorization; authorization review remains a prerequisite to execution.
+The R1 heuristic routing (country rail sites + Google Flights fallback) is **withdrawn**. Prohibited by their
+terms (reviewed 2026-11-08): Google Travel/Flights, Skyscanner, Kayak, Omio, Trainline, SNCF Connect,
+Eurostar, BlaBlaCar, Ryanair, easyJet, TAP, Lufthansa, Air France, ITA, KLM, Transavia, Wizz Air, Eurowings,
+Rome2rio, Busbud and **FlixBus**. FlixBus's booking conditions have no robot clause, but its separate Online
+Terms of Use (pass 2) prohibit "deep-link, screen-scrape, robot, crawl...", so it is denied.
 
-| Site | Public flow | Safe stop page | Bot protection / captcha | Automated-agent terms |
-| --- | --- | --- | --- | --- |
-| Trenitalia — https://www.trenitalia.com | assumed: stations/dates search and fare selection | assumed: before passenger details, login or payment | assumed: challenges may block; not tested; stop, no workarounds | assumed: permission unverified; review current terms and authorization |
-| SBB — https://www.sbb.ch | assumed: route search and ticket selection | assumed: before passenger details, login or payment | assumed: challenges may block; not tested; stop, no workarounds | assumed: permission unverified; review current terms and authorization |
-| SNCF Connect — https://www.sncf-connect.com | assumed: route search and fare selection | assumed: before passenger details, login or payment | assumed: challenges may block; not tested; stop, no workarounds | assumed: permission unverified; review current terms and authorization |
-| Renfe — https://www.renfe.com | assumed: route search and fare selection | assumed: before passenger details, login or payment | assumed: challenges may block; not tested; stop, no workarounds | assumed: permission unverified; review current terms and authorization |
-| CP — https://www.cp.pt | assumed: route search and ticket selection | assumed: before passenger details, login or payment | assumed: challenges may block; not tested; stop, no workarounds | assumed: permission unverified; review current terms and authorization |
-| DB — https://int.bahn.de | assumed: route search and fare selection | assumed: before passenger details, login or payment | assumed: challenges may block; not tested; stop, no workarounds | assumed: permission unverified; review current terms and authorization |
-| Google Flights — https://www.google.com/travel/flights | assumed: read-only round-trip search and carrier links | assumed: search-results carrier handoff, not carrier checkout | assumed: challenges may block; not tested; stop, no workarounds | assumed: permission unverified; review current terms and authorization |
+## Executable transport adapters
 
-For every site, stop even earlier if continuing requires consent, account
-creation, any form submission, or personal data. Dismissal is not consent
-acceptance. Use public search controls/result navigation read-only, preferring
-deep-linked/public result pages. Never submit forms, including search,
-guest/passenger details, login, account, booking, payment, consent or newsletter.
-If results cannot be viewed without a forbidden step, report blocked.
+| Adapter | Policy | Coverage | Deep link |
+|---|---|---|---|
+| CP `www.cp.pt/pt/resultado-pesquisa` | allowed_owner_rule | Portugal domestic, reviewed station IDs (Lisbon 94-31039, Porto 94-2006, ...) | **Observed** 2026-11-08: Lisbon–Porto journeys and fares on 2026-11-23. For March 2027 the site showed "Não foram encontrados resultados" (sales horizon not open). That is reported as **blocked/no inventory**, never as ready. The round-trip `endDate` parameter is **unverified**. |
 
-Trip input reads race.city/country, origin_city, travelers (default 1), and
-optional positive numeric budget_eur (total hint in EUR). Outbound must arrive
-on arrival_date before evening, departing on or before that date; return departs
-on departure_date. No actual route schedule is asserted.
+Policy-allowed but **not executable** because no public GET deep link is verified: Trenitalia and Renfe (flows
+appear POST-based), SBB (result URL format unverified), Italo, ÖBB, SNCB, NS International, Ouigo, ALSA,
+SWISS, Aegean, Volotea, Iberia, Aer Lingus. Routes without an adapter raise `ValueError` and are blocked
+honestly. This includes Paris→Milan and every cross-border trip as of this review.
 
-## Routing and evidence limitations
+## Task contract
 
-Domestic IT/CH/FR/ES/PT/DE uses the country's official rail site. Bidirectional
-FR–IT and CH–IT use Trenitalia; FR–CH and DE–CH use SBB; DE–FR uses DB.
-Other pairs use read-only flight search. These are heuristics, not observed
-timetables: confirm actual routes, service and dates or report blocked.
-Explicit origin_country takes priority over the small documented city lookup;
-unknown origins default conservatively to flights. Countries accept English
-names or two-letter codes. No carrier is automatically selected for flights.
+- Ready = a selected viable **outbound and return** fare, with the outbound arriving by `arrival_date`, the return
+  on `departure_date`, the right route and party and a total price, before passenger data. Unselected results, a
+  one-way fare or a homepage are not ready. Unreviewed redirects (carrier/OTA) are blocked.
+- `max_steps` = 80. `expected` and `allowed_hosts` come from the reviewed policy.
 
-Offline tests cover Milan, Lisbon, Zermatt, Reykjavik, New York, all domestic
-operators, bidirectional cross-border rules, unknown origins and guardrails.
-They prove task construction only, not inventory, fares, authorization or live
-success. Visually unverified. Future approved evidence must record dated public
-start/end URLs and actual safe stop or blocker without private session details.
+## Not yet observed
+
+No live H transport run has happened in R2-02. The selected round-trip fare is **unverified**.

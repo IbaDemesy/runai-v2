@@ -1,22 +1,30 @@
-# Registration path evidence (R1-05)
+# Registration path evidence (R2-02, supersedes R1-05 "assumed" claims)
 
-Method: public, anonymous HTTP fetches (`curl`, desktop user agent) of organizer pages on
-2026-11-08. No forms submitted, no login, no personal data, no consent accepted. No live H run
-was made: R1-02 (H client) is not on main yet. "Observed" = seen in fetched public HTML on that
-date; "Assumed" = inferred, must be confirmed by a live H run.
+Dated 2026-11-08. Terms reviews: see `docs/evidence/site-policy.md` and `docs/site-policy.json`.
+Observations come from R1-05's public anonymous fetches (2026-11-08, no forms, no login).
+**No live H registration run has been made in R2-02**: live smokes wait for the R2-03 no-share runtime.
 
-| Race (country) | Official site | Registration path / platform | Safe stop | Blockers |
-|---|---|---|---|---|
-| Wizz Air Milano Marathon 2027 (IT) | https://www.milanomarathon.it/ | Observed: homepage -> `/wizz-air-milano-marathon/iscriviti/` -> link to Njuko `https://in.njuko.com/wizz-air-milano-marathon-20271776152378557` (HTTP 200) | Assumed: Njuko participant-data step after selecting the race/ticket | Observed: no captcha marker in organizer or Njuko shell HTML. Assumed: Njuko is a JS app (4.9 KB shell), so ticket list/open status needs a browser |
-| Generali/BMW Berlin-Marathon (DE) | https://www.berlin-marathon.com/ (observed redirect to `generali-berlin-marathon.com`) | Observed: `/anmeldung/lauf` page describing a "Verlosung" (lottery) and linking to SCC login `login.scc-events.com` | Observed: stop at the SCC login page (login wall) | Observed: lottery-based entry + account login required -> expected BLOCKED (lottery/login wall) |
-| Zurich Marató de Barcelona 2027 (ES) | https://www.zurichmaratobarcelona.es/ | Observed: homepage links to RPM Sports `inscripciones.rpmsports.es/.../zurich-marato-barcelona-2027/my-registration` (HTTP 200) | Assumed: first participant-data form on RPM Sports | Observed: Google reCAPTCHA script present on the RPM Sports page -> agent must stop, never solve |
-| Valencia Marathon (ES), extra | https://www.valenciaciudaddelrunning.com/ | Observed: links to `info-inscripciones` pages and `tickets.valenciaciudaddelrunning.com` (organizer ticketing) | Assumed: ticket shop customer-data step | Not checked |
+## What the builder does now (`runai/agents/registration.py`)
+- Validates a sourced race: confirmed/official future `race_date`, edition year matching the date,
+  distance, city, country. Stale, conflicting or missing data → `ValueError` (blocked).
+- Calls `evaluate_url(registration_url, "registration")`, then the official URL. Only an allowed
+  policy decision makes the start URL. Unreviewed hosts block. Platforms are not trusted by name.
+- `registration_info()` access observations (account/captcha) are copied as source-only
+  metadata and **never** grant permission.
+- Instructions: select the exact edition/date/distance; stop untouched at the first personal-data page;
+  BLOCKED on account wall, lottery-only, closed/sold-out, captcha, earlier consent, date/distance mismatch,
+  or redirect to a host outside `allowed_hosts`. `max_steps` 80.
 
-Unreachable on 2026-11-08 from this VM (connection failed, not investigated): maratonadelisboa.com.
+## Reviewed vs observed vs unverified
+| Race / platform | Terms decision (2026-11-08) | Access observation | Unverified |
+|---|---|---|---|
+| Milano Marathon 2027 → `in.njuko.com/wizz-air-milano-marathon-20271776152378557` | `allowed_read_only` (Njuko application CGU: no automation/copy restriction found); organizer `milanomarathon.it` terms not reviewed → start directly on the Njuko event page | Observed (R1-05): no captcha marker in shell HTML; JS app | Ticket list, open/sold-out status, first personal-data page |
+| Other Njuko events (`in.njuko.com`) | `allowed_owner_rule` (corporate notice limits reproduction; ambiguous) | none | everything |
+| ENDU (`endu.net`, `rrtm.endu.net` for Rome) | `allowed_owner_rule`; organizer `runromethemarathon.com` not reviewed → denied | none | everything |
+| Ahotu, Race Result, Sportstiming, Raceroster | `allowed_owner_rule` (no automation clause found / ambiguous) | none | everything |
+| Berlin (SCC) | `prohibited` | Observed (R1-05): lottery + `login.scc-events.com` login wall | n/a: blocked |
+| Active, Eventbrite, Athlinks, Let's Do This, Datasport | `prohibited` | n/a | n/a: blocked |
+| Barcelona (RPM Sports) | unknown → denied (terms not reviewed) | Observed (R1-05): reCAPTCHA script | n/a: blocked |
+| Lisbon half (`maratonaclubedeportugal.com`) | unknown → denied (terms not fetched) | none | n/a: blocked |
 
-## Implications for `build_task`
-- Organizer site -> officially linked third-party platform is the common pattern (Njuko, RPM
-  Sports, organizer ticketing), so instructions allow officially linked platforms generically.
-- Login walls, lotteries and captchas are real; they are explicit BLOCKED / stop conditions.
-- Candidate sites without observed captcha for live demos: Milano (organizer + Njuko). Terms of
-  service of Njuko/organizers regarding automated agents were not reviewed (assumed unknown).
+No account is created automatically and no platform is guaranteed to accept agents.
