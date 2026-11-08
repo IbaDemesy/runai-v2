@@ -1,8 +1,9 @@
 """Offline hotel task specification; not execution or site authorization.
 
-Required trip keys: city (race/start area), country, origin (city),
-arrival_date, departure_date (ISO strings or datetime.date). Optional adults
-(or travelers) defaults to 1; budget is a total hint including its currency.
+Trip uses race: {city, country, ...RaceOption fields}, origin_city,
+arrival_date, departure_date (ISO strings or datetime.date). Optional travelers
+is an integer >=1, default 1; budget_eur is a positive finite number, optional,
+and is a total hint in EUR. Other Trip fields (nights, race metadata) are unused.
 hotel_preference may be accor (default) or hilton: only these official chain
 homepages are allowlisted. Unsupported preferences fail closed.
 Actual site authorization and availability must be reviewed before execution.
@@ -10,6 +11,7 @@ Actual site authorization and availability must be reviewed before execution.
 
 from collections.abc import Mapping
 from datetime import date
+from math import isfinite
 
 
 def _text(trip: Mapping, key: str) -> str:
@@ -39,9 +41,25 @@ def _dates(trip: Mapping) -> tuple[date, date]:
 
 
 def _adults(trip: Mapping) -> int:
-    value = trip.get("adults", trip.get("travelers", 1))
+    value = trip.get("travelers", 1)
     if type(value) is not int or value < 1:
-        raise ValueError("adults/travelers must be a positive integer")
+        raise ValueError("travelers must be a positive integer")
+    return value
+
+
+def _race(trip: Mapping) -> Mapping:
+    race = trip.get("race")
+    if not isinstance(race, Mapping):
+        raise ValueError("Missing or invalid race")  # noqa: TRY004
+    return race
+
+
+def _budget(trip: Mapping) -> int | float | None:
+    if "budget_eur" not in trip:
+        return None
+    value = trip["budget_eur"]
+    if type(value) not in (int, float) or value <= 0 or not isfinite(value):
+        raise ValueError("budget_eur must be a finite positive number")
     return value
 
 
@@ -58,13 +76,15 @@ def select_site(trip: Mapping) -> tuple[str, str]:
 
 
 def build_task(trip: Mapping) -> dict:
-    city, country, origin = (_text(trip, key) for key in ("city", "country", "origin"))
+    race = _race(trip)
+    city, country = (_text(race, key) for key in ("city", "country"))
+    origin = _text(trip, "origin_city")
     arrival, departure = _dates(trip)
     adults = _adults(trip)
     site, url = select_site(trip)
-    budget = trip.get("budget")
+    budget = _budget(trip)
     budget_hint = (
-        f"Total stay budget hint: {budget}; do not treat it as a nightly limit."
+        f"Total stay budget hint: EUR {budget}; do not treat it as a nightly limit."
         if budget is not None else "No budget supplied; ask the human before choosing a rate."
     )
     return {
@@ -79,17 +99,17 @@ def build_task(trip: Mapping) -> dict:
             "without commitment. Stop at the guest-details page or any earlier "
             "guardrail, always before payment. Report blocked if no availability, no suitable "
             "rate, or a bot-protection challenge. Do not claim a reservation. "
-            "Public search is allowed: type destination/dates/travellers into public search "
-            "fields, press Search, and select a room/fare without commitment. "
+            "Use the site's public search controls/result navigation to view availability "
+            "and fares (read-only); prefer deep-linked/public result pages where available. "
             "Never pay, book, create accounts, accept terms or cookie consent beyond dismissing, "
-            "submit personal-data or booking forms, enter personal data, or bypass captchas. "
-            "Stop before guest/passenger details, login, account, booking or payment forms. "
-            "If continuing requires consent or commitment, stop and report blocked with "
-            "the public homepage for human handoff."
+            "enter personal data, or bypass captchas. Never submit any form, including "
+            "guest/passenger details, login, account, booking, payment, consent or newsletter. "
+            "If viewing results is impossible without a forbidden step, report blocked "
+            "with the public homepage for human handoff."
         ),
         "stop_before": ["guest details", "passenger details", "login", "payment", "booking",
                         "account creation", "terms", "cookie consent",
-                        "submitting personal-data or booking forms",
+                        "form submission",
                         "personal data", "captcha"],
         "success_signal": (
             "An available room/rate and total price are visible within budget, with a public "

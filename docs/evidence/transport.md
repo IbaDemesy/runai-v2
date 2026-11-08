@@ -16,9 +16,16 @@ authorization; authorization review remains a prerequisite to execution.
 | Google Flights — https://www.google.com/travel/flights | assumed: read-only round-trip search and carrier links | assumed: search-results carrier handoff, not carrier checkout | assumed: challenges may block; not tested; stop, no workarounds | assumed: permission unverified; review current terms and authorization |
 
 For every site, stop even earlier if continuing requires consent, account
-creation, personal-data or booking form submission, or personal data.
-Dismissal is not consent acceptance. Public search fields, pressing Search and
-noncommitting fare selection are allowed.
+creation, any form submission, or personal data. Dismissal is not consent
+acceptance. Use public search controls/result navigation read-only, preferring
+deep-linked/public result pages. Never submit forms, including search,
+guest/passenger details, login, account, booking, payment, consent or newsletter.
+If results cannot be viewed without a forbidden step, report blocked.
+
+Trip input reads race.city/country, origin_city, travelers (default 1), and
+optional positive numeric budget_eur (total hint in EUR). Outbound must arrive
+on arrival_date before evening, departing on or before that date; return departs
+on departure_date. No actual route schedule is asserted.
 
 ## Routing and evidence limitations
 

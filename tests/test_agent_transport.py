@@ -8,9 +8,16 @@ from runai.agents.transport import build_task, select_site
 
 def trip(**changes):
     return {
-        "city": "Milan", "country": "Italy", "origin": "Paris",
-        "arrival_date": "2027-04-03", "departure_date": "2027-04-05",
-        "adults": 2, "budget": "EUR 600", **changes,
+        "race": {
+            "id": "synthetic-race", "name": "Synthetic race", "edition": 2027,
+            "distance_km": 42.195, "distance_label": "marathon",
+            "race_date": "2027-04-04", "date_status": "unverified",
+            "city": changes.pop("city", "Milan"), "country": changes.pop("country", "Italy"),
+            "official_url": "https://example.org", "registration_url": None,
+            "source_urls": [], "retrieved_at": "2026-11-08", "synthetic": True,
+        },
+        "origin_city": "Paris", "travelers": 2, "nights": 2, "budget_eur": 600,
+        "arrival_date": "2027-04-03", "departure_date": "2027-04-05", **changes,
     }
 
 
@@ -21,7 +28,7 @@ def trip(**changes):
     ("Reykjavik", "Iceland", "Paris", "Google Flights"),
 ])
 def test_destinations(city, country, origin, expected):
-    task = build_task(trip(city=city, country=country, origin=origin))
+    task = build_task(trip(city=city, country=country, origin_city=origin))
     assert set(task) == {
         "kind", "site_name", "start_url", "instructions", "stop_before",
         "success_signal", "fallback_url", "max_steps",
@@ -36,7 +43,7 @@ def test_destinations(city, country, origin, expected):
         assert forbidden not in str(task).lower()
 
 
-@pytest.mark.parametrize("key", ["city", "country", "origin", "arrival_date", "departure_date"])
+@pytest.mark.parametrize("key", ["race", "origin_city", "arrival_date", "departure_date"])
 @pytest.mark.parametrize("value", [None, "", " "])
 def test_missing_inputs(key, value):
     with pytest.raises(ValueError):
@@ -52,10 +59,38 @@ def test_empty_input():
         build_task({})
 
 
+@pytest.mark.parametrize("key", ["city", "country"])
+@pytest.mark.parametrize("value", [None, "", " ", 12])
+def test_missing_race_location(key, value):
+    data = trip()
+    data["race"][key] = value
+    with pytest.raises(ValueError):
+        build_task(data)
+    del data["race"][key]
+    with pytest.raises(ValueError):
+        build_task(data)
+
+
+@pytest.mark.parametrize("race", [[], "Milan", 123])
+def test_invalid_race(race):
+    with pytest.raises(ValueError):
+        build_task(trip(race=race))
+
+
+def test_numeric_budget_and_legacy_keys_do_not_override_contract():
+    task = build_task(trip(budget_eur=250.5, adults=9, budget="USD 2", origin="Rome"))
+    assert "EUR 250.5" in task["instructions"]
+    assert "2 adults" in task["instructions"]
+    assert "Paris" in task["instructions"]
+    assert "USD" not in task["instructions"]
+
+
 @pytest.mark.parametrize("changes", [
     {"arrival_date": "not-a-date"}, {"departure_date": "2027-02-30"},
     {"departure_date": "2027-04-03"}, {"departure_date": "2027-04-02"},
-    {"arrival_date": 123}, {"adults": 0}, {"adults": True}, {"adults": "2"},
+    {"arrival_date": 123}, {"travelers": 0}, {"travelers": True}, {"travelers": "2"},
+    {"budget_eur": 0}, {"budget_eur": -1}, {"budget_eur": "600"}, {"budget_eur": True},
+    {"budget_eur": None}, {"budget_eur": float("inf")}, {"budget_eur": float("nan")},
 ])
 def test_invalid_inputs(changes):
     with pytest.raises(ValueError):
@@ -64,8 +99,8 @@ def test_invalid_inputs(changes):
 
 def test_dates_defaults_and_guardrails():
     data = trip(arrival_date=date(2027, 4, 3), departure_date=date(2027, 4, 5))
-    del data["adults"]
-    del data["budget"]
+    del data["travelers"]
+    del data["budget_eur"]
     task = build_task(data)
     assert "1 adults" in task["instructions"]
     assert "No budget supplied" in task["instructions"]
@@ -73,18 +108,19 @@ def test_dates_defaults_and_guardrails():
     assert "3 adults" in build_task(data)["instructions"]
     for rule in ("guest details", "passenger details", "login", "payment", "booking",
                  "account creation", "terms", "cookie consent",
-                 "submitting personal-data or booking forms",
+                 "form submission",
                  "personal data", "captcha"):
         assert rule in task["stop_before"]
     for rule in ("Never pay", "book", "create accounts", "accept terms", "cookie consent",
-                 "submit personal-data or booking forms", "enter personal data",
+                 "Never submit any form", "enter personal data",
                  "bypass captchas", "report blocked", "beyond dismissing"):
         assert rule in task["instructions"]
-    assert "form submission" not in task["stop_before"]
-    for allowed in ("Public search is allowed", "destination/dates/travellers",
-                    "press Search", "select a room/fare without commitment"):
-        assert allowed in task["instructions"]
-    assert "If searching requires form submission" not in task["instructions"]
+    for phrase in ("public search controls/result navigation", "read-only",
+                   "deep-linked/public result pages", "consent or newsletter",
+                   "If viewing results is impossible without a forbidden step"):
+        assert phrase in task["instructions"]
+    assert "press Search" not in task["instructions"]
+    assert "form submission is allowed" not in task["instructions"]
     assert "blocked" in task["success_signal"]
     source = Path(__file__).parents[1] / "runai" / "agents" / "transport.py"
     assert all(term not in source.read_text().lower() for term in ("booking.com", "flytap"))
@@ -110,7 +146,7 @@ def test_cross_border_rules_bidirectional(first, second, expected):
 
 
 @pytest.mark.parametrize("changes", [
-    {"origin": "Unknown town"}, {"origin_country": "US"},
+    {"origin_city": "Unknown town"}, {"origin_country": "US"},
     {"country": "US", "city": "New York"}, {"origin_country": "PT"},
 ])
 def test_flight_fallback(changes):
@@ -123,3 +159,11 @@ def test_flight_fallback(changes):
 def test_invalid_explicit_country():
     with pytest.raises(ValueError):
         build_task(trip(origin_country=""))
+
+
+def test_outbound_arrives_before_evening_and_return_departs_on_requested_date():
+    task = build_task(trip())
+    assert "arrive on 2027-04-03 before evening" in task["instructions"]
+    assert "depart on or before 2027-04-03" in task["instructions"]
+    assert "Return departs on 2027-04-05" in task["instructions"]
+    assert "arrival_date before evening" in task["success_signal"]

@@ -1,9 +1,13 @@
 """Offline transport task specification; not execution or site authorization.
 
-Required: city, country (destination), origin, arrival_date, departure_date
-(ISO strings or datetime.date). Optional: origin_country, adults (or travelers,
-default 1), budget (total hint with currency). Countries accept English names or
-two-letter codes. Unknown origin countries conservatively use flight search.
+Trip uses race: {city, country, ...RaceOption fields}, origin_city,
+arrival_date, departure_date (ISO strings or datetime.date). Optional travelers
+is an integer >=1, default 1; budget_eur is a positive finite number, optional,
+and a total EUR hint. Optional origin_country overrides city inference.
+Other Trip fields (nights, race metadata) are unused. Countries accept English
+names or two-letter codes. Unknown origins conservatively use flight search.
+Outbound must arrive on arrival_date before evening (depart on or before that
+date); the return departs on departure_date.
 
 Rule table: domestic IT/CH/FR/ES/PT/DE uses Trenitalia/SBB/SNCF Connect/Renfe/CP/DB.
 Cross-border rail: FR-IT, CH-IT use Trenitalia; FR-CH, DE-CH use SBB;
@@ -15,6 +19,7 @@ cities may supply a missing origin_country; explicit origin_country takes priori
 
 from collections.abc import Mapping
 from datetime import date
+from math import isfinite
 
 
 def _text(trip: Mapping, key: str) -> str:
@@ -44,9 +49,25 @@ def _dates(trip: Mapping) -> tuple[date, date]:
 
 
 def _adults(trip: Mapping) -> int:
-    value = trip.get("adults", trip.get("travelers", 1))
+    value = trip.get("travelers", 1)
     if type(value) is not int or value < 1:
-        raise ValueError("adults/travelers must be a positive integer")
+        raise ValueError("travelers must be a positive integer")
+    return value
+
+
+def _race(trip: Mapping) -> Mapping:
+    race = trip.get("race")
+    if not isinstance(race, Mapping):
+        raise ValueError("Missing or invalid race")  # noqa: TRY004
+    return race
+
+
+def _budget(trip: Mapping) -> int | float | None:
+    if "budget_eur" not in trip:
+        return None
+    value = trip["budget_eur"]
+    if type(value) not in (int, float) or value <= 0 or not isfinite(value):
+        raise ValueError("budget_eur must be a finite positive number")
     return value
 
 
@@ -81,8 +102,8 @@ def _country(value: str) -> str:
 
 def select_site(trip: Mapping) -> tuple[str, str, str]:
     """Return mode, official site name and public homepage using the rule table."""
-    destination = _country(_text(trip, "country"))
-    origin = _text(trip, "origin")
+    destination = _country(_text(_race(trip), "country"))
+    origin = _text(trip, "origin_city")
     source = (
         _country(_text(trip, "origin_country"))
         if "origin_country" in trip else _ORIGINS.get(origin.lower())
@@ -97,38 +118,44 @@ def select_site(trip: Mapping) -> tuple[str, str, str]:
 
 
 def build_task(trip: Mapping) -> dict:
-    city, country, origin = (_text(trip, key) for key in ("city", "country", "origin"))
+    race = _race(trip)
+    city, country = (_text(race, key) for key in ("city", "country"))
+    origin = _text(trip, "origin_city")
     arrival, departure = _dates(trip)
     adults = _adults(trip)
     mode, site, url = select_site(trip)
-    budget = trip.get("budget")
-    budget_hint = f"Total budget hint: {budget}." if budget is not None else "No budget supplied."
+    budget = _budget(trip)
+    budget_hint = (
+        f"Total budget hint: EUR {budget}." if budget is not None else "No budget supplied."
+    )
     return {
         "kind": "transport",
         "site_name": site,
         "start_url": url,
         "instructions": (
             f"Use {mode} search from {origin} to {city}, {country}, for {adults} adults. "
-            f"Outbound on {arrival.isoformat()}; return on {departure.isoformat()}. "
+            f"Outbound must arrive on {arrival.isoformat()} before evening; depart on or "
+            f"before {arrival.isoformat()}. Return departs on {departure.isoformat()}. "
             f"{budget_hint} Verify a viable route, dates and available fares; select fares "
             "only without commitment. Stop before passenger details, login "
             "or payment, or any earlier guardrail. For flights, use read-only search only "
             "and hand off to the human for an official carrier; do not enter carrier checkout. "
             "Report blocked on no availability, unsuitable routes, or bot protection. "
-            "Public search is allowed: type destination/dates/travellers into public search "
-            "fields, press Search, and select a room/fare without commitment. "
+            "Use the site's public search controls/result navigation to view availability "
+            "and fares (read-only); prefer deep-linked/public result pages where available. "
             "Never pay, book, create accounts, accept terms or cookie consent beyond dismissing, "
-            "submit personal-data or booking forms, enter personal data, or bypass captchas. "
-            "Stop before guest/passenger details, login, account, booking or payment forms. "
-            "If continuing requires consent or commitment, stop and report blocked with "
-            "the public homepage for human handoff."
+            "enter personal data, or bypass captchas. Never submit any form, including "
+            "guest/passenger details, login, account, booking, payment, consent or newsletter. "
+            "If viewing results is impossible without a forbidden step, report blocked "
+            "with the public homepage for human handoff."
         ),
         "stop_before": ["guest details", "passenger details", "login", "payment", "booking",
                         "account creation", "terms", "cookie consent",
-                        "submitting personal-data or booking forms",
+                        "form submission",
                         "personal data", "captcha"],
         "success_signal": (
-            "Outbound and return fares, route and total price are visible with a public "
+            "Outbound arrival on the arrival_date before evening, return departure on "
+            "departure_date, fares, route and total price are visible with a public "
             "handoff link, before passenger details or any earlier guardrail. Flights are "
             "search-only carrier handoffs, not reservations. Otherwise report blocked."
         ),
