@@ -132,7 +132,7 @@ def valid_plan(mission, today):
         race_day = date.fromisoformat(race["race_date"])
         arrival = date.fromisoformat(trip["arrival_date"])
         departure = date.fromisoformat(trip["departure_date"])
-        if not (race["name"].strip() and race_day >= today()
+        if not (race["name"].strip() and race_day > today()
                 and arrival <= race_day <= departure and arrival < departure
                 and type(trip["travelers"]) is int and trip["travelers"] >= 1
                 and trip["origin_city"].strip()):

@@ -27,6 +27,16 @@ TRIP = {
 }
 
 
+def test_race_today_cannot_be_confirmed():
+    def forbidden(mode):
+        pytest.fail("Today's race must not launch runners")
+
+    with TestClient(create_app(guide=StubGuide(), runner_factory=forbidden,
+                              today=lambda: date.fromisoformat(TRIP["race"]["race_date"]))) as client:
+        url = ready(client)
+        assert client.post(url + "/confirm", json={"confirmed": True}).status_code == 409
+
+
 @pytest.mark.parametrize("change,mode", [
     ({"race": {**TRIP["race"], "race_date": "2020-01-01"}}, "demo"),
     ({"arrival_date": None}, "demo"),
