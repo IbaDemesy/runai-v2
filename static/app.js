@@ -42,6 +42,17 @@
       return null;
     }
   };
+  const safeViewURL = value => {
+    try {
+      const url = new URL(value, location.href);
+      return ['http:', 'https:'].includes(url.protocol) &&
+        url.origin !== location.origin
+        ? url.href
+        : null;
+    } catch {
+      return null;
+    }
+  };
   function link(url, title, cls) {
     const href = safeURL(url);
     if (!href) return node('span', cls, `${title} · indisponible`);
@@ -409,7 +420,13 @@
       steps.append(line);
       steps.scrollTop = steps.scrollHeight;
     }
-    const view = safeURL(e.live_view_url);
+    const view = safeViewURL(e.live_view_url);
+    if (e.live_view_url != null && !view && state.view) {
+      state.view = null;
+      card
+        .querySelector('.preview')
+        .replaceChildren(node('span', '', 'Aperçu indisponible'));
+    }
     if (view && state.view !== view) {
       state.view = view;
       const iframe = node('iframe');

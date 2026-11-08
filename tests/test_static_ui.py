@@ -67,6 +67,14 @@ def test_empty_error_and_terminal_paths_present():
     assert "Math.max(after, sequence)" in JS
 
 
+def test_live_view_requires_cross_origin_http_url():
+    assert "new URL(value, location.href)" in JS
+    assert "url.origin !== location.origin" in JS
+    assert "const view = safeViewURL(e.live_view_url)" in JS
+    assert "if (view && state.view !== view)" in JS
+    assert "if (e.live_view_url != null && !view && state.view)" in JS
+
+
 def test_guided_mission_contract():
     assert "envelope.turns?.at(-1)" in JS
     assert "data.draft || data.plan || envelope.trip" in JS
