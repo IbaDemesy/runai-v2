@@ -103,7 +103,7 @@ class GuideEngine:
                 if self._eligible(race) and race.distance_km is not None and race.distance_km > 0
                 and (not state.draft.race or race.id != state.draft.race.id)]
 
-    def _turn(self, state, message=None, error=None):
+    def _turn(self, state, message=None, error=None, *, recommended_distance=None):
         d = state.draft
         ready = bool(
             self._eligible(d.race)
@@ -119,8 +119,11 @@ class GuideEngine:
                         if self._pending_distances(state) else self._say(
                             state, "Quelle distance souhaites-tu courir (1–400 km) ?",
                             "What distance would you like to run (1–400 km)?"))
-            chips = [self._chip(f"{value:g} km", kind="answer", provenance="source")
-                     for value in self._pending_distances(state)]
+            choices = ([recommended_distance] if recommended_distance is not None
+                       else self._pending_distances(state))
+            chips = [self._chip(f"{value:g} km", kind="answer", provenance=(
+                "suggested_default" if recommended_distance is not None else "source"))
+                     for value in choices]
             chips += self._race_chips(state, self._distance_alternatives(state))
         elif state.stage == "choose_race":
             question = self._say(state, "Laquelle te tente ?", "Which one catches your eye?")
@@ -684,6 +687,31 @@ class GuideEngine:
         state.history.append({"role": "user", "text": text})
         if self._needs_distance(state):
             options = self._pending_distances(state)
+            if intent.deferred and not any((intent.distance, intent.city, intent.country,
+                                            intent.months, intent.year, intent.problem)):
+                if options:
+                    value = min(options)
+                    return self._turn(state, self._say(
+                        state,
+                        f"Je suggère {value:g} km : c'est la plus courte distance explicitement indiquée dans la source. Choisis-la pour valider cette distance.",
+                        f"I suggest {value:g} km: it is the shortest distance explicitly listed in the source. Choose it to confirm this distance.",
+                    ), recommended_distance=value)
+                alternatives = self._distance_alternatives(state)
+                message = self._say(
+                    state, "Aucune distance sourcée n'est disponible pour cet événement.",
+                    "No sourced distance is available for this event.")
+                if alternatives:
+                    race = alternatives[0]
+                    evidence = self._say(state, "synthétique", "synthetic") if race.synthetic else self._say(
+                        state, "sourcée", "sourced")
+                    message += self._say(
+                        state, f" Je propose plutôt {race.name}, avec une distance {evidence} de {race.distance_km:g} km ; sélectionne cette course pour changer.",
+                        f" I suggest {race.name} instead, with a {evidence} distance of {race.distance_km:g} km; select that race to switch.")
+                else:
+                    message += self._say(
+                        state, " Aucune autre course éligible n'a de distance connue ; indique la distance que tu souhaites courir, sans que j'en invente une.",
+                        " No eligible alternative has a known distance; enter the distance you intend to run rather than having me invent one.")
+                return self._turn(state, message)
             distance = re.fullmatch(r"([+-]?\d+(?:[.,]\d+)?)\s*(?:km)?", text, re.IGNORECASE)
             if distance:
                 value = float(distance[1].replace(",", "."))

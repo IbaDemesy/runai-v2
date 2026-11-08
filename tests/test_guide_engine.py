@@ -554,6 +554,72 @@ def test_distance_question_keeps_numeric_race_alternatives_selectable(lang, labe
     assert e.trip_payload(state)["race"]["id"] == "numeric"
 
 
+@pytest.mark.parametrize("lang", ["fr", "en"])
+def test_distance_deferral_suggests_one_source_value_without_applying_it(lang):
+    async def discover(query, hints):
+        return [{"id": "trail", "name": "Trail", "race_date": "2027-06-04",
+                 "date_status": "official", "source_urls": ["https://race.example/edition"],
+                 "distance_label": "16–111 km"}]
+
+    e = engine(discover)
+    query = ("un trail depuis Lyon 2 nuits budget 800" if lang == "fr"
+             else "a trail from Lyon 2 nights budget 800")
+    state, turn = run(e.start(query))
+    state, turn = click(e, state, turn)
+    state, turn = run(e.step(state, {"text": "peu importe" if lang == "fr" else "you choose"}))
+    assert turn.error is None and not turn.ready_to_confirm
+    assert state.draft.race.distance_km is None
+    assert "distance_km" not in state.draft.provenance
+    assert "16 km" in turn.message and "111 km" not in turn.message
+    assert ("plus courte" if lang == "fr" else "shortest") in turn.message
+    assert [chip.value for chip in turn.suggestions] == ["16 km"]
+    assert turn.suggestions[0].provenance == "suggested_default"
+    invariant(turn)
+    state, turn = click(e, state, turn)
+    assert turn.ready_to_confirm and state.draft.race.distance_km == 16
+    assert state.draft.provenance["distance_km"] == "user"
+
+
+@pytest.mark.parametrize("lang", ["fr", "en"])
+@pytest.mark.parametrize("has_alternative", [False, True])
+def test_distance_deferral_without_source_options_suggests_only_known_alternative(lang, has_alternative):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(query)
+        rows = [{"id": "unknown", "name": "Unknown Trail", "race_date": "2027-06-04",
+                 "date_status": "official", "source_urls": ["https://race.example/unknown"]}]
+        if has_alternative:
+            rows.append({"id": "numeric", "name": "Numeric Trail", "race_date": "2027-06-11",
+                         "date_status": "official", "source_urls": ["https://race.example/numeric"],
+                         "distance_km": 21})
+        return rows
+
+    e = engine(discover)
+    query = ("un trail depuis Lyon 2 nuits budget 800" if lang == "fr"
+             else "a trail from Lyon 2 nights budget 800")
+    state, turn = run(e.start(query))
+    state, turn = click(e, state, turn)
+    state, turn = run(e.step(state, {"text": "peu importe" if lang == "fr" else "you choose"}))
+    assert turn.error is None and not turn.ready_to_confirm
+    assert state.draft.race.id == "unknown" and state.draft.race.distance_km is None
+    assert ("Aucune distance sourcée" if lang == "fr" else "No sourced distance") in turn.message
+    assert len(calls) == 1
+    invariant(turn)
+    if has_alternative:
+        assert "Numeric Trail" in turn.message and "21 km" in turn.message
+        assert [chip.value for chip in turn.suggestions] == ["numeric"]
+        state, turn = click(e, state, turn)
+        assert state.draft.race.id == "numeric" and state.draft.race.distance_km == 21
+        assert state.draft.provenance["distance_km"] == "source"
+    else:
+        assert not turn.suggestions and "1–400 km" in turn.question
+        state, turn = run(e.step(state, {"text": "21 km"}))
+        assert state.draft.race.id == "unknown" and state.draft.race.distance_km == 21
+        assert state.draft.provenance["distance_km"] == "user"
+    assert turn.ready_to_confirm
+
+
 def run(awaitable):
     return asyncio.run(awaitable)
 
