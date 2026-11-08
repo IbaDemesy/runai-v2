@@ -15,6 +15,7 @@ from runai.agents.scrub import (
     _KEY_PREFIX,
     _PHONE,
     scrub_text,
+    scrub_url,
 )
 
 from .fake import FakeDiscovery
@@ -68,7 +69,8 @@ class GuideEngine:
 
     def _eligible(self, race):
         return bool(race and race.race_date and race.race_date >= self.today
-                    and race.date_status == "official")
+                    and race.date_status == "official"
+                    and (race.synthetic or any(scrub_url(url) for url in race.source_urls)))
 
     def _distance_values(self, label):
         numbers = []
@@ -291,6 +293,7 @@ class GuideEngine:
             hints.setdefault("race_name", state.query)
         past_found = False
         unsafe_source = False
+        unsourced_date_found = False
         try:
             rows = await self.discover(state.query, hints)
             for row in rows:
@@ -302,6 +305,12 @@ class GuideEngine:
                     race = RaceOption.model_validate(row)
                 except ValidationError:
                     continue
+                race.source_urls = list(dict.fromkeys(
+                    url for source in race.source_urls if (url := scrub_url(source))
+                ))
+                if not race.synthetic and race.date_status == "official" and not race.source_urls:
+                    race.date_status = "unverified"
+                    unsourced_date_found = True
                 if race.race_date and race.race_date < self.today:
                     past_found = True
                     continue
@@ -418,6 +427,10 @@ class GuideEngine:
                 state,
                 "Voici les options sourcées correspondant à ta recherche.",
                 "Here are sourced options matching your search.",
+            ) if not unsourced_date_found else self._say(
+                state,
+                "Certaines dates n'ont aucune source publique : elles restent non vérifiées.",
+                "Some dates have no public source: they remain unverified.",
             ),
         )
 

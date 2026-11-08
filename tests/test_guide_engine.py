@@ -384,6 +384,40 @@ def test_distance_list_proposes_only_explicit_source_values():
     assert e._distance_values("Event in 2027; distances unknown") == []
 
 
+@pytest.mark.parametrize("sources", [[], ["not a URL"], ["javascript:alert(1)"],
+                                     ["https://hcompany.ai/sessions/artificial"]])
+@pytest.mark.parametrize("lang", ["fr", "en"])
+def test_unsourced_official_dates_are_unverified_and_never_ready(sources, lang):
+    async def discover(query, hints):
+        return [{"id": "berlin", "name": "Berlin 10k", "race_date": "2027-04-10",
+                 "date_status": "official", "source_urls": sources}]
+
+    e = engine(discover)
+    query = ("le marathon de Berlin depuis Lyon 2 nuits budget 800" if lang == "fr"
+             else "the Berlin marathon from Lyon 2 nights budget 800")
+    state, turn = run(e.start(query))
+    assert state.candidates[0].date_status == "unverified"
+    assert not turn.ready_to_confirm
+    assert ("aucune source publique" if lang == "fr" else "no public source") in turn.message
+    with pytest.raises(ValueError, match="not ready"):
+        e.trip_payload(state)
+
+
+@pytest.mark.parametrize("synthetic,sources", [
+    (False, ["https://race.example/edition"]), (True, []),
+])
+def test_sourced_official_or_explicit_synthetic_date_can_be_ready(synthetic, sources):
+    async def discover(query, hints):
+        return [{"id": "berlin", "name": "Berlin 10k", "race_date": "2027-04-10",
+                 "date_status": "official", "source_urls": sources, "synthetic": synthetic}]
+
+    e = engine(discover)
+    state, turn = run(e.start("the Berlin marathon from Lyon 2 nights budget 800"))
+    assert turn.ready_to_confirm
+    assert state.draft.race.date_status == "official"
+    assert e.trip_payload(state)["race"]["race_date"] == "2027-04-10"
+
+
 def run(awaitable):
     return asyncio.run(awaitable)
 
@@ -576,6 +610,7 @@ def test_official_date_edit_and_yes_confirmation():
                 "city": "Paris",
                 "race_date": "2027-04-01",
                 "date_status": "official",
+                "source_urls": ["https://race.example/edition"],
             }
         ]
 
