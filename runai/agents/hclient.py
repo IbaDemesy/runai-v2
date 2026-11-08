@@ -11,7 +11,7 @@ import re
 import unicodedata
 from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime, timedelta
-from urllib.parse import quote, unquote, urljoin, urlsplit
+from urllib.parse import parse_qsl, quote, unquote, urljoin, urlsplit
 
 import httpx
 
@@ -68,9 +68,13 @@ def _field(value, name, default=None):
     return value.get(name, default) if isinstance(value, dict) else getattr(value, name, default)
 
 
+_RETURN_PARAM = re.compile(r"return|inbound|back|retour", re.IGNORECASE)
+
+
 def _path_in_scope(path, prefix):
-    prefix = prefix.rstrip("/")
-    return not prefix or path == prefix or path.startswith(prefix + "/")
+    if prefix.endswith("/"):
+        return path.startswith(prefix)
+    return path == prefix or path.startswith(prefix + "/")
 
 
 def _policy(task):
@@ -234,6 +238,11 @@ def _verified(task, answer, handoff, observed, frame_seen, reviews):
                       for k, v in expected.items()
                       if k in _EXPECTED_FIELDS[task["kind"]] and "date" in k and v is not None}
     if task["kind"] == "transport":
+        returning = str(date.fromisoformat(str(expected["departure_date"])[:10]))
+        for url in (handoff, observed):
+            for name, value in parse_qsl(urlsplit(url).query):
+                if _RETURN_PARAM.search(name) and value[:10] != returning:
+                    return False
         expected_dates.add((date.fromisoformat(str(expected["arrival_date"])[:10])
                             - timedelta(days=1)).isoformat())
     return not any(day not in expected_dates for day in dates)

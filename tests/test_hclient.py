@@ -886,7 +886,7 @@ def test_policy_expiry_uses_timestamp_precision_and_date_inclusive_day(monkeypat
 @pytest.mark.parametrize("prefix,path,allowed", [
     ("/race", "/race", True), ("/race", "/race/entry", True),
     ("/race/", "/race/entry", True), ("/race", "/race-private", False),
-    ("/", "/race-private", True),
+    ("/", "/race-private", True), ("/race/", "/race", False),
 ])
 def test_reviewed_paths_respect_segment_boundaries(prefix, path, allowed):
     assert _reviewed("https://race.example.org" + path,
@@ -928,6 +928,26 @@ def test_transport_overnight_outbound_date_allowance(kind, day, ready):
     result, _ = run(Provider(events=[event], answer={
         **ANSWER, "handoff_url": url, "verification": verification,
     }), {**TASK, "kind": kind, "expected": expected})
+    assert result["status"] == ("ready_for_payment" if ready else "blocked")
+
+
+@pytest.mark.parametrize("query,ready", [
+    ("outbound=2027-04-02&return=2027-04-05", True),
+    ("outbound=2027-04-03&return=2027-04-02", False),
+    ("outbound=2027-04-03&inbound=2027-04-04", False),
+])
+def test_transport_return_date_must_match_departure(query, ready):
+    expected = {"city": "Rome", "origin_city": "Paris", "arrival_date": "2027-04-03",
+                "departure_date": "2027-04-05", "travelers": 2}
+    verification = {**expected, "selected": True, "next_safe_boundary": "passenger details",
+                    "fare": "Return", "total": "EUR 300",
+                    "outbound_selected": True, "return_selected": True}
+    url = HANDOFF + "?" + query
+    event = observation()
+    event["data"]["metadata"]["url"] = url
+    result, _ = run(Provider(events=[event], answer={
+        **ANSWER, "handoff_url": url, "verification": verification,
+    }), {**TASK, "kind": "transport", "expected": expected})
     assert result["status"] == ("ready_for_payment" if ready else "blocked")
 
 
