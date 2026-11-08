@@ -15,7 +15,8 @@ live never falls back to synthetic results.
 - `guide.start(text)` asynchronously returns `(state, turn)`.
 - `guide.step(state, {text?, suggestion_id?})` returns `(state, turn)`.
 - State can be a Pydantic model or dict. Its `trip` is the builder input; when
-  absent, the ready turn's `draft` is the complete trip. State is private to the
+  absent, the ready turn's `draft` is the complete trip. When the engine exposes
+  `trip_payload(state)`, its clean payload is preferred for ready plans. State is private to the
   mission. Turns are serialized with FastAPI's JSON encoder.
 - `runner_factory(mode)` supplies an object with asynchronous
   `run(kind, trip: dict, emit: async callable(dict)) -> StepResult`.

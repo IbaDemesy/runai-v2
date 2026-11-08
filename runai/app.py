@@ -85,13 +85,15 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None) -> FastAPI:
             message=message, synthetic=mission.synthetic, **kwargs,
         ))
 
-    def apply_turn(mission, state, turn):
+    def apply_turn(mission, state, turn, engine):
         turn = jsonable_encoder(turn)
         if not isinstance(turn, dict):
             raise HTTPException(501, "Guide returned an unsupported turn")
         mission.turns.append(turn)
         state_data = jsonable_encoder(state)
         trip = state_data.get("trip") if isinstance(state_data, dict) else None
+        if turn.get("ready_to_confirm") and callable(getattr(engine, "trip_payload", None)):
+            trip = jsonable_encoder(engine.trip_payload(state))
         if trip is None and turn.get("ready_to_confirm"):
             trip = turn.get("draft")
         mission.trip = trip
@@ -171,7 +173,7 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None) -> FastAPI:
         except (ImportError, NotImplementedError) as exc:
             raise HTTPException(501, "Guided discovery unavailable for this mode") from exc
         mission = Mission(id=uuid4().hex, mode=mode, synthetic=mode != Mode.live)
-        apply_turn(mission, state, turn)
+        apply_turn(mission, state, turn, engine)
         missions[mission.id] = mission
         states[mission.id], guides[mission.id] = state, engine
         locks[mission.id] = asyncio.Lock()
@@ -191,7 +193,7 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None) -> FastAPI:
                 raise HTTPException(422, "Invalid guide answer") from exc
             except (ImportError, NotImplementedError) as exc:
                 raise HTTPException(501, "Guided discovery unavailable for this mode") from exc
-            apply_turn(mission, state, turn)
+            apply_turn(mission, state, turn, guides[mission_id])
             states[mission_id] = state
             return mission
 
