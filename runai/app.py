@@ -156,6 +156,9 @@ def valid_plan(mission, today):
         if trip.get("budget_eur") is not None and trip["budget_eur"] <= 0:
             return False
         if mission.mode == Mode.live:
+            distance = race.get("distance_km")
+            if isinstance(distance, bool) or not isinstance(distance, int | float) or distance <= 0:
+                return False
             return race.get("synthetic") is False and race.get("date_status") == "official" and bool(
                 public_url(race.get("official_url")) or public_url(race.get("registration_url")))
         return race.get("synthetic") is True
