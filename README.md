@@ -1,25 +1,82 @@
 # RunAI v2
 
-**Dis-moi ta course, je prépare tout le déplacement.**
+**Dis-moi ton envie de course, je prépare ton déplacement.**
 
-Jury prototype: one confirmed plan, three parallel preparation agents, human handoff.
-Current build is **synthetic only**, not a working live booking service.
-Target: Milano Marathon · Paris–Milano · 3–5 April 2027 · Accor · Trenitalia.
+A guided race travel assistant: describe a wish like « un marathon au printemps
+en Italie », « un trail en Suisse cet été » or « le semi de Lisbonne ». RunAI's
+target is to propose real races and official dates through Linkup, suggest
+editable travel defaults, and ask one focused question at a time. You do not
+need to know the race date.
 
+After explicit plan confirmation, three H Company browser agents prepare race
+registration, hotel and transport **in parallel**, with genuine live views or
+streamed screenshots and step logs, then hand off before payment or any earlier
+consent/commitment boundary. A premium, responsive Strava-inspired chat with
+chips, plan cards and three agent panels is the round-one UI goal.
+The chat should feel natural in French and English, with streaming-like replies,
+a bottom composer and one-click defaults or free-text corrections.
+
+**Status:** the bootstrap offers synthetic demo/replay; the round-one tickets
+deliver generic discovery, guided dialogue, live agents and the polished UI.
+This documentation change alone does not implement or verify those integrations.
+Milan is one evaluation case, never the only supported product journey. See
+[HANDOFF.md](HANDOFF.md) for the implementation/evidence boundary.
+
+## Run locally (Python 3.12)
 ```sh
 uv sync --frozen --python 3.12
-uv run uvicorn runai.app:app --reload
+RUNAI_MODE=demo uv run uvicorn runai.app:app --reload
 # Open http://localhost:8000
-uv run ruff check . && uv run pytest -q
 ```
 
-Use demo or replay in the page; both require no keys and clearly show simulation.
-Describe your race, validate the displayed fixed framing, explicitly confirm,
-then open the three official handoff links. No real cart has been created.
-live returns an explicit not-implemented error; .env.example lists future keys.
-Environment variables must be exported; no automatic .env loader is installed.
+Choose the mode in the page when available, or restart with a server default:
+```sh
+RUNAI_MODE=replay uv run uvicorn runai.app:app --reload
+RUNAI_MODE=live uv run uvicorn runai.app:app --reload
+```
 
-See PLAN.md for frozen scope, CONTRACTS.md for API, AGENTS.md for coding rules,
-docs/tickets/index.json for the implementation queue, HANDOFF.md for status.
-render.yaml is an unverified deployment blueprint, not a deployed URL.
-No provider live runs or live-success metrics have been recorded here.
+| Mode | Behavior | Keys |
+| --- | --- | --- |
+| `demo` | Clearly labelled synthetic candidates and simulated preparation | None |
+| `replay` | Clearly labelled recorded synthetic trace/frames; unavailable frames stay unavailable | None |
+| `live` | Real Linkup discovery and H browser preparation, after the relevant modules land | `LINKUP_API_KEY`, `HAI_API_KEY` |
+
+Missing live keys/modules must produce an explicit 501/unavailable response;
+there is no silent fake-success fallback. A synthetic `ready_for_payment` state
+or official homepage link does not mean a real cart/session was prepared. Replay
+is not proof of a live run. Until round-one integration lands, the bootstrap's
+fixed demo trace and live 501 response are limitations, not the product scope.
+
+## Environment
+[.env.example](.env.example) lists names only: `RUNAI_MODE`, `HAI_API_KEY`,
+`LINKUP_API_KEY`, `GLADIA_API_KEY` (optional voice, when implemented). Supported
+mode values are `demo`, `replay`, `live`; the default is `demo`. Export variables
+through your shell or secret manager before starting the server. There is no
+automatic `.env` loader. Never print keys or commit secret values.
+
+## Safety
+The owner approved read/prepare-only live H runs; applicable site authorization
+must still be reviewed. Prefer sites without captchas and whose terms permit
+agents. Never pay, book, create accounts, accept terms/consent or medical
+declarations, submit forms, enter personal data or bypass captchas. Only dismiss
+cookie banners without accepting consent. Stop earlier than payment whenever
+any such boundary appears and report the blocker honestly.
+
+No secrets, tokens, private H session URLs, emails or other personal data belong
+in code, fixtures, logs or evidence. Hand off safe public links only; do not
+represent a generic homepage as a prepared checkout.
+
+## Checks and contribution loop
+```sh
+uv sync --frozen
+uv run ruff check . && uv run pytest -q
+```
+CI tests never call live providers. Live verification requires separate dated,
+scrubbed observed evidence. See [AGENTS.md](AGENTS.md) for scoped branch/PR and
+safety rules, [PLAN.md](PLAN.md) for the architecture/evaluation set,
+[CONTRACTS.md](CONTRACTS.md) for API contracts, and
+[docs/tickets/index.json](docs/tickets/index.json) for the R1 queue. Legacy
+T01..T12 are superseded. Keep main green; merge component tickets first,
+then core integration, then the polished UI.
+
+`render.yaml` is an unverified deployment blueprint, not a deployed URL.

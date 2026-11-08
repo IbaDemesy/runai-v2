@@ -1,185 +1,149 @@
 [
   {
-    "id": "T01",
-    "title": "Review skeleton and frozen safety contract",
+    "id": "R1-02",
+    "title": "H Company agent client: run task, stream live view/screenshots, enforce pre-payment stop",
     "depends_on": [],
+    "merge_order": 1,
     "files": [
-      "runai/app.py",
-      "runai/models.py",
-      "runai/providers.py",
-      "tests/test_journey_e2e.py",
-      "tests/test_units.py",
-      "HANDOFF.md"
+      "runai/agents/__init__.py",
+      "runai/agents/hclient.py",
+      "runai/agents/scrub.py",
+      "tests/test_hclient.py",
+      "docs/evidence/h-client.md",
+      "docs/handoff/R1-02.md"
     ]
   },
   {
-    "id": "T02",
-    "title": "Framing extraction and clarification",
-    "depends_on": [
-      "T01"
-    ],
+    "id": "R1-03",
+    "title": "Linkup race discovery: real candidate races with official dates/distances from vague intent",
+    "depends_on": [],
+    "merge_order": 1,
     "files": [
-      "runai/app.py",
-      "runai/models.py",
-      "static/index.html",
-      "static/styles.css",
-      "static/app.js",
-      "tests/test_units.py",
-      "tests/test_journey_e2e.py",
-      "CONTRACTS.md",
-      "HANDOFF.md"
+      "runai/discovery/__init__.py",
+      "runai/discovery/linkup.py",
+      "tests/test_discovery_linkup.py",
+      "pyproject.toml",
+      "uv.lock",
+      "docs/evidence/discovery.md",
+      "docs/handoff/R1-03.md"
     ]
   },
   {
-    "id": "T03",
-    "title": "Linkup official race search",
-    "depends_on": [
-      "T02"
-    ],
+    "id": "R1-04",
+    "title": "Guided proposing conversation engine (FR/EN), one question at a time with chips, synthetic fake discovery",
+    "depends_on": [],
+    "merge_order": 1,
     "files": [
-      "runai/providers.py",
-      "runai/adapters/__init__.py",
-      "runai/app.py",
-      "runai/models.py",
-      "tests/test_units.py",
-      "tests/test_adapters_base.py",
-      "PLAN.md",
-      "CONTRACTS.md",
-      "HANDOFF.md"
+      "runai/guide/__init__.py",
+      "runai/guide/types.py",
+      "runai/guide/parse.py",
+      "runai/guide/engine.py",
+      "runai/guide/fake.py",
+      "tests/test_guide_parse.py",
+      "tests/test_guide_engine.py",
+      "docs/handoff/R1-04.md"
     ]
   },
   {
-    "id": "T09",
-    "title": "Gladia voice input",
-    "depends_on": [
-      "T02"
-    ],
+    "id": "R1-05",
+    "title": "Registration agent task builder for any race (official registration page, stop before personal data)",
+    "depends_on": [],
+    "merge_order": 1,
     "files": [
-      "runai/voice/__init__.py",
-      "runai/voice/gladia.py",
-      "static/voice.js",
-      "tests/test_voice.py",
-      "docs/handoff/T09.md"
-    ]
-  },
-  {
-    "id": "T04",
-    "title": "H registration: first verified live run",
-    "depends_on": [
-      "T03"
-    ],
-    "files": [
-      "runai/adapters/registration.py",
-      "tests/test_adapter_registration.py",
+      "runai/agents/registration.py",
+      "tests/test_agent_registration.py",
       "docs/evidence/registration.md",
-      "docs/handoff/T04.md"
+      "docs/handoff/R1-05.md"
     ]
   },
   {
-    "id": "T05",
-    "title": "H Accor: first verified live run",
-    "depends_on": [
-      "T03"
-    ],
+    "id": "R1-06",
+    "title": "Hotel and transport agent task builders for any destination (site selection, pre-payment stop)",
+    "depends_on": [],
+    "merge_order": 1,
     "files": [
-      "runai/adapters/accor.py",
-      "tests/test_adapter_accor.py",
-      "docs/evidence/accor.md",
-      "docs/handoff/T05.md"
+      "runai/agents/hotel.py",
+      "runai/agents/transport.py",
+      "tests/test_agent_hotel.py",
+      "tests/test_agent_transport.py",
+      "docs/evidence/hotel.md",
+      "docs/evidence/transport.md",
+      "docs/handoff/R1-06.md"
     ]
   },
   {
-    "id": "T06",
-    "title": "H Trenitalia: first verified live run",
-    "depends_on": [
-      "T03"
-    ],
+    "id": "R1-08",
+    "title": "Remove stale Milan-only rules; rewrite repo process docs for the generic product and loop",
+    "depends_on": [],
+    "merge_order": 1,
     "files": [
-      "runai/adapters/trenitalia.py",
-      "tests/test_adapter_trenitalia.py",
-      "docs/evidence/trenitalia.md",
-      "docs/handoff/T06.md"
+      "AGENTS.md",
+      "PLAN.md",
+      "README.md",
+      "HANDOFF.md",
+      ".env.example",
+      "docs/tickets/index.json",
+      "docs/tickets/T01.md",
+      "docs/tickets/T02.md",
+      "docs/tickets/T03.md",
+      "docs/tickets/T04.md",
+      "docs/tickets/T05.md",
+      "docs/tickets/T06.md",
+      "docs/tickets/T07.md",
+      "docs/tickets/T08.md",
+      "docs/tickets/T09.md",
+      "docs/tickets/T10.md",
+      "docs/tickets/T11.md",
+      "docs/tickets/T12.md",
+      "docs/tickets/archive/",
+      "docs/tickets/R1-01.md",
+      "docs/tickets/R1-02.md",
+      "docs/tickets/R1-03.md",
+      "docs/tickets/R1-04.md",
+      "docs/tickets/R1-05.md",
+      "docs/tickets/R1-06.md",
+      "docs/tickets/R1-07.md",
+      "docs/tickets/R1-08.md",
+      "docs/handoff/R1-08.md"
     ]
   },
   {
-    "id": "T07",
-    "title": "Scrubbed replay recording and playback",
+    "id": "R1-01",
+    "title": "Core: generic guided-mission API, dependency injection, background parallel agents, live frames, replay v2",
     "depends_on": [
-      "T04",
-      "T05",
-      "T06"
+      "R1-02",
+      "R1-03",
+      "R1-04",
+      "R1-05",
+      "R1-06",
+      "R1-08"
     ],
+    "merge_order": 2,
     "files": [
-      "runai/providers.py",
       "runai/app.py",
       "runai/models.py",
+      "runai/providers.py",
       "fixtures/synthetic-journey.json",
-      "tests/test_units.py",
       "tests/test_journey_e2e.py",
+      "tests/test_units.py",
+      "tests/test_api_guided.py",
       "CONTRACTS.md",
-      "HANDOFF.md"
+      "docs/handoff/R1-01.md"
     ]
   },
   {
-    "id": "T08",
-    "title": "Live status and human handoff UI",
+    "id": "R1-07",
+    "title": "Polished responsive chat UI with chips, plan cards and three live agent panels",
     "depends_on": [
-      "T07",
-      "T09"
+      "R1-01"
     ],
+    "merge_order": 3,
     "files": [
       "static/index.html",
       "static/styles.css",
       "static/app.js",
-      "runai/app.py",
-      "runai/models.py",
-      "tests/test_journey_e2e.py",
-      "tests/test_units.py",
-      "CONTRACTS.md",
-      "HANDOFF.md"
-    ]
-  },
-  {
-    "id": "T10",
-    "title": "Authorized live journey acceptance",
-    "depends_on": [
-      "T07",
-      "T08",
-      "T09"
-    ],
-    "files": [
-      "runai/app.py",
-      "runai/providers.py",
-      "tests/test_units.py",
-      "tests/test_journey_e2e.py",
-      "docs/evidence/journey.md",
-      "HANDOFF.md"
-    ]
-  },
-  {
-    "id": "T11",
-    "title": "Render deployment",
-    "depends_on": [
-      "T10"
-    ],
-    "files": [
-      "render.yaml",
-      "README.md",
-      "docs/evidence/deployment.md",
-      "HANDOFF.md"
-    ]
-  },
-  {
-    "id": "T12",
-    "title": "Jury README and reproducible demo",
-    "depends_on": [
-      "T11"
-    ],
-    "files": [
-      "README.md",
-      "PLAN.md",
-      "HANDOFF.md",
-      "docs/evidence/jury.md"
+      "tests/test_static_ui.py",
+      "docs/handoff/R1-07.md"
     ]
   }
 ]

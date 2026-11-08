@@ -2,10 +2,10 @@
 name = "runai-v2"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["fastapi>=0.115,<1", "pydantic>=2.10,<3", "uvicorn>=0.34,<1"]
+dependencies = ["fastapi>=0.115,<1", "httpx>=0.28,<1", "pydantic>=2.10,<3", "uvicorn>=0.34,<1"]
 
 [dependency-groups]
-dev = ["pytest>=8,<9", "httpx>=0.28,<1", "ruff>=0.11,<1"]
+dev = ["pytest>=8,<9", "ruff>=0.11,<1"]
 
 [tool.ruff]
 line-length = 100
