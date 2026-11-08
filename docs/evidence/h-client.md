@@ -65,6 +65,12 @@ public, key-free shares. Do not persist the share link in repository evidence.
   preservation and cancellation failure reporting for malformed responses and
   callbacks. Public sharing publishes the provider trace: do not run this
   client on sites whose policies disallow redistributing live footage.
+- A second review caught overbroad opaque-path detection rejecting normal long
+  word/year race slugs. Structured public slugs now survive both URL and prose
+  scrubbing, with mocked start/handoff/progress tests for registration-builder
+  URLs and an unrelated date-bearing slug. Mixed opaque tokens, private paths,
+  standalone contact paths and URL-valued credentials stay suppressed. This is
+  offline regression evidence, not a further live run.
 
 ## Live smoke — 2026-11-08 UTC (owner-approved, read-only)
 

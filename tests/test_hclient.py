@@ -259,6 +259,7 @@ def test_scrub_url_removes_credentials_fragments_and_sensitive_queries():
 @pytest.mark.parametrize("path", [
     "/session/synthetic-private-token", "/entry/auth/synthetic-token", "/token=synthetic-value",
     "/entry/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "/entry/runner%40example.org",
+    "/entry/a1b2c3d4e5f6-synthetic-a7b8c9d0e1f2", "/entry/+33-6-12-34-56-78",
 ])
 def test_private_session_and_contact_paths_are_not_returned_as_public_urls(path):
     url = "https://race.example.org" + path
@@ -271,6 +272,27 @@ def test_private_session_and_contact_paths_are_not_returned_as_public_urls(path)
 def test_trip_dates_survive_url_scrubbing():
     url = "https://hotel.example.org/stay?checkin=2027-04-04&checkout=2027-04-06&token=private"
     assert scrub_url(url) == "https://hotel.example.org/stay?checkin=2027-04-04&checkout=2027-04-06"
+
+
+@pytest.mark.parametrize("url", [
+    "https://in.njuko.com/wizz-air-milano-marathon-20271776152378557",
+    "https://inscripciones.rpmsports.es/es/evento/zurich-marato-barcelona-2027/my-registration",
+    "https://race.example.org/northern-city-road-marathon-2028-04-02",
+])
+def test_public_word_slugs_work_as_start_handoff_and_progress_urls(url):
+    assert scrub_url(url) == url
+    message = "Read " + url + " then stop"
+    assert scrub_text(message) == message
+    provider = Provider(
+        answer={**ANSWER, "handoff_url": url},
+        events=[{"type": "AgentEvent", "data": {"kind": "policy_event", "content": message}}],
+    )
+    result, events = run(provider, task={**TASK, "start_url": url})
+    assert result["status"] == "ready_for_payment"
+    assert result["start_url"] == result["handoff_url"] == url
+    assert any(e.get("message") == message for e in events)
+    body = json.loads(provider.requests[0].content)
+    assert body["overrides"]["agent.environments[kind=web].start_url"] == url
 
 
 def test_scrub_text_preserves_dates_and_removes_contacts_keys_and_private_urls():
@@ -470,6 +492,14 @@ def test_cancel_failure_is_reported_for_parse_and_consumer_errors(failure):
 def test_scrub_short_assigned_credentials():
     value = scrub_text('api_key="synthetic-value" access_token=synthetic-token secret: synthetic')
     assert "synthetic" not in value
+
+
+def test_url_valued_credentials_are_not_preserved_as_public_links():
+    value = scrub_text(
+        'api_key="https://private.example.org/assigned" '
+        'Bearer https://private.example.org/bearer'
+    )
+    assert "private.example.org" not in value
 
 
 @pytest.mark.parametrize("task", [
