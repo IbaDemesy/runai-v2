@@ -1,7 +1,9 @@
 import asyncio
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
+from datetime import date
 from types import SimpleNamespace
 
 import pytest
@@ -25,11 +27,77 @@ TRIP = {
 }
 
 
+@pytest.mark.parametrize("change,mode", [
+    ({"race": {**TRIP["race"], "race_date": "2020-01-01"}}, "demo"),
+    ({"arrival_date": None}, "demo"),
+    ({"nights": 7}, "demo"),
+    ({}, "live"),
+    ({"race": {**TRIP["race"], "synthetic": False, "date_status": "unverified"}}, "live"),
+    ({"race": {**TRIP["race"], "synthetic": False}}, "demo"),
+    ({"travelers": 0}, "demo"),
+    ({"budget_eur": 0}, "demo"),
+    ({"origin_city": ""}, "demo"),
+])
+def test_buggy_ready_plan_cannot_launch(change, mode):
+    class BuggyGuide(StubGuide):
+        async def step(self, state, answer):
+            state, turn = await super().step(state, answer)
+            state.trip.update(change)
+            return state, turn
+
+    def forbidden(mode):
+        pytest.fail("Invalid plan launched a runner")
+
+    with TestClient(create_app(guide=BuggyGuide(), runner_factory=forbidden,
+                              today=lambda: date(2026, 1, 1))) as client:
+        url = ready(client, mode)
+        assert client.post(url + "/confirm", json={"confirmed": True}).status_code == 409
+
+
+def test_stale_latest_turn_cannot_confirm():
+    class ChangedGuide(StubGuide):
+        async def step(self, state, answer):
+            state, turn = await super().step(state, answer)
+            if answer == {"text": "yes"}:
+                turn["ready_to_confirm"] = False
+            return state, turn
+
+    with TestClient(create_app(guide=ChangedGuide())) as client:
+        url = ready(client)
+        assert client.post(url + "/messages", json={"text": "yes"}).status_code == 200
+        assert client.post(url + "/confirm", json={"confirmed": True}).status_code == 409
+
+
+def test_duplicate_confirms_launch_three_overlapping_runners_once():
+    barrier = asyncio.Barrier(3)
+    calls = []
+
+    class BarrierRunner:
+        async def run(self, kind, trip, emit):
+            calls.append(kind)
+            await asyncio.wait_for(barrier.wait(), timeout=1)
+            return StepResult(kind=kind, status="blocked", summary="SYNTHETIC stopped",
+                              synthetic=True)
+
+    with TestClient(create_app(guide=StubGuide(), runner_factory=lambda mode: BarrierRunner())) as c:
+        url = ready(c)
+        with ThreadPoolExecutor(2) as pool:
+            results = list(pool.map(lambda _: c.post(url + "/confirm", json={"confirmed": True}),
+                                    range(2)))
+        assert sorted(result.status_code for result in results) == [202, 409]
+        mission = terminal(c, url)
+        assert len(calls) == 3
+        assert all(result["status"] == "blocked" for result in mission["results"])
+
+
 class GuideState(BaseModel):
     trip: dict | None = None
 
 
 class StubGuide:
+    def __init__(self, live=False):
+        self.live = live
+
     async def start(self, text):
         return GuideState(), {
             "message": "SYNTHETIC race proposed with date", "question": "This race?",
@@ -42,7 +110,10 @@ class StubGuide:
     async def step(self, state, answer):
         if answer not in ({"suggestion_id": "race-1"}, {"text": "yes"}):
             raise ValueError("Unknown suggestion")
-        return GuideState(trip=deepcopy(TRIP)), {
+        trip = deepcopy(TRIP)
+        if self.live:
+            trip["race"].update(synthetic=False, date_status="official")
+        return GuideState(trip=trip), {
             "message": "SYNTHETIC plan ready", "question": None, "suggestions": [],
             "candidates": [deepcopy(TRIP["race"])], "draft": deepcopy(TRIP),
             "ready_to_confirm": True, "error": None,
@@ -72,7 +143,7 @@ def terminal(client, url):
 def test_request_errors(monkeypatch):
     monkeypatch.delenv("HAI_API_KEY", raising=False)
     monkeypatch.delenv("LINKUP_API_KEY", raising=False)
-    with TestClient(create_app(guide=StubGuide())) as client:
+    with TestClient(create_app(guide=StubGuide(live=True))) as client:
         for path in ("/api/missions/missing", "/api/missions/missing/events", "/api/frames/missing"):
             assert client.get(path).status_code == 404
         for body in ({}, {"text": ""}, {"text": "   "}, {"text": "x", "mode": "unknown"}):
@@ -124,7 +195,7 @@ def test_live_missing_modules_at_confirm_is_501(monkeypatch):
         raise ModuleNotFoundError("missing live provider")
 
     monkeypatch.setattr("runai.app.LiveRunner.ensure_available", missing)
-    with TestClient(create_app(guide=StubGuide())) as client:
+    with TestClient(create_app(guide=StubGuide(live=True))) as client:
         url = ready(client, "live")
         response = client.post(url + "/confirm", json={"confirmed": True})
         assert response.status_code == 501
@@ -146,7 +217,7 @@ def test_injected_live_events_and_frame_bytes(monkeypatch):
             return StepResult(kind=kind, status="blocked", summary="Stop before consent",
                               handoff_url=TRIP["race"]["official_url"], synthetic=False)
 
-    with TestClient(create_app(guide=StubGuide(), runner_factory=lambda mode: FramesRunner())) as c:
+    with TestClient(create_app(guide=StubGuide(live=True), runner_factory=lambda mode: FramesRunner())) as c:
         url = ready(c, "live")
         assert c.post(url + "/confirm", json={"confirmed": True}).status_code == 202
         mission = terminal(c, url)

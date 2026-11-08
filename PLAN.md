@@ -35,25 +35,21 @@ not a substitute for design work.
 The conversation should feel natural in French and English, with chat bubbles,
 streaming-like replies, a bottom composer, one-click defaults and typed corrections.
 
-## Round-one target architecture
-- `runai/guide/`: isolated guided dialogue and state, one-question turns,
-  suggestions, editable defaults and confirmation readiness (R1-04).
-- `runai/discovery/`: real Linkup search, official-source validation, dated race
-  candidates and explicit empty/conflict/error outcomes (R1-03).
-- `runai/agents/hclient.py` and `scrub.py`: shared H client, safe progress/live
-  frames, output scrubbing and safety boundaries (R1-02).
-- `runai/agents/registration.py`: generic official registration preparation
-  (R1-05); `hotel.py` and `transport.py`: destination/date-aware preparation
-  with authorized site selection (R1-06). These use the shared H client.
-- `runai/app.py`, `models.py`, `providers.py`: core FastAPI/schema integration,
-  guided mission API, lazy adapters, mode routing, explicit confirmation,
-  three concurrent agents and live progress delivery (R1-01).
-- `static/index.html`, `styles.css`, `app.js`: polished responsive chat, chips,
-  plan cards and three genuine live agent panels (R1-07).
-- R1-08 owns product/process documentation and the scoped queue.
+## Architecture and round-2 ownership
+- `runai/guide/`, `runai/discovery/`: guided FR/EN dialogue, adversarial
+  robustness, sourced Linkup recommendations, `registration_access` (R2-04).
+- `runai/agents/site_policy.py` + `docs/site-policy.json`: dated, fail-closed
+  site terms reviews; registration/hotel/transport builders with exact-date
+  deep links and kind-specific safe stops (R2-02).
+- `runai/agents/hclient.py`, `scrub.py`: private screenshot-only H runtime (no
+  public trace sharing), pre-run policy gate, verified outcomes (R2-03).
+- `static/`: premium chronological chat, ChatGPT-style suggestions, immediate
+  progress feedback and a screenshot-only three-agent live stage (R2-01).
+- `runai/app.py`, `models.py`, `providers.py`: background discovery API,
+  input redaction, confirmation gate, concurrent launch, honest fallbacks;
+  shared docs/contracts and the integrated live acceptance (R2-05).
 
-These are integration targets, not a claim that all modules already exist.
-CONTRACTS.md describes API/schema details and is owned by R1-01.
+CONTRACTS.md (owned by R2-05) pins every cross-ticket interface.
 
 ## Modes and truthfulness
 - `demo`: synthetic race options and simulated preparation; no keys.
@@ -71,17 +67,18 @@ does not prove this product works. Live success requires dated observed evidence
 ## Evaluation set and success criterion
 | Case | Runner's starting wish | What to establish |
 | --- | --- | --- |
-| Milan marathon | A named Milan marathon, no date | Discover the official edition/date; no fixed race path |
 | Spring Italy marathon | « un marathon au printemps en Italie » | Propose real matching races and official dates |
-| Swiss summer trail | « un trail en Suisse cet été » | Handle a different distance/type, country and season |
-| Lisbon half | « le semi de Lisbonne » | Resolve the official edition/date and destination |
+| Swiss summer trail | « un trail en Suisse cet été » | Different distance/type, country and season |
+| Lisbon half | « le semi de Lisbonne » | Resolve a named race's official edition/date |
+| Berlin spring 10k (EN) | "a 10k in Berlin in spring" | English conversation, short distance |
+| Spain February marathon | « un marathon en Espagne en février » | Winter month, different country |
 
-ONE successful case means the assistant proposes the race/date, the user
-explicitly confirms, all three H agents actually run live in parallel and reach
-their pre-payment stops, and the user sees all three working on the page. An
-earlier mandatory safety stop is a blocker, not a successful case. A passing
-synthetic test or one successful Milan case does not establish generic coverage.
-Dates, availability and applicable site authorization must be checked per run.
+The exact live-success definition is in
+[docs/feedback/owner.md](docs/feedback/owner.md): assistant-proposed sourced
+date, explicit confirmation, three overlapping live H agents, changing on-page
+screenshots and verified safe pre-payment stops for all three. An earlier
+mandatory safety stop is a blocker. Never quietly swap a named request to force
+a pass. Round-2 target: at least two complete successes in different countries.
 
 ## Safety and evidence boundary
 The owner has approved read/prepare-only live H runs, not transactions. Never
@@ -95,15 +92,15 @@ emails or personal data in code, fixtures, logs or evidence. Use only safe publi
 handoff links and scrubbed evidence. Never claim unobserved results.
 
 ## Continuous implementation loop
-Each ticket has one branch/PR and non-overlapping allowed files. Parallel tickets
-write their own docs/handoff/<id>.md. The queue in docs/tickets/index.json is
-authoritative: merge R1-02..R1-06 and R1-08 in any order, then R1-01, then R1-07.
-T01..T12 are superseded and grant no current implementation scope.
+Each ticket has one branch/PR and non-overlapping allowed files listed in
+docs/tickets/index.json (validated by tests/test_r2_scope_contract.py). Round
+2: R2-01..R2-04 merge in any order; R2-05 integrates and certifies live last.
+R1-* and T* ticket files are history and grant no current scope.
 
 Keep main green: Python 3.12, `uv sync --frozen`,
 `uv run ruff check . && uv run pytest -q`, including the journey E2E tests.
 CI is offline; live verification is separate. Review code, design, safety and
-dated scrubbed live evidence, squash-merge only green PRs, evaluate the four
+dated scrubbed live evidence, squash-merge only green PRs, evaluate the five
 cases, then turn real failures into focused follow-up tickets. Do not claim
 completion until the live success criterion is observed.
 

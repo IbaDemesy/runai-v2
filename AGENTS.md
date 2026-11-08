@@ -15,8 +15,9 @@
 - Keep the chat natural in French and English, with chat bubbles, streaming-like
   replies and a bottom composer; accept defaults in one click or typed corrections.
 - Require explicit plan confirmation before starting the three real H Company
-  browser agents in parallel. Show each agent's genuine live view or streamed
-  screenshots with a step log; missing footage is unavailable, never simulated live.
+  browser agents in parallel. Show each agent's genuine streamed screenshots
+  with one short friendly status line; never raw task/prompt/JSON/log text.
+  Missing footage is unavailable, never simulated live.
 
 ## Modes and evidence
 - Modes: `RUNAI_MODE=demo|replay|live`; API mode may override the server default.
@@ -49,20 +50,27 @@
 - One ticket = one branch = one PR, branched from current main. Never push
   directly to main. Keep main green; merge only with green CI, including
   tests/test_journey_e2e.py, and reviewed safety/evidence boundaries.
-- Read CONTRACTS.md, the R1 ticket and docs/tickets/index.json first. Touch only
-  the ticket's allowed files. If another file is required, stop and request a
-  scope amendment. R1-01 owns CONTRACTS.md; parallel tickets must not edit it.
-- R1-02 through R1-06 and R1-08 can merge in any order; then R1-01 integrates
-  them; then R1-07 delivers the polished UI. See the queue for exact dependencies.
-- Parallel tickets write docs/handoff/<id>.md with changes, checks (pasted
-  output), evidence, blockers and next steps, not shared HANDOFF.md. R1-08 owns
-  the round-one shared documentation update.
+- Read CONTRACTS.md, your ticket under docs/tickets/ and docs/tickets/index.json
+  first. index.json is the authoritative current queue (round 2: R2-01..R2-05);
+  R1-*/T* ticket files are history and grant no current scope. Touch only the
+  ticket's allowed files; otherwise stop and request a scope amendment.
+- Round 2: R2-01..R2-04 merge in any order; R2-05 owns core integration
+  (app/models/providers), CONTRACTS.md and shared docs, and runs the final
+  integrated live acceptance after the other four have merged. Code against
+  the pinned additive interfaces in CONTRACTS.md; import sibling modules lazily
+  and fail closed when they are missing.
+- Each ticket writes docs/handoff/<id>.md with changes, checks (pasted
+  output), evidence, blockers and next steps; only the integration ticket edits
+  the shared HANDOFF.md.
 - Every behavior change needs normal, empty and error coverage where applicable.
   CI tests never call live providers. Live verification is separate: record
   dated, scrubbed public evidence and actual stop states; do not invent success.
+- Keep the adversarial FR/EN conversation suite green, and site policy
+  fail-closed (Accor denied; unknown/expired reviews block before any H session).
 - Use Python 3.12. Run `uv sync --frozen`, then
   `uv run ruff check . && uv run pytest -q`. Run configured pre-commit hooks.
 - Start: `uv run uvicorn runai.app:app --reload` (port 8000).
 - After integration, evaluate multiple races, review observed failures, create
   focused scoped tickets and repeat. Passing synthetic tests or one Milan run
-  does not establish generic live readiness.
+  does not establish generic live readiness. The live-success definition is in
+  docs/feedback/owner.md.
