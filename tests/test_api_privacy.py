@@ -151,3 +151,23 @@ def test_sanitize_state_drops_unsafe_source_urls_and_keeps_state_valid():
     clean = sanitize_state(state)
     assert isinstance(clean, State)
     assert clean.candidates[0].source_urls == ["https://www.example.org/race"]
+
+
+def test_sync_create_reports_failure_when_redaction_breaks_guide_state():
+    from fastapi.testclient import TestClient
+    from pydantic import BaseModel
+
+    from runai.app import create_app
+
+    class State(BaseModel):
+        official_url: str
+
+    class Guide:
+        async def start(self, text):
+            return State(official_url="http://localhost/private"), {"message": "x"}
+
+    client = TestClient(create_app(guide=Guide()))
+    response = client.post("/api/missions", json={"text": "semi de Lisbonne"})
+    assert response.status_code == 201
+    body = response.json()
+    assert body["error"] and body["turns"] == []

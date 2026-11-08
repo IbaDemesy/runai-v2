@@ -367,9 +367,14 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
         except Exception:  # noqa: BLE001
             discovery_failed(mission)
             return mission
+        try:
+            clean_state = sanitize_state(state)
+        except ValueError:
+            discovery_failed(mission)
+            return mission
         apply_turn(mission, state, turn, engine)
         missions[mission.id] = mission
-        states[mission.id], guides[mission.id] = sanitize_state(state), engine
+        states[mission.id], guides[mission.id] = clean_state, engine
         locks[mission.id] = asyncio.Lock()
         return mission
 
@@ -402,8 +407,13 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
             except Exception:  # noqa: BLE001
                 discovery_failed(mission)
                 return mission
+            try:
+                clean_state = sanitize_state(state)
+            except ValueError:
+                discovery_failed(mission)
+                return mission
             apply_turn(mission, state, turn, guides[mission_id])
-            states[mission_id] = sanitize_state(state)
+            states[mission_id] = clean_state
             return mission
 
     @app.post("/api/missions/{mission_id}/confirm", response_model=Mission, status_code=202)
