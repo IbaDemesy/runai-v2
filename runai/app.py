@@ -5,6 +5,7 @@ import re
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
+from urllib.parse import parse_qsl, unquote, urlsplit
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query
@@ -81,7 +82,13 @@ def sanitize(value, key=""):
     if not isinstance(value, str):
         return value
     if key.endswith("_url") or key == "source_urls":
-        return public_url(value)
+        url = public_url(value)
+        if url is None:
+            return None
+        parsed = urlsplit(url)
+        components = [unquote(segment) for segment in parsed.path.split("/")]
+        components.extend(item for _, item in parse_qsl(parsed.query, keep_blank_values=True))
+        return url if all(sanitize(item) == item for item in components) else None
     parts = re.split(r"(\b\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)?\b)", value)
     if len(parts) > 1:
         return "".join(part if index % 2 else sanitize(part) for index, part in enumerate(parts))
