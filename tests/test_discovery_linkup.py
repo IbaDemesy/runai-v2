@@ -111,6 +111,17 @@ def test_conflicting_dates_even_across_duplicate_candidates():
     assert len(results[0]["source_urls"]) == 2
 
 
+@pytest.mark.parametrize("missing_distance", [None, 0, -1])
+def test_duplicate_preserves_known_distance_and_label(missing_distance):
+    result = search([
+        race(distance_km=missing_distance, distance_label="unknown"),
+        race(distance_km=42.195, distance_label="Marathon"),
+    ])
+    assert len(result) == 1
+    assert result[0]["distance_km"] == 42.195
+    assert result[0]["distance_label"] == "Marathon"
+
+
 def test_past_editions_filtered_before_cap_but_returned_if_only_results():
     past = race(edition="2000", sources=[
         {"url": "https://race.example/old", "race_date": "2000-04-01"},

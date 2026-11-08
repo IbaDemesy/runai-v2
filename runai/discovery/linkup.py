@@ -106,6 +106,10 @@ def _day(value: str | None) -> date | None:
         return None
 
 
+def _distance(value: float | None) -> float | None:
+    return value if value is not None and math.isfinite(value) and value > 0 else None
+
+
 def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
     groups: dict[tuple[str, str], list[_Race]] = {}
     for row in rows:
@@ -115,7 +119,7 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
 
     candidates = []
     for key, group in groups.items():
-        row = group[0]
+        row = max(group, key=lambda item: _distance(item.distance_km) is not None)
         sources = [source for item in group for source in item.sources if _url(source.url)]
         source_urls = list(dict.fromkeys(source.url for source in sources))
         if not source_urls:
@@ -147,14 +151,11 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
         is_past = max(dates) < today if dates else bool(
             edition_years and max(edition_years) < today.year
         )
-        distance = row.distance_km
-        if distance is not None and (not math.isfinite(distance) or distance <= 0):
-            distance = None
         candidates.append((is_past, {
             "id": "-".join(key),
             "name": row.name.strip(),
             "edition": row.edition.strip(),
-            "distance_km": distance,
+            "distance_km": _distance(row.distance_km),
             "distance_label": row.distance_label.strip(),
             "race_date": race_date,
             "date_status": status,
