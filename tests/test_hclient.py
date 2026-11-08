@@ -443,6 +443,30 @@ def test_consumer_failure_cancels_remote_run():
     asyncio.run(execute())
 
 
+@pytest.mark.parametrize("failure", ["invalid_response", "consumer"])
+def test_cancel_failure_is_reported_for_parse_and_consumer_errors(failure):
+    async def execute():
+        provider = Provider()
+
+        def handle(request):
+            if request.method == "DELETE":
+                return httpx.Response(500)
+            if failure == "invalid_response" and request.url.path.endswith("/changes"):
+                return httpx.Response(200, content=b"not JSON")
+            return provider(request)
+
+        async def consume(_event):
+            if failure == "consumer":
+                raise RuntimeError("private callback details")
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+            result = await HAgentRunner("test-key", client=client).run(TASK, consume)
+        assert result["status"] == "failed" and "cancellation failed" in result["error"]
+        assert "private callback" not in result["error"]
+
+    asyncio.run(execute())
+
+
 def test_scrub_short_assigned_credentials():
     value = scrub_text('api_key="synthetic-value" access_token=synthetic-token secret: synthetic')
     assert "synthetic" not in value

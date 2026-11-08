@@ -341,8 +341,9 @@ class HAgentRunner:
                         break
                     if not events:
                         await asyncio.sleep(self.poll_s)
-        except asyncio.CancelledError:
-            await asyncio.shield(stop())
+        except asyncio.CancelledError as exc:
+            if not await asyncio.shield(stop()):
+                exc.add_note("Remote H cancellation failed; manual intervention required")
             raise
         except (TimeoutError, httpx.TimeoutException):
             stopped = await asyncio.shield(stop())
@@ -364,11 +365,15 @@ class HAgentRunner:
             if not stopped:
                 result["error"] += "; cancellation failed"
         except (ValueError, KeyError, TypeError, binascii.Error):
-            await asyncio.shield(stop())
+            stopped = await asyncio.shield(stop())
             result["error"] = "Invalid H task or provider response"
+            if not stopped:
+                result["error"] += "; cancellation failed"
         except Exception:  # noqa: BLE001 -- consumer failures must cancel the hosted agent
-            await asyncio.shield(stop())
+            stopped = await asyncio.shield(stop())
             result["error"] = "H run or event consumer failed"
+            if not stopped:
+                result["error"] += "; cancellation failed"
         finally:
             if self.client is None:
                 await client.aclose()
