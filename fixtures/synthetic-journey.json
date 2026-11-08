@@ -1,9 +1,87 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "provenance": "synthetic",
-  "results": [
-    {"kind":"registration","status":"ready_for_payment","summary":"SYNTHETIC replay: registration prepared, no form submitted","handoff_url":"https://www.milanomarathon.it/","synthetic":true,"payment_executed":false},
-    {"kind":"hotel","status":"ready_for_payment","summary":"SYNTHETIC replay: hotel prepared, no room reserved","handoff_url":"https://all.accor.com/","synthetic":true,"payment_executed":false},
-    {"kind":"transport","status":"ready_for_payment","summary":"SYNTHETIC replay: train prepared, no ticket reserved","handoff_url":"https://www.trenitalia.com/","synthetic":true,"payment_executed":false}
-  ]
+  "agents": {
+    "registration": {
+      "result": {
+        "kind": "registration",
+        "status": "ready_for_payment",
+        "summary": "SYNTHETIC replay: homepage handoff only; no prepared booking or submission.",
+        "handoff_url": "https://www.maratonaclubedeportugal.com/",
+        "synthetic": true,
+        "payment_executed": false
+      },
+      "steps": [
+        {
+          "recorded_at": "2026-11-01T12:00:00Z",
+          "message": "SYNTHETIC registration: opening homepage",
+          "frame": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"960\" height=\"540\"><rect width=\"960\" height=\"540\" fill=\"#101819\"/><rect x=\"48\" y=\"48\" width=\"864\" height=\"8\" fill=\"#fc4c02\"/><g fill=\"white\" font-family=\"sans-serif\"><text x=\"48\" y=\"125\" font-size=\"30\">RUNAI / SYNTHETIC REPLAY</text><text x=\"48\" y=\"225\" font-size=\"40\">REGISTRATION</text><text x=\"48\" y=\"325\" font-size=\"28\">Recorded frame 1/3</text><text x=\"48\" y=\"445\" font-size=\"20\">Simulation only. No booking, submission or payment.</text></g></svg>"
+        },
+        {
+          "recorded_at": "2026-11-01T12:00:01Z",
+          "message": "SYNTHETIC registration: reviewing options",
+          "frame": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"960\" height=\"540\"><rect width=\"960\" height=\"540\" fill=\"#101819\"/><rect x=\"48\" y=\"48\" width=\"864\" height=\"8\" fill=\"#fc4c02\"/><g fill=\"white\" font-family=\"sans-serif\"><text x=\"48\" y=\"125\" font-size=\"30\">RUNAI / SYNTHETIC REPLAY</text><text x=\"48\" y=\"225\" font-size=\"40\">REGISTRATION</text><text x=\"48\" y=\"325\" font-size=\"28\">Recorded frame 2/3</text><text x=\"48\" y=\"445\" font-size=\"20\">Simulation only. No booking, submission or payment.</text></g></svg>"
+        },
+        {
+          "recorded_at": "2026-11-01T12:00:02Z",
+          "message": "SYNTHETIC registration: human handoff",
+          "frame": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"960\" height=\"540\"><rect width=\"960\" height=\"540\" fill=\"#101819\"/><rect x=\"48\" y=\"48\" width=\"864\" height=\"8\" fill=\"#fc4c02\"/><g fill=\"white\" font-family=\"sans-serif\"><text x=\"48\" y=\"125\" font-size=\"30\">RUNAI / SYNTHETIC REPLAY</text><text x=\"48\" y=\"225\" font-size=\"40\">REGISTRATION</text><text x=\"48\" y=\"325\" font-size=\"28\">Recorded frame 3/3</text><text x=\"48\" y=\"445\" font-size=\"20\">Simulation only. No booking, submission or payment.</text></g></svg>"
+        }
+      ]
+    },
+    "hotel": {
+      "result": {
+        "kind": "hotel",
+        "status": "ready_for_payment",
+        "summary": "SYNTHETIC replay: homepage handoff only; no prepared booking or submission.",
+        "handoff_url": "https://all.accor.com/",
+        "synthetic": true,
+        "payment_executed": false
+      },
+      "steps": [
+        {
+          "recorded_at": "2026-11-01T12:00:00Z",
+          "message": "SYNTHETIC hotel: opening homepage",
+          "frame": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"960\" height=\"540\"><rect width=\"960\" height=\"540\" fill=\"#101819\"/><rect x=\"48\" y=\"48\" width=\"864\" height=\"8\" fill=\"#fc4c02\"/><g fill=\"white\" font-family=\"sans-serif\"><text x=\"48\" y=\"125\" font-size=\"30\">RUNAI / SYNTHETIC REPLAY</text><text x=\"48\" y=\"225\" font-size=\"40\">HOTEL</text><text x=\"48\" y=\"325\" font-size=\"28\">Recorded frame 1/3</text><text x=\"48\" y=\"445\" font-size=\"20\">Simulation only. No booking, submission or payment.</text></g></svg>"
+        },
+        {
+          "recorded_at": "2026-11-01T12:00:01Z",
+          "message": "SYNTHETIC hotel: reviewing options",
+          "frame": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"960\" height=\"540\"><rect width=\"960\" height=\"540\" fill=\"#101819\"/><rect x=\"48\" y=\"48\" width=\"864\" height=\"8\" fill=\"#fc4c02\"/><g fill=\"white\" font-family=\"sans-serif\"><text x=\"48\" y=\"125\" font-size=\"30\">RUNAI / SYNTHETIC REPLAY</text><text x=\"48\" y=\"225\" font-size=\"40\">HOTEL</text><text x=\"48\" y=\"325\" font-size=\"28\">Recorded frame 2/3</text><text x=\"48\" y=\"445\" font-size=\"20\">Simulation only. No booking, submission or payment.</text></g></svg>"
+        },
+        {
+          "recorded_at": "2026-11-01T12:00:02Z",
+          "message": "SYNTHETIC hotel: human handoff",
+          "frame": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"960\" height=\"540\"><rect width=\"960\" height=\"540\" fill=\"#101819\"/><rect x=\"48\" y=\"48\" width=\"864\" height=\"8\" fill=\"#fc4c02\"/><g fill=\"white\" font-family=\"sans-serif\"><text x=\"48\" y=\"125\" font-size=\"30\">RUNAI / SYNTHETIC REPLAY</text><text x=\"48\" y=\"225\" font-size=\"40\">HOTEL</text><text x=\"48\" y=\"325\" font-size=\"28\">Recorded frame 3/3</text><text x=\"48\" y=\"445\" font-size=\"20\">Simulation only. No booking, submission or payment.</text></g></svg>"
+        }
+      ]
+    },
+    "transport": {
+      "result": {
+        "kind": "transport",
+        "status": "ready_for_payment",
+        "summary": "SYNTHETIC replay: homepage handoff only; no prepared booking or submission.",
+        "handoff_url": "https://www.omio.com/",
+        "synthetic": true,
+        "payment_executed": false
+      },
+      "steps": [
+        {
+          "recorded_at": "2026-11-01T12:00:00Z",
+          "message": "SYNTHETIC transport: opening homepage",
+          "frame": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"960\" height=\"540\"><rect width=\"960\" height=\"540\" fill=\"#101819\"/><rect x=\"48\" y=\"48\" width=\"864\" height=\"8\" fill=\"#fc4c02\"/><g fill=\"white\" font-family=\"sans-serif\"><text x=\"48\" y=\"125\" font-size=\"30\">RUNAI / SYNTHETIC REPLAY</text><text x=\"48\" y=\"225\" font-size=\"40\">TRANSPORT</text><text x=\"48\" y=\"325\" font-size=\"28\">Recorded frame 1/3</text><text x=\"48\" y=\"445\" font-size=\"20\">Simulation only. No booking, submission or payment.</text></g></svg>"
+        },
+        {
+          "recorded_at": "2026-11-01T12:00:01Z",
+          "message": "SYNTHETIC transport: reviewing options",
+          "frame": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"960\" height=\"540\"><rect width=\"960\" height=\"540\" fill=\"#101819\"/><rect x=\"48\" y=\"48\" width=\"864\" height=\"8\" fill=\"#fc4c02\"/><g fill=\"white\" font-family=\"sans-serif\"><text x=\"48\" y=\"125\" font-size=\"30\">RUNAI / SYNTHETIC REPLAY</text><text x=\"48\" y=\"225\" font-size=\"40\">TRANSPORT</text><text x=\"48\" y=\"325\" font-size=\"28\">Recorded frame 2/3</text><text x=\"48\" y=\"445\" font-size=\"20\">Simulation only. No booking, submission or payment.</text></g></svg>"
+        },
+        {
+          "recorded_at": "2026-11-01T12:00:02Z",
+          "message": "SYNTHETIC transport: human handoff",
+          "frame": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"960\" height=\"540\"><rect width=\"960\" height=\"540\" fill=\"#101819\"/><rect x=\"48\" y=\"48\" width=\"864\" height=\"8\" fill=\"#fc4c02\"/><g fill=\"white\" font-family=\"sans-serif\"><text x=\"48\" y=\"125\" font-size=\"30\">RUNAI / SYNTHETIC REPLAY</text><text x=\"48\" y=\"225\" font-size=\"40\">TRANSPORT</text><text x=\"48\" y=\"325\" font-size=\"28\">Recorded frame 3/3</text><text x=\"48\" y=\"445\" font-size=\"20\">Simulation only. No booking, submission or payment.</text></g></svg>"
+        }
+      ]
+    }
+  }
 }

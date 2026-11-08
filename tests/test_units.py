@@ -1,44 +1,49 @@
 import asyncio
+import json
+from types import SimpleNamespace
 
 import pytest
-from fastapi.testclient import TestClient
 from pydantic import ValidationError
+from test_api_guided import TRIP
 
-from runai.app import TARGET, create_app
 from runai.models import Kind, StepResult
-from runai.providers import FakeVoice, LiveRunner, LiveVoice, ReplayRunner
+from runai.providers import FIXTURE, FakeVoice, LiveRunner, LiveVoice, ReplayRunner
 
 
-def test_invalid_requests_and_live():
-    with TestClient(create_app()) as client:
-        assert client.get("/api/missions/unknown").status_code == 404
-        assert client.post("/api/missions", json={"description": ""}).status_code == 422
-        assert client.post("/api/missions", json={"description": "x", "mode": "live"}).status_code == 501
-        m = client.post("/api/missions", json={"description": "x"}).json()
-        framing = TARGET.model_dump(mode="json")
-        framing["budget_eur"] = 0
-        url = f"/api/missions/{m['id']}/reply"
-        assert client.post(url, json={"framing": framing}).status_code == 422
-        framing["budget_eur"] = 500
-        assert client.post(url, json={"framing": framing}).status_code == 422
+def test_payment_and_invalid_handoff_cannot_be_represented():
+    for extra in ({"status": "paid"}, {"payment_executed": True}, {"handoff_url": None}):
+        fields = {"kind": "hotel", "status": "ready_for_payment", "summary": "x",
+                  "synthetic": True, "handoff_url": "https://all.accor.com/"}
+        fields.update(extra)
+        with pytest.raises(ValidationError):
+            StepResult(**fields)
 
 
-def test_payment_cannot_be_represented():
-    with pytest.raises(ValidationError):
-        StepResult(kind="hotel", status="paid", summary="x", synthetic=True)
-    with pytest.raises(ValidationError):
-        StepResult(kind="hotel", status="ready_for_payment", summary="x",
-                   synthetic=True, payment_executed=True)
-
-
-def test_voice_and_live_stubs():
+def test_voice_stubs():
     assert "SYNTHETIC" in asyncio.run(FakeVoice().transcribe(b"audio"))
     with pytest.raises(ValueError, match="Empty"):
         asyncio.run(FakeVoice().transcribe(b""))
     with pytest.raises(NotImplementedError, match="GLADIA_API_KEY"):
         asyncio.run(LiveVoice().transcribe(b"x"))
-    with pytest.raises(NotImplementedError, match="HAI_API_KEY"):
-        asyncio.run(LiveRunner().run(Kind.hotel, None))
+
+
+@pytest.mark.parametrize("change", ["version", "provenance", "missing", "unsafe", "unordered"])
+def test_replay_rejects_invalid_schema(tmp_path, change):
+    trace = json.loads(FIXTURE.read_text())
+    if change == "version":
+        trace["schema_version"] = 1
+    elif change == "provenance":
+        trace["provenance"] = "live"
+    elif change == "missing":
+        del trace["agents"]["hotel"]
+    elif change == "unsafe":
+        trace["agents"]["hotel"]["result"]["payment_executed"] = True
+    else:
+        trace["agents"]["hotel"]["steps"].reverse()
+    path = tmp_path / "invalid.json"
+    path.write_text(json.dumps(trace))
+    with pytest.raises(ValueError):
+        ReplayRunner(path)
 
 
 def test_missing_replay(tmp_path):
@@ -46,14 +51,58 @@ def test_missing_replay(tmp_path):
         ReplayRunner(tmp_path / "missing.json")
 
 
-def test_provider_failure_is_visible(monkeypatch):
-    async def fail(self, kind, plan):
-        raise RuntimeError("test provider failure")
+@pytest.mark.parametrize("outcome", ["ready_for_payment", "blocked", "exception", "no_handoff"])
+def test_live_runner_maps_results_and_events(monkeypatch, outcome):
+    events = []
+    fallback = "https://all.accor.com/"
 
-    monkeypatch.setattr("runai.providers.FakeRunner.run", fail)
-    with TestClient(create_app()) as client:
-        m = client.post("/api/missions", json={"description": "x"}).json()
-        result = client.post(f"/api/missions/{m['id']}/confirm", json={"confirmed": True}).json()
-        assert result["status"] == "failed"
-        assert len(result["results"]) == 3
-        assert all(r["error"] == "test provider failure" for r in result["results"])
+    class Client:
+        async def run(self, task, on_event):
+            assert task == {"fallback_url": fallback}
+            await on_event({"type": "step_progress", "message": "Public page opened"})
+            await on_event({"type": "live_view_available", "live_view_url": "https://example.org/"})
+            await on_event({"type": "live_frame", "image": b"image", "mime": "image/png"})
+            await on_event({"type": "unknown"})
+            if outcome == "exception":
+                raise RuntimeError("private diagnostic must not appear")
+            return {"status": "ready_for_payment" if outcome == "no_handoff" else outcome,
+                    "summary": "Stopped before payment", "handoff_url": (
+                        None if outcome == "no_handoff" else fallback
+                    ), "payment_executed": False}
+
+    def import_module(name):
+        if name == "runai.agents.hclient":
+            return SimpleNamespace(HAgentRunner=Client)
+        return SimpleNamespace(build_task=lambda trip: {"fallback_url": fallback})
+
+    async def emit(event):
+        events.append(event)
+
+    monkeypatch.setattr("runai.providers.importlib.import_module", import_module)
+    result = asyncio.run(LiveRunner().run(Kind.hotel, TRIP, emit))
+    assert result.status == ("failed" if outcome in {"exception", "no_handoff"} else outcome)
+    assert result.synthetic is False
+    assert result.payment_executed is False
+    assert str(result.handoff_url) == fallback
+    assert "private" not in (result.error or "")
+    assert [event["type"] for event in events] == [
+        "step_progress", "live_view_available", "live_frame",
+    ]
+
+
+def test_builder_value_error_is_blocked_and_does_not_start_h(monkeypatch):
+    def build(trip):
+        raise ValueError("invalid trip")
+
+    def import_module(name):
+        assert name == "runai.agents.registration"
+        return SimpleNamespace(build_task=build)
+
+    async def emit(event):
+        pytest.fail("No H events expected")
+
+    monkeypatch.setattr("runai.providers.importlib.import_module", import_module)
+    result = asyncio.run(LiveRunner().run(Kind.registration, TRIP, emit))
+    assert result.status == "blocked"
+    assert str(result.handoff_url) == TRIP["race"]["official_url"]
+    assert result.payment_executed is False
