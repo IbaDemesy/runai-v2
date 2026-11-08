@@ -81,7 +81,8 @@ and names to accent-insensitive casefolded containment. Verification schemas
 exclude unrelated trip fields. Missing expected/verification fields,
 blockers/account walls, non-success provider outcomes, homepages, unselected
 search results, private URLs, contradictory ISO URL dates or unsafe action
-claims cannot become ready. Handoff must match the observed page's host/path
+claims cannot become ready. Scrubbed handoff must equal the last observed URL,
+including its selected room/fare/date query parameters,
 and a genuine frame for the latest observed context must have been received.
 **Model-reported verification is not external proof. Final human inspection
 of screenshot evidence is required**, even for a structurally accepted result.

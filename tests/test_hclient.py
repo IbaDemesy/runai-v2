@@ -48,7 +48,7 @@ def observation(image=None):
         "type": "AgentEvent", "timestamp": "2026-11-08T20:00:00Z",
         "data": {
             "kind": "observation_event", "type": "web",
-            "metadata": {"url": HANDOFF + "?session=private&distance=42", "title": "Race entry"},
+            "metadata": {"url": HANDOFF + "?session=private", "title": "Race entry"},
             "image": image or {
                 "type": "base64", "media_type": "image/png",
                 "source": base64.b64encode(IMAGE).decode(),
@@ -121,7 +121,7 @@ def test_run_emits_real_api_frames_without_any_public_share():
     assert result["status"] == "ready_for_payment"
     assert result["handoff_url"] == HANDOFF
     assert result["start_url"] == START
-    assert result["final_url"] == HANDOFF + "?distance=42"
+    assert result["final_url"] == HANDOFF
     assert result["live_view_url"] is None
     assert not any(r.url.path.endswith("/share") for r in provider.requests)
     assert result["error"] is None
@@ -338,12 +338,14 @@ def test_scrub_text_preserves_dates_and_removes_contacts_keys_and_private_urls()
 
 
 def test_all_emitted_messages_and_returned_urls_are_scrubbed():
+    frame = observation()
+    frame["data"]["metadata"]["url"] = HANDOFF + "?token=secret&distance=42"
     provider = Provider(
         answer={**ANSWER, "handoff_url": HANDOFF + "?token=secret&distance=42#private",
                 "reached_step": "runner@example.org +33 6 12 34 56 78 test-api-key"},
         events=[{"type": "AgentEvent", "data": {
             "kind": "policy_event", "content": "runner@example.org test-api-key",
-        }}, observation()],
+        }}, frame],
     )
     result, events = run(provider)
     assert "runner@" not in repr((result, events))
@@ -901,3 +903,10 @@ def test_start_path_outside_reviewed_segment_never_creates_session(monkeypatch):
     provider = Provider()
     result, _ = run(provider, {**TASK, "start_url": "https://race.example.org/race-private"})
     assert result["status"] == "blocked" and not provider.requests
+
+
+@pytest.mark.parametrize("query", ["room=twin", "fare=flexible"])
+def test_handoff_query_must_match_observed_selection(query):
+    provider = Provider(answer={**ANSWER, "handoff_url": HANDOFF + "?" + query})
+    result, _ = run(provider)
+    assert result["status"] == "blocked"

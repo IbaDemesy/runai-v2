@@ -223,9 +223,7 @@ def _verified(task, answer, handoff, observed, frame_seen, reviews):
             return False
     if not frame_seen or frame_seen != observed or not _reviewed(handoff, reviews) or not observed:
         return False
-    if (urlsplit(handoff).hostname, urlsplit(handoff).path) != (
-        urlsplit(observed).hostname, urlsplit(observed).path
-    ):
+    if scrub_url(handoff) != scrub_url(observed):
         return False
     if urlsplit(handoff).path in ("", "/") or re.search(
         r"(?:^|/)(?:search|results)(?:/|$)", urlsplit(handoff).path, re.IGNORECASE,
