@@ -120,11 +120,12 @@ def parse_intent(text: str, *, today: date) -> Intent:
     t = normalize(text)
     for wrong, right in {"marathn": "marathon", "itali": "italie", "printemp": "printemps"}.items():
         t = re.sub(r"\b" + wrong + r"\b", right, t)
-    result = Intent(
-        lang="en"
-        if re.search(r"\b(the|in|from|next|this|summer|spring|half|nights|actually|instead|i|whatever|you)\b", t)
-        else "fr"
+    language_cue = re.search(
+        r"\b(?P<fr>le|la|les|un|une|en|au|aux|depuis|printemps|ete|nuits|plutot|bonjour|je|peu)\b|"
+        r"\b(?P<en>the|in|from|next|this|summer|spring|half|nights|actually|instead|i|whatever|you)\b",
+        t,
     )
+    result = Intent(lang="en" if language_cue and language_cue.lastgroup == "en" else "fr")
     result.correction = bool(re.search(r"\b(plutot|actually|instead)\b", t))
     result.deferred = bool(re.search(
         r"peu importe|je (?:ne )?sais pas|tu en penses quoi|whatever|i don.?t know|"

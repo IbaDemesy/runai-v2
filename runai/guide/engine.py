@@ -245,11 +245,16 @@ class GuideEngine:
         if hints.get("named"):
             hints.setdefault("race_name", state.query)
         past_found = False
+        unsafe_source = False
         try:
             rows = await self.discover(state.query, hints)
             for row in rows:
+                row = self._scrub_data(row)
+                if self._source_instruction(row):
+                    unsafe_source = True
+                    continue
                 try:
-                    race = RaceOption.model_validate(self._scrub_data(row))
+                    race = RaceOption.model_validate(row)
                 except ValidationError:
                     continue
                 if race.race_date and race.race_date < self.today:
@@ -316,6 +321,13 @@ class GuideEngine:
             )
             turn.suggestions = [self._chip(v) for v in values]
             state.pending_suggestions = turn.suggestions
+            if unsafe_source:
+                turn.message = self._say(
+                    state, "J'ai écarté des sources contenant des instructions non fiables.",
+                    "I discarded sources containing untrusted instructions.",
+                )
+                turn.error = "unsafe_source"
+                state.history[-1]["text"] = turn.message
             if past_found:
                 turn.message = self._say(
                     state, "Cette édition est passée. Cherchons une nouvelle édition sourcée.",
@@ -357,6 +369,20 @@ class GuideEngine:
         if isinstance(value, list):
             return [self._scrub_data(v) for v in value]
         return value
+
+    def _source_instruction(self, value):
+        if isinstance(value, str):
+            return bool(re.search(
+                r"\b(?:ignore|disregard|override)\b.*\b(?:instructions?|rules|prompts?)|"
+                r"(?:system|developer|assistant)\s*:|<\s*/?\s*(?:system|user_data|instructions)|"
+                r"(?:declare|claim|report).*(?:booking completed|payment successful|booked)",
+                normalize(value), re.DOTALL,
+            ))
+        if isinstance(value, dict):
+            return any(self._source_instruction(item) for item in value.values())
+        if isinstance(value, list):
+            return any(self._source_instruction(item) for item in value)
+        return False
 
     async def _recommend(self, state):
         direction = None
