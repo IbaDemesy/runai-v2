@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "provenance": "synthetic",
+  "results": [
+    {"kind":"registration","status":"ready_for_payment","summary":"SYNTHETIC replay: registration prepared, no form submitted","handoff_url":"https://www.milanomarathon.it/","synthetic":true,"payment_executed":false},
+    {"kind":"hotel","status":"ready_for_payment","summary":"SYNTHETIC replay: hotel prepared, no room reserved","handoff_url":"https://all.accor.com/","synthetic":true,"payment_executed":false},
+    {"kind":"transport","status":"ready_for_payment","summary":"SYNTHETIC replay: train prepared, no ticket reserved","handoff_url":"https://www.trenitalia.com/","synthetic":true,"payment_executed":false}
+  ]
+}

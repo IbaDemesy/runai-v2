@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RunAI — votre déplacement course</title>
+<style>
+body{font:18px system-ui;max-width:850px;margin:3rem auto;padding:1rem;background:#101923;color:#eef3f7}button,input,select{font:inherit;padding:.6rem;margin:.4rem 0}button{cursor:pointer}article{border:1px solid #789;padding:1rem;margin:1rem 0}a{color:#82dcf7}label{display:block}pre{white-space:pre-wrap}#error{color:#ffadad}
+</style>
+<h1>Dis-moi ta course, je prépare le déplacement</h1>
+<p><strong>SIMULATION SYNTHÉTIQUE — aucun achat, aucune réservation.</strong></p>
+<p>Cible figée : Milano Marathon · Paris–Milano · 3–5 avril 2027 · Accor · Trenitalia.</p>
+<label>Mode <select id="mode"><option>demo</option><option>replay</option><option>live</option></select></label>
+<label>Votre demande <input id="description" value="Je veux courir à Milan depuis Paris" size="40"></label>
+<button id="create">Préparer le cadrage</button>
+<p>Le texte est conservé, pas encore extrait : le cadrage synthétique est fixe.</p>
+<section id="plan" hidden><h2>Vérifier le cadrage</h2><pre id="framing"></pre>
+<button id="reply">Valider ces informations</button>
+<button id="confirm" disabled>Je confirme le plan et le lancement des 3 agents</button></section>
+<p id="error" role="alert"></p><p id="status" role="status"></p><section id="results"></section>
+<script>
+let mission, timer;
+const $ = id => document.getElementById(id);
+async function api(path, body) {
+  const response = await fetch(path, body === undefined ? {} : {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const data = await response.json();
+  if (!response.ok) throw Error(typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail));
+  return data;
+}
+function render(m) {
+  $('status').textContent = `${m.mode} · SYNTHÉTIQUE · ${m.status}`;
+  $('results').replaceChildren();
+  for (const step of m.results) {
+    const card = document.createElement('article');
+    const text = document.createElement('p');
+    text.textContent = `${step.kind}: ${step.status} — ${step.summary} ${step.error || ''}`;
+    card.append(text);
+    if(step.handoff_url){const a=document.createElement('a');a.href=step.handoff_url;a.textContent='Ouvrir le site officiel (aucun panier réel préparé)';a.target='_blank';a.rel='noopener noreferrer';card.append(a);}
+    $('results').append(card);
+  }
+}
+async function guarded(action){$('error').textContent='';try{await action();}catch(e){$('error').textContent=e.message;}}
+$('create').onclick=()=>guarded(async()=>{
+  clearInterval(timer);$('confirm').disabled=true;$('results').replaceChildren();
+  mission=await api('/api/missions',{description:$('description').value,mode:$('mode').value});
+  $('framing').textContent=JSON.stringify(mission.plan,null,2);$('plan').hidden=false;render(mission);
+});
+$('reply').onclick=()=>guarded(async()=>{
+  mission=await api(`/api/missions/${mission.id}/reply`,{framing:mission.plan.framing});$('confirm').disabled=false;
+});
+$('confirm').onclick=()=>guarded(async()=>{
+  $('confirm').disabled=true;$('create').disabled=true;
+  timer=setInterval(()=>guarded(async()=>render(await api(`/api/missions/${mission.id}`))),500);
+  try{render(await api(`/api/missions/${mission.id}/confirm`,{confirmed:true}));}
+  finally{clearInterval(timer);$('create').disabled=false;}
+});
+</script>
+</html>
