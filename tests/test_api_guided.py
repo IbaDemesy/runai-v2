@@ -139,6 +139,8 @@ def test_injected_live_events_and_frame_bytes(monkeypatch):
         async def run(self, kind, trip, emit):
             await emit({"type": "live_view_available", "live_view_url": "https://example.org/",
                         "message": "Public view available"})
+            await emit({"type": "live_view_available",
+                        "live_view_url": "https://platform.hcompany.ai/agent-view/private-session"})
             await emit({"type": "live_frame", "image": b"png-bytes", "mime": "image/png"})
             await emit({"type": "live_frame", "image": b"unsafe", "mime": "text/html"})
             return StepResult(kind=kind, status="blocked", summary="Stop before consent",
@@ -159,6 +161,7 @@ def test_injected_live_events_and_frame_bytes(monkeypatch):
             assert response.headers["content-type"] == "image/png"
             assert "sandbox" in response.headers["content-security-policy"]
         assert sum(event["type"] == "live_view_available" for event in mission["events"]) == 3
+        assert "private-session" not in str(mission)
 
 
 def test_unknown_server_mode_is_clean_startup_error(monkeypatch):

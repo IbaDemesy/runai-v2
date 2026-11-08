@@ -9,7 +9,7 @@ from typing import Protocol
 
 from pydantic import HttpUrl, TypeAdapter
 
-from runai.models import Kind, StepResult
+from runai.models import Kind, StepResult, public_url
 
 FIXTURE = Path(__file__).resolve().parent.parent / "fixtures/synthetic-journey.json"
 Emit = Callable[[dict], Awaitable[None]]
@@ -37,7 +37,7 @@ class LiveVoice:
 
 def _valid_url(value):
     try:
-        return str(TypeAdapter(HttpUrl).validate_python(value))
+        return public_url(str(TypeAdapter(HttpUrl).validate_python(value)))
     except ValueError:
         return None
 

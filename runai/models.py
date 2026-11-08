@@ -1,8 +1,45 @@
+import re
 from datetime import UTC, datetime
 from enum import StrEnum
+from ipaddress import ip_address
 from typing import Literal
+from urllib.parse import parse_qsl, unquote, urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
+
+
+def public_url(value):
+    if value is None:
+        return None
+    url = str(value)
+    try:
+        parsed = urlsplit(url)
+        host = parsed.hostname or ""
+        if parsed.scheme not in {"http", "https"} or not host:
+            return None
+        if parsed.username or parsed.password or parsed.fragment or parsed.port not in {None, 80, 443}:
+            return None
+        if host == "localhost" or host.endswith((".localhost", ".local", ".internal")):
+            return None
+        try:
+            if not ip_address(host).is_global:
+                return None
+        except ValueError:
+            pass
+        if any(re.search(r"token|session|sid|auth|key|signature|email", name, re.IGNORECASE)
+               for name, _ in parse_qsl(parsed.query)):
+            return None
+        if re.search(r"jsessionid|(?:token|session|auth|key)=", unquote(parsed.path), re.IGNORECASE):
+            return None
+        if (host == "hcompany.ai" or host.endswith(".hcompany.ai")) and not (
+            parsed.scheme == "https" and host in {"agp.eu.hcompany.ai", "agp.hcompany.ai"}
+            and re.fullmatch(r"/share/api/v1/trajectories/[\w-]+", parsed.path)
+            and not parsed.query
+        ):
+            return None
+        return url
+    except ValueError:
+        return None
 
 
 class Model(BaseModel):
@@ -33,6 +70,11 @@ class StepResult(Model):
     synthetic: bool
     payment_executed: Literal[False] = False
 
+    @field_validator("handoff_url", "start_url", "final_url", "live_view_url", mode="before")
+    @classmethod
+    def only_public_urls(cls, value):
+        return public_url(value)
+
     @model_validator(mode="after")
     def require_handoff(self):
         if self.status == "ready_for_payment" and self.handoff_url is None:
@@ -53,6 +95,11 @@ class Event(Model):
     recorded_at: datetime | None = None
     frame_id: str | None = None
     live_view_url: HttpUrl | None = None
+
+    @field_validator("live_view_url", mode="before")
+    @classmethod
+    def only_public_view(cls, value):
+        return public_url(value)
 
 
 class Mission(Model):

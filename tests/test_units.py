@@ -124,3 +124,28 @@ def test_invalid_registration_url_cannot_escape_failure_boundary(monkeypatch):
     }, emit))
     assert result.status == "blocked"
     assert result.handoff_url is None
+
+
+@pytest.mark.parametrize("unsafe", [
+    "https://platform.hcompany.ai/agent-view/private-session",
+    "https://agp.eu.hcompany.ai/api/v2/sessions/private-session",
+    "https://example.org/checkout?token=private",
+    "https://name:password@example.org/checkout",
+    "https://example.org/checkout#private",
+    "http://127.0.0.1/private",
+])
+def test_result_private_urls_are_suppressed(unsafe):
+    result = StepResult(kind="hotel", status="blocked", summary="Stopped", synthetic=False,
+                        handoff_url=unsafe, start_url=unsafe, final_url=unsafe, live_view_url=unsafe)
+    assert all(getattr(result, key) is None for key in (
+        "handoff_url", "start_url", "final_url", "live_view_url",
+    ))
+    with pytest.raises(ValidationError, match="requires a handoff_url"):
+        StepResult(kind="hotel", status="ready_for_payment", summary="Stopped", synthetic=False,
+                   handoff_url=unsafe)
+
+
+def test_documented_h_share_url_is_public():
+    result = StepResult(kind="hotel", status="blocked", summary="Stopped", synthetic=False,
+                        live_view_url="https://agp.eu.hcompany.ai/share/api/v1/trajectories/test")
+    assert str(result.live_view_url).startswith("https://agp.eu.hcompany.ai/share/")

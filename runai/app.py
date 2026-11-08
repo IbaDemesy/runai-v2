@@ -11,7 +11,7 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import Field, StrictBool, model_validator
 
-from runai.models import Event, Kind, Mission, Mode, Model, StepResult
+from runai.models import Event, Kind, Mission, Mode, Model, StepResult, public_url
 from runai.providers import FakeRunner, LiveRunner, ReplayRunner
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -142,7 +142,10 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None) -> FastAPI:
                     frames[frame_id] = content, mime
                     fields["frame_id"] = frame_id
                 if data.get("live_view_url"):
-                    fields["live_view_url"] = data["live_view_url"]
+                    fields["live_view_url"] = public_url(data["live_view_url"])
+                if event_type == "live_view_available" and not fields.get("live_view_url"):
+                    emit(mission, "step_progress", "Public live view unavailable", kind)
+                    return
                 emit(mission, event_type, data.get("message", "Preparation update"), kind, **fields)
 
             try:
