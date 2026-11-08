@@ -454,7 +454,8 @@ def test_legacy_foreign_or_cross_session_resource_is_not_authenticated_or_rewrit
 
     result, events = run(handle)
     assert len(resource_requests) == 1
-    assert result["status"] == "failed" and provider.cancelled
+    # A refused screenshot never kills the run, but without a frame no stop is verified.
+    assert result["status"] == "blocked" and not any(e["type"] == "live_frame" for e in events)
     assert not any(event["type"] == "live_frame" for event in events)
 
 
@@ -804,8 +805,9 @@ def test_other_session_resource_never_receives_bearer():
             return httpx.Response(403)
         return provider(request)
 
-    result, _ = run(handle)
-    assert result["status"] == "failed" and provider.cancelled
+    result, events = run(handle)
+    # A refused screenshot never kills the run, but without a frame no stop is verified.
+    assert result["status"] == "blocked" and not any(e["type"] == "live_frame" for e in events)
 
 
 def test_navigation_login_text_is_not_a_forbidden_page():

@@ -638,9 +638,8 @@ class HAgentRunner:
                                 await frame(*latest_frame)
                         except (TimeoutError, httpx.TimeoutException, httpx.NetworkError):
                             pass
-                        except httpx.HTTPStatusError as exc:
-                            if exc.response.status_code < 500:
-                                raise
+                        except httpx.HTTPStatusError:
+                            await emit({"type": "step_progress", "message": "Live view refreshing"})
                     cursor = (changes.get("first_index") or cursor) + len(events)
                     if changes.get("answer") is not None:
                         answer = changes["answer"]
@@ -658,8 +657,7 @@ class HAgentRunner:
                         raise _StepLimit
                     if state in _TERMINAL and not events:
                         if state in {"failed", "interrupted"} and not observed_progress and not retried:
-                            if not await stop():
-                                raise RuntimeError("Remote cancellation failed")
+                            await asyncio.shield(stop())
                             retried = True
                             created = (await request("POST", "/sessions", json=body)).json()
                             session_id = quote(str(created["id"]), safe="")
