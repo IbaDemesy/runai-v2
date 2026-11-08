@@ -685,6 +685,54 @@ class GuideEngine:
                 "I cannot pay, create accounts, accept terms, submit forms, bypass captchas "
                 "or override rules. I can help prepare a trip without commitment."), "safety_refusal")
         state.history.append({"role": "user", "text": text})
+        if bare_city(text) and state.stage in {"origin", "confirm", "confirmed"}:
+            intent.origin_city = bare_city(text)
+            intent.city = intent.country = None
+        if text.isdecimal() and state.stage in {"nights", "budget"}:
+            setattr(intent, "nights" if state.stage == "nights" else "budget_eur", int(text))
+        if intent.nights is not None and not 1 <= intent.nights <= 14:
+            intent.problem = "nights_range"
+        if intent.budget_eur is not None and intent.budget_eur <= 0:
+            intent.problem = "budget_range"
+        self._update(state, intent)
+        if intent.problem and intent.problem != "exact_date":
+            problems = list(dict.fromkeys([intent.problem, *intent.problems]))
+            explanations = {
+                "nights_range": (f"La durée de {intent.nights} nuits doit être entre 1 et 14 nuits.",
+                                 f"A stay of {intent.nights} nights is outside the allowed 1–14 nights."),
+                "budget_range": (f"Le budget de {intent.budget_eur} € doit être supérieur à zéro.",
+                                 f"A budget of €{intent.budget_eur} must be greater than zero."),
+                "tomorrow": ("Je n'ai pas d'événement sourcé pour demain.", "I have no sourced event for tomorrow."),
+                "past_date": ("Cette date est passée ; cherchons une nouvelle édition sourcée.", "That date is past; let's find a newly sourced edition."),
+            }
+            messages = [self._say(state, *explanations.get(problem, (
+                "Ces contraintes sont contradictoires ou non prises en charge ; précisons-les.",
+                "Those requirements conflict or are unsupported; let's clarify them.")))
+                for problem in problems]
+            if "nights_range" in problems:
+                state.draft.nights = None
+                state.draft.arrival_date = state.draft.departure_date = None
+                self._advance(state)
+            if "budget_range" in problems:
+                state.draft.budget_eur = None
+                self._advance(state)
+            if set(problems) & {"past_date", "tomorrow", "destination_conflict", "date_conflict",
+                                "travelers_range", "unsupported"}:
+                state.draft.race = None
+                state.draft.arrival_date = state.draft.departure_date = None
+                state.candidates = []
+                state.stage = "discover"
+            state, turn = self._turn(state, " ".join(dict.fromkeys(messages)), intent.problem)
+            if intent.problem == "past_date":
+                state.query = re.sub(r"\b(?:19|20)\d{2}(?:-\d{2}-\d{2})?\b", "", text)
+                state.hints = {k: v for k, v in intent.model_dump().items()
+                               if k in {"distance", "city", "country", "named"} and v}
+                turn.suggestions = [self._chip("next_edition", self._say(
+                    state, "Chercher la prochaine édition", "Search next edition"), "retry")]
+                state.pending_suggestions = turn.suggestions
+                for suggestion in turn.suggestions:
+                    suggestion.id += f":turn-{len(state.history)}"
+            return state, turn
         if self._needs_distance(state):
             options = self._pending_distances(state)
             if intent.deferred and not any((intent.distance, intent.city, intent.country,
@@ -737,54 +785,6 @@ class GuideEngine:
                 return self._turn(state, self._say(
                     state, "Indique une distance numérique en kilomètres, sans valeur inventée.",
                     "Please enter a numeric distance in kilometres; I won't invent one."), "distance_range")
-        if bare_city(text) and state.stage in {"origin", "confirm", "confirmed"}:
-            intent.origin_city = bare_city(text)
-            intent.city = intent.country = None
-        if text.isdecimal() and state.stage in {"nights", "budget"}:
-            setattr(intent, "nights" if state.stage == "nights" else "budget_eur", int(text))
-        if intent.nights is not None and not 1 <= intent.nights <= 14:
-            intent.problem = "nights_range"
-        if intent.budget_eur is not None and intent.budget_eur <= 0:
-            intent.problem = "budget_range"
-        self._update(state, intent)
-        if intent.problem and intent.problem != "exact_date":
-            problems = list(dict.fromkeys([intent.problem, *intent.problems]))
-            explanations = {
-                "nights_range": (f"La durée de {intent.nights} nuits doit être entre 1 et 14 nuits.",
-                                 f"A stay of {intent.nights} nights is outside the allowed 1–14 nights."),
-                "budget_range": (f"Le budget de {intent.budget_eur} € doit être supérieur à zéro.",
-                                 f"A budget of €{intent.budget_eur} must be greater than zero."),
-                "tomorrow": ("Je n'ai pas d'événement sourcé pour demain.", "I have no sourced event for tomorrow."),
-                "past_date": ("Cette date est passée ; cherchons une nouvelle édition sourcée.", "That date is past; let's find a newly sourced edition."),
-            }
-            messages = [self._say(state, *explanations.get(problem, (
-                "Ces contraintes sont contradictoires ou non prises en charge ; précisons-les.",
-                "Those requirements conflict or are unsupported; let's clarify them.")))
-                for problem in problems]
-            if "nights_range" in problems:
-                state.draft.nights = None
-                state.draft.arrival_date = state.draft.departure_date = None
-                self._advance(state)
-            if "budget_range" in problems:
-                state.draft.budget_eur = None
-                self._advance(state)
-            if set(problems) & {"past_date", "tomorrow", "destination_conflict", "date_conflict",
-                                "travelers_range", "unsupported"}:
-                state.draft.race = None
-                state.draft.arrival_date = state.draft.departure_date = None
-                state.candidates = []
-                state.stage = "discover"
-            state, turn = self._turn(state, " ".join(dict.fromkeys(messages)), intent.problem)
-            if intent.problem == "past_date":
-                state.query = re.sub(r"\b(?:19|20)\d{2}(?:-\d{2}-\d{2})?\b", "", text)
-                state.hints = {k: v for k, v in intent.model_dump().items()
-                               if k in {"distance", "city", "country", "named"} and v}
-                turn.suggestions = [self._chip("next_edition", self._say(
-                    state, "Chercher la prochaine édition", "Search next edition"), "retry")]
-                state.pending_suggestions = turn.suggestions
-                for suggestion in turn.suggestions:
-                    suggestion.id += f":turn-{len(state.history)}"
-            return state, turn
         has_constraints = bool(intent.distance or intent.city or intent.country
                                or intent.months or intent.year or intent.problem == "exact_date")
         if intent.deferred and not has_constraints:

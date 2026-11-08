@@ -620,6 +620,68 @@ def test_distance_deferral_without_source_options_suggests_only_known_alternativ
     assert turn.ready_to_confirm
 
 
+@pytest.mark.parametrize("lang", ["fr", "en"])
+@pytest.mark.parametrize("label", ["16–111 km", "Distances to be announced"])
+def test_distance_deferral_saves_trip_corrections_before_recommending(lang, label):
+    async def discover(query, hints):
+        return [
+            {"id": "unknown", "name": "Unknown Trail", "race_date": "2027-06-04",
+             "date_status": "official", "source_urls": ["https://race.example/unknown"],
+             "distance_label": label},
+            {"id": "numeric", "name": "Numeric Trail", "race_date": "2027-06-11",
+             "date_status": "official", "source_urls": ["https://race.example/numeric"],
+             "distance_km": 21},
+        ]
+
+    e = engine(discover)
+    query = ("un trail depuis Paris 2 nuits budget 800" if lang == "fr"
+             else "a trail from Paris 2 nights budget 800")
+    state, turn = run(e.start(query))
+    state, turn = click(e, state, turn)
+    correction = ("peu importe, depuis Lyon, 3 nuits, budget 500 €, 2 personnes" if lang == "fr"
+                  else "you choose, from Lyon, 3 nights, 500€, 2 people")
+    state, turn = run(e.step(state, {"text": correction}))
+    assert turn.error is None and not turn.ready_to_confirm
+    assert (state.draft.origin_city, state.draft.nights, state.draft.budget_eur,
+            state.draft.travelers) == ("Lyon", 3, 500, 2)
+    assert all(state.draft.provenance[field] == "user"
+               for field in ["origin_city", "nights", "budget_eur", "travelers"])
+    assert state.draft.race.id == "unknown" and state.draft.race.distance_km is None
+    assert state.draft.arrival_date is None and state.draft.departure_date is None
+    state, turn = click(e, state, turn)
+    assert turn.ready_to_confirm
+    assert state.draft.race.id == ("unknown" if label == "16–111 km" else "numeric")
+    assert state.draft.race.distance_km == (16 if label == "16–111 km" else 21)
+    assert state.draft.departure_date - state.draft.arrival_date == date(2027, 6, 4) - date(2027, 6, 1)
+    assert e.trip_payload(state)["budget_eur"] == 500
+
+
+@pytest.mark.parametrize("lang", ["fr", "en"])
+@pytest.mark.parametrize("field,fr,en,error", [
+    ("nights", "15 nuits", "15 nights", "nights_range"),
+    ("budget_eur", "budget 0 €", "budget 0€", "budget_range"),
+])
+def test_distance_deferral_validates_trip_corrections_before_recommending(lang, field, fr, en, error):
+    async def discover(query, hints):
+        return [{"id": "trail", "name": "Trail", "race_date": "2027-06-04",
+                 "date_status": "official", "source_urls": ["https://race.example/edition"],
+                 "distance_label": "16–111 km"}]
+
+    e = engine(discover)
+    query = ("un trail depuis Paris 2 nuits budget 800" if lang == "fr"
+             else "a trail from Paris 2 nights budget 800")
+    state, turn = run(e.start(query))
+    state, turn = click(e, state, turn)
+    text = "peu importe, " + fr if lang == "fr" else "you choose, " + en
+    state, turn = run(e.step(state, {"text": text}))
+    assert turn.error == error and not turn.ready_to_confirm
+    assert getattr(state.draft, field) is None
+    assert state.draft.race.distance_km is None
+    assert state.draft.arrival_date is None and state.draft.departure_date is None
+    assert "Je suggère" not in turn.message and "I suggest" not in turn.message
+    invariant(turn)
+
+
 def run(awaitable):
     return asyncio.run(awaitable)
 
