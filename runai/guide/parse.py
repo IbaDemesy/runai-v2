@@ -145,6 +145,16 @@ def parse_intent(text: str, *, today: date) -> Intent:
         ):
             result.country = country
     for alias, (city, country) in CITIES.items():
+        if result.country and result.country != country:
+            continue
+        if alias == "nice" and not (
+            re.search(r"\b(?:in|to|de|at)\s+nice\b", destination_text)
+            or re.search(r"\bà\s+nice\b", text, re.IGNORECASE)
+            or re.search(r"\ba\s+Nice\b", text)
+            or re.search(r"\bNice\s+(?:marathon|trail|half|semi|10k|ultra)\b", text)
+            or re.search(r"\b(?:marathon|trail|half|semi|10k|ultra)\s+Nice\b", text)
+        ):
+            continue
         if contains(destination_text, alias):
             result.city, result.country = city, country
             result.named = result.distance is not None

@@ -98,3 +98,20 @@ def test_origin_before_destination():
 )
 def test_explicit_year_without_month(text, year):
     assert parse_intent(text, today=TODAY).year == year
+
+
+@pytest.mark.parametrize(
+    "text,country,city",
+    [
+        ("a nice trail in Switzerland", "Switzerland", None),
+        ("a nice trail", None, None),
+        ("un trail à Nice", "France", "Nice"),
+        ("a marathon in Nice", "France", "Nice"),
+        ("Nice marathon", "France", "Nice"),
+        ("Nice marathon in Switzerland", "Switzerland", None),
+        ("Paris marathon in Italy", "Italy", None),
+    ],
+)
+def test_city_context_and_explicit_country(text, country, city):
+    intent = parse_intent(text, today=TODAY)
+    assert (intent.country, intent.city) == (country, city)
