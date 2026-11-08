@@ -126,10 +126,7 @@ def sanitize(value, key=""):
 def sanitize_state(state):
     clean = sanitize(jsonable_encoder(state))
     if callable(getattr(type(state), "model_validate", None)):
-        try:
-            return type(state).model_validate(clean)
-        except ValueError:
-            return state
+        return type(state).model_validate(clean)
     return clean
 
 
