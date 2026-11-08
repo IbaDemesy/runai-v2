@@ -71,6 +71,12 @@ public, key-free shares. Do not persist the share link in repository evidence.
   URLs and an unrelated date-bearing slug. Mixed opaque tokens, private paths,
   standalone contact paths and URL-valued credentials stay suppressed. This is
   offline regression evidence, not a further live run.
+- Further privacy regression cases distinguish ordinary numeric event IDs from
+  strongly formatted embedded phones, reject embedded key prefixes and cap
+  numeric public-slug components at 20 digits. Plain numeric IDs cannot be
+  distinguished from unformatted phone numbers by syntax alone; safety rules
+  still prohibit personal-data inputs, and scrubbing is defense in depth, not
+  a proof that arbitrary provider text/URLs contain no sensitive information.
 
 ## Live smoke — 2026-11-08 UTC (owner-approved, read-only)
 
