@@ -22,8 +22,9 @@ redirect. Real `image.source` values in this smoke used an older
 `/api/v1/trajectories/{id}/resources/{bucket}/{key}` shape. **The client follows
 the API-returned source; it never constructs or guesses this legacy endpoint.**
 Only same-provider-origin, own-session API resource URLs receive the bearer;
-external/signed image URLs never do, and httpx drops the bearer on cross-origin
-redirects. Emit image **bytes**, MIME and observed time, never a resource URL.
+external/signed image URLs never do. Every redirect is validated again before a
+request (public HTTPS, no URL credentials; at most six hops); bearer scope is
+recomputed per hop. Emit image **bytes**, MIME and observed time, never a resource URL.
 Ignore raw `LiveViewUrlEvent` and `agent_view_url`: these are not documented as
 public, key-free shares. Do not persist the share link in repository evidence.
 
@@ -56,6 +57,14 @@ public, key-free shares. Do not persist the share link in repository evidence.
   action never occurred. Screenshots are anonymous public-page pixels, not OCR
   redacted; do not use this runner with authenticated/personal pages. Stronger
   per-tool enforcement would require a provider-supported action gate.
+- Failed screenshot/share HTTP requests deliberately fail closed and cancel
+  the run, matching the ticket's HTTP-error contract. They do not silently
+  degrade to apparently successful preparation without its live surface.
+- Post-review offline hardening covers private/insecure screenshot redirects,
+  mixed negation/payment claims, session/opaque/contact path URLs, date query
+  preservation and cancellation failure reporting for malformed responses and
+  callbacks. Public sharing publishes the provider trace: do not run this
+  client on sites whose policies disallow redistributing live footage.
 
 ## Live smoke — 2026-11-08 UTC (owner-approved, read-only)
 
