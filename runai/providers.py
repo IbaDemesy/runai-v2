@@ -46,7 +46,7 @@ def _fallback(kind, trip):
     if kind == Kind.registration:
         race = trip.get("race", {})
         return _valid_url(race.get("registration_url")) or _valid_url(race.get("official_url"))
-    return "https://all.accor.com/" if kind == Kind.hotel else "https://www.omio.com/"
+    return None
 
 
 class FakeRunner:
@@ -73,7 +73,8 @@ class FakeRunner:
         return StepResult(
             kind=kind, status="ready_for_payment",
             summary="SYNTHETIC: simulated handoff to homepage; no prepared booking or purchase.",
-            handoff_url=_fallback(kind, trip), synthetic=True,
+            handoff_url=(_fallback(kind, trip) if kind == Kind.registration else
+                         f"https://example.com/runai-synthetic/{kind.value}"), synthetic=True,
         )
 
 
@@ -147,8 +148,8 @@ class LiveRunner:
                     error="Task builder rejected this plan", handoff_url=fallback, synthetic=False,
                 )
             fallback = _valid_url(task.get("fallback_url") if isinstance(task, dict) else getattr(
-                task, "fallback_url", fallback,
-            )) or fallback
+                task, "fallback_url", None,
+            ))
             client = importlib.import_module("runai.agents.hclient").HAgentRunner()
 
             async def on_event(event):
@@ -163,8 +164,9 @@ class LiveRunner:
                 if key in StepResult.model_fields and key not in {"kind", "synthetic"}
             }
             fields["kind"], fields["synthetic"] = kind, False
-            if fields.get("status") == "blocked":
-                fields["handoff_url"] = fallback
+            fallback = _valid_url(fields.get("handoff_url")) or fallback
+            if fields.get("status") in {"blocked", "failed"}:
+                fields["handoff_url"] = _valid_url(fields.get("handoff_url")) or fallback
             return StepResult.model_validate(fields)
         except Exception as exc:  # noqa: BLE001 — provider failures must remain visible results
             return StepResult(

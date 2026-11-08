@@ -86,7 +86,7 @@ class Event(Model):
     sequence: int = Field(ge=1)
     type: Literal[
         "turn", "confirmed", "step_started", "step_progress", "live_view_available",
-        "live_frame", "step_finished",
+        "live_frame", "step_finished", "discovery_progress", "discovery_failed",
     ]
     kind: Kind | None = None
     message: str
@@ -106,7 +106,8 @@ class Mission(Model):
     id: str
     mode: Mode
     synthetic: bool
-    status: Literal["guiding", "ready", "running", "completed", "partial", "failed"] = "guiding"
+    status: Literal["guiding", "ready", "discovering", "running", "completed", "partial", "failed"] = "guiding"
+    error: str | None = None
     turns: list[dict] = Field(default_factory=list)
     trip: dict | None = None
     results: list[StepResult] = Field(default_factory=list)

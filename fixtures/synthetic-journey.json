@@ -34,7 +34,7 @@
         "kind": "hotel",
         "status": "ready_for_payment",
         "summary": "SYNTHETIC replay: homepage handoff only; no prepared booking or submission.",
-        "handoff_url": "https://all.accor.com/",
+        "handoff_url": "https://example.com/runai-synthetic/hotel",
         "synthetic": true,
         "payment_executed": false
       },
@@ -61,7 +61,7 @@
         "kind": "transport",
         "status": "ready_for_payment",
         "summary": "SYNTHETIC replay: homepage handoff only; no prepared booking or submission.",
-        "handoff_url": "https://www.omio.com/",
+        "handoff_url": "https://example.com/runai-synthetic/transport",
         "synthetic": true,
         "payment_executed": false
       },

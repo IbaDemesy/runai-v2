@@ -69,13 +69,13 @@ Demo/replay handoffs are only official public homepages, **not prepared carts**.
 
 `Event`: `{sequence,type,kind?,message,synthetic,observed_at,recorded_at?,
 frame_id?,live_view_url?}`. Sequence is increasing from 1 per mission. Types:
-`turn | confirmed | step_started | step_progress | live_view_available |
-live_frame | step_finished`. `observed_at` is current UTC observation time;
+`turn | discovery_progress | discovery_failed | confirmed | step_started |
+step_progress | live_view_available | live_frame | step_finished`. `observed_at` is current UTC observation time;
 `recorded_at` preserves original replay time. Frame bytes never enter mission JSON.
 
-`Mission`: `{id,mode,synthetic,status,turns: [dict],trip: dict|null,
+`Mission`: `{id,mode,synthetic,status,error: string|null,turns: [dict],trip: dict|null,
 results: [StepResult],events: [Event]}`. No frozen framing or TARGET constant.
-Statuses: `guiding -> ready -> running -> completed | partial | failed`.
+Statuses: `[discovering] -> guiding <-> ready -> running -> completed | partial | failed`.
 `completed` means all three ready; `partial` means one/two ready; `failed`
 means none ready (including three blocked outcomes). Individual blockers remain
 visible in results. Synthetic is true for demo/replay, false for live.
@@ -84,8 +84,8 @@ visible in results. Synthetic is true for demo/replay, false for live.
 
 | Request | Response |
 | --- | --- |
-| `POST /api/missions {text, mode?}` | 201 Mission with first guided turn |
-| `POST /api/missions/{id}/messages {text?,suggestion_id?}` | 200 updated Mission |
+| `POST /api/missions {text, mode?, background?}` | 201 Mission with first guided turn; **202** `discovering` Mission when `background:true` |
+| `POST /api/missions/{id}/messages {text?,suggestion_id?,background?}` | 200 updated Mission; **202** `discovering` when `background:true` |
 | `POST /api/missions/{id}/confirm {confirmed:true}` | **202**, running Mission; background preparation |
 | `GET /api/missions/{id}` | 200 current Mission, results and ordered events |
 | `GET /api/missions/{id}/events?after=N` | 200 event array with sequence strictly greater than N |
@@ -94,7 +94,8 @@ visible in results. Synthetic is true for demo/replay, false for live.
 | `GET /`, `GET /static/*` | index.html / static assets |
 
 400: confirmation is false. 404: unknown mission/frame. 409: plan not ready,
-duplicate confirmation, or message after confirmation. 422: invalid/empty text,
+duplicate confirmation, message after confirmation, message/confirm while
+`discovering`, or a plan failing the confirmation gate (see below). 422: invalid/empty text,
 empty message (both answer fields absent/blank), unknown mode, invalid guide
 answer, non-boolean confirmation, negative event cursor. Both text and chip may
 be sent together for guide-defined interpretation. Server `RUNAI_MODE` defaults
@@ -155,3 +156,64 @@ three steps visibly after 202 rather than causing an HTTP 500. Replay frames
 are recorded synthetic illustrations and never evidence of a live booking.
 Registration's manual homepage handoff follows the currently selected race,
 not the example race in the synthetic recording; its summary states this.
+
+## Round-2 pinned additive interfaces
+
+All of these are additive and optional, so baseline main keeps working.
+Consumers import sibling modules lazily. If a module or function is missing,
+they treat the value as unknown and fail closed for H runs.
+
+1. `runai.agents.site_policy.evaluate_url(url: str, kind: str) -> dict` (R2-02
+   implements it; R2-03 calls it before creating any H session):
+   `{allowed: bool, reason: str, policy_id: str|null, screenshot_scope: bool,
+   allowed_hosts: [str], expires_at: ISO date|null}`. Unknown, expired, denied
+   or ambiguous scopes return `allowed:false`. The function never raises.
+2. `runai.agents.site_policy.registration_info(url: str) -> dict|None`
+   (optional for R2-04): `{account_required: bool|null, captcha: bool|null,
+   source: str, observed_at: ISO date}`. This is an observation, not a
+   permission. `None` means unknown.
+3. `RaceOption.registration_access` (optional; R2-04 adds it, R2-01 displays
+   it): `null | {account_required, captcha, source, observed_at, note}`.
+   Unknown is never shown as "login-free".
+4. The `build_task(trip)` dict keeps its keys and adds `expected: {kind,
+   race_name?, race_date?, distance_km?, city, country?, origin_city?,
+   arrival_date, departure_date, travelers}` and `allowed_hosts: [str]`.
+   `max_steps` can be up to 80; the H client caps it at 120.
+5. Background discovery (R2-05 implements it; R2-01 uses it):
+   - When `background` is true on create/messages, the endpoint resolves the
+     guide synchronously, so missing keys/modules still return 501. It then
+     returns 202 at once with `status:"discovering"`. Without the flag, the
+     endpoints still return 201/200.
+   - `discovery_progress` events are truthful and monotonic: a "started"
+     event, heartbeats with the real elapsed seconds, then "finished". After
+     that comes the usual `turn` event and the status becomes `guiding` or
+     `ready`. Events never contain invented source counts or percentages.
+   - Failure emits `discovery_failed` with a short generic message. It sets
+     `Mission.error` and restores the previous status (`guiding` for a failed
+     create, which has zero turns). The client retries by re-sending its
+     message. A mission with zero turns runs the initial search again.
+     A per-mission generation counter discards stale results.
+   - While a mission is `discovering`, messages and confirm return 409.
+6. Privacy: user text is redacted before the guide, state or events see it.
+   This covers contact details, credentials and payment card/IBAN patterns;
+   dates, budgets and distances are kept. Public turn/trip/event/result/error
+   strings are sanitized again recursively. A 422 body has only
+   `{loc,msg,type}`, with no echoed input. Request bodies and provider
+   exception text are never logged.
+7. Confirmation gate: confirm returns 409 unless all of these hold, even when
+   the guide says ready:
+   - status is `ready` and the latest turn is `ready_to_confirm`;
+   - the race has a name and a future ISO `race_date`;
+   - `arrival_date <= race_date <= departure_date` and arrival is before
+     departure;
+   - `nights` matches the stay, `travelers >= 1`, `origin_city` is set and
+     `budget_eur > 0` when given.
+
+   Live also requires `synthetic:false`, `date_status:"official"` and a public
+   official or registration URL. Demo and replay require a synthetic race.
+   Chips, "yes" or "ok" never launch.
+8. Handoffs: Accor/Omio homepage fallbacks are removed. Blocked or failed
+   results keep their own observed safe handoff, then the builder's
+   `fallback_url`, otherwise `null`. For registration, the sourced race URL is
+   used. No result is ever upgraded to `ready_for_payment`. Demo/replay
+   hotel/transport handoffs are neutral synthetic example.com URLs.

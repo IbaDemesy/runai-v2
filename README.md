@@ -16,11 +16,12 @@ chips, plan cards and three agent panels is the round-one UI goal.
 The chat should feel natural in French and English, with streaming-like replies,
 a bottom composer and one-click defaults or free-text corrections.
 
-**Status:** the bootstrap offers synthetic demo/replay; the round-one tickets
-deliver generic discovery, guided dialogue, live agents and the polished UI.
-This documentation change alone does not implement or verify those integrations.
-Milan is one evaluation case, never the only supported product journey. See
-[HANDOFF.md](HANDOFF.md) for the implementation/evidence boundary.
+**Status:** round 1 integrated generic discovery, guided dialogue, live agents
+and the UI, but its live evaluation had 0/5 visible live successes
+([docs/eval/round-1.md](docs/eval/round-1.md)). Round 2 (R2-01..R2-05) fixes
+the owner feedback, site policy, screenshot-only live stage and honest stops;
+see [HANDOFF.md](HANDOFF.md) and [docs/eval/round-2.md](docs/eval/round-2.md)
+for the current evidence boundary. Milan is one evaluation case only.
 
 ## Run locally (Python 3.12)
 ```sh
@@ -39,13 +40,13 @@ RUNAI_MODE=live uv run uvicorn runai.app:app --reload
 | --- | --- | --- |
 | `demo` | Clearly labelled synthetic candidates and simulated preparation | None |
 | `replay` | Clearly labelled recorded synthetic trace/frames; unavailable frames stay unavailable | None |
-| `live` | Real Linkup discovery and H browser preparation, after the relevant modules land | `LINKUP_API_KEY`, `HAI_API_KEY` |
+| `live` | Real Linkup discovery and policy-gated, screenshot-only H browser preparation | `LINKUP_API_KEY`, `HAI_API_KEY` |
 
 Missing live keys/modules must produce an explicit 501/unavailable response;
 there is no silent fake-success fallback. A synthetic `ready_for_payment` state
 or official homepage link does not mean a real cart/session was prepared. Replay
-is not proof of a live run. Until round-one integration lands, the bootstrap's
-fixed demo trace and live 501 response are limitations, not the product scope.
+is not proof of a live run. The UI calls the API with `background=true` and
+polls `discovery_progress` events, so feedback is immediate during searches.
 
 ## Environment
 [.env.example](.env.example) lists names only: `RUNAI_MODE`, `HAI_API_KEY`,
@@ -75,8 +76,8 @@ CI tests never call live providers. Live verification requires separate dated,
 scrubbed observed evidence. See [AGENTS.md](AGENTS.md) for scoped branch/PR and
 safety rules, [PLAN.md](PLAN.md) for the architecture/evaluation set,
 [CONTRACTS.md](CONTRACTS.md) for API contracts, and
-[docs/tickets/index.json](docs/tickets/index.json) for the R1 queue. Legacy
-T01..T12 are superseded. Keep main green; merge component tickets first,
-then core integration, then the polished UI.
+[docs/tickets/index.json](docs/tickets/index.json) for the current R2 queue.
+R1 and T01..T12 tickets are history. Keep main green; R2-01..R2-04 merge in
+any order, then R2-05 integrates and runs the live acceptance.
 
 `render.yaml` is an unverified deployment blueprint, not a deployed URL.

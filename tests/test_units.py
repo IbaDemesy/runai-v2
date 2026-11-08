@@ -10,10 +10,44 @@ from runai.models import Kind, StepResult
 from runai.providers import FIXTURE, FakeVoice, LiveRunner, LiveVoice, ReplayRunner
 
 
+@pytest.mark.parametrize("kind", [Kind.hotel, Kind.transport])
+def test_builder_failure_has_no_unobserved_handoff(monkeypatch, kind):
+    def build(trip):
+        raise ValueError("private details")
+
+    monkeypatch.setattr("runai.providers.importlib.import_module",
+                        lambda name: SimpleNamespace(build_task=build))
+
+    async def emit(event):
+        pytest.fail("Builder failure must not emit H events")
+
+    result = asyncio.run(LiveRunner().run(kind, TRIP, emit))
+    assert result.status == "blocked"
+    assert result.handoff_url is None
+
+
+def test_blocked_preserves_observed_handoff(monkeypatch):
+    class Client:
+        async def run(self, task, on_event):
+            return {"status": "blocked", "summary": "Stopped at consent",
+                    "handoff_url": "https://example.org/observed"}
+
+    monkeypatch.setattr("runai.providers.importlib.import_module", lambda name: SimpleNamespace(
+        HAgentRunner=Client, build_task=lambda trip: {"fallback_url": "https://example.org/fallback"},
+    ))
+
+    async def emit(event):
+        pass
+
+    result = asyncio.run(LiveRunner().run(Kind.hotel, TRIP, emit))
+    assert str(result.handoff_url) == "https://example.org/observed"
+    assert result.status == "blocked"
+
+
 def test_payment_and_invalid_handoff_cannot_be_represented():
     for extra in ({"status": "paid"}, {"payment_executed": True}, {"handoff_url": None}):
         fields = {"kind": "hotel", "status": "ready_for_payment", "summary": "x",
-                  "synthetic": True, "handoff_url": "https://all.accor.com/"}
+                  "synthetic": True, "handoff_url": "https://example.org/hotel"}
         fields.update(extra)
         with pytest.raises(ValidationError):
             StepResult(**fields)
@@ -54,7 +88,7 @@ def test_missing_replay(tmp_path):
 @pytest.mark.parametrize("outcome", ["ready_for_payment", "blocked", "exception", "no_handoff"])
 def test_live_runner_maps_results_and_events(monkeypatch, outcome):
     events = []
-    fallback = "https://all.accor.com/"
+    fallback = "https://example.org/hotel"
 
     class Client:
         async def run(self, task, on_event):
