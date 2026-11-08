@@ -152,3 +152,8 @@ def test_defaults_and_stops():
     for rule in ("never fill or submit any form", "solve captchas", "log in",
                  "never accept optional consent", "Never change the dates"):
         assert rule in task["instructions"]
+
+
+def test_budget_caps_selected_rate():
+    task = build_task(trip(city="Lisbon", country="Portugal"), today=TODAY)
+    assert "EUR 600" in task["instructions"] and "over_budget" in task["instructions"]

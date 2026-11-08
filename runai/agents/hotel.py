@@ -43,7 +43,9 @@ def build_task(
     )
     hosts = decision["allowed_hosts"]
     budget_hint = (
-        f"Total stay budget hint: EUR {budget} (whole stay, not per night)."
+        f"Total stay budget: EUR {budget} (whole stay, not per night). Select a rate whose "
+        "total is at most this budget; if none fits, report BLOCKED over_budget with the "
+        "cheapest total seen."
         if budget is not None else "No budget supplied: pick the cheapest suitable rate."
     )
     instructions = (
