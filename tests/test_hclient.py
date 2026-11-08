@@ -3,12 +3,13 @@ import base64
 import json
 import sys
 from datetime import UTC, datetime, timedelta
+from itertools import pairwise
 from types import SimpleNamespace
 
 import httpx
 import pytest
 
-from runai.agents.hclient import GUARDRAILS, HAgentRunner, HUnavailable, _reviewed
+from runai.agents.hclient import GUARDRAILS, HAgentRunner, HUnavailable, _payment_claim, _reviewed
 from runai.agents.scrub import scrub_text, scrub_url
 
 API = "https://agp.eu.hcompany.ai/api/v2"
@@ -223,7 +224,7 @@ def test_no_safe_https_handoff_downgrades_to_blocked(url):
     "Payment executed", "The booking was confirmed", "I paid the entry fee",
     "We have booked a room", "Purchase completed", "Paiement effectué",
     "Payment has been successfully processed", "I completed the purchase",
-    "No form submitted, but I paid", "No account created and booking completed",
+    "No form submitted, but I paid", "No account created; booking completed",
     "No payment executed, but I booked the room",
 ])
 def test_payment_claim_fails_and_cancels(claim):
@@ -366,7 +367,7 @@ def test_step_cap_cancels_remote_run_and_clamps_requested_limit():
 
     result, _ = run(capped, task={**TASK, "max_steps": 500})
     assert result["status"] == "failed" and "step limit" in result["error"]
-    assert json.loads(provider.requests[0].content)["max_steps"] == 120
+    assert json.loads(provider.requests[0].content)["max_steps"] == 80
     assert provider.cancelled
 
 
@@ -642,7 +643,7 @@ def test_planned_hosts_and_fallback_checked_before_create(task):
     assert result["status"] == "blocked" and not provider.requests
 
 
-@pytest.mark.parametrize("budget,expected", [(1, 1), (80, 80), (100, 100), (120, 120), (500, 120)])
+@pytest.mark.parametrize("budget,expected", [(1, 1), (80, 80), (100, 80), (120, 80), (500, 80)])
 def test_bounded_budget_support(budget, expected):
     provider = Provider()
     result, _ = run(provider, {**TASK, "max_steps": budget})
@@ -1002,3 +1003,171 @@ def test_provider_time_budget_leaves_local_final_answer_headroom(timeout, provid
     result, _ = run(provider, timeout_s=timeout)
     assert result["status"] == "ready_for_payment"
     assert json.loads(provider.requests[0].content)["max_time_s"] == provider_budget
+
+
+@pytest.mark.parametrize("text", [
+    "No payment or booking was executed", "Stopped before booking",
+    "Stopped before any booking is confirmed", "Payment not yet completed",
+    "payment is completed only after clicking Pay",
+    "Next safe boundary: booking is confirmed after the payment step",
+    "stop before the booking is confirmed or payment is completed",
+    "No account created and booking completed",
+    "https://www.endu.net/en/events/x/book",
+    "https://example.org/booking/confirmed", "payment_executed: false",
+    {"payment_executed": False}, {"stop_before": "Booking confirmed"},
+    None, "", [], {"reached_step": "sans paiement effectué"},
+])
+def test_r3_safe_claims(text):
+    assert not _payment_claim(text)
+
+
+@pytest.mark.parametrize("text", [
+    "I have paid", "I paid the deposit", "Booking confirmed",
+    "The payment was successfully completed", "We booked the room",
+    "Your reservation is confirmed", "J'ai payé", "réservation confirmée",
+    "paiement effectué", "No booking executed, however I paid",
+    "I paid the deposit and no refund is possible",
+    "Pas de paiement mais réservation confirmée",
+    *[{key: True} for key in ("payment_executed", "booking_executed", "form_submitted",
+                             "account_created", "terms_accepted", "personal_data_entered")],
+])
+def test_r3_affirmative_claims(text):
+    assert _payment_claim(text)
+
+
+@pytest.mark.parametrize("blocker,reason", [
+    ("Captcha required", "captcha"), ("Connexion requise", "login_required"),
+    ("Account required", "login_required"), ("Consenso necessario", "consent_required"),
+    ("Sold out", "sold_out"), ("Épuisé", "sold_out"), ("Ausverkauft", "sold_out"),
+    ("Registration closed", "registration_closed"),
+    ("Closed for the requested dates", "registration_closed"),
+    ("Verification not completed", "provider_error"),
+    ("Inscripciones cerradas", "registration_closed"),
+    ("No results for these dates", "no_inventory"), ("No trains", "no_inventory"),
+    ("Aucun résultat", "no_inventory"), ("Nessun risultato", "no_inventory"),
+    ("Sem resultados", "no_inventory"), ("Keine Zimmer verfügbar", "no_inventory"),
+    ("Over budget", "over_budget"), ("Wrong date", "date_mismatch"),
+    ("", "provider_error"),
+])
+def test_r3_completed_blocked_reasons(blocker, reason):
+    result, _ = run(Provider(answer={**ANSWER, "status": "blocked", "blocker": blocker}))
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == reason
+
+
+def test_r3_verification_date_reason():
+    result, _ = run(Provider(answer={**ANSWER, "verification": {
+        **ANSWER["verification"], "race_date": "2027-04-05",
+    }}))
+    assert result["reason_code"] == "date_mismatch"
+
+
+@pytest.mark.parametrize("path,reason", [
+    ("login", "login_required"), ("captcha", "captcha"),
+    ("outside", "unreviewed_redirect"), ("payment-card", "policy_denied"),
+])
+def test_r3_observed_policy_reasons(path, reason):
+    event = observation()
+    event["data"]["metadata"] = {"url": (
+        "https://outside.example.org/" if path == "outside" else START + path
+    )}
+    provider = Provider(events=[event])
+    result, _ = run(provider)
+    assert result["reason_code"] == reason and provider.cancelled
+
+
+@pytest.mark.parametrize("status", ["failed", "interrupted"])
+@pytest.mark.parametrize("recover", [True, False])
+def test_r3_retry_once_before_observation(status, recover):
+    provider = Provider(events=[], status=status)
+    creates = 0
+
+    def handle(request):
+        nonlocal creates
+        if request.method == "POST":
+            creates += 1
+            return httpx.Response(201, json={"id": f"session-{creates}"})
+        if recover and creates == 2 and request.url.path.endswith("/changes"):
+            provider.polls += 1
+            return httpx.Response(200, json={
+                "status": "completed", "answer": ANSWER,
+                "new_events": [observation()] if provider.polls == 2 else [],
+            })
+        return provider(request)
+
+    result, _ = run(handle)
+    assert creates == 2
+    assert provider.cancelled
+    assert result["reason_code"] == (None if recover else "session_failed")
+
+
+def test_r3_no_retry_after_observation():
+    provider = Provider(status="failed")
+    result, _ = run(provider)
+    assert result["reason_code"] == "session_failed"
+    assert sum(r.method == "POST" for r in provider.requests) == 1
+
+
+def test_r3_fake_clock_frame_cadence_latest_only_retry_and_dedupe(monkeypatch):
+    now = 0.0
+    attempts = []
+    polls = 0
+    provider = Provider()
+    image = {"type": "url", "source": "https://images.example.org/latest",
+             "media_type": "image/png"}
+
+    def handle(request):
+        nonlocal now, polls
+        if request.url.path.endswith("/changes"):
+            polls += 1
+            now += int(request.url.params["wait_for_seconds"])
+            return httpx.Response(200, json={
+                "status": "running" if polls < 5 else "completed", "answer": ANSWER,
+                "new_events": [observation({
+                    **image, "source": "https://images.example.org/stale",
+                }), observation(image)] if polls == 1 else [],
+            })
+        if request.url.host == "images.example.org":
+            assert request.url.path == "/latest"
+            attempts.append(now)
+            if len(attempts) == 1:
+                return httpx.Response(503)
+            return httpx.Response(200, content=IMAGE, headers={"content-type": "image/png"})
+        return provider(request)
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+
+    async def execute():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+            events = []
+
+            async def emit(event):
+                events.append(event)
+
+            result = await HAgentRunner("key", client=client, base_url=API, poll_s=30).run(TASK, emit)
+            return result, events
+
+    result, events = asyncio.run(execute())
+    assert result["reason_code"] is None
+    assert len(attempts) == 5
+    assert all(b - a <= 3 for a, b in pairwise(attempts))
+    assert len([e for e in events if e["type"] == "live_frame"]) == 1
+
+
+@pytest.mark.parametrize("status", ["timed_out", "failed"])
+def test_r3_timeout_status_and_error_code(status):
+    provider = Provider(events=[], status=status)
+
+    def handle(request):
+        response = provider(request)
+        if request.url.path.endswith("/changes"):
+            return httpx.Response(200, json={**response.json(), "error_code": "timeout"})
+        return response
+
+    result, _ = run(handle)
+    assert result["reason_code"] == "timeout"
+
+
+def test_r3_runtime_defaults():
+    assert HAgentRunner("key").timeout_s == 600
+    assert HAgentRunner("key", timeout_s=900).timeout_s == 600

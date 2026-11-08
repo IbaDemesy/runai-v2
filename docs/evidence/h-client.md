@@ -1,5 +1,34 @@
 # H client: private screenshot transport and evidence boundary
 
+## R3-05 runtime changes — 2026-11-09 UTC
+
+Offline regression coverage, not live certification:
+- Unsafe claims are checked by clause (sentence punctuation, commas, colons,
+  semicolons and but/however/mais; never and/or). Negation and conditional
+  markers neutralize a claim in that clause, including trailing conditional
+  boundaries such as "payment is completed only after clicking Pay". URLs,
+  field names and stop_before echoes are not execution evidence. Affirmative
+  EN/FR claims and explicit true execution flags still cancel the session.
+- Every terminal H result includes a P4 reason_code (null only when ready).
+  Policy, redirect, login/captcha, timeout, step-limit, failed-session, unsafe
+  and provider failures are distinguished. Completed blockers use EN/FR/ES/IT/
+  PT/DE keywords; mismatched verification dates have their own code. Prompts
+  require immediate stops on no inventory, sold out, closed, login, captcha
+  and required consent, not repeated searching until the step cap.
+- Changes long-polls are capped at three seconds. Only the latest observation
+  image in each batch is fetched; later cycles retry the latest image, including
+  transient network/5xx failures. Download attempts have a three-second bound;
+  polling consumes only the remaining cadence budget. SHA-256 suppresses
+  duplicate frame emissions. Existing MIME/size/redirect/bearer isolation and
+  no-share guarantees remain. No screenshot endpoint or footage is invented.
+- A failed/interrupted session before any observation is cancelled and retried
+  once with a fresh session, under the same policy decision and overall time
+  budget. There is no retry after an observation. Max steps is 80; local wall
+  clock is at most 600 seconds, with remote DELETE on expiry/cancellation.
+
+The cadence fake-clock test uses synthetic image bytes and does not prove live
+provider cadence. Live acceptance is pending after the other R3 tickets merge.
+
 ## R2-03 documentation review — 2026-11-08 UTC
 
 Reviewed official H Agents API documentation before changing requests:
@@ -25,10 +54,10 @@ Reviewed official H Agents API documentation before changing requests:
   receive bytes, never resource URLs. Terminal events keep draining through a
   final empty response, including HTTP 204.
 - `max_steps` counts decide-and-act cycles: minimum 1, no documented provider
-  maximum. The client defaults to 80 and clamps at 120. At the provider cap H
+  maximum. The client defaults to 80 and clamps at 80. At the provider cap H
   asks for a final answer; it does not kill the agent. Likewise `max_time_s`
   requests an answer and allows a further 60 seconds before provider failure.
-  Independent local timeout defaults to 600 seconds and is bounded at 900.
+  Independent local timeout defaults to 600 seconds and is bounded at 600.
   Provider `max_time_s` is 90 seconds shorter (510 by default) to leave room for
   its final-answer grace period; local timeouts of 90 seconds or less instead
   give the provider half the local budget.

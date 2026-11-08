@@ -226,6 +226,8 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
         if trip is None and turn.get("ready_to_confirm"):
             trip = turn.get("draft")
         mission.turns.append(turn)
+        if turn.get("language") in ("fr", "en"):
+            mission.language = turn["language"]
         mission.trip = sanitize(trip)
         mission.status = "ready" if turn.get("ready_to_confirm") else "guiding"
         if turn.get("error") == "discovery_failed":

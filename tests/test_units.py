@@ -198,3 +198,50 @@ def test_replay_registration_handoff_follows_selected_race():
     assert "current selected race" in result.summary
     assert result.synthetic and result.payment_executed is False
     assert str(runner.results[Kind.registration].handoff_url) == recorded_url
+
+
+@pytest.mark.parametrize("message,reason", [
+    ("invalid trip private sentinel", "no_site_coverage"),
+    ("Policy denied private sentinel", "policy_denied"),
+    ("Prohibited private sentinel", "policy_denied"),
+])
+def test_r3_builder_friendly_reason(monkeypatch, message, reason):
+    def build(trip):
+        raise ValueError(message)
+
+    monkeypatch.setattr("runai.providers.importlib.import_module", lambda name: SimpleNamespace(
+        build_task=build,
+    ))
+
+    async def emit(event):
+        pytest.fail("No session may start")
+
+    result = asyncio.run(LiveRunner().run(Kind.registration, TRIP, emit))
+    assert result.reason_code == reason
+    assert result.status == "blocked"
+    assert "private sentinel" not in result.model_dump_json()
+    assert "official site" in result.summary
+
+
+@pytest.mark.parametrize("code", ["captcha", None, "unknown", {}, []])
+def test_r3_unknown_reason_is_dropped(code):
+    result = StepResult(kind="hotel", status="blocked", summary="Stopped",
+                        synthetic=False, reason_code=code)
+    assert result.reason_code == ("captcha" if code == "captcha" else None)
+
+
+@pytest.mark.parametrize("code,expected", [("captcha", "captcha"), ("unknown", None)])
+def test_r3_live_runner_preserves_only_known_reason(monkeypatch, code, expected):
+    class Client:
+        async def run(self, task, on_event):
+            return {"status": "blocked", "summary": "Stopped", "reason_code": code}
+
+    monkeypatch.setattr("runai.providers.importlib.import_module", lambda name: SimpleNamespace(
+        HAgentRunner=Client, build_task=lambda trip: {},
+    ))
+
+    async def emit(event):
+        pass
+
+    result = asyncio.run(LiveRunner().run(Kind.hotel, TRIP, emit))
+    assert result.reason_code == expected

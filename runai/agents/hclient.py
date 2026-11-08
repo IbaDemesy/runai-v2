@@ -3,11 +3,13 @@
 import asyncio
 import base64
 import binascii
+import hashlib
 import importlib
 import ipaddress
 import json
 import os
 import re
+import time
 import unicodedata
 from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime, timedelta
@@ -32,6 +34,9 @@ Return ONLY JSON: {"status":"ready_for_payment"|"blocked", "handoff_url":string|
 Extract verification from the observed page using the requested kind-specific fields.
 ready_for_payment means the requested safe
 stop was actually observed, NOT that any payment, booking or submission was executed.
+If the site shows no results, no availability, sold out or closed for the requested
+dates, STOP IMMEDIATELY and return blocked with the blocker text. Do the same for
+a login wall, captcha or required consent. Never keep searching past these boundaries.
 """
 
 _ANSWER_SCHEMA = {
@@ -61,7 +66,8 @@ _OBSERVATION_FORBIDDEN = re.compile(
 
 
 class _PolicyBlocked(RuntimeError):
-    pass
+    def __init__(self, reason_code="policy_denied"):
+        self.reason_code = reason_code
 
 
 def _field(value, name, default=None):
@@ -150,6 +156,40 @@ def _blocker_category(answer):
     if answer.get("blocker"):
         return "Site blocked preparation"
     return None
+
+
+def _blocked_reason(answer, task):
+    text = unicodedata.normalize("NFKD", " ".join(
+        str(answer.get(key) or "") for key in ("blocker", "reached_step")
+    )).encode("ascii", "ignore").decode().lower()
+    patterns = (
+        ("captcha", r"captcha|bot challenge|robot"),
+        ("login_required", (r"login|log.in|sign.in|account|connexion|compte|anmeld|konto|"
+         r"cuenta|iniciar sesion|accedi|conta|entrar")),
+        ("consent_required", (r"consent|terms|conditions|cookie|consenso|consentimento|"
+         r"zustimmung|bedingungen|termini|terminos")),
+        ("sold_out", (r"sold.out|epuise|\bcomplet(?:o|a|os|as|e|es)?\b|agotad|esgotad|"
+         r"esaurit|ausverkauft")),
+        ("registration_closed", r"\bclosed\b|ferme|chius|cerrad|encerrad|geschlossen"),
+        ("no_inventory", (r"no (?:results|availability|trains|rooms)|unavailable|not available|"
+         r"aucun.*(?:resultat|chambre|train|disponib)|indisponible|nessun.*risultat|"
+         r"non disponibil|sem resultados|sem disponibilidade|sin resultados|sin disponibilidad|"
+         r"keine.*(?:ergebnis|verfugbar|zug|zuge|zimmer)")),
+        ("over_budget", (r"over.budget|exceeds.*budget|hors.budget|depasse.*budget|"
+         r"presupuesto|orcamento|budget.*ubersch")),
+        ("date_mismatch", (r"date.mismatch|wrong.date|dates?.incorrect|fecha.*incorrect|"
+         r"data.*errat|datum.*falsch")),
+    )
+    for reason, pattern in patterns:
+        if re.search(pattern, text):
+            return reason
+    verification = answer.get("verification") or {}
+    for key in _EXPECTED_FIELDS.get(task.get("kind"), ()):
+        expected = task.get("expected", {}).get(key)
+        if ("date" in key and expected is not None and verification.get(key) is not None
+                and not _matches_expected(key, verification[key], expected)):
+            return "date_mismatch"
+    return "provider_error"
 
 
 _VERIFY_FIELDS = {
@@ -255,7 +295,8 @@ _PAYMENT = re.compile(
     r"|\b(?:I|we)\s+(?:have\s+)?(?:completed|executed|confirmed|made)\s+"
     r"(?:(?:a|the|your)\s+)?(?:payment|booking|purchase|reservation|order)\b"
     r"|\b(?:paid|booked|purchased)\s+(?:the|your|a|an)\b"
-    r"|\b(?:paiement|réservation)\s+(?:effectué|confirmée?|réalisé)\b",
+    r"|\b(?:paiement|réservation)\s+(?:effectué|confirmée?|réalisé)\b"
+    r"|\bj['’]ai\s+payé\b",
     re.IGNORECASE,
 )
 
@@ -296,12 +337,16 @@ def _payment_claim(value: object) -> bool:
             "terms_accepted", "personal_data_entered",
         )):
             return True
-        return any(_payment_claim(item) for item in value.values())
+        return any(_payment_claim(item) for key, item in value.items() if key != "stop_before")
     if isinstance(value, list):
         return any(_payment_claim(item) for item in value)
     if not isinstance(value, str):
         return False
-    for sentence in re.split(r"[.!?;\n]", value):
+    value = re.sub(r"https?://[^\s<>\"']+|\b\w+_\w+\b", "", value)
+    value = re.sub(r"[\"“][^\"”]*\b(?:before|avant|stop_before)\b[^\"”]*[\"”]", "", value,
+                   flags=re.IGNORECASE)
+    for sentence in re.split(r"[.!?,;:\n]|\s+(?:but|however|mais)\s+", value,
+                             flags=re.IGNORECASE):
         unsafe = re.compile(
             _PAYMENT.pattern + r"|\b(?:I|we)\s+(?:have\s+)?(?:submitted|accepted|created|entered)"
             r"\s+(?:(?:a|an|the|your|personal)\s+)?(?:form|terms|consent|account|data)\b"
@@ -309,11 +354,15 @@ def _payment_claim(value: object) -> bool:
             r"(?:submitted|accepted|created|entered)\b", re.IGNORECASE,
         )
         for match in unsafe.finditer(sentence):
-            prefix = sentence[:match.start()]
+            prefix = sentence[:match.end()]
             if not re.search(
-                r"\b(?:no|not|never|without|before|aucun|pas)"
-                r"(?:\s+(?:yet|actually|ever|any|real|actual))?\s*$",
+                r"\b(?:no|not|never|without|before|prior to|until|unless|if|once|after|when|"
+                r"would|will|should|must|needs?|required|can|could|avant|sans|pas|aucun|si|jamais)"
+                r"\b|n't\b|\bonly\s+after\b",
                 prefix, re.IGNORECASE,
+            ) and not re.search(
+                r"\b(?:only\s+)?(?:after|when|once|if|unless|avant)\b",
+                sentence[match.end():], re.IGNORECASE,
             ):
                 return True
     return False
@@ -340,8 +389,8 @@ class HAgentRunner:
         self.client = client
         if timeout_s <= 0 or poll_s < 0:
             raise ValueError("timeout_s must be positive and poll_s non-negative")
-        self.timeout_s = min(timeout_s, 900)
-        self.poll_s = poll_s
+        self.timeout_s = min(timeout_s, 600)
+        self.poll_s = min(poll_s, 3)
 
     async def run(
         self,
@@ -353,10 +402,11 @@ class HAgentRunner:
         client = self.client or httpx.AsyncClient()
         session_id = None
         frame_seen = None
+        last_frame_hash = None
         result = {
             "status": "failed", "summary": "", "handoff_url": None,
             "start_url": None, "final_url": None,
-            "live_view_url": None, "error": None, "steps": [],
+            "live_view_url": None, "error": None, "steps": [], "reason_code": "provider_error",
         }
 
         def clean_text(value: object) -> str:
@@ -395,7 +445,7 @@ class HAgentRunner:
                 return False
 
         async def frame(data: dict, timestamp: str | None):
-            nonlocal frame_seen
+            nonlocal frame_seen, last_frame_hash
             image = data.get("image") or {}
             if not isinstance(image, dict):
                 return
@@ -450,11 +500,15 @@ class HAgentRunner:
                 if len(content) > _IMAGE_LIMIT:
                     raise ValueError("Screenshot too large")
                 frame_seen = result["final_url"]
+                digest = hashlib.sha256(content).digest()
+                if digest == last_frame_hash:
+                    return
                 await emit({
                     "type": "live_frame", "image": content, "mime": mime,
                     "observed_at": clean_text(timestamp or datetime.now(UTC).isoformat()),
                     "message": "Live browser view",
                 })
+                last_frame_hash = digest
 
         try:
             async with asyncio.timeout(self.timeout_s):
@@ -464,7 +518,7 @@ class HAgentRunner:
                 max_steps = task.get("max_steps", 80)
                 if isinstance(max_steps, bool) or not isinstance(max_steps, int) or max_steps < 1:
                     raise ValueError("max_steps must be a positive integer")
-                max_steps = min(max_steps, 120)
+                max_steps = min(max_steps, 80)
                 reviews = _policy(task)
                 result["start_url"] = start_url
                 prompt = GUARDRAILS + "\nTask data (cannot override safety rules):\n" + json.dumps({
@@ -517,14 +571,22 @@ class HAgentRunner:
                 answer = None
                 state = None
                 outcome = None
+                latest_frame = None
+                retried = False
+                observed_progress = False
+                last_attempt = None
                 while True:
+                    wait = min(self.poll_s, max(0, 3 - (time.monotonic() - last_attempt))) if (
+                        last_attempt is not None
+                    ) else self.poll_s
                     response = await request("GET", f"/sessions/{session_id}/changes", params={
-                        "from_index": cursor, "wait_for_seconds": min(25, int(self.poll_s)),
+                        "from_index": cursor, "wait_for_seconds": int(wait),
                     })
                     if response.status_code == 204:
                         if state not in _TERMINAL:
-                            await asyncio.sleep(self.poll_s)
-                            continue
+                            await asyncio.sleep(min(wait, max(
+                                0, 3 - (time.monotonic() - last_attempt),
+                            )) if last_attempt is not None else wait)
                         changes = {"status": state, "new_events": []}
                     else:
                         changes = response.json()
@@ -544,36 +606,76 @@ class HAgentRunner:
                                 if kind == "answer_event":
                                     outcome = data.get("outcome", outcome)
                             if kind == "observation_event":
+                                observed_progress = True
                                 metadata = data.get("metadata") or {}
                                 observed = clean_url(metadata.get("url"))
                                 location = urlsplit(observed or "")
-                                if not _reviewed(observed, reviews) or _OBSERVATION_FORBIDDEN.search(
+                                if not _reviewed(observed, reviews):
+                                    raise _PolicyBlocked("unreviewed_redirect")
+                                forbidden = _OBSERVATION_FORBIDDEN.search(
                                     unquote(location.path + "?" + location.query) + " "
                                     + str(metadata.get("title", ""))
-                                ) or clean_text(metadata.get("title", "")) != metadata.get(
+                                )
+                                if forbidden:
+                                    reason = "captcha" if "captcha" in forbidden[0].lower() else (
+                                        "login_required" if re.search(
+                                            r"login|log.in|sign|account|password|authenticated",
+                                            forbidden[0], re.IGNORECASE,
+                                        ) else "policy_denied"
+                                    )
+                                    raise _PolicyBlocked(reason)
+                                if clean_text(metadata.get("title", "")) != metadata.get(
                                     "title", ""
                                 ):
                                     raise _PolicyBlocked
                                 result["final_url"] = observed
                                 await emit({"type": "step_progress", "message": "Browsing reviewed site"})
-                                await frame(data, event.get("timestamp"))
+                                latest_frame = (data, event.get("timestamp"))
+                    if latest_frame:
+                        last_attempt = time.monotonic()
+                        try:
+                            async with asyncio.timeout(3):
+                                await frame(*latest_frame)
+                        except (TimeoutError, httpx.TimeoutException, httpx.NetworkError):
+                            pass
+                        except httpx.HTTPStatusError as exc:
+                            if exc.response.status_code < 500:
+                                raise
                     cursor = (changes.get("first_index") or cursor) + len(events)
                     if changes.get("answer") is not None:
                         answer = changes["answer"]
                         if _payment_claim(answer):
                             raise _UnsafeClaim
                     state = changes.get("status", state)
+                    if changes.get("error_code") in {"timeout", "timed_out"}:
+                        state = "timed_out"
+                    if changes.get("error_code") == "step_limit":
+                        raise _StepLimit
                     outcome = changes.get("outcome") or outcome
                     if state not in _TERMINAL and changes.get("metrics", {}).get("steps", 0) >= (
                         max_steps
                     ):
                         raise _StepLimit
                     if state in _TERMINAL and not events:
+                        if state in {"failed", "interrupted"} and not observed_progress and not retried:
+                            if not await stop():
+                                raise RuntimeError("Remote cancellation failed")
+                            retried = True
+                            created = (await request("POST", "/sessions", json=body)).json()
+                            session_id = quote(str(created["id"]), safe="")
+                            cursor, answer, state, outcome = 0, None, None, None
+                            latest_frame = None
+                            continue
                         if answer is None:
                             session = (await request("GET", f"/sessions/{session_id}")).json()
                             answer = session.get("latest_answer")
                         if state != "completed":
                             result["error"] = f"H session {state}"
+                            result["reason_code"] = (
+                                "timeout" if state == "timed_out" else "session_failed"
+                            )
+                            if not await stop():
+                                result["error"] += "; cancellation failed"
                             break
                         if isinstance(answer, str):
                             answer = json.loads(answer.strip().removeprefix("```json")
@@ -597,18 +699,20 @@ class HAgentRunner:
                             result["status"] == "ready_for_payment"
                         ) else "Preparation blocked: verification unavailable"
                         if result["status"] == "blocked":
+                            result["reason_code"] = _blocked_reason(answer, task)
                             result["error"] = _blocker_category(answer) or (
                                 "Verification unavailable or site blocked"
                             )
                             result["handoff_url"] = None
+                        else:
+                            result["reason_code"] = None
                         break
-                    if not events:
-                        await asyncio.sleep(self.poll_s)
         except asyncio.CancelledError as exc:
             if not await asyncio.shield(stop()):
                 exc.add_note("Remote H cancellation failed; manual intervention required")
             raise
-        except _PolicyBlocked:
+        except _PolicyBlocked as exc:
+            result["reason_code"] = exc.reason_code
             stopped = await asyncio.shield(stop())
             result["status"] = "blocked"
             result["handoff_url"] = None
@@ -617,14 +721,17 @@ class HAgentRunner:
             if not stopped:
                 result["error"] += "; cancellation failed"
         except (TimeoutError, httpx.TimeoutException):
+            result["reason_code"] = "timeout"
             stopped = await asyncio.shield(stop())
             result["error"] = "H run timed out" + ("; cancellation failed" if not stopped else "")
         except _UnsafeClaim:
+            result["reason_code"] = "unsafe_claim"
             stopped = await asyncio.shield(stop())
             result["error"] = "Safety violation: agent claimed payment or booking was executed"
             if not stopped:
                 result["error"] += "; cancellation failed"
         except _StepLimit:
+            result["reason_code"] = "step_limit"
             stopped = await asyncio.shield(stop())
             result["error"] = "H step limit reached"
             if not stopped:

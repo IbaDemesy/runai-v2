@@ -2,7 +2,7 @@ import re
 from datetime import UTC, datetime
 from enum import StrEnum
 from ipaddress import ip_address
-from typing import Literal
+from typing import Literal, get_args
 from urllib.parse import parse_qsl, unquote, urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
@@ -58,6 +58,14 @@ class Kind(StrEnum):
     transport = "transport"
 
 
+ReasonCode = Literal[
+    "no_site_coverage", "policy_denied", "date_mismatch", "no_inventory", "sold_out",
+    "registration_closed", "login_required", "captcha", "consent_required",
+    "unreviewed_redirect", "over_budget", "step_limit", "session_failed", "timeout",
+    "unsafe_claim", "provider_error",
+]
+
+
 class StepResult(Model):
     kind: Kind
     status: Literal["ready_for_payment", "blocked", "failed"]
@@ -67,8 +75,14 @@ class StepResult(Model):
     final_url: HttpUrl | None = None
     live_view_url: HttpUrl | None = None
     error: str | None = None
+    reason_code: ReasonCode | None = None
     synthetic: bool
     payment_executed: Literal[False] = False
+
+    @field_validator("reason_code", mode="before")
+    @classmethod
+    def known_reason(cls, value):
+        return value if value in get_args(ReasonCode) else None
 
     @field_validator("handoff_url", "start_url", "final_url", "live_view_url", mode="before")
     @classmethod
@@ -108,6 +122,7 @@ class Mission(Model):
     synthetic: bool
     status: Literal["guiding", "ready", "discovering", "running", "completed", "partial", "failed"] = "guiding"
     error: str | None = None
+    language: Literal["fr", "en"] | None = None
     turns: list[dict] = Field(default_factory=list)
     trip: dict | None = None
     results: list[StepResult] = Field(default_factory=list)
