@@ -383,6 +383,14 @@ class GuideEngine:
         return await self.step(GuideState(), {"text": text})
 
     def _scrub_identifier(self, value):
+        if isinstance(value, str) and any(
+            re.fullmatch(r"[A-Za-z0-9]{32,}", segment)
+            or (len(segment) >= 24 and re.search(r"[A-Za-z]", segment)
+                and re.search(r"\d", segment))
+            for segment in re.split(r"[-_.:]", value)
+        ):
+            cleaned = scrub_text(value)
+            return cleaned if cleaned != value else "[redacted key]"
         if isinstance(value, str) and (
             re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}", value)
             and re.search(r"[A-Za-z]", value)

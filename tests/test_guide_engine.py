@@ -266,7 +266,8 @@ def test_new_date_or_season_replaces_stale_date_hints(initial, followup, expecte
 @pytest.mark.parametrize("ids", [
     ["edp-lisbon-half-marathon-official-edition-2027",
      "descobrimentos-lisbon-half-marathon-official-edition-2027"],
-    ["race-" + "a" * 195, "race-" + "b" * 195],
+    ["race-" + "alpine-run-" * 17 + "finishxx", "race-" + "summer-run-" * 17 + "finishxx"],
+    ["edp-lisbon-half-marathon-2027", "gornergrat-zermatt-marathon-ultra-2027"],
     ["repeated-race-slug-with-more-than-thirty-two-characters"] * 3,
     ["race", "race", "race:2"],
 ])
@@ -296,6 +297,8 @@ def test_race_identifiers_remain_unique_and_select_correct_candidate(ids):
     "4111111111111111", "race-4111111111111111", "4111 1111 1111 1111",
     "runner-sentinel@example.test", "sk-artificial-sentinel-not-a-real-key",
     "FR1420041010050500013M02606", "secret:artificial_private_value",
+    "a8f3k29xq7m4p1z6w0r5t8y2u3i9o4e7", "race-a8f3k29xq7m4p1z6w0r5t8y2",
+    "a" * 32,
 ])
 def test_sensitive_race_identifiers_remain_redacted_and_selectable(identifier):
     async def discover(query, hints):
