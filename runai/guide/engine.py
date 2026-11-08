@@ -44,7 +44,7 @@ class GuideEngine:
             provenance=provenance,
         )
 
-    def _race_chips(self, state):
+    def _race_chips(self, state, races=None):
         return [
             self._chip(
                 r.id,
@@ -53,7 +53,7 @@ class GuideEngine:
                 "choose_race",
                 "synthetic" if r.synthetic else "source",
             )
-            for r in state.candidates
+            for r in (state.candidates if races is None else races)
             if not state.draft.race or r.id != state.draft.race.id
         ]
 
@@ -98,6 +98,11 @@ class GuideEngine:
         race = state.draft.race
         return self._eligible(race) and race.distance_km is None
 
+    def _distance_alternatives(self, state):
+        return [race for race in state.candidates
+                if self._eligible(race) and race.distance_km is not None and race.distance_km > 0
+                and (not state.draft.race or race.id != state.draft.race.id)]
+
     def _turn(self, state, message=None, error=None):
         d = state.draft
         ready = bool(
@@ -116,6 +121,7 @@ class GuideEngine:
                             "What distance would you like to run (1–400 km)?"))
             chips = [self._chip(f"{value:g} km", kind="answer", provenance="source")
                      for value in self._pending_distances(state)]
+            chips += self._race_chips(state, self._distance_alternatives(state))
         elif state.stage == "choose_race":
             question = self._say(state, "Laquelle te tente ?", "Which one catches your eye?")
             chips = self._race_chips(state)
@@ -613,6 +619,9 @@ class GuideEngine:
             if chip.kind == "choose_race":
                 state.draft.race = next(r for r in state.candidates if r.id == chip.value)
                 state.draft.provenance["race"] = "source"
+                state.draft.provenance.pop("distance_km", None)
+                if state.draft.race.distance_km is not None:
+                    state.draft.provenance["distance_km"] = "source"
                 self._advance(state)
                 return self._turn(
                     state,

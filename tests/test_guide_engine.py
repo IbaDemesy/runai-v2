@@ -519,6 +519,41 @@ def test_unknown_distance_accepts_plausible_range_boundaries(value):
     assert turn.ready_to_confirm and state.draft.race.distance_km == float(value)
 
 
+@pytest.mark.parametrize("lang", ["fr", "en"])
+@pytest.mark.parametrize("label", ["16–111 km", "Distances to be announced"])
+def test_distance_question_keeps_numeric_race_alternatives_selectable(lang, label):
+    async def discover(query, hints):
+        return [
+            {"id": "unknown", "name": "Unknown Distance Trail", "race_date": "2027-06-04",
+             "date_status": "official", "source_urls": ["https://race.example/unknown"],
+             "distance_label": label},
+            {"id": "numeric", "name": "Numeric Distance Trail", "race_date": "2027-06-11",
+             "date_status": "official", "source_urls": ["https://race.example/numeric"],
+             "distance_km": 21},
+            {"id": "unverified", "name": "Unverified Trail", "race_date": "2027-06-12",
+             "date_status": "unverified", "source_urls": ["https://race.example/unverified"],
+             "distance_km": 33},
+        ]
+
+    e = engine(discover)
+    query = ("un trail depuis Lyon 2 nuits budget 800" if lang == "fr"
+             else "a trail from Lyon 2 nights budget 800")
+    state, turn = run(e.start(query))
+    state, turn = click(e, state, turn)
+    invariant(turn)
+    assert not turn.ready_to_confirm
+    assert "distance" in turn.question.lower()
+    choices = [chip for chip in turn.suggestions if chip.kind == "choose_race"]
+    assert [chip.value for chip in choices] == ["numeric"]
+    state, turn = run(e.step(state, {"suggestion_id": choices[0].id}))
+    assert turn.ready_to_confirm and state.draft.race.id == "numeric"
+    assert state.draft.race.distance_km == 21
+    assert state.draft.provenance["distance_km"] == "source"
+    assert state.draft.arrival_date == date(2027, 6, 10)
+    assert (state.draft.origin_city, state.draft.nights, state.draft.budget_eur) == ("Lyon", 2, 800)
+    assert e.trip_payload(state)["race"]["id"] == "numeric"
+
+
 def run(awaitable):
     return asyncio.run(awaitable)
 
@@ -530,7 +565,9 @@ def engine(discover=None):
 def invariant(turn):
     assert (turn.message + (turn.question or "")).count("?") <= 1
     assert turn.question or not turn.suggestions
-    assert len({s.kind for s in turn.suggestions}) == 1 or all(
+    assert len({s.kind for s in turn.suggestions}) == 1 or {s.kind for s in turn.suggestions} <= {
+        "answer", "choose_race"
+    } or all(
         s.kind in {"confirm", "edit", "choose_race", "retry"} for s in turn.suggestions
     )
 
