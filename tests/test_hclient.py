@@ -261,6 +261,8 @@ def test_scrub_url_removes_credentials_fragments_and_sensitive_queries():
     "/entry/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "/entry/runner%40example.org",
     "/entry/a1b2c3d4e5f6-synthetic-a7b8c9d0e1f2", "/entry/+33-6-12-34-56-78",
     "/entry/race-2027-123456789012345678901234567890",
+    "/entry/runner-+33-6-12-34-56-78", "/entry/runner-%2B33-6-12-34-56-78",
+    "/entry/road-sk-12345678",
 ])
 def test_private_session_and_contact_paths_are_not_returned_as_public_urls(path):
     url = "https://race.example.org" + path
@@ -279,6 +281,7 @@ def test_trip_dates_survive_url_scrubbing():
     "https://in.njuko.com/wizz-air-milano-marathon-20271776152378557",
     "https://inscripciones.rpmsports.es/es/evento/zurich-marato-barcelona-2027/my-registration",
     "https://race.example.org/northern-city-road-marathon-2028-04-02",
+    "https://race.example.org/event/1234567890",
 ])
 def test_public_word_slugs_work_as_start_handoff_and_progress_urls(url):
     assert scrub_url(url) == url

@@ -8,9 +8,9 @@ _EMAIL = re.compile(r"[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}")
 _PHONE = re.compile(r"(?<!\w)(?:\+?\d[\d ().-]{7,}\d)(?!\w)")
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _BEARER = re.compile(r"\bBearer\s+[^\s,;\"']+", re.IGNORECASE)
+_KEY_PREFIX = re.compile(r"\b(?:sk|hai|linkup|gladia)[-_][A-Za-z0-9_-]{8,}", re.IGNORECASE)
 _KEY = re.compile(
-    r"\b(?:sk[-_]|hai[-_]|linkup[-_]|gladia[-_])[A-Za-z0-9_-]{8,}"
-    "|" + _BEARER.pattern +
+    _KEY_PREFIX.pattern + "|" + _BEARER.pattern +
     r"|\b[A-Za-z0-9_-]{32,}\b",
     re.IGNORECASE,
 )
@@ -51,9 +51,10 @@ def scrub_url(url: str | None) -> str | None:
                 if _PRIVATE_PATH.fullmatch(segment) or (
                     _OPAQUE_PATH.fullmatch(segment) and not _PUBLIC_SLUG.fullmatch(segment)
                 ) or (
-                    _EMAIL.search(segment) or re.match(r"(?:sk|hai|linkup|gladia)[-_]", segment)
-                ) or (
-                    _PHONE.fullmatch(segment) and not _DATE.fullmatch(segment)
+                    _EMAIL.search(segment) or _KEY_PREFIX.search(segment)
+                ) or any(
+                    not number.isdecimal() and not _DATE.fullmatch(number)
+                    for number in _PHONE.findall(segment)
                 ):
                     return None
         query = urlencode([
