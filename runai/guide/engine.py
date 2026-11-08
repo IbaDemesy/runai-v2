@@ -85,7 +85,8 @@ class GuideEngine:
     def _pending_distances(self, state):
         race = state.draft.race
         if race and race.distance_km is None:
-            return state.hints.get("_race_distances", {}).get(race.id, [])
+            return next((item["distances"] for item in state.hints.get("_race_distances", [])
+                         if item["race_id"] == race.id), [])
         return []
 
     def _turn(self, state, message=None, error=None):
@@ -153,7 +154,8 @@ class GuideEngine:
                 f"Here's your trip: {d.race.name}, leaving from {d.origin_city}, {d.nights} nights, budget €{d.budget_eur} for {d.travelers} {people_en}, {d.arrival_date} to {d.departure_date}.",
             )
             message = (message + " " if message else "") + summary
-            if d.race.id in state.hints.get("_event_start_ids", []):
+            if any(item["race_id"] == d.race.id
+                   for item in state.hints.get("_race_distances", [])):
                 message += self._say(
                     state, f" Début de l'événement : {d.race.race_date}.",
                     f" Event start date: {d.race.race_date}.")
@@ -283,7 +285,6 @@ class GuideEngine:
         state.candidates = []
         state.draft.provenance.pop("distance_km", None)
         state.hints.pop("_race_distances", None)
-        state.hints.pop("_event_start_ids", None)
         hints = state.hints.copy()
         if hints.get("months"):
             hints["month_from"] = min(hints["months"])
@@ -343,8 +344,8 @@ class GuideEngine:
                         suffix += 1
                     distances = self._distance_values(race.distance_label)
                     if race.distance_km is None:
-                        state.hints.setdefault("_race_distances", {})[race.id] = distances
-                        state.hints.setdefault("_event_start_ids", []).append(race.id)
+                        state.hints.setdefault("_race_distances", []).append(
+                            {"race_id": race.id, "distances": distances})
                     if len(race.distance_label) > 24:
                         compact = " / ".join(f"{value:g}" for value in distances) + " km"
                         if re.search(r"\d\s*[–—-]\s*\d", race.distance_label) and len(distances) == 2:

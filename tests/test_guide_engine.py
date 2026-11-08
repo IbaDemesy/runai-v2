@@ -333,7 +333,8 @@ def test_only_structured_identifier_fields_bypass_opaque_text_redaction():
 @pytest.mark.parametrize("typed", [False, True])
 def test_sourced_distance_range_requires_user_choice_before_ready(lang, typed):
     async def discover(query, hints):
-        return [{"id": "swiss-trail", "name": "Swiss Trail", "race_date": "2026-04-10",
+        return [{"id": "swiss-trail-official-mountain-running-edition-2026",
+                 "name": "Swiss Trail", "race_date": "2026-04-10",
                  "date_status": "official", "source_urls": ["https://race.example/edition"],
                  "distance_label": "Multiple trail distances 16–111 km announced on official site"}]
 
