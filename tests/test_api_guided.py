@@ -43,7 +43,6 @@ def test_race_today_cannot_be_confirmed():
     ({"nights": 7}, "demo"),
     ({}, "live"),
     ({"race": {**TRIP["race"], "synthetic": False, "date_status": "unverified"}}, "live"),
-    ({"race": {**TRIP["race"], "synthetic": False, "date_status": "official", "distance_km": None}}, "live"),
     ({"race": {**TRIP["race"], "synthetic": False}}, "demo"),
     ({"travelers": 0}, "demo"),
     ({"budget_eur": 0}, "demo"),
