@@ -419,6 +419,36 @@ def test_sourced_official_or_explicit_synthetic_date_can_be_ready(synthetic, sou
     assert e.trip_payload(state)["race"]["race_date"] == "2027-04-10"
 
 
+@pytest.mark.parametrize("lang", ["fr", "en"])
+def test_unverified_distance_race_keeps_valid_alternatives_visible(lang):
+    async def discover(query, hints):
+        return [
+            {"id": "unverified-trail", "name": "Unverified Trail", "race_date": "2027-04-10",
+             "date_status": "unverified", "source_urls": ["https://race.example/unverified"],
+             "distance_label": "Multiple trail distances 16–111 km announced on official site"},
+            {"id": "official-trail", "name": "Official Trail", "race_date": "2027-04-11",
+             "date_status": "official", "source_urls": ["https://race.example/official"],
+             "distance_km": 21, "distance_label": "21 km"},
+        ]
+
+    e = engine(discover)
+    query = ("un marathon depuis Lyon 2 nuits budget 800" if lang == "fr"
+             else "a marathon from Lyon 2 nights budget 800")
+    state, turn = run(e.start(query))
+    state, turn = click(e, state, turn)
+    assert state.draft.race.id == "unverified-trail"
+    assert state.stage == "choose_race"
+    assert not turn.ready_to_confirm
+    assert turn.question == ("Laquelle te tente ?" if lang == "fr" else "Which one catches your eye?")
+    assert ("reste à confirmer" if lang == "fr" else "needs confirmation") in turn.message
+    alternative = next(chip for chip in turn.suggestions if chip.value == "official-trail")
+    assert alternative.kind == "choose_race"
+    assert not any(chip.value.endswith(" km") for chip in turn.suggestions)
+    state, turn = run(e.step(state, {"suggestion_id": alternative.id}))
+    assert state.draft.race.id == "official-trail"
+    assert turn.ready_to_confirm
+
+
 def run(awaitable):
     return asyncio.run(awaitable)
 

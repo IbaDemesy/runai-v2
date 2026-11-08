@@ -84,7 +84,7 @@ class GuideEngine:
 
     def _pending_distances(self, state):
         race = state.draft.race
-        if race and race.distance_km is None:
+        if self._eligible(race) and race.distance_km is None:
             return next((item["distances"] for item in state.hints.get("_race_distances", [])
                          if item["race_id"] == race.id), [])
         return []
