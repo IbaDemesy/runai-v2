@@ -2,6 +2,7 @@ import asyncio
 import threading
 import time
 from copy import deepcopy
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -245,3 +246,33 @@ def test_guide_trip_payload_is_preferred_and_missions_are_isolated():
         assert result["trip"]["origin_city"] == "Lyon"
         assert c.get(second_url).json()["status"] == "guiding"
         assert len(c.get(second_url).json()["turns"]) == 1
+
+
+def test_default_live_wiring_translates_hints_and_timeout(monkeypatch):
+    monkeypatch.setenv("LINKUP_API_KEY", "test-only-placeholder")
+    calls = []
+
+    async def discover(query, hints, *, timeout_s):
+        calls.append((query, hints, timeout_s))
+        return []
+
+    class WiredGuide(StubGuide):
+        def __init__(self, discovery):
+            self.discovery = discovery
+
+        async def start(self, text):
+            await self.discovery(text, {"months": [12, 1, 2], "named": "Lisbon", "city": "Lisbon"})
+            return await super().start(text)
+
+    modules = {
+        "runai.guide": SimpleNamespace(GuideEngine=WiredGuide),
+        "runai.discovery.linkup": SimpleNamespace(discover=discover),
+    }
+    monkeypatch.setattr("runai.app.importlib.import_module", modules.__getitem__)
+    with TestClient(create_app()) as c:
+        response = c.post("/api/missions", json={"text": "a winter race", "mode": "live"})
+        assert response.status_code == 201
+        assert response.json()["synthetic"] is False
+    assert calls == [("a winter race", {
+        "month_from": 12, "month_to": 2, "race_name": "Lisbon", "city": "Lisbon",
+    }, 120)]

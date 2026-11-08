@@ -28,6 +28,8 @@ live never falls back to synthetic results.
   Core binds discovery's `timeout_s=120` for deep searches: observed official
   race discovery takes longer than the provider's 20-second default. This is
   still real discovery; errors remain visible and never fall back to fakes.
+  The live wrapper translates guide `months` to `month_from/month_to` (retaining
+  a winter wraparound such as 12 -> 2) and `named` to `race_name`.
   Discovery needs `LINKUP_API_KEY`; confirmation needs `HAI_API_KEY` and all H
   task/client modules. Keys are read from environment only, never returned.
 

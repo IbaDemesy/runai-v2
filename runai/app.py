@@ -2,7 +2,6 @@ import asyncio
 import importlib
 import os
 from contextlib import asynccontextmanager
-from functools import partial
 from pathlib import Path
 from uuid import uuid4
 
@@ -38,15 +37,28 @@ class ConfirmRequest(Model):
     confirmed: StrictBool
 
 
+def _discovery_hints(hints):
+    mapped = dict(hints or {})
+    months = mapped.pop("months", None)
+    if months:
+        mapped.setdefault("month_from", months[0])
+        mapped.setdefault("month_to", months[-1])
+    named = mapped.pop("named", None)
+    if named:
+        mapped.setdefault("race_name", named)
+    return mapped
+
+
 def _default_guide(mode):
     if mode == Mode.live and not os.getenv("LINKUP_API_KEY"):
         raise HTTPException(501, "Live race discovery requires LINKUP_API_KEY")
     try:
         module = importlib.import_module("runai.guide")
         if mode == Mode.live:
-            discovery = partial(
-                importlib.import_module("runai.discovery.linkup").discover, timeout_s=120,
-            )
+            provider = importlib.import_module("runai.discovery.linkup").discover
+
+            async def discovery(query, hints):
+                return await provider(query, _discovery_hints(hints), timeout_s=120)
         else:
             discovery = importlib.import_module("runai.guide.fake").FakeDiscovery()
         return module.GuideEngine(discovery)
