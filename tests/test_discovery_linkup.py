@@ -147,6 +147,19 @@ def test_sources_required_and_public_urls_only():
         assert search([race(sources=[{"url": url, "race_date": DAY}])]) == []
 
 
+@pytest.mark.parametrize("path", [
+    "/sessions/private-example-id", "/checkout/private-example-id",
+    "/orders/private-example-id", "/%73essions/private-example-id",
+    "/s/0123456789abcdef0123456789abcdef", "/r/01234567-89ab-cdef-0123-456789abcdef",
+])
+def test_private_path_urls_are_not_returned(path):
+    url = f"https://race.example{path}"
+    assert search([race(sources=[{"url": url, "race_date": DAY}])]) == []
+    candidate = search([race(official_url=url, registration_url=url)])[0]
+    assert candidate["official_url"] is None
+    assert candidate["registration_url"] is None
+
+
 def test_registration_requires_official_link_evidence_and_cannot_spoof_host():
     row = race(registration_source_url=None)
     assert search([row])[0]["registration_url"] is None

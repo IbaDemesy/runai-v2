@@ -6,7 +6,7 @@ import os
 import re
 import unicodedata
 from datetime import UTC, date, datetime
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 import httpx
 from pydantic import BaseModel, ConfigDict, ValidationError
@@ -74,6 +74,20 @@ def _url(value: str | None) -> str | None:
         if parsed.query or parsed.fragment:
             # Only public evidence/landing URLs, never session-bearing checkout links.
             return None
+        path = unquote(parsed.path)
+        if "%" in path or "\\" in path or re.search(
+            r"(?:^|/)(?:sessions?|checkouts?|carts?|orders?|payments?|bookings?|"
+            r"reservations?|tokens?|accounts?|auth|login)(?:/|$)", path, re.IGNORECASE,
+        ):
+            return None
+        for segment in path.split("/"):
+            if re.fullmatch(
+                r"[0-9a-fA-F]{24,}|[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}"
+                r"-[0-9a-fA-F]{12}|eyJ[A-Za-z0-9_.-]+", segment,
+            ) or (len(segment) >= 32 and re.fullmatch(r"[A-Za-z0-9_]+", segment)
+                  and any(char.isdigit() for char in segment)
+                  and any(char.isalpha() for char in segment)):
+                return None
     except ValueError:
         return None
     return value
