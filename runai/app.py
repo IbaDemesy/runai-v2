@@ -114,7 +114,7 @@ def sanitize(value, key=""):
                     r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")
     value = re.sub(card_pattern, "[redacted card]", value)
     if safe_id:
-        return _fallback_scrub(value, scrub_phone=False)
+        return _fallback_scrub(value, scrub_phone=not bool(re.search(r"[A-Za-z]", value)))
     try:
         from runai.agents.scrub import scrub_text
         return scrub_text(value)
