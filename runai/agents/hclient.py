@@ -72,6 +72,7 @@ _RETURN_PARAM = re.compile(r"return|inbound|back|retour", re.IGNORECASE)
 
 
 def _path_in_scope(path, prefix):
+    path = path or "/"
     if prefix.endswith("/"):
         return path.startswith(prefix)
     return path == prefix or path.startswith(prefix + "/")

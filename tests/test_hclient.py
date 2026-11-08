@@ -887,6 +887,7 @@ def test_policy_expiry_uses_timestamp_precision_and_date_inclusive_day(monkeypat
     ("/race", "/race", True), ("/race", "/race/entry", True),
     ("/race/", "/race/entry", True), ("/race", "/race-private", False),
     ("/", "/race-private", True), ("/race/", "/race", False),
+    ("/", "", True), ("", "", True), ("/race", "", False),
 ])
 def test_reviewed_paths_respect_segment_boundaries(prefix, path, allowed):
     assert _reviewed("https://race.example.org" + path,
@@ -903,6 +904,20 @@ def test_start_path_outside_reviewed_segment_never_creates_session(monkeypatch):
     provider = Provider()
     result, _ = run(provider, {**TASK, "start_url": "https://race.example.org/race-private"})
     assert result["status"] == "blocked" and not provider.requests
+
+
+def test_homepage_without_trailing_slash_is_in_reviewed_root_scope(monkeypatch):
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(
+        evaluate_url=lambda *_: {
+            "allowed": True, "policy_id": "reviewed", "screenshot_scope": True,
+            "expires_at": None, "allowed_hosts": ["race.example.org"], "allowed_paths": ["/"],
+        },
+    ))
+    provider = Provider()
+    result, _ = run(provider, {**TASK, "start_url": START.rstrip("/"),
+                             "fallback_url": START.rstrip("/")})
+    assert result["status"] == "ready_for_payment"
+    assert any(r.method == "POST" and r.url.path == "/api/v2/sessions" for r in provider.requests)
 
 
 @pytest.mark.parametrize("query", ["room=twin", "fare=flexible"])
