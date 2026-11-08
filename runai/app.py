@@ -91,7 +91,8 @@ def sanitize(value, key=""):
     if isinstance(value, dict):
         return {name: sanitize(item, name) for name, item in value.items()}
     if isinstance(value, list):
-        return [sanitize(item, key) for item in value]
+        items = [sanitize(item, key) for item in value]
+        return [item for item in items if item is not None] if key == "source_urls" else items
     if not isinstance(value, str):
         return value
     safe_id = (key == "id" or key.endswith("_id")) and re.fullmatch(
@@ -125,7 +126,10 @@ def sanitize(value, key=""):
 def sanitize_state(state):
     clean = sanitize(jsonable_encoder(state))
     if callable(getattr(type(state), "model_validate", None)):
-        return type(state).model_validate(clean)
+        try:
+            return type(state).model_validate(clean)
+        except ValueError:
+            return state
     return clean
 
 

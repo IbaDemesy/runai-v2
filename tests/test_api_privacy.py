@@ -20,7 +20,7 @@ def test_url_fields_reject_sensitive_components(secret, location):
     url = (f"https://example.org/p?contact={encoded}" if location == "query" else
            f"https://example.org/p/{encoded}")
     assert sanitize({"official_url": url, "source_urls": [url]}) == {
-        "official_url": None, "source_urls": [None],
+        "official_url": None, "source_urls": [],
     }
     safe = "https://example.org/race/2027-04-04?budget=800&distance=42.195"
     assert sanitize(safe, "official_url") == safe
@@ -131,3 +131,23 @@ def test_provider_turns_events_and_results_are_sanitized(caplog):
         mission = terminal(c, url)
         assert len(mission["results"]) == 3
         assert all(secret not in str(mission) + caplog.text for secret in SENTINELS)
+
+
+def test_sanitize_state_drops_unsafe_source_urls_and_keeps_state_valid():
+    from pydantic import BaseModel
+
+    from runai.app import sanitize_state
+
+    class Candidate(BaseModel):
+        id: str
+        source_urls: list[str]
+
+    class State(BaseModel):
+        candidates: list[Candidate]
+
+    state = State(candidates=[Candidate(id="lisbon-half-2027", source_urls=[
+        "https://www.example.org/race", "http://localhost/private",
+    ])])
+    clean = sanitize_state(state)
+    assert isinstance(clean, State)
+    assert clean.candidates[0].source_urls == ["https://www.example.org/race"]
