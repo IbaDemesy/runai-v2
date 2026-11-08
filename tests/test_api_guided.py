@@ -317,6 +317,7 @@ def test_default_live_guide_and_builder_contracts_without_network(monkeypatch):
         assert timeout_s == 120
         race = deepcopy(TRIP["race"])
         race["synthetic"] = False
+        race["date_status"] = "official"
         return [race]
 
     class HClient:
