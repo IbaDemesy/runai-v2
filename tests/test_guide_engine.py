@@ -362,6 +362,7 @@ def test_r1_03_race_contract_and_hint_bridge():
         "country": "Portugal",
         "official_url": "https://example.org/race",
         "registration_url": None,
+        "registration_access": None,
         "source_urls": ["https://example.org/race"],
         "retrieved_at": "2026-01-01T00:00:00Z",
         "synthetic": True,

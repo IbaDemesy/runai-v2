@@ -1,5 +1,41 @@
 # Linkup discovery live evidence
 
+## R2-04 step 1 — offline reliability revision (2026-11-08)
+
+No new live requests were made for this revision. Historical batches below are
+not verification of the revised prompt. Past-only results are now rejected as
+an empty list (the historical past-edition fallback described below is removed).
+Official dated candidates sort ahead of unverified/unknown/conflicting ones;
+conflicts retain `date_status=conflicting` with no selected date. No dates are
+derived from edition/platform URLs, and no next-year date is manufactured.
+
+Deep search and timeout behavior remain unchanged: default 20 seconds, caller
+override retained verbatim, and app integration still supplies 120 seconds.
+Offline mock requests cover both timeout values. Query/hints use scrubbed,
+instruction-filtered JSON inside a delimited data block; source-derived display
+text receives the same filtering. Source schemas reject extra fields, dates
+require exact ISO dates, and public URLs must survive the shared scrubber.
+This is defense in depth, not a claim that provider source extraction is an
+independent audit or that arbitrary prompt injection is solved.
+
+No `registration_info` registry existed in the repository at implementation
+time. An optional sync/async callable receives a candidate dict and returns
+registration evidence or None. Without it, registration access stays None,
+regardless of registration platform/domain. Accepted evidence requires a public
+URL and a timezone-aware, non-future observation timestamp. Invalid, absent,
+inconsistent evidence or lookup failures remain unknown; access is never probed
+by submitting forms or creating accounts.
+
+Offline check: `uv run ruff check . && uv run pytest -q`:
+
+```text
+All checks passed!
+393 passed, 1 warning in 1.64s
+```
+
+The warning is the installed FastAPI/Starlette test-client httpx deprecation,
+not a missing project environment. No dependency/configuration files changed.
+
 Verified at 2026-11-08T20:30:24.639875+00:00.
 
 ## Verdict and reproduction
