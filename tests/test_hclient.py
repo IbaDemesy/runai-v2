@@ -260,6 +260,7 @@ def test_scrub_url_removes_credentials_fragments_and_sensitive_queries():
     "/session/synthetic-private-token", "/entry/auth/synthetic-token", "/token=synthetic-value",
     "/entry/a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", "/entry/runner%40example.org",
     "/entry/a1b2c3d4e5f6-synthetic-a7b8c9d0e1f2", "/entry/+33-6-12-34-56-78",
+    "/entry/race-2027-123456789012345678901234567890",
 ])
 def test_private_session_and_contact_paths_are_not_returned_as_public_urls(path):
     url = "https://race.example.org" + path

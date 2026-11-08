@@ -24,7 +24,7 @@ _PRIVATE_PATH = re.compile(
     re.IGNORECASE,
 )
 _OPAQUE_PATH = re.compile(r"(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9_-]{24,}|[a-fA-F0-9]{24,}")
-_PUBLIC_SLUG = re.compile(r"[A-Za-z]{1,23}(?:[-_](?:[A-Za-z]{1,23}|\d+)){2,}")
+_PUBLIC_SLUG = re.compile(r"[A-Za-z]{1,23}(?:[-_](?:[A-Za-z]{1,23}|\d{1,20})){2,}")
 
 
 def scrub_url(url: str | None) -> str | None:
