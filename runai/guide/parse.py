@@ -4,6 +4,8 @@ from datetime import date
 
 from pydantic import Field
 
+from runai.agents.scrub import scrub_text
+
 from .types import Model
 
 
@@ -108,16 +110,30 @@ class Intent(Model):
     travelers: int | None = None
     correction: bool = False
     lang: str = "fr"
+    problem: str | None = None
+    deferred: bool = False
+    switch_language: str | None = None
 
 
 def parse_intent(text: str, *, today: date) -> Intent:
+    text = scrub_text(text)
     t = normalize(text)
+    for wrong, right in {"marathn": "marathon", "itali": "italie", "printemp": "printemps"}.items():
+        t = re.sub(r"\b" + wrong + r"\b", right, t)
     result = Intent(
         lang="en"
-        if re.search(r"\b(the|in|from|next|this|summer|spring|half|nights|actually|instead)\b", t)
+        if re.search(r"\b(the|in|from|next|this|summer|spring|half|nights|actually|instead|i|whatever|you)\b", t)
         else "fr"
     )
     result.correction = bool(re.search(r"\b(plutot|actually|instead)\b", t))
+    result.deferred = bool(re.search(
+        r"peu importe|je (?:ne )?sais pas|tu en penses quoi|whatever|i don.?t know|"
+        r"you choose|what do you think|comme tu veux|a toi de choisir", t,
+    ))
+    if re.search(r"(?:in english|en anglais)(?: please| s.il te plait)?", t):
+        result.switch_language = "en"
+    elif re.search(r"(?:en francais|in french)", t):
+        result.switch_language = "fr"
     for pattern, distance in [
         (r"\b(ultra)\b", "ultra"),
         (r"\btrail\b", "trail"),
@@ -158,6 +174,7 @@ def parse_intent(text: str, *, today: date) -> Intent:
             break
     selected = []
     season = False
+    season_count = 0
     for month, aliases in enumerate(MONTHS, 1):
         if any(contains(t, alias) for alias in aliases.split()):
             selected.append(month)
@@ -170,10 +187,11 @@ def parse_intent(text: str, *, today: date) -> Intent:
         if any(contains(t, alias) for alias in aliases.split()):
             selected = months
             season = True
+            season_count += 1
     explicit = next(
         (
             match
-            for match in re.finditer(r"\b(20\d{2})\b", t)
+            for match in re.finditer(r"\b((?:19|20)\d{2})\b", t)
             if not re.match(
                 r"\s*(?:€|euros?\b|eur\b|nuits?\b|nights?\b|personnes?\b|people\b)",
                 t[match.end() :],
@@ -199,17 +217,57 @@ def parse_intent(text: str, *, today: date) -> Intent:
             year += 1
         result.months = [f"{year + (1 if m < selected[0] else 0):04d}-{m:02d}" for m in selected]
     for field, pattern in [
-        ("nights", r"\b(\d+)\s*(?:nuits?|nights?)\b"),
-        ("budget_eur", r"\b(\d+)\s*(?:euros?|eur\b|€)"),
-        ("travelers", r"\b(\d+)\s*(?:personnes?|people|travelers?)\b"),
+        ("nights", r"(?<!\w)(-?\d+)\s*(?:nuits?|nights?)\b"),
+        ("budget_eur", r"(?<!\w)(-?\d+)\s*(?:euros?|eur\b|€)"),
+        ("travelers", r"(?<!\w)(-?\d+)\s*(?:personnes?|people|travelers?)\b"),
     ]:
         match = re.search(pattern, t)
         if match:
             setattr(result, field, int(match[1]))
-    budget = re.search(r"\bbudget\s+(\d+)", t)
+    budget = re.search(r"\bbudget\s+(-?\d+)", t)
     travelers = re.search(r"\ba\s+(\d+)\b", t)
     if budget:
         result.budget_eur = int(budget[1])
     if travelers:
         result.travelers = int(travelers[1])
+    countries = {
+        country for country, aliases in COUNTRIES.items()
+        if any(contains(destination_text, alias) for alias in [normalize(country), *aliases.split()])
+    }
+    cities = {
+        city for alias, (city, _) in CITIES.items()
+        if contains(destination_text, alias) and alias != "nice"
+    }
+    mismatched_city = any(
+        contains(destination_text, alias) and country not in countries
+        for alias, (_, country) in CITIES.items() if alias != "nice"
+    ) if countries else False
+    explicit_dates = re.findall(r"\b\d{4}-\d{2}-\d{2}\b", t)
+    years = {
+        match[0] for match in re.finditer(r"\b(?:19|20)\d{2}\b", t)
+        if not re.match(r"\s*(?:€|euros?\b|eur\b|nuits?\b|nights?\b)", t[match.end():])
+        and not re.search(r"\bbudget\s*(?:de\s*)?$", t[:match.start()])
+    }
+    if len(countries) > 1 or len(cities) > 1 or mismatched_city:
+        result.problem = "destination_conflict"
+    elif len(set(explicit_dates)) > 1 or season_count > 1 or len(years) > 1:
+        result.problem = "date_conflict"
+    elif explicit_dates:
+        try:
+            event_day = date.fromisoformat(explicit_dates[0])
+            result.problem = "past_date" if event_day < today else "exact_date"
+        except ValueError:
+            result.problem = "date_conflict"
+    elif re.search(r"\b(?:tomorrow|demain)\b", t):
+        result.problem = "tomorrow"
+    elif result.nights is not None and not 1 <= result.nights <= 14:
+        result.problem = "nights_range"
+    elif result.budget_eur is not None and result.budget_eur <= 0:
+        result.problem = "budget_range"
+    elif result.travelers is not None and result.travelers < 1:
+        result.problem = "travelers_range"
+    elif result.year and result.year < today.year:
+        result.problem = "past_date"
+    elif re.search(r"\b(?:free|gratuit|teleport|teleporter|impossible)\b", t):
+        result.problem = "unsupported"
     return result

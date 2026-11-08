@@ -18,19 +18,23 @@ require exact ISO dates, and public URLs must survive the shared scrubber.
 This is defense in depth, not a claim that provider source extraction is an
 independent audit or that arbitrary prompt injection is solved.
 
-No `registration_info` registry existed in the repository at implementation
-time. An optional sync/async callable receives a candidate dict and returns
-registration evidence or None. Without it, registration access stays None,
-regardless of registration platform/domain. Accepted evidence requires a public
-URL and a timezone-aware, non-future observation timestamp. Invalid, absent,
-inconsistent evidence or lookup failures remain unknown; access is never probed
-by submitting forms or creating accounts.
+Step 1b aligns the pinned observation contract: `registration_access` is None
+or exactly `account_required`, `captcha`, `source`, `observed_at`, `note`.
+The booleans are nullable; observation time is an ISO date, not a datetime.
+The default registry is lazily imported from
+`runai.agents.site_policy.registration_info`; missing module/function is unknown.
+An injected sync/async callable remains supported. Both receive only the public
+registration URL, falling back to the official URL, never the candidate/query.
+Accepted evidence requires a public source URL and a non-future observation
+date. Missing/invalid evidence or lookup failures remain unknown. Observations
+are not permission or guarantees of login-free access; no platform inference,
+form submissions or accounts are used.
 
 Offline check: `uv run ruff check . && uv run pytest -q`:
 
 ```text
 All checks passed!
-393 passed, 1 warning in 1.64s
+456 passed, 1 warning in 2.01s
 ```
 
 The warning is the installed FastAPI/Starlette test-client httpx deprecation,

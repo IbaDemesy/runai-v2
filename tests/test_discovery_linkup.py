@@ -1,7 +1,9 @@
 import asyncio
 import copy
 import json
+import sys
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -332,34 +334,33 @@ def test_official_future_candidates_sort_first_without_changing_unknown_dates():
 
 def access(**changes):
     return {
-        "account_required": False, "captcha": False, "status": "open_no_account",
-        "evidence_url": "https://race.example/access",
-        "observed_at": (datetime.now(UTC) - timedelta(minutes=1)).isoformat(),
+        "account_required": False, "captcha": False,
+        "source": "https://race.example/access",
+        "observed_at": datetime.now(UTC).date().isoformat(),
         "note": "Observed public entry information",
     } | changes
 
 
 @pytest.mark.parametrize("changes", [
-    {}, {"account_required": True, "status": "account_required"},
-    {"captcha": True, "status": "captcha"},
+    {}, {"account_required": True}, {"captcha": True},
 ])
 def test_registration_access_comes_only_from_injected_evidence(changes):
     evidence = access(**changes)
-    def registry(candidate):
-        assert candidate["registration_url"] == "https://entries.example/race"
+    def registry(url):
+        assert url == "https://entries.example/race"
         return evidence
     candidate = search([race()], registration_info=registry)[0]
     assert candidate["registration_access"] == RegistrationAccess.model_validate(evidence).model_dump(
         mode="json"
     )
-    assert RaceOption.model_validate(candidate).registration_access.status == evidence["status"]
+    assert RaceOption.model_validate(candidate).registration_access.source == evidence["source"]
 
 
 @pytest.mark.parametrize("evidence", [
-    None, {}, access(evidence_url=None), access(observed_at=None),
-    access(evidence_url="https://race.example/sessions/private"),
-    access(observed_at="2099-01-01T00:00:00Z"), access(observed_at="2026-01-01T00:00:00"),
-    access(account_required=True), access(captcha=True), access(account_required="false"),
+    None, {}, access(source=None), access(observed_at=None),
+    access(source="https://race.example/sessions/private"),
+    access(observed_at="2099-01-01"), access(observed_at="2026-01-01T01:00:00"),
+    access(account_required="false"), access(status="open_no_account"),
 ])
 def test_missing_invalid_or_conflicting_registration_evidence_stays_unknown(evidence):
     assert search([race()], registration_info=lambda _: evidence)[0]["registration_access"] is None
@@ -384,3 +385,23 @@ def test_registration_schema_forbids_extra_fields():
         RaceOption.model_validate(search([race()])[0] | {
             "registration_access": access(extra="untrusted"),
         })
+
+
+def test_lazy_registry_missing_module_or_function_is_unknown(monkeypatch):
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", None)
+    assert search([race()])[0]["registration_access"] is None
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace())
+    assert search([race()])[0]["registration_access"] is None
+
+
+def test_lazy_registry_receives_only_public_registration_or_official_url(monkeypatch):
+    seen = []
+    def registry(url):
+        seen.append(url)
+        return {k: v for k, v in access().items() if k != "note"}
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(
+        registration_info=registry,
+    ))
+    assert search([race()])[0]["registration_access"]["note"] is None
+    assert search([race(registration_url=None)])[0]["registration_access"] is not None
+    assert seen == ["https://entries.example/race", "https://race.example/"]

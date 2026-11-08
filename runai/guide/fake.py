@@ -6,6 +6,9 @@ from .parse import normalize
 class FakeDiscovery:
     """Synthetic examples only; never evidence of live race dates."""
 
+    def __init__(self, *, today: date | None = None):
+        self.today = today or date.today()
+
     async def __call__(self, query: str, hints: dict) -> list[dict]:
         if not any(hints.get(k) for k in ["distance", "city", "country", "months"]):
             return []
@@ -30,8 +33,10 @@ class FakeDiscovery:
             matching = [m for m in months if int(m[-2:]) == month]
             if months and not matching:
                 continue
-            year = int(matching[0][:4]) if matching else hints.get("year", 2027)
+            year = int(matching[0][:4]) if matching else hints.get("year", self.today.year + 1)
             race_date = date(year, month, day) if month else None
+            if race_date and race_date < self.today:
+                continue
             results.append(
                 {
                     "id": city.lower(),
@@ -49,7 +54,7 @@ class FakeDiscovery:
                     "city": city,
                     "country": country,
                     "race_date": race_date.isoformat() if race_date else None,
-                    "date_status": "unverified" if race_date else "unknown",
+                    "date_status": "official" if race_date else "unknown",
                     "official_url": f"https://example.org/{city.lower()}",
                     "source_urls": ["https://example.org/synthetic"],
                     "synthetic": True,

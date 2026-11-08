@@ -4,6 +4,9 @@ from datetime import date, timedelta
 
 from pydantic import ValidationError
 
+from runai.agents.scrub import scrub_text
+
+from .fake import FakeDiscovery
 from .parse import bare_city, normalize, parse_intent
 from .types import GuidedTurn, GuideState, RaceOption, Suggestion
 
@@ -14,6 +17,8 @@ class GuideEngine:
     def __init__(self, discover: Discover, *, today: date | None = None):
         self.discover = discover
         self.today = today or date.today()
+        if isinstance(discover, FakeDiscovery):
+            discover.today = self.today
 
     def _say(self, state, fr, en):
         return en if state.lang == "en" else fr
@@ -31,7 +36,8 @@ class GuideEngine:
         return [
             self._chip(
                 r.id,
-                f"{r.name} — {r.race_date or self._say(state, 'date à confirmer', 'date to confirm')}",
+                f"{r.name} — {r.race_date or self._say(state, 'date à confirmer', 'date to confirm')}"
+                + self._access_warning(state, r),
                 "choose_race",
                 "synthetic" if r.synthetic else "source",
             )
@@ -39,12 +45,24 @@ class GuideEngine:
             if not state.draft.race or r.id != state.draft.race.id
         ]
 
+    def _access_warning(self, state, race):
+        access = race.registration_access
+        if access and (access.account_required is True or access.captcha is True):
+            return self._say(state, " — compte ou captcha requis : arrêt humain",
+                             " — account or captcha required: human handoff")
+        if not access or access.account_required is None or access.captcha is None:
+            return self._say(state, " — accès inconnu", " — access unknown")
+        return self._say(state, " — observation d'accès, pas une autorisation",
+                         " — access observation, not permission")
+
+    def _eligible(self, race):
+        return bool(race and race.race_date and race.race_date >= self.today
+                    and race.date_status == "official")
+
     def _turn(self, state, message=None, error=None):
         d = state.draft
         ready = bool(
-            d.race
-            and d.race.race_date
-            and d.race.date_status in {"official", "unverified"}
+            self._eligible(d.race)
             and d.origin_city
             and d.nights
             and d.budget_eur
@@ -55,11 +73,12 @@ class GuideEngine:
             question = self._say(state, "Laquelle te tente ?", "Which one catches your eye?")
             chips = self._race_chips(state)
             if d.race:
-                message = self._say(
+                explanation = self._say(
                     state,
                     "La date de cette course reste à confirmer ; choisissons une autre option.",
                     "This race's date needs confirmation; let's try another option.",
                 )
+                message = (message + " " if message else "") + explanation
                 chips.append(
                     self._chip("retry", self._say(state, "Relancer", "Try again"), "retry")
                 )
@@ -92,11 +111,12 @@ class GuideEngine:
                 )
             chips = [self._chip(c) for c in choices]
         elif state.stage in {"confirm", "confirmed"}:
-            message = self._say(
+            summary = self._say(
                 state,
                 f"Voilà ton idée de séjour : {d.race.name}, au départ de {d.origin_city}, {d.nights} nuits, budget {d.budget_eur} € pour {d.travelers} personne(s), du {d.arrival_date} au {d.departure_date}.",
                 f"Here's your trip: {d.race.name}, leaving from {d.origin_city}, {d.nights} nights, budget €{d.budget_eur} for {d.travelers} traveler(s), {d.arrival_date} to {d.departure_date}.",
             )
+            message = (message + " " if message else "") + summary
             if state.stage == "confirm":
                 question = self._say(
                     state,
@@ -153,11 +173,21 @@ class GuideEngine:
                 ],
             )
             message = options[len(state.history) % len(options)]
+        if d.race and d.race.synthetic:
+            message += self._say(state, " Dates synthétiques, non vérifiées en direct.",
+                                 " Synthetic dates, not live-verified.")
+        if d.race:
+            message += self._access_warning(state, d.race)
         if d.race and d.race.date_status == "unverified":
             message += self._say(
                 state, " Attention : date non vérifiée.", " Warning: unverified date."
             )
-        message = message.replace("?", ".")
+        message = scrub_text(message)
+        question = scrub_text(question) if question else None
+        for chip in chips:
+            chip.id += f":turn-{len(state.history)}"
+            chip.label = scrub_text(chip.label)
+            chip.value = scrub_text(chip.value)
         state.pending_suggestions = chips
         state.history.append({"role": "assistant", "text": message})
         return state, GuidedTurn(
@@ -174,7 +204,7 @@ class GuideEngine:
         d = state.draft
         if not d.race:
             state.stage = "choose_race" if state.candidates else "discover"
-        elif not d.race.race_date or d.race.date_status not in {"official", "unverified"}:
+        elif not self._eligible(d.race):
             state.stage = "choose_race"
         else:
             if d.nights:
@@ -214,12 +244,20 @@ class GuideEngine:
             hints.setdefault("year", int(hints["month_from"][:4]))
         if hints.get("named"):
             hints.setdefault("race_name", state.query)
+        past_found = False
         try:
             rows = await self.discover(state.query, hints)
             for row in rows:
                 try:
-                    race = RaceOption.model_validate(row)
+                    race = RaceOption.model_validate(self._scrub_data(row))
                 except ValidationError:
+                    continue
+                if race.race_date and race.race_date < self.today:
+                    past_found = True
+                    continue
+                if state.hints.get("exact_date") and (
+                    not race.race_date or race.race_date.isoformat() != state.hints["exact_date"]
+                ):
                     continue
                 year = state.hints.get("year")
                 months = state.hints.get("months")
@@ -253,6 +291,8 @@ class GuideEngine:
                 self._chip("retry", self._say(state, "Réessayer", "Retry"), "retry")
             ]
             state.pending_suggestions = turn.suggestions
+            for suggestion in turn.suggestions:
+                suggestion.id += f":turn-{len(state.history)}"
             return state, turn
         if not state.candidates:
             state.stage = "discover"
@@ -276,8 +316,24 @@ class GuideEngine:
             )
             turn.suggestions = [self._chip(v) for v in values]
             state.pending_suggestions = turn.suggestions
+            if past_found:
+                turn.message = self._say(
+                    state, "Cette édition est passée. Cherchons une nouvelle édition sourcée.",
+                    "That edition is past. Let's search for a newly sourced next edition.",
+                )
+                turn.suggestions = [self._chip("next_edition", self._say(
+                    state, "Chercher la prochaine édition", "Search next edition"), "retry")]
+                state.pending_suggestions = turn.suggestions
+                state.history[-1]["text"] = turn.message
+            for suggestion in turn.suggestions:
+                suggestion.id += f":turn-{len(state.history)}"
             return state, turn
-        if len(state.candidates) == 1 and state.hints.get("named"):
+        if len(state.candidates) == 1 and state.hints.get("named") and not (
+            state.candidates[0].registration_access and (
+                state.candidates[0].registration_access.account_required is True
+                or state.candidates[0].registration_access.captcha is True
+            )
+        ):
             state.draft.race = state.candidates[0]
             state.draft.provenance["race"] = "source"
         self._advance(state)
@@ -285,18 +341,76 @@ class GuideEngine:
             state,
             self._say(
                 state,
-                f"Bonne idée ! Pour « {state.query} », voici ce que j'ai trouvé.",
-                f"Great idea! For “{state.query}”, here's what I found.",
+                "Voici les options sourcées correspondant à ta recherche.",
+                "Here are sourced options matching your search.",
             ),
         )
 
     async def start(self, text):
         return await self.step(GuideState(), {"text": text})
 
+    def _scrub_data(self, value):
+        if isinstance(value, str):
+            return scrub_text(value)
+        if isinstance(value, dict):
+            return {scrub_text(str(k)): self._scrub_data(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._scrub_data(v) for v in value]
+        return value
+
+    async def _recommend(self, state):
+        direction = None
+        if not state.candidates:
+            if not state.query:
+                state.query = self._say(state, "Un marathon en Italie au printemps",
+                                        "A marathon in Italy in spring")
+                intent = parse_intent(state.query, today=self.today)
+                state.hints = {k: v for k, v in intent.model_dump().items()
+                               if k in {"distance", "country", "months"} and v}
+                direction = self._say(
+                    state, "Je propose de chercher un marathon en Italie au printemps.",
+                    "I suggest searching for a spring marathon in Italy.")
+            state, turn = await self._discover(state)
+            if not state.candidates:
+                if direction:
+                    turn.message = direction + " " + turn.message
+                    state.history[-1]["text"] = turn.message
+                return state, turn
+        suitable = [r for r in state.candidates if self._eligible(r)]
+        if not state.hints.get("named"):
+            suitable.sort(key=lambda r: bool(r.registration_access and (
+                r.registration_access.account_required is True or r.registration_access.captcha is True
+            )))
+        if state.draft.race:
+            suitable.sort(key=lambda r: r.id != state.draft.race.id)
+        if not suitable:
+            return self._turn(state, self._say(
+                state, "Aucune date future vérifiée ; il faut une nouvelle source.",
+                "No verified future date is available; we need a new source."))
+        race = suitable[0]
+        message = self._say(
+            state, f"Je recommande {race.name} : sa date future est sourcée et elle correspond "
+            "aux critères de recherche.",
+            f"I recommend {race.name}: its future date is sourced and it matches the search criteria.")
+        if direction:
+            message = direction + " " + message
+        access = race.registration_access
+        if access and (access.account_required is True or access.captcha is True):
+            return self._turn(state, message + self._access_warning(state, race))
+        state.draft.race = race
+        state.draft.provenance["race"] = "source"
+        for field, value in [("origin_city", "Paris" if race.city != "Paris" else "Lyon"),
+                             ("nights", 2), ("budget_eur", 450)]:
+            if getattr(state.draft, field) is None:
+                setattr(state.draft, field, value)
+                state.draft.provenance[field] = "suggested_default"
+        self._advance(state)
+        return self._turn(state, message)
+
     async def step(self, state: GuideState, action: dict):
         original = state
-        state = state.model_copy(deep=True)
-        text = action.get("text", "").strip()
+        state = GuideState.model_validate(self._scrub_data(state.model_dump()))
+        text = scrub_text(action.get("text", "")).strip()
         chip = None
         if "suggestion_id" in action:
             chip = next(
@@ -312,6 +426,7 @@ class GuideEngine:
                     ),
                     "unknown_suggestion",
                 )
+                turn.suggestions = original.pending_suggestions.copy()
                 return original, turn
         elif normalize(text) in {"oui", "ok", "parfait", "yes", "sounds good"}:
             chip = next(
@@ -319,11 +434,18 @@ class GuideEngine:
             )
         if chip:
             if chip.kind == "retry":
+                if chip.value == "next_edition":
+                    state.hints.pop("year", None)
+                    state.hints.pop("months", None)
+                    state.hints.pop("exact_date", None)
+                    state.hints.pop("race_name", None)
+                    state.query = re.sub(r"\b20\d{2}\b", "", state.query) + " next edition"
                 return await self._discover(state)
             if chip.kind == "confirm":
                 self.trip_payload(state)
-                state.stage = "confirmed"
-                return self._turn(state)
+                return self._turn(state, self._say(
+                    state, "Le plan est prêt. Seule la confirmation dédiée lance les agents.",
+                    "The plan is ready. Only the dedicated confirmation starts agents."))
             if chip.kind == "edit":
                 state.stage = chip.value
                 return self._turn(state)
@@ -370,17 +492,75 @@ class GuideEngine:
             text = chip.value
         if not text:
             return self._turn(state)
-        state.history.append({"role": "user", "text": text})
         intent = parse_intent(text, today=self.today)
-        if state.stage == "discover" or intent.lang == "en":
+        if not state.history:
             state.lang = intent.lang
+        if intent.switch_language:
+            state.lang = intent.switch_language
+        if re.search(
+            r"ignore.*(?:instructions?|rules)|system\s*:|developer\s*:|override|"
+            r"\b(?:pay|payer|paie|payment|paiement|buy|acheter|purchase|"
+            r"submit|soumettre|envoyer|bypass|contourner)\b|"
+            r"(?:create|creer|cree|ouvre|open).*(?:account|compte)|"
+            r"(?:accept|accepter|accepte).*(?:terms|conditions|consent|cgu)",
+            normalize(text),
+        ):
+            return self._turn(state, self._say(
+                state, "Je ne peux pas payer, créer de compte, accepter des conditions, "
+                "soumettre un formulaire, contourner un captcha ou ignorer les règles. "
+                "Je peux aider à préparer un déplacement sans engagement.",
+                "I cannot pay, create accounts, accept terms, submit forms, bypass captchas "
+                "or override rules. I can help prepare a trip without commitment."), "safety_refusal")
+        state.history.append({"role": "user", "text": text})
         if bare_city(text) and state.stage in {"origin", "confirm", "confirmed"}:
             intent.origin_city = bare_city(text)
             intent.city = intent.country = None
         if text.isdecimal() and state.stage in {"nights", "budget"}:
             setattr(intent, "nights" if state.stage == "nights" else "budget_eur", int(text))
+        if intent.nights is not None and not 1 <= intent.nights <= 14:
+            intent.problem = "nights_range"
+        if intent.budget_eur is not None and intent.budget_eur <= 0:
+            intent.problem = "budget_range"
         self._update(state, intent)
-        if intent.distance or intent.city or intent.country or intent.months or intent.year:
+        if intent.problem and intent.problem != "exact_date":
+            explanations = {
+                "nights_range": ("La durée doit être entre 1 et 14 nuits.", "Stay length must be 1–14 nights."),
+                "budget_range": ("Le budget doit être supérieur à zéro.", "Budget must be greater than zero."),
+                "tomorrow": ("Je n'ai pas d'événement sourcé pour demain.", "I have no sourced event for tomorrow."),
+                "past_date": ("Cette date est passée ; cherchons une nouvelle édition sourcée.", "That date is past; let's find a newly sourced edition."),
+            }
+            fr, en = explanations.get(intent.problem, (
+                "Ces contraintes sont contradictoires ou non prises en charge ; précisons-les.",
+                "Those requirements conflict or are unsupported; let's clarify them."))
+            if intent.problem == "nights_range":
+                state.draft.nights = None
+                state.draft.arrival_date = state.draft.departure_date = None
+                self._advance(state)
+            elif intent.problem == "budget_range":
+                state.draft.budget_eur = None
+                self._advance(state)
+            if intent.problem in {"past_date", "tomorrow", "destination_conflict", "date_conflict",
+                                  "travelers_range", "unsupported"}:
+                state.draft.race = None
+                state.draft.arrival_date = state.draft.departure_date = None
+                state.candidates = []
+                state.stage = "discover"
+            state, turn = self._turn(state, self._say(state, fr, en), intent.problem)
+            if intent.problem == "past_date":
+                state.query = re.sub(r"\b(?:19|20)\d{2}(?:-\d{2}-\d{2})?\b", "", text)
+                state.hints = {k: v for k, v in intent.model_dump().items()
+                               if k in {"distance", "city", "country", "named"} and v}
+                turn.suggestions = [self._chip("next_edition", self._say(
+                    state, "Chercher la prochaine édition", "Search next edition"), "retry")]
+                state.pending_suggestions = turn.suggestions
+                for suggestion in turn.suggestions:
+                    suggestion.id += f":turn-{len(state.history)}"
+            return state, turn
+        has_constraints = bool(intent.distance or intent.city or intent.country
+                               or intent.months or intent.year or intent.problem == "exact_date")
+        if intent.deferred and not has_constraints:
+            return await self._recommend(state)
+        if has_constraints:
             if intent.distance or intent.country or intent.city:
                 state.query = text
                 state.hints = {}
@@ -403,7 +583,12 @@ class GuideEngine:
                     if k in {"distance", "city", "country", "months", "named", "year"} and v
                 }
             )
-            return await self._discover(state)
+            if intent.problem == "exact_date":
+                state.hints["exact_date"] = re.search(r"\d{4}-\d{2}-\d{2}", text)[0]
+            state, turn = await self._discover(state)
+            if intent.deferred and state.candidates:
+                return await self._recommend(state)
+            return state, turn
         if state.draft.race and any(
             getattr(intent, f) is not None
             for f in ["origin_city", "nights", "budget_eur", "travelers"]
@@ -413,17 +598,15 @@ class GuideEngine:
             state,
             self._say(
                 state,
-                f"Bien reçu : « {text} ». On peut ajuster tout ça ensemble, les raccourcis restent là pour t'aider.",
-                f"Got it: “{text}”. We can adjust this together; the shortcuts are here to help.",
+                "Restons sur ton projet de course ; les choix ci-dessous permettent d'avancer.",
+                "Let's focus on your running trip; the choices below will help us move forward.",
             ),
         )
 
     def trip_payload(self, state):
         d = state.draft
         if not (
-            d.race
-            and d.race.race_date
-            and d.race.date_status in {"official", "unverified"}
+            self._eligible(d.race)
             and d.origin_city
             and d.nights
             and d.budget_eur

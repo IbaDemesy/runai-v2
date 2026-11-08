@@ -7,6 +7,7 @@ import re
 import unicodedata
 from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime
+from importlib import import_module
 from inspect import isawaitable
 from urllib.parse import unquote, urlsplit
 
@@ -211,30 +212,28 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
     return upcoming[:6]
 
 
-async def _registration_access(candidate: dict, registry: Callable) -> dict | None:
+def _site_registration_info(url: str) -> dict | None:
     try:
-        result = registry(candidate.copy())
+        registry = getattr(import_module("runai.agents.site_policy"), "registration_info", None)
+    except ImportError:
+        return None
+    return registry(url) if callable(registry) else None
+
+
+async def _registration_access(url: str, registry: Callable) -> dict | None:
+    try:
+        result = registry(url)
         if isawaitable(result):
             result = await result
         if result is None:
             return None
         access = RegistrationAccess.model_validate(result)
-        evidence = _url(access.evidence_url)
-        if not evidence or not access.observed_at or access.observed_at.tzinfo is None:
+        evidence = _url(access.source)
+        if not evidence or not access.observed_at:
             return None
-        if access.observed_at > datetime.now(UTC):
+        if access.observed_at > datetime.now(UTC).date():
             return None
-        if access.status == "open_no_account" and not (
-            access.account_required is False and access.captcha is False
-        ):
-            return None
-        if access.status == "account_required" and access.account_required is not True:
-            return None
-        if access.status == "account_required" and access.captcha is True:
-            return None
-        if access.status == "captcha" and access.captcha is not True:
-            return None
-        access.evidence_url = evidence
+        access.source = evidence
         access.note = _data_text(access.note) if access.note else None
         return access.model_dump(mode="json")
     except (RuntimeError, ValueError, TypeError, OSError, httpx.HTTPError):
@@ -249,7 +248,7 @@ async def discover(
     api_key: str | None = None,
     client: httpx.AsyncClient | None = None,
     timeout_s: float = 20,
-    registration_info: Callable[[dict], dict | None | Awaitable[dict | None]] | None = None,
+    registration_info: Callable[[str], dict | None | Awaitable[dict | None]] | None = None,
 ) -> list[dict]:
     """Find up to six races; never make registration, booking or browser actions.
 
@@ -320,7 +319,10 @@ async def discover(
     retrieved_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     candidates = _normalize(rows, today, retrieved_at)
     for candidate in candidates:
-        if registration_info is not None:
-            candidate["registration_access"] = await _registration_access(candidate, registration_info)
+        url = candidate["registration_url"] or candidate["official_url"]
+        if url:
+            candidate["registration_access"] = await _registration_access(
+                url, registration_info or _site_registration_info
+            )
         RaceOption.model_validate(candidate)
     return candidates

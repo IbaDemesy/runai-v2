@@ -11,9 +11,8 @@ class Model(BaseModel):
 class RegistrationAccess(Model):
     account_required: StrictBool | None = None
     captcha: StrictBool | None = None
-    status: Literal["open_no_account", "account_required", "captcha", "unknown"] = "unknown"
-    evidence_url: str | None = None
-    observed_at: datetime | None = None
+    source: str | None = None
+    observed_at: date | None = None
     note: str | None = None
 
 
