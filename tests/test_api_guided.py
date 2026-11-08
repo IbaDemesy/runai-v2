@@ -279,3 +279,28 @@ def test_default_live_wiring_translates_hints_and_timeout(monkeypatch):
     assert calls == [("a winter race", {
         "month_from": 12, "month_to": 2, "race_name": "Lisbon", "city": "Lisbon",
     }, 120)]
+
+
+def test_frame_store_is_bounded_across_finished_missions(monkeypatch):
+    monkeypatch.setattr("runai.app.MAX_FRAMES", 4)
+    monkeypatch.setattr("runai.app.MAX_FRAME_BYTES", 10)
+
+    class BurstRunner:
+        async def run(self, kind, trip, emit):
+            for _ in range(5):
+                await emit({"type": "live_frame", "image": b"1234", "mime": "image/png"})
+            return StepResult(kind=kind, status="blocked", summary="SYNTHETIC stopped",
+                              synthetic=True)
+
+    with TestClient(create_app(guide=StubGuide(), runner_factory=lambda mode: BurstRunner())) as c:
+        previous = []
+        for _ in range(2):
+            url = ready(c)
+            assert c.post(url + "/confirm", json={"confirmed": True}).status_code == 202
+            mission = terminal(c, url)
+            ids = [e["frame_id"] for e in mission["events"] if e["type"] == "live_frame"]
+            assert len(ids) == 15
+            assert all(c.get(f"/api/frames/{fid}").status_code == 404 for fid in previous)
+            available = [fid for fid in ids if c.get(f"/api/frames/{fid}").status_code == 200]
+            assert available == ids[-2:]
+            previous = available

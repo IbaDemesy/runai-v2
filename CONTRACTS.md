@@ -114,6 +114,9 @@ storage, quotas and authenticated access remain out of scope.
 SVG contains no third-party URLs or user-provided HTML. Live frames accept only
 PNG/JPEG/WebP/GIF; maximum frame size is 5 MiB. Unsupported/empty frames become
 an explicit unavailable progress message, never fabricated live footage.
+The process retains at most 256 frames / 32 MiB, evicting the oldest across
+missions. Evicted frame IDs return 404; clients should keep the latest frame
+and treat expired earlier footage as unavailable rather than re-create it.
 
 Live adapter: `runai.agents.<kind>.build_task(trip)` followed by
 `runai.agents.hclient.HAgentRunner().run(task, on_event)`. Callback events:
@@ -122,6 +125,9 @@ Live adapter: `runai.agents.<kind>.build_task(trip)` followed by
 not trusted from provider events. Only supported event types are forwarded.
 Public authorized view URLs/frames and scrubbed step logs are the H client's
 responsibility: never expose private H session URLs, tokens or personal data.
+Core event/result validators also suppress credential/session/token URLs and
+private H paths. Only the documented HTTPS regional H share path
+`/share/api/v1/trajectories/{id}` is permitted for H-hosted public links.
 The three task builders enforce site-specific pre-consent/pre-commitment stops;
 the response schema is not itself a browser safety boundary.
 

@@ -15,6 +15,8 @@ from runai.models import Event, Kind, Mission, Mode, Model, StepResult, public_u
 from runai.providers import FakeRunner, LiveRunner, ReplayRunner
 
 ROOT = Path(__file__).resolve().parent.parent
+MAX_FRAMES = 256
+MAX_FRAME_BYTES = 32 * 1024 * 1024
 
 
 class CreateRequest(Model):
@@ -140,6 +142,10 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None) -> FastAPI:
                         return
                     frame_id = uuid4().hex
                     frames[frame_id] = content, mime
+                    while len(frames) > MAX_FRAMES or sum(
+                        len(frame[0]) for frame in frames.values()
+                    ) > MAX_FRAME_BYTES:
+                        del frames[next(iter(frames))]
                     fields["frame_id"] = frame_id
                 if data.get("live_view_url"):
                     fields["live_view_url"] = public_url(data["live_view_url"])
