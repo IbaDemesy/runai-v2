@@ -412,6 +412,14 @@ class HAgentRunner:
                 # Never attach the API bearer to a presigned/external image URL.
                 target = urljoin(self.base_url + "/", source)
                 api = urlsplit(self.base_url)
+                resource = urlsplit(target)
+                legacy_prefix = f"/api/v1/trajectories/{session_id}/resources/"
+                if (resource.scheme == api.scheme and resource.netloc == api.netloc
+                        and resource.path.startswith(legacy_prefix)):
+                    target = resource._replace(path=(
+                        f"{api.path}/sessions/{session_id}/resources/"
+                        + resource.path[len(legacy_prefix):]
+                    )).geturl()
                 for _ in range(6):
                     url = urlsplit(target)
                     if not _public_https(target) or url.username or url.password:
