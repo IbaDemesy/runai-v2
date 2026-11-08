@@ -638,8 +638,9 @@ class HAgentRunner:
                                 await frame(*latest_frame)
                         except (TimeoutError, httpx.TimeoutException, httpx.NetworkError):
                             pass
-                        except httpx.HTTPStatusError:
-                            await emit({"type": "step_progress", "message": "Live view refreshing"})
+                        except httpx.HTTPStatusError as exc:
+                            if exc.response.status_code < 500:
+                                latest_frame = None
                     cursor = (changes.get("first_index") or cursor) + len(events)
                     if changes.get("answer") is not None:
                         answer = changes["answer"]
