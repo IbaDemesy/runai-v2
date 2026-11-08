@@ -23,9 +23,11 @@
     if (typeof value !== 'string') return null;
     try {
       const url = new URL(value);
-      if (url.protocol !== 'https:' || url.username || url.password || /(^|\.)hcompany\.ai$|(^|\.)h\.ai$/.test(url.hostname) ||
+      if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || /(^|\.)hcompany\.ai$|(^|\.)h\.ai$/.test(url.hostname) ||
           /(?:share\/api|trajector|session|token|secret|auth|api[_-]?key)/i.test(url.href) ||
-          url.search || url.hash || /@|%40/i.test(url.pathname)) return null;
+          url.hash || /@|%40/i.test(url.pathname) || [...url.searchParams].some(([key, value]) =>
+            /token|session|sid|auth|key|signature|email|phone|password/i.test(key) ||
+            /@|(?:\d[ -]?){13,19}/.test(value))) return null;
       return url.href;
     } catch { return null; }
   };
