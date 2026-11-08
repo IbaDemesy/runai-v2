@@ -22,6 +22,8 @@
       "runai/app.py",
       "runai/models.py",
       "static/index.html",
+      "static/styles.css",
+      "static/app.js",
       "tests/test_units.py",
       "tests/test_journey_e2e.py",
       "CONTRACTS.md",
@@ -36,10 +38,28 @@
     ],
     "files": [
       "runai/providers.py",
+      "runai/adapters/__init__.py",
       "runai/app.py",
+      "runai/models.py",
       "tests/test_units.py",
+      "tests/test_adapters_base.py",
       "PLAN.md",
+      "CONTRACTS.md",
       "HANDOFF.md"
+    ]
+  },
+  {
+    "id": "T09",
+    "title": "Gladia voice input",
+    "depends_on": [
+      "T02"
+    ],
+    "files": [
+      "runai/voice/__init__.py",
+      "runai/voice/gladia.py",
+      "static/voice.js",
+      "tests/test_voice.py",
+      "docs/handoff/T09.md"
     ]
   },
   {
@@ -49,10 +69,10 @@
       "T03"
     ],
     "files": [
-      "runai/providers.py",
-      "tests/test_units.py",
+      "runai/adapters/registration.py",
+      "tests/test_adapter_registration.py",
       "docs/evidence/registration.md",
-      "HANDOFF.md"
+      "docs/handoff/T04.md"
     ]
   },
   {
@@ -62,10 +82,10 @@
       "T03"
     ],
     "files": [
-      "runai/providers.py",
-      "tests/test_units.py",
-      "docs/evidence/hotel.md",
-      "HANDOFF.md"
+      "runai/adapters/accor.py",
+      "tests/test_adapter_accor.py",
+      "docs/evidence/accor.md",
+      "docs/handoff/T05.md"
     ]
   },
   {
@@ -75,10 +95,10 @@
       "T03"
     ],
     "files": [
-      "runai/providers.py",
-      "tests/test_units.py",
-      "docs/evidence/transport.md",
-      "HANDOFF.md"
+      "runai/adapters/trenitalia.py",
+      "tests/test_adapter_trenitalia.py",
+      "docs/evidence/trenitalia.md",
+      "docs/handoff/T06.md"
     ]
   },
   {
@@ -91,6 +111,7 @@
     ],
     "files": [
       "runai/providers.py",
+      "runai/app.py",
       "runai/models.py",
       "fixtures/synthetic-journey.json",
       "tests/test_units.py",
@@ -103,27 +124,16 @@
     "id": "T08",
     "title": "Live status and human handoff UI",
     "depends_on": [
-      "T07"
+      "T07",
+      "T09"
     ],
     "files": [
       "static/index.html",
+      "static/styles.css",
+      "static/app.js",
       "runai/app.py",
       "runai/models.py",
       "tests/test_journey_e2e.py",
-      "CONTRACTS.md",
-      "HANDOFF.md"
-    ]
-  },
-  {
-    "id": "T09",
-    "title": "Gladia voice input",
-    "depends_on": [
-      "T02"
-    ],
-    "files": [
-      "runai/providers.py",
-      "runai/app.py",
-      "static/index.html",
       "tests/test_units.py",
       "CONTRACTS.md",
       "HANDOFF.md"

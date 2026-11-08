@@ -24,6 +24,33 @@ GET /api/missions/{id}: poll status, results and ordered events during preparati
 409 already confirmed; 501 unavailable live search (missing implementation/key).
 Runner failures produce failed StepResults rather than success fallbacks.
 
+## Planned contract evolution (T02/T03/T07/T08; not implemented yet)
+- RaceOption: id, race name, edition, distance_km, official race_date,
+  official_url, registration_url if verified, source URLs, retrieved_at,
+  synthetic. Unknown or conflicting dates are explicit, never guessed facts.
+- Suggestion: id, label, action/value, provenance (source | suggested_default),
+  source URLs if factual. Chips select an option or answer the current question.
+- GuidedTurn: assistant message, candidate options, suggestions, at most one
+  focused question, partial framing, selected option, confirmation_required.
+  Origin/nights/budget defaults are editable and distinct from official facts.
+- SearchProvider discovery accepts vague intent before complete Framing exists;
+  T03 supplies official race candidates to T02's guided assistant. Demo uses
+  labelled synthetic candidates; no-results/conflicts/errors ask one useful
+  follow-up, never require the runner to know the official date.
+- AgentLiveFrame: mission_id, kind, sequence, observed_at, mode, synthetic,
+  frame_url or real public live_view_url/share_url, step message, availability.
+  Extend events with live_frame/live_view_available/step_progress in T07/T08.
+  Serve only scrubbed, authorized public URLs/frames, no private H session URLs.
+  Record frames for replay, label replay/synthetic provenance and original time;
+  missing frames show unavailable, not animated or fabricated live footage.
+- T03 defines shared adapter interface/export and registry hooks in
+  runai/adapters/__init__.py and providers.py. T04/T05/T06 implement isolated
+  modules against it; T07 integrates without forcing cross-ticket file edits.
+  Voice adapters/UI module are isolated by T09; T08 owns app/UI wiring.
+- Existing HTTP/schema notes above describe bootstrap only. T02/T03 document
+  their guided-turn requests/responses here; T07/T08 document frame polling or
+  streaming. Plan confirmation remains mandatory before H actions.
+
 ## Safety and limitations
 In-memory store, single process, no restart durability or authentication.
 No purchase/submit API exists. Live adapters must enforce pre-consent stops in

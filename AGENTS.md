@@ -17,5 +17,6 @@
 - live is deliberately unavailable (501), not a fallback to fake success.
 - Merge only with green CI, including tests/test_journey_e2e.py.
 - Keep PRs small; review evidence and payment guardrails before merge.
-- Update HANDOFF.md with changes, checks, evidence, blockers, next ticket before stopping.
+- Update HANDOFF.md before stopping; parallel tickets instead use their scoped
+  docs/handoff/Txx.md with changes, checks, evidence, blockers and next ticket.
 - No live runs without explicit approval and applicable site authorization review.
