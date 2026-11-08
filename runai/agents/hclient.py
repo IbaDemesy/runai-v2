@@ -10,7 +10,7 @@ import os
 import re
 import unicodedata
 from collections.abc import Awaitable, Callable
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from urllib.parse import quote, unquote, urljoin, urlsplit
 
 import httpx
@@ -233,6 +233,9 @@ def _verified(task, answer, handoff, observed, frame_seen, reviews):
     expected_dates = {date.fromisoformat(str(v)[:10]).isoformat()
                       for k, v in expected.items()
                       if k in _EXPECTED_FIELDS[task["kind"]] and "date" in k and v is not None}
+    if task["kind"] == "transport":
+        expected_dates.add((date.fromisoformat(str(expected["arrival_date"])[:10])
+                            - timedelta(days=1)).isoformat())
     return not any(day not in expected_dates for day in dates)
 _PAYMENT = re.compile(
     r"\b(?:payment|booking|purchase|reservation|order)\s+(?:(?:was|is|has been)\s+)?"

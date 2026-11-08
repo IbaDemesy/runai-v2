@@ -910,3 +910,22 @@ def test_handoff_query_must_match_observed_selection(query):
     provider = Provider(answer={**ANSWER, "handoff_url": HANDOFF + "?" + query})
     result, _ = run(provider)
     assert result["status"] == "blocked"
+
+
+@pytest.mark.parametrize("kind,day,ready", [
+    ("transport", "2027-04-02", True), ("transport", "2027-04-01", False),
+    ("hotel", "2027-04-02", False),
+])
+def test_transport_overnight_outbound_date_allowance(kind, day, ready):
+    expected = {"city": "Rome", "origin_city": "Paris", "arrival_date": "2027-04-03",
+                "departure_date": "2027-04-05", "travelers": 2}
+    verification = {**expected, "selected": True, "next_safe_boundary": "guest details",
+                    "room": "Twin", "rate": "Flexible", "fare": "Return", "total": "EUR 1200",
+                    "outbound_selected": True, "return_selected": True}
+    url = HANDOFF + "?outbound=" + day
+    event = observation()
+    event["data"]["metadata"]["url"] = url
+    result, _ = run(Provider(events=[event], answer={
+        **ANSWER, "handoff_url": url, "verification": verification,
+    }), {**TASK, "kind": kind, "expected": expected})
+    assert result["status"] == ("ready_for_payment" if ready else "blocked")
