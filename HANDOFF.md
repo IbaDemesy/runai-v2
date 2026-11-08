@@ -40,7 +40,8 @@ squash-merge only green CI, never push directly to main.
 
 ## Checks and evidence
 - Python 3.12: `uv sync --frozen && uv run ruff check . && uv run pytest -q`
-  passed: `All checks passed!` and `7 passed, 1 warning in 0.79s`.
+  passed after rebasing onto updated main: `All checks passed!` and
+  `26 passed, 1 warning in 0.54s` (initial baseline: 7 tests).
   The warning is the existing Starlette/httpx TestClient deprecation.
 - Queue JSON, matching ticket scopes, non-overlapping ownership, dependency/merge
   ordering, legacy superseded notices and names-only environment example passed
