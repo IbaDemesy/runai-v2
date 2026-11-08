@@ -148,6 +148,13 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     assert.ok(root.querySelector('.confirm')); assert.equal(ids.agents.hidden, true);
     assert.ok(root.querySelector('.chip').disabled);
     assert.equal(root.querySelectorAll('.assistant').length, 2);
+  } else if (scenario === 'english') {
+    const english = mission(false); english.turns[0].message = "Here's your race.";
+    english.turns[0].question = 'Which one catches your eye?';
+    respond('/api/missions', english); await submit('I want a half marathon in spring');
+    assert.ok(ids.thread.textContent.includes('7 March 2027'));
+    assert.ok(ids.thread.textContent.includes('21.1 km'));
+    assert.ok(!ids.thread.textContent.includes('mars'));
   } else if (scenario === 'pending') {
     let resolve; const deferred = new Promise(r => { resolve = r; });
     respond('/api/missions', deferred);
@@ -261,7 +268,7 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
 
 
 @pytest.mark.parametrize("scenario", [
-    "chronology", "pending", "background", "sync", "retry", "sensitive", "empty",
+    "chronology", "english", "pending", "background", "sync", "retry", "sensitive", "empty",
     "generation", "frames", "stale", "decode", "replay", "launch", "disconnect",
 ])
 def test_executable_browser_states(scenario):

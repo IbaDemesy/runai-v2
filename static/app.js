@@ -5,7 +5,7 @@
   const terminal = new Set(['ready_for_payment', 'blocked', 'failed', 'cancelled']);
   const labels = {pending: 'En attente', running: 'En action', ready_for_payment: 'À vous de jouer', blocked: 'À reprendre', failed: 'Interrompu', cancelled: 'Arrêté'};
   let mission = null, after = 0, timer = null, busy = false, generation = 0, liveReady = null;
-  let backgroundSupported = true;
+  let backgroundSupported = true, language = 'fr';
   const agentState = {};
   const redact = value => String(value ?? '')
     .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[contact masqué]')
@@ -50,7 +50,11 @@
       plan: plan?.race?.name ? plan : null,
       ready_to_confirm: data.ready_to_confirm === true || data.confirmation_required === true};
   }
-  const locale = () => mission?.lang === 'en' ? 'en-GB' : 'fr-FR';
+  const locale = () => language === 'en' ? 'en-GB' : 'fr-FR';
+  function detectLanguage(value) {
+    if (/\b(which|where|how many|what budget|here's|would you|i want|i would|i'd like|let's|your trip)\b/i.test(value)) language = 'en';
+    else if (/\b(laquelle|combien|quel|quelle|tu pars|je veux|je voudrais|voilà|ton séjour)\b/i.test(value)) language = 'fr';
+  }
   const date = value => {
     if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return 'Date à confirmer';
     return new Intl.DateTimeFormat(locale(), {day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'}).format(new Date(value));
@@ -163,17 +167,21 @@
   function renderTurn(raw, reply) {
     const turn = normalize(raw); if (!turn.id) throw Error('Incomplete response');
     mission = {...mission, ...turn};
+    if (['fr', 'en'].includes(turn.lang)) language = turn.lang;
+    else detectLanguage(`${turn.assistant_message} ${turn.question}`);
     reply.inner.querySelectorAll('.pending').forEach(el => el.remove());
     reply.bubble.textContent = redact(turn.assistant_message || 'Aucune proposition pour le moment. Essayons une autre envie de course.');
-    if (turn.candidates.length) reply.inner.append(candidates(turn.candidates));
     if (turn.plan) reply.inner.append(planCard(turn.plan, turn.ready_to_confirm));
+    else if (turn.candidates.length) reply.inner.append(candidates(turn.candidates));
     if (turn.question) reply.inner.append(node('p', 'question', turn.question));
     const chips = node('div', 'chips'); chips.dataset.testid = 'chips';
     for (const suggestion of turn.suggestions) {
       if (!suggestion.id || !suggestion.label || suggestion.kind === 'confirm') continue;
-      const item = node('div', 'suggestion'), button = node('button', 'chip', `${suggestion.label} ↗`);
+      const race = suggestion.kind === 'choose_race' ? turn.candidates.find(r => r.id === suggestion.value || suggestion.id === `choose_race:${r.id}`) : null;
+      const item = node('div', 'suggestion'), button = node('button', 'chip', `${race?.name || suggestion.label} ↗`);
       button.type = 'button'; button.onclick = () => send({suggestion_id: suggestion.id}, suggestion.label);
-      item.append(button, node('span', 'suggestion-meta', {source: 'Course sourcée', synthetic: 'Exemple synthétique', suggested_default: 'Suggestion · modifiable'}[suggestion.provenance] || 'Choisir cette réponse')); chips.append(item);
+      const metadata = race ? `${distance(race)} · ${date(race.race_date)}` : {source: 'Course sourcée', synthetic: 'Exemple synthétique', suggested_default: 'Suggestion · modifiable'}[suggestion.provenance] || 'Choisir cette réponse';
+      item.append(button, node('span', 'suggestion-meta', metadata)); chips.append(item);
     }
     if (chips.children.length) reply.inner.append(chips); scroll();
   }
@@ -198,7 +206,7 @@
   const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
   async function send(body, label, attempt = null) {
     if (busy) return;
-    const token = generation; loading(true); $('toast').hidden = true;
+    const token = generation; if (body.text) detectLanguage(body.text); loading(true); $('toast').hidden = true;
     const previousControls = document.querySelectorAll('.chips,.confirm-area');
     if (!attempt) { message('user', label); $('message').value = ''; $('message').style.height = ''; attempt = {reply: message('assistant', ''), id: null}; }
     const reply = attempt.reply; reply.inner.querySelectorAll('.pending').forEach(el => el.remove());
@@ -311,7 +319,7 @@
   };
   $('toast').querySelector('button').onclick = () => { $('toast').hidden = true; };
   $('mode').onchange = () => {
-    generation++; clearTimeout(timer); mission = null; after = 0; loading(false);
+    generation++; clearTimeout(timer); mission = null; after = 0; language = 'fr'; loading(false);
     for (const kind of kinds) delete agentState[kind];
     document.querySelectorAll('.message').forEach(el => el.remove());
     document.querySelectorAll('.agent').forEach(card => {
