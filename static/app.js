@@ -323,9 +323,7 @@
     if (busy) return;
     loading(true);
     $('toast').hidden = true;
-    document
-      .querySelectorAll('.chips,.confirm-area')
-      .forEach(el => el.remove());
+    const previousControls = document.querySelectorAll('.chips,.confirm-area');
     message('user', label);
     $('message').value = '';
     $('message').style.height = '';
@@ -343,6 +341,7 @@
       );
       reply.bubble.replaceChildren();
       await renderTurn(result, reply);
+      previousControls.forEach(el => el.remove());
     } catch (err) {
       reply.bubble.textContent =
         'La demande n’a pas abouti. Vous pouvez réessayer.';

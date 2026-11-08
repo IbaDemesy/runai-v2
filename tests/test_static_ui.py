@@ -75,6 +75,17 @@ def test_live_view_requires_cross_origin_http_url():
     assert "if (e.live_view_url != null && !view && state.view)" in JS
 
 
+def test_send_keeps_previous_controls_until_success():
+    send = JS.split("async function send(body, label) {", 1)[1].split(
+        "async function confirm(button)", 1
+    )[0]
+    assert "const previousControls = document.querySelectorAll('.chips,.confirm-area')" in send
+    assert send.index("await renderTurn(result, reply)") < send.index(
+        "previousControls.forEach(el => el.remove())"
+    ) < send.index("catch (err)")
+    assert "loading(false)" in send
+
+
 def test_guided_mission_contract():
     assert "envelope.turns?.at(-1)" in JS
     assert "data.draft || data.plan || envelope.trip" in JS
