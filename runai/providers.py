@@ -52,7 +52,9 @@ class FakeRunner:
 class ReplayRunner:
     def __init__(self, path: Path = FIXTURE):
         trace = json.loads(path.read_text())
-        if trace["provenance"] != "synthetic":
+        if trace.get("schema_version") != 1:
+            raise ValueError("Unsupported replay schema_version")
+        if trace.get("provenance") != "synthetic":
             raise ValueError("Only the checked-in synthetic trace is supported")
         self.results = {Kind(row["kind"]): StepResult.model_validate(row) for row in trace["results"]}
         if set(self.results) != set(Kind):

@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from runai.app import TARGET, create_app
 from runai.models import Kind, StepResult
-from runai.providers import FakeVoice, LiveRunner, LiveVoice, ReplayRunner
+from runai.providers import FIXTURE, FakeVoice, LiveRunner, LiveVoice, ReplayRunner
 
 
 def test_invalid_requests_and_live():
@@ -57,3 +57,38 @@ def test_provider_failure_is_visible(monkeypatch):
         assert result["status"] == "failed"
         assert len(result["results"]) == 3
         assert all(r["error"] == "test provider failure" for r in result["results"])
+
+
+def _write_trace(path, **overrides):
+    import json
+
+    trace = json.loads(FIXTURE.read_text())
+    trace.update(overrides)
+    path.write_text(json.dumps(trace))
+    return path
+
+
+def test_replay_trace_validation(tmp_path):
+    assert set(ReplayRunner(_write_trace(tmp_path / "ok.json")).results) == set(Kind)
+    with pytest.raises(ValueError, match="all three"):
+        ReplayRunner(_write_trace(tmp_path / "empty.json", results=[]))
+    with pytest.raises(ValueError, match="schema_version"):
+        ReplayRunner(_write_trace(tmp_path / "v2.json", schema_version=2))
+    with pytest.raises(ValueError, match="synthetic"):
+        ReplayRunner(_write_trace(tmp_path / "live.json", provenance="live"))
+
+
+def test_broken_replay_fails_visibly(monkeypatch):
+    def broken():
+        raise ValueError("bad trace")
+
+    monkeypatch.setattr("runai.app.ReplayRunner", broken)
+    with TestClient(create_app()) as client:
+        m = client.post("/api/missions", json={"description": "x", "mode": "replay"}).json()
+        result = client.post(f"/api/missions/{m['id']}/confirm", json={"confirmed": True})
+        assert result.status_code == 200
+        body = result.json()
+        assert body["status"] == "failed"
+        assert {r["kind"] for r in body["results"]} == set(Kind)
+        assert all(r["status"] == "failed" and "bad trace" in r["error"] for r in body["results"])
+        assert all(not r["payment_executed"] for r in body["results"])

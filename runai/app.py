@@ -84,14 +84,20 @@ def create_app() -> FastAPI:
             ))
 
         emit("confirmed", "SYNTHETIC journey confirmed; no purchases")
-        runner = (
-            ReplayRunner() if mission.mode == Mode.replay
-            else LiveRunner() if mission.mode == Mode.live else FakeRunner()
-        )
+        try:
+            runner = (
+                ReplayRunner() if mission.mode == Mode.replay
+                else LiveRunner() if mission.mode == Mode.live else FakeRunner()
+            )
+            runner_error = None
+        except (RuntimeError, ValueError, OSError, KeyError) as exc:
+            runner, runner_error = None, exc
 
         async def run(kind: Kind):
             emit("step_started", "SYNTHETIC preparation started", kind)
             try:
+                if runner is None:
+                    raise ValueError(f"Runner unavailable: {runner_error}")
                 result = await runner.run(kind, mission.plan)
                 if result.status == "ready_for_payment" and not result.handoff_url:
                     raise ValueError("Missing handoff URL")
