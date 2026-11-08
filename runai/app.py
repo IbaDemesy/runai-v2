@@ -47,7 +47,7 @@ def _default_guide(mode):
         else:
             discovery = importlib.import_module("runai.guide.fake").FakeDiscovery()
         return module.GuideEngine(discovery)
-    except ImportError as exc:
+    except (ImportError, AttributeError) as exc:
         raise HTTPException(501, "Guided discovery module unavailable for this mode") from exc
 
 
@@ -211,7 +211,7 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None) -> FastAPI:
                 if runner_factory is None:
                     try:
                         LiveRunner.ensure_available()
-                    except ImportError as exc:
+                    except (ImportError, AttributeError) as exc:
                         raise HTTPException(501, "Live H preparation modules unavailable") from exc
             mission.status = "running"
             emit(mission, "confirmed", "Explicitly confirmed; stop before payment or commitment")

@@ -127,9 +127,9 @@ class ReplayRunner:
 class LiveRunner:
     @staticmethod
     def ensure_available():
-        importlib.import_module("runai.agents.hclient")
+        _ = importlib.import_module("runai.agents.hclient").HAgentRunner
         for kind in Kind:
-            importlib.import_module(f"runai.agents.{kind.value}")
+            _ = importlib.import_module(f"runai.agents.{kind.value}").build_task
 
     async def run(self, kind: Kind, trip: dict, emit: Emit) -> StepResult:
         fallback = _fallback(kind, trip)
