@@ -43,6 +43,32 @@ def test_missing_scrubber_fallback_removes_credentials(monkeypatch, text):
     assert sanitize("budget 800 € le 2027-04-04") == "budget 800 € le 2027-04-04"
 
 
+def test_distinct_long_slug_ids_survive_chip_round_trip():
+    ids = ["a" * 40, "b" * 40]
+    captured = []
+
+    class SlugGuide:
+        async def start(self, text):
+            return {}, {"message": "Choose a race", "ready_to_confirm": False,
+                        "candidates": [{"id": item} for item in ids],
+                        "suggestions": [{"id": item, "label": item[:1]} for item in ids]}
+
+        async def step(self, state, answer):
+            captured.append(answer["suggestion_id"])
+            return await self.start("")
+
+    with TestClient(create_app(guide=SlugGuide())) as client:
+        mission = client.post("/api/missions", json={"text": "race"}).json()
+        turn = mission["turns"][-1]
+        assert [item["id"] for item in turn["candidates"]] == ids
+        assert [item["id"] for item in turn["suggestions"]] == ids
+        url = f"/api/missions/{mission['id']}/messages"
+        for item in ids:
+            assert client.post(url, json={"suggestion_id": item}).status_code == 200
+    assert captured == ids
+    assert sanitize("runner.sentinel@example.com", "id") != "runner.sentinel@example.com"
+
+
 def test_inputs_state_output_validation_and_logs_are_private(caplog):
     captured = []
 

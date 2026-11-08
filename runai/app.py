@@ -81,6 +81,10 @@ def sanitize(value, key=""):
         return [sanitize(item, key) for item in value]
     if not isinstance(value, str):
         return value
+    if (key == "id" or key.endswith("_id")) and re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}", value,
+    ):
+        return value
     if key.endswith("_url") or key == "source_urls":
         url = public_url(value)
         if url is None:
