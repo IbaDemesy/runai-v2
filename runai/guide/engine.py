@@ -1,6 +1,7 @@
 import re
 from collections.abc import Awaitable, Callable
 from datetime import date, timedelta
+from urllib.parse import urlsplit
 
 from pydantic import ValidationError
 
@@ -111,10 +112,12 @@ class GuideEngine:
                 )
             chips = [self._chip(c) for c in choices]
         elif state.stage in {"confirm", "confirmed"}:
+            people_fr = "personne" if d.travelers == 1 else "personnes"
+            people_en = "traveler" if d.travelers == 1 else "travelers"
             summary = self._say(
                 state,
-                f"Voilà ton idée de séjour : {d.race.name}, au départ de {d.origin_city}, {d.nights} nuits, budget {d.budget_eur} € pour {d.travelers} personne(s), du {d.arrival_date} au {d.departure_date}.",
-                f"Here's your trip: {d.race.name}, leaving from {d.origin_city}, {d.nights} nights, budget €{d.budget_eur} for {d.travelers} traveler(s), {d.arrival_date} to {d.departure_date}.",
+                f"Voilà ton idée de séjour : {d.race.name}, au départ de {d.origin_city}, {d.nights} nuits, budget {d.budget_eur} € pour {d.travelers} {people_fr}, du {d.arrival_date} au {d.departure_date}.",
+                f"Here's your trip: {d.race.name}, leaving from {d.origin_city}, {d.nights} nights, budget €{d.budget_eur} for {d.travelers} {people_en}, {d.arrival_date} to {d.departure_date}.",
             )
             message = (message + " " if message else "") + summary
             if state.stage == "confirm":
@@ -414,10 +417,23 @@ class GuideEngine:
                 state, "Aucune date future vérifiée ; il faut une nouvelle source.",
                 "No verified future date is available; we need a new source."))
         race = suitable[0]
+        host = None
+        for url in race.source_urls:
+            try:
+                host = urlsplit(url).hostname
+            except ValueError:
+                continue
+            if host:
+                break
+        date_kind = self._say(state, "synthétique" if race.synthetic else "officielle",
+                             "synthetic" if race.synthetic else "official")
+        reason = self._say(state, f"date {date_kind} du {race.race_date}",
+                           f"{date_kind} date {race.race_date}")
+        if host:
+            reason += self._say(state, f", source : {host}", f", source: {host}")
         message = self._say(
-            state, f"Je recommande {race.name} : sa date future est sourcée et elle correspond "
-            "aux critères de recherche.",
-            f"I recommend {race.name}: its future date is sourced and it matches the search criteria.")
+            state, f"Je recommande {race.name} : {reason}.",
+            f"I recommend {race.name}: {reason}.")
         if direction:
             message = direction + " " + message
         access = race.registration_access
@@ -549,29 +565,33 @@ class GuideEngine:
             intent.problem = "budget_range"
         self._update(state, intent)
         if intent.problem and intent.problem != "exact_date":
+            problems = list(dict.fromkeys([intent.problem, *intent.problems]))
             explanations = {
-                "nights_range": ("La durée doit être entre 1 et 14 nuits.", "Stay length must be 1–14 nights."),
-                "budget_range": ("Le budget doit être supérieur à zéro.", "Budget must be greater than zero."),
+                "nights_range": (f"La durée de {intent.nights} nuits doit être entre 1 et 14 nuits.",
+                                 f"A stay of {intent.nights} nights is outside the allowed 1–14 nights."),
+                "budget_range": (f"Le budget de {intent.budget_eur} € doit être supérieur à zéro.",
+                                 f"A budget of €{intent.budget_eur} must be greater than zero."),
                 "tomorrow": ("Je n'ai pas d'événement sourcé pour demain.", "I have no sourced event for tomorrow."),
                 "past_date": ("Cette date est passée ; cherchons une nouvelle édition sourcée.", "That date is past; let's find a newly sourced edition."),
             }
-            fr, en = explanations.get(intent.problem, (
+            messages = [self._say(state, *explanations.get(problem, (
                 "Ces contraintes sont contradictoires ou non prises en charge ; précisons-les.",
-                "Those requirements conflict or are unsupported; let's clarify them."))
-            if intent.problem == "nights_range":
+                "Those requirements conflict or are unsupported; let's clarify them.")))
+                for problem in problems]
+            if "nights_range" in problems:
                 state.draft.nights = None
                 state.draft.arrival_date = state.draft.departure_date = None
                 self._advance(state)
-            elif intent.problem == "budget_range":
+            if "budget_range" in problems:
                 state.draft.budget_eur = None
                 self._advance(state)
-            if intent.problem in {"past_date", "tomorrow", "destination_conflict", "date_conflict",
-                                  "travelers_range", "unsupported"}:
+            if set(problems) & {"past_date", "tomorrow", "destination_conflict", "date_conflict",
+                                "travelers_range", "unsupported"}:
                 state.draft.race = None
                 state.draft.arrival_date = state.draft.departure_date = None
                 state.candidates = []
                 state.stage = "discover"
-            state, turn = self._turn(state, self._say(state, fr, en), intent.problem)
+            state, turn = self._turn(state, " ".join(dict.fromkeys(messages)), intent.problem)
             if intent.problem == "past_date":
                 state.query = re.sub(r"\b(?:19|20)\d{2}(?:-\d{2}-\d{2})?\b", "", text)
                 state.hints = {k: v for k, v in intent.model_dump().items()

@@ -17,6 +17,30 @@ def test_package_public_api():
     assert all(hasattr(runai.guide, name) for name in runai.guide.__all__)
 
 
+@pytest.mark.parametrize("lang,travelers,label", [
+    ("fr", 1, "1 personne,"), ("fr", 2, "2 personnes,"),
+    ("en", 1, "1 traveler,"), ("en", 2, "2 travelers,"),
+])
+def test_plan_copy_has_natural_people_pluralization(lang, travelers, label):
+    text = ("le semi de Lisbonne depuis Lyon 2 nuits budget 800" if lang == "fr"
+            else "the Lisbon half marathon from Lyon 2 nights budget 800")
+    state, turn = run(engine().start(text + f" {travelers} people"))
+    assert state.lang == lang and turn.ready_to_confirm
+    assert label in turn.message and "(s)" not in turn.message
+
+
+@pytest.mark.parametrize("synthetic", [True, False])
+def test_recommendation_reason_contains_date_and_source_host(synthetic):
+    async def discover(query, hints):
+        return [{"id": "example", "name": "Example race", "date_status": "official",
+                 "race_date": "2027-04-01", "source_urls": ["https://races.example/date"],
+                 "synthetic": synthetic}]
+    state, turn = run(GuideEngine(discover, today=date(2026, 11, 8)).start("you choose"))
+    assert state.lang == "en" and turn.ready_to_confirm
+    assert "2027-04-01" in turn.message and "races.example" in turn.message
+    assert ("synthetic date" if synthetic else "official date") in turn.message
+
+
 @pytest.mark.parametrize("text", ["peu importe", "je sais pas", "tu en penses quoi ?",
                                   "whatever", "I don't know", "you choose", "what do you think?"])
 def test_deferral_recommends_one_future_option_with_editable_defaults(text):

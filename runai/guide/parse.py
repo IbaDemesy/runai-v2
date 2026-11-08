@@ -111,6 +111,7 @@ class Intent(Model):
     correction: bool = False
     lang: str = "fr"
     problem: str | None = None
+    problems: list[str] = Field(default_factory=list)
     deferred: bool = False
     switch_language: str | None = None
 
@@ -121,8 +122,10 @@ def parse_intent(text: str, *, today: date) -> Intent:
     for wrong, right in {"marathn": "marathon", "itali": "italie", "printemp": "printemps"}.items():
         t = re.sub(r"\b" + wrong + r"\b", right, t)
     language_cue = re.search(
-        r"\b(?P<fr>le|la|les|un|une|en|au|aux|depuis|printemps|ete|nuits|plutot|bonjour|je|peu)\b|"
-        r"\b(?P<en>the|in|from|next|this|summer|spring|half|nights|actually|instead|i|whatever|you)\b",
+        r"\b(?P<fr>le|la|les|un|une|en|au|aux|depuis|printemps|ete|nuits|plutot|bonjour|je|peu|"
+        r"payer|creer|accepter|raconte|salut|parle|ignore(?=\s+les))\b|"
+        r"\b(?P<en>the|in|from|next|this|summer|spring|half|nights|actually|instead|i|whatever|you|"
+        r"ignore(?=\s+previous)|pay|with|please|tell|what|hello|create|accept|submit|bypass)\b",
         t,
     )
     result = Intent(lang="en" if language_cue and language_cue.lastgroup == "en" else "fr")
@@ -271,4 +274,11 @@ def parse_intent(text: str, *, today: date) -> Intent:
         result.problem = "past_date"
     elif re.search(r"\b(?:free|gratuit|teleport|teleporter|impossible)\b", t):
         result.problem = "unsupported"
+    result.problems = list(dict.fromkeys(problem for problem, active in [
+        (result.problem, result.problem is not None and result.problem != "exact_date"),
+        ("tomorrow", bool(re.search(r"\b(?:tomorrow|demain)\b", t))),
+        ("nights_range", result.nights is not None and not 1 <= result.nights <= 14),
+        ("budget_range", result.budget_eur is not None and result.budget_eur <= 0),
+        ("travelers_range", result.travelers is not None and result.travelers < 1),
+    ] if active))
     return result
