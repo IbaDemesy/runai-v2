@@ -1,14 +1,121 @@
 <!doctype html>
 <html lang="fr">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111211"><title>RunAI — votre prochaine ligne de départ</title><link rel="stylesheet" href="/static/styles.css"><script src="/static/app.js" defer></script></head>
-<body>
-<header class="topbar"><a class="brand" href="/"><b>R↗</b> RUN<span>AI</span><small>RACE TRAVEL, REIMAGINED</small></a><label class="mode-control">ENVIRONNEMENT <select id="mode" aria-label="Mode"><option value="demo">Démo</option><option value="replay">Replay</option><option value="live">Live</option></select></label></header>
-<div class="safety-bar"><span id="mode-badge">SIMULATION SYNTHÉTIQUE</span><span id="live-hint" hidden>Live indisponible : configuration des services incomplète.</span><span>Aucun achat. Aucune réservation. Vous gardez la main.</span></div>
-<main id="workspace"><section class="conversation" aria-label="Conversation"><div id="thread" role="log" aria-live="polite" aria-label="Messages"><section id="welcome"><p class="eyebrow">VOTRE PROCHAINE LIGNE DE DÉPART</p><h1>Vous courez.<br>On prépare <em>le reste.</em></h1><p class="intro">Une envie de course ? Trouvons votre dossard, votre hôtel et votre trajet. Un plan clair, puis trois agents à vos côtés.</p><div class="example-chips" data-testid="chips"><button data-prompt="un marathon au printemps en Italie"><span>01 ↗</span>Un marathon au printemps en Italie</button><button data-prompt="un trail en Suisse cet été"><span>02 ↗</span>Un trail en Suisse cet été</button><button data-prompt="le semi de Lisbonne"><span>03 ↗</span>Le semi de Lisbonne</button></div><div class="journey-line">01 <b>La course</b><i></i>02 <b>Le plan</b><i></i>03 <b>Le départ</b></div></section></div><footer class="composer-area"><form id="composer"><label class="sr-only" for="message">Votre message</label><textarea id="message" rows="1" maxlength="2000" placeholder="Quelle course vous fait envie ?"></textarea><button id="send" aria-label="Envoyer le message">↑</button></form><p>À votre rythme. Les agents s’arrêtent avant tout paiement ou engagement.</p></footer></section>
-<section id="agents" hidden aria-label="Les trois agents"><div class="agents-heading"><p class="eyebrow">VOTRE ÉQUIPE EN ACTION</p><h2>Trois agents. Un départ.</h2><p>Préparation en parallèle · arrêt avant paiement</p></div><div class="agent-grid">
-<article class="agent" data-agent="registration"><header><span>↗</span><h3>Inscription / dossard</h3><span class="status" data-status="pending">En attente</span></header><div class="preview">Aperçu indisponible</div><ol class="steps"></ol><div class="handoff"></div></article>
-<article class="agent" data-agent="hotel"><header><span>⌂</span><h3>Hôtel</h3><span class="status" data-status="pending">En attente</span></header><div class="preview">Aperçu indisponible</div><ol class="steps"></ol><div class="handoff"></div></article>
-<article class="agent" data-agent="transport"><header><span>→</span><h3>Transport</h3><span class="status" data-status="pending">En attente</span></header><div class="preview">Aperçu indisponible</div><ol class="steps"></ol><div class="handoff"></div></article>
-</div><p class="agent-footnote">Démo et replay : sites publics uniquement, aucun panier réel préparé.</p></section></main>
-<div id="toast" role="alert" hidden><strong>Impossible de continuer</strong><p></p><button aria-label="Fermer la notification">×</button></div>
-</body></html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#111211" />
+    <title>RunAI — votre prochaine ligne de départ</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/"
+        ><b>R↗</b> RUN<span>AI</span><small>RACE TRAVEL, REIMAGINED</small></a
+      ><label class="mode-control"
+        >ENVIRONNEMENT
+        <select id="mode" aria-label="Mode">
+          <option value="demo">Démo</option>
+          <option value="replay">Replay</option>
+          <option value="live">Live</option>
+        </select></label
+      >
+    </header>
+    <div class="safety-bar">
+      <span id="mode-badge">SIMULATION SYNTHÉTIQUE</span
+      ><span id="live-hint" hidden
+        >Live indisponible : configuration des services incomplète.</span
+      ><span>Aucun achat. Aucune réservation. Vous gardez la main.</span>
+    </div>
+    <main id="workspace">
+      <section class="conversation" aria-label="Conversation">
+        <div id="thread" role="log" aria-live="polite" aria-label="Messages">
+          <section id="welcome">
+            <p class="eyebrow">VOTRE PROCHAINE LIGNE DE DÉPART</p>
+            <h1>Vous courez.<br />On prépare <em>le reste.</em></h1>
+            <p class="intro">
+              Une envie de course ? Trouvons votre dossard, votre hôtel et votre
+              trajet. Un plan clair, puis trois agents à vos côtés.
+            </p>
+            <div class="example-chips" data-testid="chips">
+              <button data-prompt="un marathon au printemps en Italie">
+                <span>01 ↗</span>Un marathon au printemps en Italie</button
+              ><button data-prompt="un trail en Suisse cet été">
+                <span>02 ↗</span>Un trail en Suisse cet été</button
+              ><button data-prompt="le semi de Lisbonne">
+                <span>03 ↗</span>Le semi de Lisbonne
+              </button>
+            </div>
+            <div class="journey-line">
+              01 <b>La course</b><i></i>02 <b>Le plan</b><i></i>03
+              <b>Le départ</b>
+            </div>
+          </section>
+        </div>
+        <footer class="composer-area">
+          <form id="composer">
+            <label class="sr-only" for="message">Votre message</label
+            ><textarea
+              id="message"
+              rows="1"
+              maxlength="2000"
+              placeholder="Quelle course vous fait envie ?"
+            ></textarea
+            ><button id="send" aria-label="Envoyer le message">↑</button>
+          </form>
+          <p>
+            À votre rythme. Les agents s’arrêtent avant tout paiement ou
+            engagement.
+          </p>
+        </footer>
+      </section>
+      <section id="agents" hidden aria-label="Les trois agents">
+        <div class="agents-heading">
+          <p class="eyebrow">VOTRE ÉQUIPE EN ACTION</p>
+          <h2>Trois agents. Un départ.</h2>
+          <p>Préparation en parallèle · arrêt avant paiement</p>
+        </div>
+        <div class="agent-grid">
+          <article class="agent" data-agent="registration">
+            <header>
+              <span>↗</span>
+              <h3>Inscription / dossard</h3>
+              <span class="status" data-status="pending">En attente</span>
+            </header>
+            <div class="preview">Aperçu indisponible</div>
+            <ol class="steps"></ol>
+            <div class="handoff"></div>
+          </article>
+          <article class="agent" data-agent="hotel">
+            <header>
+              <span>⌂</span>
+              <h3>Hôtel</h3>
+              <span class="status" data-status="pending">En attente</span>
+            </header>
+            <div class="preview">Aperçu indisponible</div>
+            <ol class="steps"></ol>
+            <div class="handoff"></div>
+          </article>
+          <article class="agent" data-agent="transport">
+            <header>
+              <span>→</span>
+              <h3>Transport</h3>
+              <span class="status" data-status="pending">En attente</span>
+            </header>
+            <div class="preview">Aperçu indisponible</div>
+            <ol class="steps"></ol>
+            <div class="handoff"></div>
+          </article>
+        </div>
+        <p class="agent-footnote">
+          Démo et replay : sites publics uniquement, aucun panier réel préparé.
+        </p>
+      </section>
+    </main>
+    <div id="toast" role="alert" hidden>
+      <strong>Impossible de continuer</strong>
+      <p></p>
+      <button aria-label="Fermer la notification">×</button>
+    </div>
+  </body>
+</html>

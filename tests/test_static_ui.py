@@ -32,7 +32,7 @@ def test_safety_labels_and_hooks():
     assert 'data-testid="chips"' in HTML
     for kind in ("registration", "hotel", "transport"):
         assert f'data-agent="{kind}"' in HTML
-    assert 'id="agents" hidden' in HTML
+    assert re.search(r'id="agents"\s+hidden', HTML)
 
 
 def test_confirmation_is_dynamic_and_explicit():
@@ -40,16 +40,16 @@ def test_confirmation_is_dynamic_and_explicit():
     assert "if (ready)" in JS
     assert "ready_to_confirm === true" in JS
     assert "confirmation_required === true" in JS
-    assert "{confirmed:true}" in JS
+    assert re.search(r"\{\s*confirmed:\s*true\s*\}", JS)
 
 
 def test_accessible_responsive_conversation_and_safe_previews():
     assert 'role="log"' in HTML
-    assert '<textarea id="message"' in HTML
+    assert re.search(r'<textarea\s+id="message"', HTML)
     assert 'role="alert"' in HTML
     assert "100dvh" in CSS
-    assert "prefers-reduced-motion:reduce" in CSS
-    assert "max-width:768px" in CSS
+    assert re.search(r"prefers-reduced-motion:\s*reduce", CSS)
+    assert re.search(r"max-width:\s*768px", CSS)
     assert "focus-visible" in CSS
     assert "!e.shiftKey" in JS
     assert "allow-scripts allow-same-origin" in JS
@@ -70,7 +70,7 @@ def test_empty_error_and_terminal_paths_present():
 def test_guided_mission_contract():
     assert "envelope.turns?.at(-1)" in JS
     assert "data.draft || data.plan || envelope.trip" in JS
-    assert "suggestion.kind === 'confirm' ? confirm(button)" in JS
+    assert "suggestion.kind === 'confirm' ? confirm(button)" in re.sub(r"\s+", " ", JS)
     assert "const snapshot = await api(" in JS
     assert "consume(snapshot)" in JS
     assert "e.recorded_at" in JS
