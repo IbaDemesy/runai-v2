@@ -329,6 +329,61 @@ def test_only_structured_identifier_fields_bypass_opaque_text_redaction():
     assert scrubbed["empty_id"] == ""
 
 
+@pytest.mark.parametrize("lang", ["fr", "en"])
+@pytest.mark.parametrize("typed", [False, True])
+def test_sourced_distance_range_requires_user_choice_before_ready(lang, typed):
+    async def discover(query, hints):
+        return [{"id": "swiss-trail", "name": "Swiss Trail", "race_date": "2026-04-10",
+                 "date_status": "official", "source_urls": ["https://race.example/edition"],
+                 "distance_label": "Multiple trail distances 16–111 km announced on official site"}]
+
+    e = engine(discover)
+    state, turn = run(e.start("peu importe" if lang == "fr" else "you choose"))
+    assert turn.question == ("Quelle distance ?" if lang == "fr" else "Which distance?")
+    assert not turn.ready_to_confirm
+    assert state.candidates[0].distance_label == "16–111 km"
+    assert [chip.value for chip in turn.suggestions] == ["16 km", "111 km"]
+    assert all(chip.provenance == "source" for chip in turn.suggestions)
+    with pytest.raises(ValueError, match="not ready"):
+        e.trip_payload(state)
+    invalid, rejected = run(e.step(state, {"text": "50 km"}))
+    assert invalid.draft.race.distance_km is None
+    assert not rejected.ready_to_confirm
+    assert rejected.question == turn.question
+    action = {"text": "111 km"} if typed else {"suggestion_id": turn.suggestions[-1].id}
+    state, turn = run(e.step(state, action))
+    assert turn.ready_to_confirm
+    assert state.draft.race.distance_km == 111
+    assert state.draft.provenance["distance_km"] == "user"
+    assert state.candidates[0].distance_km is None
+    assert state.draft.race.race_date == date(2026, 4, 10)
+    assert ("Début de l'événement" if lang == "fr" else "Event start date") in turn.message
+    assert turn.message.count("?") + (turn.question or "").count("?") <= 1
+
+
+@pytest.mark.parametrize("lang", ["fr", "en"])
+def test_unknown_source_distance_is_not_invented(lang):
+    async def discover(query, hints):
+        return [{"id": "swiss-trail", "name": "Swiss Trail", "race_date": "2026-04-10",
+                 "date_status": "official", "source_urls": ["https://race.example/edition"],
+                 "distance_label": "Trail distance will be announced on the official site"}]
+
+    state, turn = run(engine(discover).start("peu importe" if lang == "fr" else "you choose"))
+    assert len(state.candidates[0].distance_label) <= 24
+    assert state.draft.race.distance_km is None
+    assert "distance_km" not in state.draft.provenance
+    assert ("Distance inconnue" if lang == "fr" else "Distance is unknown") in turn.message
+    assert turn.ready_to_confirm
+    assert not any("km" in chip.value for chip in turn.suggestions)
+
+
+def test_distance_list_proposes_only_explicit_source_values():
+    e = engine()
+    assert e._distance_values("Trails of 16, 33, 61 and 111 km on the official site") == [16, 33, 61, 111]
+    assert e._distance_values("16 km / 33 km / 111 km") == [16, 33, 111]
+    assert e._distance_values("Event in 2027; distances unknown") == []
+
+
 def run(awaitable):
     return asyncio.run(awaitable)
 

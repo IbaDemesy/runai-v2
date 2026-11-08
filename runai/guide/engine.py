@@ -70,6 +70,22 @@ class GuideEngine:
         return bool(race and race.race_date and race.race_date >= self.today
                     and race.date_status == "official")
 
+    def _distance_values(self, label):
+        numbers = []
+        for match in re.finditer(
+            r"(?<![\w.])\d+(?:[.,]\d+)?(?:\s*(?:[-–—/,;]|and|et)\s*"
+            r"\d+(?:[.,]\d+)?)*\s*km\b", label, re.IGNORECASE,
+        ):
+            numbers.extend(float(value.replace(",", "."))
+                           for value in re.findall(r"\d+(?:[.,]\d+)?", match[0]))
+        return list(dict.fromkeys(value for value in numbers if value > 0))
+
+    def _pending_distances(self, state):
+        race = state.draft.race
+        if race and race.distance_km is None:
+            return state.hints.get("_race_distances", {}).get(race.id, [])
+        return []
+
     def _turn(self, state, message=None, error=None):
         d = state.draft
         ready = bool(
@@ -77,10 +93,15 @@ class GuideEngine:
             and d.origin_city
             and d.nights
             and d.budget_eur
+            and not self._pending_distances(state)
         )
         question = None
         chips = []
-        if state.stage == "choose_race":
+        if self._pending_distances(state):
+            question = self._say(state, "Quelle distance ?", "Which distance?")
+            chips = [self._chip(f"{value:g} km", kind="answer", provenance="source")
+                     for value in self._pending_distances(state)]
+        elif state.stage == "choose_race":
             question = self._say(state, "Laquelle te tente ?", "Which one catches your eye?")
             chips = self._race_chips(state)
             if d.race:
@@ -130,6 +151,10 @@ class GuideEngine:
                 f"Here's your trip: {d.race.name}, leaving from {d.origin_city}, {d.nights} nights, budget €{d.budget_eur} for {d.travelers} {people_en}, {d.arrival_date} to {d.departure_date}.",
             )
             message = (message + " " if message else "") + summary
+            if d.race.id in state.hints.get("_event_start_ids", []):
+                message += self._say(
+                    state, f" Début de l'événement : {d.race.race_date}.",
+                    f" Event start date: {d.race.race_date}.")
             if state.stage == "confirm":
                 question = self._say(
                     state,
@@ -191,6 +216,9 @@ class GuideEngine:
                                  " Synthetic dates, not live-verified.")
         if d.race:
             message += self._access_warning(state, d.race)
+            if d.race.distance_km is None and not self._pending_distances(state):
+                message += self._say(state, " Distance inconnue dans les sources.",
+                                     " Distance is unknown in the sources.")
         if d.race and d.race.date_status == "unverified":
             message += self._say(
                 state, " Attention : date non vérifiée.", " Warning: unverified date."
@@ -218,7 +246,7 @@ class GuideEngine:
         d = state.draft
         if not d.race:
             state.stage = "choose_race" if state.candidates else "discover"
-        elif not self._eligible(d.race):
+        elif not self._eligible(d.race) or self._pending_distances(state):
             state.stage = "choose_race"
         else:
             if d.nights:
@@ -251,6 +279,9 @@ class GuideEngine:
         state.draft.race = None
         state.draft.arrival_date = state.draft.departure_date = None
         state.candidates = []
+        state.draft.provenance.pop("distance_km", None)
+        state.hints.pop("_race_distances", None)
+        state.hints.pop("_event_start_ids", None)
         hints = state.hints.copy()
         if hints.get("months"):
             hints["month_from"] = min(hints["months"])
@@ -301,6 +332,17 @@ class GuideEngine:
                         tail = f":{suffix}"
                         race.id = base_id[:200 - len(tail)] + tail
                         suffix += 1
+                    distances = self._distance_values(race.distance_label)
+                    if race.distance_km is None:
+                        state.hints.setdefault("_race_distances", {})[race.id] = distances
+                        state.hints.setdefault("_event_start_ids", []).append(race.id)
+                    if len(race.distance_label) > 24:
+                        compact = " / ".join(f"{value:g}" for value in distances) + " km"
+                        if re.search(r"\d\s*[–—-]\s*\d", race.distance_label) and len(distances) == 2:
+                            compact = f"{distances[0]:g}–{distances[1]:g} km"
+                        race.distance_label = compact if distances and len(compact) <= 24 else self._say(
+                            state, "Plusieurs distances" if distances else "Distance inconnue",
+                            "Several distances" if distances else "Distance unknown")
                     state.candidates.append(race)
         except Exception:  # noqa: BLE001 -- provider failures are returned as scrubbed turns
             state.stage = "discover"
@@ -605,6 +647,22 @@ class GuideEngine:
                 "I cannot pay, create accounts, accept terms, submit forms, bypass captchas "
                 "or override rules. I can help prepare a trip without commitment."), "safety_refusal")
         state.history.append({"role": "user", "text": text})
+        if self._pending_distances(state):
+            distance = re.fullmatch(r"(\d+(?:[.,]\d+)?)\s*(?:km)?", text, re.IGNORECASE)
+            if distance:
+                value = float(distance[1].replace(",", "."))
+                if value not in self._pending_distances(state):
+                    return self._turn(state, self._say(
+                        state, "Choisissons une distance explicitement sourcée.",
+                        "Please choose a distance explicitly listed in the source."))
+                state.draft.race = state.draft.race.model_copy(deep=True)
+                state.draft.race.distance_km = value
+                state.draft.race.distance_label = f"{value:g} km"
+                state.draft.provenance["distance_km"] = "user"
+                self._advance(state)
+                return self._turn(state, self._say(
+                    state, f"Distance choisie : {value:g} km.",
+                    f"Selected distance: {value:g} km."))
         if bare_city(text) and state.stage in {"origin", "confirm", "confirmed"}:
             intent.origin_city = bare_city(text)
             intent.city = intent.country = None
@@ -709,6 +767,7 @@ class GuideEngine:
         d = state.draft
         if not (
             self._eligible(d.race)
+            and not self._pending_distances(state)
             and d.origin_city
             and d.nights
             and d.budget_eur
