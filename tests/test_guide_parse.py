@@ -147,3 +147,33 @@ def test_current_season_remaining_months(text, today, months):
 )
 def test_non_year_numeric_answers(text):
     assert parse_intent(text, today=TODAY).year is None
+
+
+def test_bounded_typo_normalization_and_mixed_details():
+    intent = parse_intent("marathn en itali au printemp from Lyon, 2 nights please", today=TODAY)
+    assert (intent.distance, intent.country, intent.months) == (
+        "marathon", "Italy", ["2027-03", "2027-04", "2027-05"],
+    )
+    assert (intent.origin_city, intent.nights, intent.named) == ("Lyon", 2, False)
+    assert not parse_intent("marathonia unknownrace", today=TODAY).named
+
+
+@pytest.mark.parametrize("text", ["peu importe", "je sais pas", "tu en penses quoi ?",
+                                  "whatever", "I don't know", "you choose", "what do you think?"])
+def test_deferral_intents(text):
+    assert parse_intent(text, today=TODAY).deferred
+
+
+@pytest.mark.parametrize("text,problem", [
+    ("budget 0", "budget_range"), ("-1 euros", "budget_range"),
+    ("15 nuits", "nights_range"), ("0 nights", "nights_range"),
+    ("demain", "tomorrow"), ("tomorrow", "tomorrow"),
+    ("Paris marathon in Italy", "destination_conflict"),
+    ("marathon in Italy and Switzerland", "destination_conflict"),
+    ("2028-04-01 or 2028-05-01", "date_conflict"),
+    ("marathon in 2027 and 2028", "date_conflict"),
+    ("marathon in summer and winter", "date_conflict"),
+    ("marathon 2001", "past_date"), ("marathon 2020", "past_date"),
+])
+def test_impossible_or_conflicting_intents(text, problem):
+    assert parse_intent(text, today=TODAY).problem == problem
