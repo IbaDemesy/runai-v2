@@ -614,6 +614,11 @@ class GuideEngine:
                 state.query = text
             if intent.named:
                 state.hints["race_name"] = text
+            if intent.problem == "exact_date":
+                state.hints.pop("months", None)
+                state.hints.pop("year", None)
+            if intent.months or intent.year:
+                state.hints.pop("exact_date", None)
             if intent.year:
                 state.hints.pop("months", None)
             elif intent.months and state.hints.get("year"):

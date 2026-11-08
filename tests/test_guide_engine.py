@@ -238,6 +238,31 @@ def test_exact_date_filters_provider_results_without_substitution():
     assert [r.race_date for r in turn.candidates] == [date(2027, 4, 1)]
 
 
+@pytest.mark.parametrize("initial,followup,expected,removed", [
+    ("a marathon in spring", "2028-07-10", "2028-07-10", {"months", "year"}),
+    ("a marathon in spring 2027", "2028-07-10", "2028-07-10", {"months", "year"}),
+    ("a marathon on 2028-04-10", "in summer", "2028-07-10", {"exact_date"}),
+])
+def test_new_date_or_season_replaces_stale_date_hints(initial, followup, expected, removed):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(dict(hints))
+        return [{"id": value, "name": "Race", "race_date": value, "date_status": "official"}
+                for value in ["2026-04-10", "2027-04-10", "2028-04-10",
+                              "2026-07-10", "2028-07-10"]]
+
+    e = engine(discover)
+    state, _turn = run(e.start(initial))
+    state, turn = run(e.step(state, {"text": followup}))
+    assert not removed.intersection(state.hints)
+    assert not removed.intersection(calls[-1])
+    assert [race.race_date for race in turn.candidates] == [date.fromisoformat(expected)]
+    assert turn.error is None
+    state, turn = click(e, state, turn)
+    assert state.draft.race.race_date == date.fromisoformat(expected)
+
+
 def run(awaitable):
     return asyncio.run(awaitable)
 
