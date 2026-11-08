@@ -94,3 +94,43 @@ def test_background_missing_live_key(monkeypatch):
         assert client.post("/api/missions", json={
             "text": "race", "mode": "live", "background": True,
         }).status_code == 501
+
+
+@pytest.mark.parametrize("background", [False, True])
+@pytest.mark.parametrize("failure_on", ["start", "step"])
+def test_guide_failure_turn_sets_error_and_preserves_retry(background, failure_on):
+    class FailureTurnGuide(StubGuide):
+        fail = True
+
+        async def start(self, text):
+            state, turn = await super().start(text)
+            if self.fail and failure_on == "start":
+                turn.update(error="discovery_failed", suggestions=[{"id": "retry"}])
+            return state, turn
+
+        async def step(self, state, answer):
+            state, turn = await super().start("")
+            if self.fail and failure_on == "step":
+                turn.update(error="discovery_failed", suggestions=[{"id": "retry"}])
+            return state, turn
+
+    guide = FailureTurnGuide()
+    with TestClient(create_app(guide=guide)) as client:
+        response = client.post("/api/missions", json={"text": "race", "background": background})
+        url = f"/api/missions/{response.json()['id']}"
+        mission = settled(client, url)
+        if failure_on == "step":
+            client.post(url + "/messages", json={"text": "search", "background": background})
+            mission = settled(client, url)
+        assert mission["error"] == "Race search failed; please retry"
+        assert mission["turns"][-1]["suggestions"] == [{"id": "retry"}]
+        assert mission["events"][-2]["type"] == "discovery_failed"
+        if background:
+            attempt = mission["events"]
+            if failure_on == "step":
+                attempt = attempt[next(i for i, event in enumerate(attempt)
+                                       if event["type"] == "turn") + 1:]
+            assert not any(event["message"] == "Race search finished" for event in attempt)
+        guide.fail = False
+        client.post(url + "/messages", json={"text": "retry", "background": background})
+        assert settled(client, url)["error"] is None

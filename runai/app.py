@@ -214,6 +214,10 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
         mission.turns.append(turn)
         mission.trip = sanitize(trip)
         mission.status = "ready" if turn.get("ready_to_confirm") else "guiding"
+        if turn.get("error") == "discovery_failed":
+            discovery_failed(mission)
+        else:
+            mission.error = None
         emit(mission, "turn", turn.get("message", ""))
 
     def discovery_failed(mission):
@@ -247,7 +251,8 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
                 if generations[mission.id] != generation:
                     return
                 clean_state = sanitize_state(state)
-                emit(mission, "discovery_progress", "Race search finished")
+                if jsonable_encoder(turn).get("error") != "discovery_failed":
+                    emit(mission, "discovery_progress", "Race search finished")
                 apply_turn(mission, state, turn, engine)
                 states[mission.id] = clean_state
             except asyncio.CancelledError:
