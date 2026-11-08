@@ -1183,3 +1183,11 @@ def test_stale_frame_from_previous_page_never_verifies_new_handoff():
     del second["data"]["image"]
     result, _ = run(Provider(events=[first, second]))
     assert result["status"] == "blocked"
+
+
+def test_next_safe_boundary_description_is_not_an_execution_claim():
+    from runai.agents.hclient import _payment_claim
+    assert not _payment_claim({"verification": {
+        "selected": True, "next_safe_boundary": "booking is confirmed after payment",
+    }})
+    assert _payment_claim({"verification": {"next_safe_boundary": "x"}, "summary": "I paid"})

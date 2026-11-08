@@ -337,7 +337,7 @@ def _payment_claim(value: object) -> bool:
             "terms_accepted", "personal_data_entered",
         )):
             return True
-        return any(_payment_claim(item) for key, item in value.items() if key != "stop_before")
+        return any(_payment_claim(item) for key, item in value.items() if key not in {"stop_before", "next_safe_boundary"})
     if isinstance(value, list):
         return any(_payment_claim(item) for item in value)
     if not isinstance(value, str):
