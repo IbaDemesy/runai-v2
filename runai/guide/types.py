@@ -1,11 +1,19 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 
 class Model(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+class RegistrationAccess(Model):
+    account_required: StrictBool | None = None
+    captcha: StrictBool | None = None
+    source: str | None = None
+    observed_at: date | None = None
+    note: str | None = None
 
 
 class RaceOption(Model):
@@ -20,6 +28,7 @@ class RaceOption(Model):
     date_status: Literal["official", "unverified", "conflicting", "unknown"]
     official_url: str | None = None
     registration_url: str | None = None
+    registration_access: RegistrationAccess | None = None
     source_urls: list[str] = Field(default_factory=list)
     retrieved_at: datetime | None = None
     synthetic: bool = False

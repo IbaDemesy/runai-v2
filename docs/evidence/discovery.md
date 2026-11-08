@@ -1,5 +1,45 @@
 # Linkup discovery live evidence
 
+## R2-04 step 1 — offline reliability revision (2026-11-08)
+
+No new live requests were made for this revision. Historical batches below are
+not verification of the revised prompt. Past-only results are now rejected as
+an empty list (the historical past-edition fallback described below is removed).
+Official dated candidates sort ahead of unverified/unknown/conflicting ones;
+conflicts retain `date_status=conflicting` with no selected date. No dates are
+derived from edition/platform URLs, and no next-year date is manufactured.
+
+Deep search and timeout behavior remain unchanged: default 20 seconds, caller
+override retained verbatim, and app integration still supplies 120 seconds.
+Offline mock requests cover both timeout values. Query/hints use scrubbed,
+instruction-filtered JSON inside a delimited data block; source-derived display
+text receives the same filtering. Source schemas reject extra fields, dates
+require exact ISO dates, and public URLs must survive the shared scrubber.
+This is defense in depth, not a claim that provider source extraction is an
+independent audit or that arbitrary prompt injection is solved.
+
+Step 1b aligns the pinned observation contract: `registration_access` is None
+or exactly `account_required`, `captcha`, `source`, `observed_at`, `note`.
+The booleans are nullable; observation time is an ISO date, not a datetime.
+The default registry is lazily imported from
+`runai.agents.site_policy.registration_info`; missing module/function is unknown.
+An injected sync/async callable remains supported. Both receive only the public
+registration URL, falling back to the official URL, never the candidate/query.
+Accepted evidence requires a public source URL and a non-future observation
+date. Missing/invalid evidence or lookup failures remain unknown. Observations
+are not permission or guarantees of login-free access; no platform inference,
+form submissions or accounts are used.
+
+Offline check: `uv run ruff check . && uv run pytest -q`:
+
+```text
+All checks passed!
+456 passed, 1 warning in 2.01s
+```
+
+The warning is the installed FastAPI/Starlette test-client httpx deprecation,
+not a missing project environment. No dependency/configuration files changed.
+
 Verified at 2026-11-08T20:30:24.639875+00:00.
 
 ## Verdict and reproduction
@@ -211,3 +251,53 @@ Latency: 4.02s. Error: none
 | Wizz Air Milano Marathon | 2026 (24th edition) | 42.195 | 2026-04-12 | official | https://www.milanomarathon.it/ |
 
 - Wizz Air Milano Marathon source URLs: https://www.milanomarathon.it/en/the-24th-edition-will-take-place-on-sunday-april-12-2026/, https://www.milanomarathon.it/en/the-date-of-the-next-edition-has-been-confirmed-the-race-will-take-place-on-sunday-april-12-2026/, https://www.mondomilano.it/eventi/sport/milano-marathon-2026, https://www.festivalinitalia.it/en/festival/wizz-air-milan-marathon
+
+## Live Linkup smoke 2026-11-08T21:47:58Z (read-only, no H calls, 3 queries in parallel, deep, timeout 120 s, scrubbed)
+
+Real observed output from one read-only scripted run of `runai.discovery.linkup.discover`
+(R2-04 session). Hosts only are recorded below; no keys or private URLs.
+
+### un marathon au printemps en Italie
+
+Hints: distance=marathon, country=Italy. Duration **45.9 s**, no error,
+**6 candidates**, all date_status=official and all future at observation time.
+
+| Candidate | Distance (km) | Date | Official/source host | Registration host |
+| --- | --- | --- | --- | --- |
+| Run Rome The Marathon | null | 2027-03-14 | runromethemarathon.com | join.endu.net |
+| Termal Bologna Marathon | null | 2027-03-07 | bolognamarathon.run | — |
+| Wizz Air Milano Marathon | 42.195 | 2027-04-04 | milanomarathon.it | — |
+| Lake Garda 42 | 42.0 | 2027-04-11 | lakegarda42.com | — |
+| Padova Marathon | 42.195 | 2027-04-18 | padovamarathon.com | — |
+| Rimini Marathon | 42.195 | 2027-04-18 | riminimarathon.it | — |
+
+registration_access=null (unknown) for all six: site_policy.registration_info
+was not on main yet. Registration hosts do not establish access or permission.
+A dash means no registration host was supplied in this evidence summary, not
+proof that no registration link exists. Null distances remain unknown.
+
+### le semi de Lisbonne
+
+Duration **28.8 s**, **2 candidates**:
+
+| Candidate | Distance (km) | Date | date_status | Source host | Registration host |
+| --- | --- | --- | --- | --- | --- |
+| Discoveries Lisbon Half Marathon | 21.097 | 2026-11-29 | official | discoveries-half-marathon.com | in.njuko.com |
+| EDP Lisbon Half Marathon | 21.097 | 2027-03-07 | unverified | maratonaclubedeportugal.com | — |
+
+The second result's source was not identified as the organizer in this observed
+output. Its unverified date **cannot become ready_to_confirm**; do not upgrade
+it from historical observations elsewhere in this document.
+
+### a trail in Switzerland this summer
+
+Hints: country=Switzerland. Duration **43.5 s**, **0 candidates**, no error.
+This is an honest empty outcome, not permission to invent a race or date.
+
+### Limits and follow-up
+
+Synthetic tests do not prove live readiness. These read-only search results do
+not establish registration availability, account/captcha absence, authorization
+or prepared checkout states. No H calls were made. Observed latency of roughly
+**29–46 s** supports the R2-05 need for background discovery and honest loading
+states rather than a shorter timeout or fabricated fallback.
