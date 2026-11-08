@@ -153,3 +153,5 @@ are rejected. Original recorded timestamps appear on progress/frame events;
 observed time remains current. Missing/corrupt/invalid replay files fail all
 three steps visibly after 202 rather than causing an HTTP 500. Replay frames
 are recorded synthetic illustrations and never evidence of a live booking.
+Registration's manual homepage handoff follows the currently selected race,
+not the example race in the synthetic recording; its summary states this.

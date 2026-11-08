@@ -149,3 +149,18 @@ def test_documented_h_share_url_is_public():
     result = StepResult(kind="hotel", status="blocked", summary="Stopped", synthetic=False,
                         live_view_url="https://agp.eu.hcompany.ai/share/api/v1/trajectories/test")
     assert str(result.live_view_url).startswith("https://agp.eu.hcompany.ai/share/")
+
+
+def test_replay_registration_handoff_follows_selected_race():
+    runner = ReplayRunner()
+    recorded_url = str(runner.results[Kind.registration].handoff_url)
+    trip = {**TRIP, "race": {**TRIP["race"], "official_url": "https://example.org/another-race"}}
+
+    async def emit(event):
+        assert event["recorded_at"]
+
+    result = asyncio.run(runner.run(Kind.registration, trip, emit))
+    assert str(result.handoff_url) == "https://example.org/another-race"
+    assert "current selected race" in result.summary
+    assert result.synthetic and result.payment_executed is False
+    assert str(runner.results[Kind.registration].handoff_url) == recorded_url

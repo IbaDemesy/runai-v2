@@ -121,7 +121,11 @@ class ReplayRunner:
                     "mime": "image/svg+xml",
                 })
             await asyncio.sleep(0)
-        return self.results[kind].model_copy(deep=True)
+        result = self.results[kind].model_dump(mode="json")
+        if kind == Kind.registration:
+            result["handoff_url"] = _fallback(kind, trip)
+            result["summary"] += " Manual registration link follows the current selected race."
+        return StepResult.model_validate(result)
 
 
 class LiveRunner:
