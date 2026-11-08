@@ -24,6 +24,9 @@ Verified at 2026-11-08T20:30:24.639875+00:00.
   the exact registration URL linked by a sourced official organizer page.
   Query/fragment-bearing URLs are conservatively omitted to avoid handing out
   session-bearing evidence. No raw provider bodies or credentials are recorded.
+- Subsequent offline review hardening also rejects sensitive session/checkout
+  path segments and opaque token-like components, and preserves a known distance
+  from a more complete duplicate. No additional live batch was performed.
 
 API documentation read before execution:
 
