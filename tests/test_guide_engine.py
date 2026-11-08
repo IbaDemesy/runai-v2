@@ -33,6 +33,7 @@ def test_plan_copy_has_natural_people_pluralization(lang, travelers, label):
 def test_recommendation_reason_contains_date_and_source_host(synthetic):
     async def discover(query, hints):
         return [{"id": "example", "name": "Example race", "date_status": "official",
+                 "distance_km": 42.195,
                  "race_date": "2027-04-01", "source_urls": ["https://races.example/date"],
                  "synthetic": synthetic}]
     state, turn = run(GuideEngine(discover, today=date(2026, 11, 8)).start("you choose"))
@@ -374,8 +375,9 @@ def test_unknown_source_distance_is_not_invented(lang):
     assert state.draft.race.distance_km is None
     assert "distance_km" not in state.draft.provenance
     assert ("Distance inconnue" if lang == "fr" else "Distance is unknown") in turn.message
-    assert turn.ready_to_confirm
+    assert not turn.ready_to_confirm
     assert not any("km" in chip.value for chip in turn.suggestions)
+    assert "1–400 km" in turn.question
 
 
 def test_distance_list_proposes_only_explicit_source_values():
@@ -410,7 +412,8 @@ def test_unsourced_official_dates_are_unverified_and_never_ready(sources, lang):
 def test_sourced_official_or_explicit_synthetic_date_can_be_ready(synthetic, sources):
     async def discover(query, hints):
         return [{"id": "berlin", "name": "Berlin 10k", "race_date": "2027-04-10",
-                 "date_status": "official", "source_urls": sources, "synthetic": synthetic}]
+                 "date_status": "official", "source_urls": sources, "synthetic": synthetic,
+                 "distance_km": 10}]
 
     e = engine(discover)
     state, turn = run(e.start("the Berlin marathon from Lyon 2 nights budget 800"))
@@ -451,6 +454,234 @@ def test_unverified_distance_race_keeps_valid_alternatives_visible(lang):
     assert turn.ready_to_confirm
 
 
+@pytest.mark.parametrize("lang", ["fr", "en"])
+@pytest.mark.parametrize("label,options", [
+    ("Multiple distances 16–111 km announced on official site", ["16 km", "111 km"]),
+    ("Multiple distances announced on official site", []),
+    ("A trail of 111 km announced on official site", ["111 km"]),
+])
+def test_swiss_canyon_event_start_cannot_be_ready_without_numeric_distance(lang, label, options):
+    async def discover(query, hints):
+        return [{"id": "swiss-canyon-trail", "name": "Swiss Canyon Trail",
+                 "race_date": "2027-06-04", "date_status": "official", "distance_km": None,
+                 "source_urls": ["https://race.example/edition"], "distance_label": label}]
+
+    e = GuideEngine(discover, today=date(2026, 11, 8))
+    query = ("un trail depuis Lyon 2 nuits budget 800" if lang == "fr"
+             else "a trail from Lyon 2 nights budget 800")
+    state, turn = run(e.start(query))
+    state, turn = click(e, state, turn)
+    assert state.draft.race.race_date == date(2027, 6, 4)
+    assert state.draft.race.distance_km is None and not turn.ready_to_confirm
+    assert [chip.value for chip in turn.suggestions] == options
+    assert (turn.question or "").count("?") == 1
+    with pytest.raises(ValueError, match="not ready"):
+        e.trip_payload(state)
+    action = {"suggestion_id": turn.suggestions[-1].id} if options else {"text": "111 km"}
+    state, turn = run(e.step(state, action))
+    assert state.draft.race.distance_km == 111 and turn.ready_to_confirm
+    assert state.draft.provenance["distance_km"] == "user"
+    assert e.trip_payload(state)["race"]["distance_km"] == 111
+    assert state.candidates[0].distance_km is None
+    assert state.draft.race.race_date == date(2027, 6, 4)
+    assert ("Début de l'événement" if lang == "fr" else "Event start date") in turn.message
+
+
+@pytest.mark.parametrize("text", ["0", "-1 km", "401 km", "0.5 km", "NaN", "yes"])
+@pytest.mark.parametrize("lang", ["fr", "en"])
+def test_unknown_distance_invalid_answers_explain_and_stay_unready(text, lang):
+    async def discover(query, hints):
+        return [{"id": "trail", "name": "Trail", "race_date": "2026-04-10",
+                 "date_status": "official", "source_urls": ["https://race.example/edition"]}]
+
+    e = engine(discover)
+    state, turn = run(e.start("peu importe" if lang == "fr" else "you choose"))
+    state, turn = run(e.step(state, {"text": text}))
+    assert turn.error == "distance_range" and not turn.ready_to_confirm
+    assert state.draft.race.distance_km is None
+    assert "distance_km" not in state.draft.provenance
+    assert "1–400 km" in turn.question and not turn.suggestions
+    assert "distance" in turn.message.lower()
+    state, turn = run(e.step(state, {"text": "21,1 km"}))
+    assert turn.ready_to_confirm and state.draft.race.distance_km == 21.1
+    assert state.draft.provenance["distance_km"] == "user"
+
+
+@pytest.mark.parametrize("value", ["1", "400"])
+def test_unknown_distance_accepts_plausible_range_boundaries(value):
+    async def discover(query, hints):
+        return [{"id": "trail", "name": "Trail", "race_date": "2026-04-10",
+                 "date_status": "official", "source_urls": ["https://race.example/edition"]}]
+
+    e = engine(discover)
+    state, turn = run(e.start("you choose"))
+    state, turn = run(e.step(state, {"text": value}))
+    assert turn.ready_to_confirm and state.draft.race.distance_km == float(value)
+
+
+@pytest.mark.parametrize("lang", ["fr", "en"])
+@pytest.mark.parametrize("label", ["16–111 km", "Distances to be announced"])
+def test_distance_question_keeps_numeric_race_alternatives_selectable(lang, label):
+    async def discover(query, hints):
+        return [
+            {"id": "unknown", "name": "Unknown Distance Trail", "race_date": "2027-06-04",
+             "date_status": "official", "source_urls": ["https://race.example/unknown"],
+             "distance_label": label},
+            {"id": "numeric", "name": "Numeric Distance Trail", "race_date": "2027-06-11",
+             "date_status": "official", "source_urls": ["https://race.example/numeric"],
+             "distance_km": 21},
+            {"id": "unverified", "name": "Unverified Trail", "race_date": "2027-06-12",
+             "date_status": "unverified", "source_urls": ["https://race.example/unverified"],
+             "distance_km": 33},
+        ]
+
+    e = engine(discover)
+    query = ("un trail depuis Lyon 2 nuits budget 800" if lang == "fr"
+             else "a trail from Lyon 2 nights budget 800")
+    state, turn = run(e.start(query))
+    state, turn = click(e, state, turn)
+    invariant(turn)
+    assert not turn.ready_to_confirm
+    assert "distance" in turn.question.lower()
+    choices = [chip for chip in turn.suggestions if chip.kind == "choose_race"]
+    assert [chip.value for chip in choices] == ["numeric"]
+    state, turn = run(e.step(state, {"suggestion_id": choices[0].id}))
+    assert turn.ready_to_confirm and state.draft.race.id == "numeric"
+    assert state.draft.race.distance_km == 21
+    assert state.draft.provenance["distance_km"] == "source"
+    assert state.draft.arrival_date == date(2027, 6, 10)
+    assert (state.draft.origin_city, state.draft.nights, state.draft.budget_eur) == ("Lyon", 2, 800)
+    assert e.trip_payload(state)["race"]["id"] == "numeric"
+
+
+@pytest.mark.parametrize("lang", ["fr", "en"])
+def test_distance_deferral_suggests_one_source_value_without_applying_it(lang):
+    async def discover(query, hints):
+        return [{"id": "trail", "name": "Trail", "race_date": "2027-06-04",
+                 "date_status": "official", "source_urls": ["https://race.example/edition"],
+                 "distance_label": "16–111 km"}]
+
+    e = engine(discover)
+    query = ("un trail depuis Lyon 2 nuits budget 800" if lang == "fr"
+             else "a trail from Lyon 2 nights budget 800")
+    state, turn = run(e.start(query))
+    state, turn = click(e, state, turn)
+    state, turn = run(e.step(state, {"text": "peu importe" if lang == "fr" else "you choose"}))
+    assert turn.error is None and not turn.ready_to_confirm
+    assert state.draft.race.distance_km is None
+    assert "distance_km" not in state.draft.provenance
+    assert "16 km" in turn.message and "111 km" not in turn.message
+    assert ("plus courte" if lang == "fr" else "shortest") in turn.message
+    assert [chip.value for chip in turn.suggestions] == ["16 km"]
+    assert turn.suggestions[0].provenance == "suggested_default"
+    invariant(turn)
+    state, turn = click(e, state, turn)
+    assert turn.ready_to_confirm and state.draft.race.distance_km == 16
+    assert state.draft.provenance["distance_km"] == "user"
+
+
+@pytest.mark.parametrize("lang", ["fr", "en"])
+@pytest.mark.parametrize("has_alternative", [False, True])
+def test_distance_deferral_without_source_options_suggests_only_known_alternative(lang, has_alternative):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(query)
+        rows = [{"id": "unknown", "name": "Unknown Trail", "race_date": "2027-06-04",
+                 "date_status": "official", "source_urls": ["https://race.example/unknown"]}]
+        if has_alternative:
+            rows.append({"id": "numeric", "name": "Numeric Trail", "race_date": "2027-06-11",
+                         "date_status": "official", "source_urls": ["https://race.example/numeric"],
+                         "distance_km": 21})
+        return rows
+
+    e = engine(discover)
+    query = ("un trail depuis Lyon 2 nuits budget 800" if lang == "fr"
+             else "a trail from Lyon 2 nights budget 800")
+    state, turn = run(e.start(query))
+    state, turn = click(e, state, turn)
+    state, turn = run(e.step(state, {"text": "peu importe" if lang == "fr" else "you choose"}))
+    assert turn.error is None and not turn.ready_to_confirm
+    assert state.draft.race.id == "unknown" and state.draft.race.distance_km is None
+    assert ("Aucune distance sourcée" if lang == "fr" else "No sourced distance") in turn.message
+    assert len(calls) == 1
+    invariant(turn)
+    if has_alternative:
+        assert "Numeric Trail" in turn.message and "21 km" in turn.message
+        assert [chip.value for chip in turn.suggestions] == ["numeric"]
+        state, turn = click(e, state, turn)
+        assert state.draft.race.id == "numeric" and state.draft.race.distance_km == 21
+        assert state.draft.provenance["distance_km"] == "source"
+    else:
+        assert not turn.suggestions and "1–400 km" in turn.question
+        state, turn = run(e.step(state, {"text": "21 km"}))
+        assert state.draft.race.id == "unknown" and state.draft.race.distance_km == 21
+        assert state.draft.provenance["distance_km"] == "user"
+    assert turn.ready_to_confirm
+
+
+@pytest.mark.parametrize("lang", ["fr", "en"])
+@pytest.mark.parametrize("label", ["16–111 km", "Distances to be announced"])
+def test_distance_deferral_saves_trip_corrections_before_recommending(lang, label):
+    async def discover(query, hints):
+        return [
+            {"id": "unknown", "name": "Unknown Trail", "race_date": "2027-06-04",
+             "date_status": "official", "source_urls": ["https://race.example/unknown"],
+             "distance_label": label},
+            {"id": "numeric", "name": "Numeric Trail", "race_date": "2027-06-11",
+             "date_status": "official", "source_urls": ["https://race.example/numeric"],
+             "distance_km": 21},
+        ]
+
+    e = engine(discover)
+    query = ("un trail depuis Paris 2 nuits budget 800" if lang == "fr"
+             else "a trail from Paris 2 nights budget 800")
+    state, turn = run(e.start(query))
+    state, turn = click(e, state, turn)
+    correction = ("peu importe, depuis Lyon, 3 nuits, budget 500 €, 2 personnes" if lang == "fr"
+                  else "you choose, from Lyon, 3 nights, 500€, 2 people")
+    state, turn = run(e.step(state, {"text": correction}))
+    assert turn.error is None and not turn.ready_to_confirm
+    assert (state.draft.origin_city, state.draft.nights, state.draft.budget_eur,
+            state.draft.travelers) == ("Lyon", 3, 500, 2)
+    assert all(state.draft.provenance[field] == "user"
+               for field in ["origin_city", "nights", "budget_eur", "travelers"])
+    assert state.draft.race.id == "unknown" and state.draft.race.distance_km is None
+    assert state.draft.arrival_date is None and state.draft.departure_date is None
+    state, turn = click(e, state, turn)
+    assert turn.ready_to_confirm
+    assert state.draft.race.id == ("unknown" if label == "16–111 km" else "numeric")
+    assert state.draft.race.distance_km == (16 if label == "16–111 km" else 21)
+    assert state.draft.departure_date - state.draft.arrival_date == date(2027, 6, 4) - date(2027, 6, 1)
+    assert e.trip_payload(state)["budget_eur"] == 500
+
+
+@pytest.mark.parametrize("lang", ["fr", "en"])
+@pytest.mark.parametrize("field,fr,en,error", [
+    ("nights", "15 nuits", "15 nights", "nights_range"),
+    ("budget_eur", "budget 0 €", "budget 0€", "budget_range"),
+])
+def test_distance_deferral_validates_trip_corrections_before_recommending(lang, field, fr, en, error):
+    async def discover(query, hints):
+        return [{"id": "trail", "name": "Trail", "race_date": "2027-06-04",
+                 "date_status": "official", "source_urls": ["https://race.example/edition"],
+                 "distance_label": "16–111 km"}]
+
+    e = engine(discover)
+    query = ("un trail depuis Paris 2 nuits budget 800" if lang == "fr"
+             else "a trail from Paris 2 nights budget 800")
+    state, turn = run(e.start(query))
+    state, turn = click(e, state, turn)
+    text = "peu importe, " + fr if lang == "fr" else "you choose, " + en
+    state, turn = run(e.step(state, {"text": text}))
+    assert turn.error == error and not turn.ready_to_confirm
+    assert getattr(state.draft, field) is None
+    assert state.draft.race.distance_km is None
+    assert state.draft.arrival_date is None and state.draft.departure_date is None
+    assert "Je suggère" not in turn.message and "I suggest" not in turn.message
+    invariant(turn)
+
+
 def run(awaitable):
     return asyncio.run(awaitable)
 
@@ -462,7 +693,9 @@ def engine(discover=None):
 def invariant(turn):
     assert (turn.message + (turn.question or "")).count("?") <= 1
     assert turn.question or not turn.suggestions
-    assert len({s.kind for s in turn.suggestions}) == 1 or all(
+    assert len({s.kind for s in turn.suggestions}) == 1 or {s.kind for s in turn.suggestions} <= {
+        "answer", "choose_race"
+    } or all(
         s.kind in {"confirm", "edit", "choose_race", "retry"} for s in turn.suggestions
     )
 
@@ -641,6 +874,7 @@ def test_official_date_edit_and_yes_confirmation():
                 "id": "paris",
                 "name": "Example race",
                 "city": "Paris",
+                "distance_km": 42.195,
                 "race_date": "2027-04-01",
                 "date_status": "official",
                 "source_urls": ["https://race.example/edition"],
@@ -768,6 +1002,7 @@ def test_winter_months_take_precedence_over_single_year():
             {
                 "id": value,
                 "name": "Synthetic winter example",
+                "distance_km": 42.195,
                 "race_date": value,
                 "edition": value[:4],
                 "date_status": "official",

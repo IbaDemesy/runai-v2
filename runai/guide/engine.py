@@ -44,7 +44,7 @@ class GuideEngine:
             provenance=provenance,
         )
 
-    def _race_chips(self, state):
+    def _race_chips(self, state, races=None):
         return [
             self._chip(
                 r.id,
@@ -53,7 +53,7 @@ class GuideEngine:
                 "choose_race",
                 "synthetic" if r.synthetic else "source",
             )
-            for r in state.candidates
+            for r in (state.candidates if races is None else races)
             if not state.draft.race or r.id != state.draft.race.id
         ]
 
@@ -94,21 +94,37 @@ class GuideEngine:
         return (self._sourced_distances(state)
                 if self._eligible(race) and race.distance_km is None else [])
 
-    def _turn(self, state, message=None, error=None):
+    def _needs_distance(self, state):
+        race = state.draft.race
+        return self._eligible(race) and race.distance_km is None
+
+    def _distance_alternatives(self, state):
+        return [race for race in state.candidates
+                if self._eligible(race) and race.distance_km is not None and race.distance_km > 0
+                and (not state.draft.race or race.id != state.draft.race.id)]
+
+    def _turn(self, state, message=None, error=None, *, recommended_distance=None):
         d = state.draft
         ready = bool(
             self._eligible(d.race)
             and d.origin_city
             and d.nights
             and d.budget_eur
-            and not self._pending_distances(state)
+            and d.race.distance_km is not None
         )
         question = None
         chips = []
-        if self._pending_distances(state):
-            question = self._say(state, "Quelle distance ?", "Which distance?")
-            chips = [self._chip(f"{value:g} km", kind="answer", provenance="source")
-                     for value in self._pending_distances(state)]
+        if self._needs_distance(state):
+            question = (self._say(state, "Quelle distance ?", "Which distance?")
+                        if self._pending_distances(state) else self._say(
+                            state, "Quelle distance souhaites-tu courir (1–400 km) ?",
+                            "What distance would you like to run (1–400 km)?"))
+            choices = ([recommended_distance] if recommended_distance is not None
+                       else self._pending_distances(state))
+            chips = [self._chip(f"{value:g} km", kind="answer", provenance=(
+                "suggested_default" if recommended_distance is not None else "source"))
+                     for value in choices]
+            chips += self._race_chips(state, self._distance_alternatives(state))
         elif state.stage == "choose_race":
             question = self._say(state, "Laquelle te tente ?", "Which one catches your eye?")
             chips = self._race_chips(state)
@@ -255,7 +271,7 @@ class GuideEngine:
         d = state.draft
         if not d.race:
             state.stage = "choose_race" if state.candidates else "discover"
-        elif not self._eligible(d.race) or self._pending_distances(state):
+        elif not self._eligible(d.race) or self._needs_distance(state):
             state.stage = "choose_race"
         else:
             if d.nights:
@@ -606,6 +622,9 @@ class GuideEngine:
             if chip.kind == "choose_race":
                 state.draft.race = next(r for r in state.candidates if r.id == chip.value)
                 state.draft.provenance["race"] = "source"
+                state.draft.provenance.pop("distance_km", None)
+                if state.draft.race.distance_km is not None:
+                    state.draft.provenance["distance_km"] = "source"
                 self._advance(state)
                 return self._turn(
                     state,
@@ -666,22 +685,6 @@ class GuideEngine:
                 "I cannot pay, create accounts, accept terms, submit forms, bypass captchas "
                 "or override rules. I can help prepare a trip without commitment."), "safety_refusal")
         state.history.append({"role": "user", "text": text})
-        if self._pending_distances(state):
-            distance = re.fullmatch(r"(\d+(?:[.,]\d+)?)\s*(?:km)?", text, re.IGNORECASE)
-            if distance:
-                value = float(distance[1].replace(",", "."))
-                if value not in self._pending_distances(state):
-                    return self._turn(state, self._say(
-                        state, "Choisissons une distance explicitement sourcée.",
-                        "Please choose a distance explicitly listed in the source."))
-                state.draft.race = state.draft.race.model_copy(deep=True)
-                state.draft.race.distance_km = value
-                state.draft.race.distance_label = f"{value:g} km"
-                state.draft.provenance["distance_km"] = "user"
-                self._advance(state)
-                return self._turn(state, self._say(
-                    state, f"Distance choisie : {value:g} km.",
-                    f"Selected distance: {value:g} km."))
         if bare_city(text) and state.stage in {"origin", "confirm", "confirmed"}:
             intent.origin_city = bare_city(text)
             intent.city = intent.country = None
@@ -730,6 +733,58 @@ class GuideEngine:
                 for suggestion in turn.suggestions:
                     suggestion.id += f":turn-{len(state.history)}"
             return state, turn
+        if self._needs_distance(state):
+            options = self._pending_distances(state)
+            if intent.deferred and not any((intent.distance, intent.city, intent.country,
+                                            intent.months, intent.year, intent.problem)):
+                if options:
+                    value = min(options)
+                    return self._turn(state, self._say(
+                        state,
+                        f"Je suggère {value:g} km : c'est la plus courte distance explicitement indiquée dans la source. Choisis-la pour valider cette distance.",
+                        f"I suggest {value:g} km: it is the shortest distance explicitly listed in the source. Choose it to confirm this distance.",
+                    ), recommended_distance=value)
+                alternatives = self._distance_alternatives(state)
+                message = self._say(
+                    state, "Aucune distance sourcée n'est disponible pour cet événement.",
+                    "No sourced distance is available for this event.")
+                if alternatives:
+                    race = alternatives[0]
+                    evidence = self._say(state, "synthétique", "synthetic") if race.synthetic else self._say(
+                        state, "sourcée", "sourced")
+                    message += self._say(
+                        state, f" Je propose plutôt {race.name}, avec une distance {evidence} de {race.distance_km:g} km ; sélectionne cette course pour changer.",
+                        f" I suggest {race.name} instead, with a {evidence} distance of {race.distance_km:g} km; select that race to switch.")
+                else:
+                    message += self._say(
+                        state, " Aucune autre course éligible n'a de distance connue ; indique la distance que tu souhaites courir, sans que j'en invente une.",
+                        " No eligible alternative has a known distance; enter the distance you intend to run rather than having me invent one.")
+                return self._turn(state, message)
+            distance = re.fullmatch(r"([+-]?\d+(?:[.,]\d+)?)\s*(?:km)?", text, re.IGNORECASE)
+            if distance:
+                value = float(distance[1].replace(",", "."))
+                if not options and not 1 <= value <= 400:
+                    return self._turn(state, self._say(
+                        state, "La distance doit être un nombre entre 1 et 400 km.",
+                        "Distance must be a number between 1 and 400 km."), "distance_range")
+                if options and value not in options:
+                    return self._turn(state, self._say(
+                        state, "Choisissons une distance explicitement sourcée.",
+                        "Please choose a distance explicitly listed in the source."))
+                state.draft.race = state.draft.race.model_copy(deep=True)
+                state.draft.race.distance_km = value
+                state.draft.race.distance_label = f"{value:g} km"
+                state.draft.provenance["distance_km"] = "user"
+                self._advance(state)
+                return self._turn(state, self._say(
+                    state, f"Distance choisie : {value:g} km.",
+                    f"Selected distance: {value:g} km."))
+            if not any((intent.distance, intent.city, intent.country, intent.months, intent.year,
+                        intent.problem, intent.origin_city, intent.nights, intent.budget_eur,
+                        intent.travelers)):
+                return self._turn(state, self._say(
+                    state, "Indique une distance numérique en kilomètres, sans valeur inventée.",
+                    "Please enter a numeric distance in kilometres; I won't invent one."), "distance_range")
         has_constraints = bool(intent.distance or intent.city or intent.country
                                or intent.months or intent.year or intent.problem == "exact_date")
         if intent.deferred and not has_constraints:
@@ -786,7 +841,7 @@ class GuideEngine:
         d = state.draft
         if not (
             self._eligible(d.race)
-            and not self._pending_distances(state)
+            and d.race.distance_km is not None
             and d.origin_city
             and d.nights
             and d.budget_eur
