@@ -68,6 +68,11 @@ def _field(value, name, default=None):
     return value.get(name, default) if isinstance(value, dict) else getattr(value, name, default)
 
 
+def _path_in_scope(path, prefix):
+    prefix = prefix.rstrip("/")
+    return not prefix or path == prefix or path.startswith(prefix + "/")
+
+
 def _policy(task):
     """Fail closed; no provider session exists while the review is checked."""
     try:
@@ -109,7 +114,7 @@ def _policy(task):
                 raise _PolicyBlocked
             paths = _field(review, "allowed_paths", ["/"])
             if host not in hosts or not paths or not any(
-                urlsplit(url).path.startswith(path) for path in paths
+                _path_in_scope(urlsplit(url).path, path) for path in paths
             ):
                 raise _PolicyBlocked
             reviews.append((set(hosts), tuple(paths)))
@@ -124,7 +129,7 @@ def _reviewed(url, reviews):
     if not _public_https(url) or scrub_url(url) != url:
         return False
     parts = urlsplit(url)
-    return any(parts.hostname in hosts and any(parts.path.startswith(p) for p in paths)
+    return any(parts.hostname in hosts and any(_path_in_scope(parts.path, p) for p in paths)
                for hosts, paths in reviews)
 
 

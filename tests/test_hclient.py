@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from runai.agents.hclient import GUARDRAILS, HAgentRunner, HUnavailable
+from runai.agents.hclient import GUARDRAILS, HAgentRunner, HUnavailable, _reviewed
 from runai.agents.scrub import scrub_text, scrub_url
 
 API = "https://agp.eu.hcompany.ai/api/v2"
@@ -879,3 +879,25 @@ def test_policy_expiry_uses_timestamp_precision_and_date_inclusive_day(monkeypat
         assert result["status"] == "ready_for_payment"
     else:
         assert result["status"] == "blocked" and not provider.requests
+
+
+@pytest.mark.parametrize("prefix,path,allowed", [
+    ("/race", "/race", True), ("/race", "/race/entry", True),
+    ("/race/", "/race/entry", True), ("/race", "/race-private", False),
+    ("/", "/race-private", True),
+])
+def test_reviewed_paths_respect_segment_boundaries(prefix, path, allowed):
+    assert _reviewed("https://race.example.org" + path,
+                     [({"race.example.org"}, (prefix,))]) is allowed
+
+
+def test_start_path_outside_reviewed_segment_never_creates_session(monkeypatch):
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(
+        evaluate_url=lambda *_: {
+            "allowed": True, "policy_id": "reviewed", "screenshot_scope": True,
+            "expires_at": None, "allowed_hosts": ["race.example.org"], "allowed_paths": ["/race"],
+        },
+    ))
+    provider = Provider()
+    result, _ = run(provider, {**TASK, "start_url": "https://race.example.org/race-private"})
+    assert result["status"] == "blocked" and not provider.requests
