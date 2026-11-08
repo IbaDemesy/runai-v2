@@ -98,7 +98,7 @@ def sanitize(value, key=""):
     safe_id = (key in {"id", "value", "path_segment"} or key.endswith("_id")) and re.fullmatch(
         r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}", value,
     )
-    if safe_id and key == "path_segment" and any(len(chunk) > 20 for chunk in re.split(r"[_.:-]", value)):
+    if safe_id and key == "path_segment" and any(len(chunk) > 20 and re.search(r"\d", chunk) for chunk in re.split(r"[_.:-]", value)):
         safe_id = None
     if key.endswith("_url") or key == "source_urls":
         url = public_url(value)

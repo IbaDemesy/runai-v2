@@ -194,3 +194,10 @@ def test_url_paths_with_opaque_tokens_or_phones_are_dropped():
     assert sanitize("https://example.org/contact-0612345678/", "official_url") is None
     assert sanitize("https://example.org/events/2027-04-18/s-25-berlin-2027", "official_url") == (
         "https://example.org/events/2027-04-18/s-25-berlin-2027")
+
+
+def test_long_alphabetic_url_path_words_are_kept():
+    from runai.app import sanitize
+
+    url = "https://example.org/meiamaratonainternacionaldelisboaedicao/inscricoes"
+    assert sanitize(url, "official_url") == url
