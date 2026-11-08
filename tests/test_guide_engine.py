@@ -290,3 +290,22 @@ def test_new_race_search_resets_hints_but_month_refines():
     state, turn = run(e.step(state, {"text": "le semi de Lisbonne"}))
     assert state.draft.race.city == "Lisbon"
     assert "months" not in state.hints and "year" not in state.hints
+
+
+@pytest.mark.parametrize("answer", ["budget 2028 euros", "2028 €", "2028 eur", "2028"])
+def test_budget_is_not_a_race_year(answer):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(query)
+        return await FakeDiscovery()(query, hints)
+
+    e = engine(discover)
+    state, turn = run(e.start("le semi de Lisbonne depuis Lyon 2 nuits"))
+    assert state.stage == "budget"
+    race = state.draft.race
+    state, turn = run(e.step(state, {"text": answer}))
+    assert len(calls) == 1 and state.draft.race == race
+    assert state.draft.budget_eur == 2028 and turn.ready_to_confirm
+    state, turn = run(e.step(state, {"text": "budget 2029 euros"}))
+    assert len(calls) == 1 and state.draft.budget_eur == 2029

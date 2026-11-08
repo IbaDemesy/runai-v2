@@ -131,3 +131,19 @@ def test_city_context_and_explicit_country(text, country, city):
 )
 def test_current_season_remaining_months(text, today, months):
     assert parse_intent(text, today=today).months == months
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "budget 2028 euros",
+        "2028 €",
+        "2028 eur",
+        "marathon budget 2028",
+        "marathon 2028 euros",
+        "2028 nights",
+        "2028",
+    ],
+)
+def test_non_year_numeric_answers(text):
+    assert parse_intent(text, today=TODAY).year is None

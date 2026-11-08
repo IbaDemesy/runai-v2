@@ -118,9 +118,6 @@ def parse_intent(text: str, *, today: date) -> Intent:
         else "fr"
     )
     result.correction = bool(re.search(r"\b(plutot|actually|instead)\b", t))
-    explicit = re.search(r"\b(20\d{2})\b", t)
-    if explicit:
-        result.year = int(explicit[1])
     for pattern, distance in [
         (r"\b(ultra)\b", "ultra"),
         (r"\btrail\b", "trail"),
@@ -173,6 +170,27 @@ def parse_intent(text: str, *, today: date) -> Intent:
         if any(contains(t, alias) for alias in aliases.split()):
             selected = months
             season = True
+    explicit = next(
+        (
+            match
+            for match in re.finditer(r"\b(20\d{2})\b", t)
+            if not re.match(
+                r"\s*(?:€|euros?\b|eur\b|nuits?\b|nights?\b|personnes?\b|people\b)",
+                t[match.end() :],
+            )
+            and not re.search(r"\bbudget\s*(?:de\s*)?$", t[: match.start()])
+            and (
+                result.distance
+                or result.city
+                or result.country
+                or selected
+                or re.search(r"\b(?:edition|year|annee|en|in|pour|for)\s*$", t[: match.start()])
+            )
+        ),
+        None,
+    )
+    if explicit:
+        result.year = int(explicit[1])
     if selected:
         year = int(explicit[1]) if explicit else today.year
         if season and today.month in selected and year == today.year and not contains(t, "next"):
