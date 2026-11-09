@@ -10,7 +10,9 @@ from collections.abc import Mapping
 from datetime import date
 from math import isfinite
 from typing import Any
+from urllib.parse import urlsplit
 
+from runai.agents.scrub import scrub_text, scrub_url
 from runai.agents.site_policy import (
     city_country,
     city_key,
@@ -69,10 +71,6 @@ def _candidate_task(expected, budget, adapter, url, decision):
     mode = {"rail": "train", "flight": "flight"}.get(adapter.get("mode"), "transport")
     checkpoint = task_checkpoint(adapter)
     checkpoint_stop = (
-        "This checkpoint page is a safe-stop zone: select both legs and fares here; never "
-        "stop merely on arrival before selecting. As soon as both selected legs, fares, "
-        "dates, party and full round-trip total are visible, STOP and answer immediately. "
-        if checkpoint["requires_selection"] else
         "When matched, STOP and answer immediately: READY if evidence is complete else "
         "BLOCKED unsafe_claim. "
     )
@@ -117,7 +115,8 @@ def _candidate_task(expected, budget, adapter, url, decision):
         "7. STOP on the reviewed fare-selection page and report READY immediately when both "
         "outbound and return fares, dates, party and full round-trip total are selected and visible. "
         f"Checkpoint URL patterns: {checkpoint['url_patterns']}. Match with case-insensitive "
-        f"re.search against the full current URL. {checkpoint_stop}"
+        "re.search against the unquoted current URL path + '?' + query, not host or fragment. "
+        f"{checkpoint_stop}"
         f"Never navigate to a URL matching beyond patterns: {checkpoint['beyond_patterns']}. "
         "Stop before opening passenger details or payment. Never type personal data, log in, "
         "create accounts, tick terms, solve captchas or pay. For login/account walls report "
@@ -129,7 +128,7 @@ def _candidate_task(expected, budget, adapter, url, decision):
         "site error report BLOCKED provider_error. Never invent success: report BLOCKED "
         "unsafe_claim if selection evidence is incomplete. Include the last safe public URL."
     )
-    return {
+    task = {
         "kind": KIND,
         "checkpoint": checkpoint,
         "site_name": decision["policy_id"],
@@ -148,3 +147,10 @@ def _candidate_task(expected, budget, adapter, url, decision):
         "expected": expected,
         "allowed_hosts": hosts,
     }
+    parts = urlsplit(url)
+    fragment_url = "https://fragment.example/" + parts.fragment.lstrip("/")
+    if (parts.fragment and scrub_url(fragment_url) == fragment_url
+            and scrub_text(parts.fragment) == parts.fragment
+            and scrub_url(url) == parts._replace(fragment="").geturl()):
+        task["keep_fragment"] = True
+    return task

@@ -1,4 +1,104 @@
+# R5-02 step 3 coverage — 2026-11-09
+
+The table is adapter-level coverage for **one adult**, not proof of selected
+round-trip checkout or H success. Dates and the default adult age category must
+match on the live page. Existing train-before-flight ordering makes NS primary
+over Vueling wherever both have an executable reviewed adapter.
+
+| Origin | Race city | Primary | P7 alternative | Gateway / limit |
+|---|---|---|---|---|
+| Paris | Milan | Vueling | none verified | MXP |
+| Paris | Lisbon | Vueling | none verified | LIS |
+| Paris | Barcelona | NS International | Vueling | Paris Gare de Lyon–Barcelona Sants |
+| Paris | Valencia | Vueling | none verified | VLC |
+| Paris | Seville | Vueling | none verified | SVQ |
+| Paris | Madrid | Vueling | none verified | MAD |
+| Paris | Rome | Vueling | none verified | FCO |
+| Paris | Amsterdam | NS International | none verified | Amsterdam Centraal |
+| Paris | Den Haag | NS International | none verified | Amsterdam; onward transfer excluded |
+| Paris | Lyon | NS International | none verified | Paris Gare de Lyon–Lyon Part Dieu |
+| Paris | Porto | Vueling | none verified | ORY–OPO via BCN |
+| Paris | Berlin | NS International | none verified | Paris Nord–Berlin Hbf |
+| Paris | Geneva | NS International | Vueling | Paris Gare de Lyon–Genève |
+| Paris | Zurich | Vueling | none verified | ORY–ZRH via BCN |
+| Paris | Stoos | Vueling | none verified | Zurich; onward transfer excluded |
+| Paris | Morschach | Vueling | none verified | Zurich; onward transfer excluded |
+| Paris | Brunnen | Vueling | none verified | Zurich; onward transfer excluded |
+| Brussels | Amsterdam | NS International | none verified | Brussels Midi–Amsterdam Centraal |
+| Geneva | Zurich | NS International | none verified | Genève–Zürich HB |
+| Geneva | Lucerne | **gap** | none verified | SBB timetable is not a verified fare deep link |
+| Lyon | Barcelona | Vueling | none verified | LYS–BCN; NS timetable lacked prices |
+
+20/21 requested pairs have adapter coverage. One route gap remains: Geneva–Lucerne.
+**Shortfall:** two distinct reviewed sites are wired only for Paris–Barcelona and
+Paris–Geneva. Research did not establish safe executable second sites elsewhere;
+this is not a claim that no such provider exists. Coverage does not imply a
+verified URL checkpoint: NS and Vueling share the unresolved boundary gap below.
+
+### New dated normal-Chrome result evidence
+
+NS public template (safe fragment retained by P12):
+`https://www.nsinternational.com/en/traintickets-v3/#/search/{origin}/{destination}/{YYYYMMDD}?pax=A&inboundDate={YYYYMMDD}`.
+Observed January 9–11 2027 with one Adult (26–59 years), public outbound fares and
+times on each wired route: FRPLY→FRLPD (Lyon), FRPLY→ESBST (Barcelona),
+FRPLY→CHGVA (Geneva), FRPNO→DEBHF (Berlin), BEBMI→NLASC (Amsterdam),
+CHGVA→CHAJD (Zurich). Station labels and dates were displayed; these are not
+selected round-trip totals. Paris–Zurich and Lyon–Barcelona returned route/times
+but no clearly captured fare, so no new NS adapters were wired for those pairs.
+March Paris–Zurich remained loading; not evidence of inventory.
+
+Vueling retained public flightSearch template with o=ORY, d=OPO or ZRH,
+dd=2027-03-20, rd=2027-03-22, adt=1, chd=0, inf=0, c=en-GB, cur=EUR.
+Both loaded selectFlight lists with Return / 1 Adult, matching destination and
+outbound/return public EUR fares via BCN. Selecting the first safe outbound
+confirmed Sat 20 Mar, ORY→OPO 07:00–21:15 and ORY→ZRH 07:00–20:25, still on
+selectFlight. Return calendar included Mon 22 Mar; no passenger details opened.
+One-adult limits are explicit for every new adapter; other party sizes fail
+closed where no prior verified adapter supports them. Tiny-town gateway routes
+reuse that Zurich search, not a claim that Zurich is the race town or that the
+local rail/bus/funicular transfer is included.
+
+### Candidate terms and unsuccessful research (not adapters)
+
+- NS disclaimer and Vueling terms reread before extending their existing owner-rule
+  adapters: copyright reservations are not affirmative automation permission;
+  retain in-session-only screenshots, no forms/accounts/consent/payment.
+- SBB public timetable at `www.sbb.ch/en/buying/pages/fahrplan/fahrplan.xhtml`
+  showed Genève→Luzern on January 9 2027, times and “Tickets purchase available”.
+  A reCAPTCHA notice was present; no captcha was touched and no round-trip
+  one-adult public fare deep link was established. No SBB adapter added.
+- SNCB copyright declaration reread at
+  `www.belgiantrain.be/en/support/customer-service/copyright-declaration`:
+  using/reproducing/displaying site components requires prior written permission.
+  Keep prohibited; no booking research or adapter.
+- TAP `/en-ca/legal-info/terms-and-conditions` reread: copyright/content require
+  written authorization and user-conduct obligations include automated mechanisms.
+  Keep prohibited; no booking research or adapter.
+- Iberia legal notice expanded and reread: personal use, restrictions on
+  exploitation/reproduction/distribution/modification/public communication and
+  commercial use remain materially ambiguous. A dated /gb/flight-search attempt
+  returned 404; no adapter added.
+- OUIGO France legal page and España `/es/informacion-legal` reached; no new
+  authorization decision. España dated public `_deeplink/journey-search`
+  attempt returned “Ha ocurrido un error…”, not date/party results. No adapter.
+- Renfe legal link showed only the cookie layer in the captured state. Italo
+  legal headings loaded but clause bodies were not established. CP aviso-legal
+  public sections reserve protected signs/reproduction. These partial reads do
+  not authorize new scopes or adapters. Existing CP adapter is unchanged.
+- Volotea, SWISS and the remaining Italian deep-link candidates were not fully
+  reverified in this handoff. No guessed adapters or policy upgrades added.
+- SNCF Connect, easyJet, Transavia and Eurowings stay prohibited. No captcha,
+  bot wall, private data, consent acceptance or form submission was bypassed.
+
 # R5-02 step 2 observations — 2026-11-09
+
+**R5-01 integration correction:** H's browser showed a Chrome internal error
+page (chromewebdata), which pre-R5-01 hclient classified as an unreviewed redirect
+before any frame. R5-01 now treats browser-internal URLs as blank observations,
+fixing that classification, NOT the underlying page-load failure. A post-merge
+H live smoke is still needed; no second H session was run in this handoff.
+The original round-4 raw URLs remain unavailable, so their exact network failures
+are not independently identified by this one-session reproduction.
 
 ## Vueling: exactly one quota-gated H probe
 
@@ -73,20 +173,33 @@ Matching only `/en/traintickets-v3/` cannot distinguish blank search, results,
 selected fare or final check. Preserving the fragment alone is insufficient:
 the final-check pane did not change the fragment. A state-aware checkpoint
 contract/runtime change is needed; hclient/scrub are outside this ticket's scope.
-The follow-up decision adds requires_selection=true and matches the observed
-selection-page paths for Vueling and NS. Selection-aware stopping is instructed
-in tasks; deterministic runtime enforcement remains with the hclient owner.
+After the R5-01 merge, first-match force_answer makes these shared URLs unsafe
+checkpoint patterns. requires_selection was removed. Distinct Vueling
+selectFare/fareSelection/review and NS traintickets-v3 overview/review patterns
+remain **unverified** and deliberately do not match initial/shared result pages.
+There is no verified deterministic URL checkpoint for these flows. A fresh
+Vueling check again selected both legs and Fly Light (EUR120.98) on selectFlight
+with no query. The following visible stage is DETAILS, before SEATS/LUGGAGE/EXTRAS;
+Continue exposes no safe destination URL in its button markup. It was not clicked
+because passenger details are the next indicated boundary. No pre-personal-data
+post-selection distinct path/query was established. Screenshot (in-session only):
+`/home/ubuntu/scratch/r5-vueling-selected-recheck.png`.
+
+P12 now preserves the reviewed NS start fragment with keep_fragment=true; direct
+_safe_start_fragment returned True. The prior fragment-loss startup limitation
+below is historical, not the merged runtime behavior. Final NS pane still leaves
+the fragment unchanged, so preserving it does not solve checkpoint detection.
 
 # R5-02 offline checkpoint additions (2026-11-09)
 
 All transport adapters carry independent task/P7 checkpoint metadata; 60 steps.
-Patterns are full-URL case-insensitive searches with a negative lookahead excluding
+Patterns are unquoted path/query case-insensitive searches with a negative lookahead excluding
 the generic unsafe expression in site-policy.md and `(?:[/?#]|$)` suffix.
 
 | Adapter | Checkpoint expression | Evidence status |
 | --- | --- | --- |
-| Vueling (all route variants) | `/booking/(?:selectFare|fareSelection|review)` | **Guessed, unverified.** Only /booking/selectFlight lists were observed; this is a prospective next-step fare review with both legs selected, never the unselected list. |
-| NS International | `#/(?:overview|review)` | **Guessed, unverified.** Selected two-leg fare overview URL was not observed; search fragment is not a checkpoint. |
+| Vueling (all route variants) | `/booking/(?:selectFare|fareSelection|review)` | **Guessed, unverified.** Selected state stayed on selectFlight; no distinct safe path/query was observed. |
+| NS International | `/en/traintickets-v3/(?:overview|review)` | **Guessed, unverified.** Selected Check your trip pane kept the same path/fragment; search fragment cannot be matched by P11. |
 | CP | `/pt/(?:resumo-viagem|resumo-compra)` | **Guessed, unverified.** Public results are documented, selected round-trip review URL is unknown. |
 
 On matching the checkpoint, stop and answer immediately: READY with complete
@@ -94,7 +207,7 @@ two-leg evidence, otherwise BLOCKED unsafe_claim. Never navigate beyond patterns
 No live provider called in this step; guessed paths are not authorization or proof
 of real stops. Reviewed Den Haag via Amsterdam exposes expected.gateway_city
 Amsterdam while preserving the original race city, including aliases. Onward
-transfer remains excluded. Runtime verifier gateway support is not changed here.
+transfer remains excluded. Runtime gateway support is inherited from R5-01.
 
 # Transport site evidence: R2-02 (supersedes R1-06)
 

@@ -57,10 +57,6 @@ def _candidate_task(expected, budget, adapter, url, decision):
         expected["gateway_city"] = search_city
     checkpoint = task_checkpoint(adapter)
     checkpoint_stop = (
-        "This checkpoint page is a safe-stop zone: select a room and rate here; never stop "
-        "merely on arrival before selecting. As soon as the selected room, rate, dates, "
-        "party and full-stay total are visible, STOP and answer immediately. "
-        if checkpoint["requires_selection"] else
         "When matched, STOP and answer immediately: READY if selected room, rate, dates, "
         "party and full-stay total evidence is complete, else BLOCKED unsafe_claim. "
     )
@@ -91,7 +87,7 @@ def _candidate_task(expected, budget, adapter, url, decision):
         f"5. Site-specific success evidence: {adapter['success_evidence']}\n"
         f"6. Site-specific blocked evidence: {adapter['blocked_evidence']}\n"
         f"7. Checkpoint URL patterns: {checkpoint['url_patterns']}. Match with case-insensitive "
-        "re.search against the full current URL. "
+        "re.search against the unquoted current URL path + '?' + query, not host or fragment. "
         f"{checkpoint_stop}Never add extras, navigate back or keep browsing after selection. "
         f"Never navigate to a URL matching beyond patterns: {checkpoint['beyond_patterns']}. "
         f"Hotel search city: {search_city}. Only the race city {expected['city']} or reviewed "

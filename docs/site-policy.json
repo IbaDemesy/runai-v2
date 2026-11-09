@@ -138,9 +138,8 @@
           "blocked_evidence": "Observed on B&B search: No hotels match your search criteria. Freiburg has rates on the tested dates; no property-specific sold-out message was observed this round. Block empty rates, wrong city/dates/party, member login, consent, captcha, form submission or guest details.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/hotel/[^/?#]+(?:[/?#]|$)"
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
             ],
-            "requires_selection": true,
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -168,9 +167,8 @@
           "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/hotel/[^/?#]+(?:[/?#]|$)"
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
             ],
-            "requires_selection": true,
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -195,9 +193,8 @@
           "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/hotel/[^/?#]+(?:[/?#]|$)"
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
             ],
-            "requires_selection": true,
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -228,9 +225,8 @@
           "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/hotel/[^/?#]+(?:[/?#]|$)"
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
             ],
-            "requires_selection": true,
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -261,9 +257,8 @@
           "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/hotel/[^/?#]+(?:[/?#]|$)"
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
             ],
-            "requires_selection": true,
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -288,9 +283,8 @@
           "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/hotel/[^/?#]+(?:[/?#]|$)"
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
             ],
-            "requires_selection": true,
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -315,9 +309,8 @@
           "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/hotel/[^/?#]+(?:[/?#]|$)"
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
             ],
-            "requires_selection": true,
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -376,7 +369,6 @@
             "url_patterns": [
               "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/select-enhance-stay(?:[/?#]|$)"
             ],
-            "requires_selection": false,
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -408,7 +400,6 @@
             "url_patterns": [
               "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/select-enhance-stay(?:[/?#]|$)"
             ],
-            "requires_selection": false,
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -1220,9 +1211,8 @@
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/selectFlight(?:[/?#]|$)"
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
-            "requires_selection": true,
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -1272,9 +1262,8 @@
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/selectFlight(?:[/?#]|$)"
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
-            "requires_selection": true,
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -1326,9 +1315,8 @@
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/selectFlight(?:[/?#]|$)"
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
-            "requires_selection": true,
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -1374,9 +1362,8 @@
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/selectFlight(?:[/?#]|$)"
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
-            "requires_selection": true,
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -1428,9 +1415,8 @@
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/selectFlight(?:[/?#]|$)"
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
-            "requires_selection": true,
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -1472,9 +1458,8 @@
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/selectFlight(?:[/?#]|$)"
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
-            "requires_selection": true,
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -1510,9 +1495,8 @@
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/selectFlight(?:[/?#]|$)"
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
-            "requires_selection": true,
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -1557,9 +1541,55 @@
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/selectFlight(?:[/?#]|$)"
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
-            "requires_selection": true,
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "mode": "flight",
+          "destination_countries": [
+            "PT",
+            "CH"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd={arrival_date}&rd={departure_date}&adt={travelers}&chd=0&inf=0&c=en-GB&cur=EUR",
+          "places": {
+            "porto": {
+              "iata": "OPO"
+            },
+            "stoos": {
+              "iata": "ZRH",
+              "via": "Zurich (onward Stoos transfer not included)"
+            },
+            "morschach": {
+              "iata": "ZRH",
+              "via": "Zurich (onward Morschach transfer not included)"
+            },
+            "brunnen": {
+              "iata": "ZRH",
+              "via": "Zurich (onward Brunnen transfer not included)"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_iata": "ORY"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09 in normal Chrome with March 20-22 2027 and one adult: ORY to Porto and ORY to Zurich public outbound and return flight lists, connecting via BCN, with EUR fares. Existing Zurich gateway is reused for Stoos, Morschach and Brunnen only: READY covers the selected round trip to Zurich, not the onward local transfer. Mention that exclusion explicitly and preserve expected.city. Select both legs/fare, verify dates, party and full-party total; stop before passenger details. List prices are not full selected totals. No distinct post-selection safe URL was observed; checkpoint pattern remains unverified, do not navigate beyond to find it.",
+          "blocked_evidence": "Block reset/stale search, missing or wrong route/dates/party, overnight arrival after arrival_date, no flights, sales horizon, login, captcha, required consent, form submission or passenger details. Never substitute an unreviewed gateway, claim onward travel is included, or continue past the safe selected state.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+            ],
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]
@@ -2783,7 +2813,7 @@
       "reviewed_at": "2026-11-09",
       "expires_at": "2027-02-07",
       "reviewed_sections": "Disclaimer: information, availability, copyright, links and transport conditions",
-      "justification": "Normal Chrome reread 2026-11-09: the public disclaimer reserves copyright, disclaims accuracy/availability and references transport conditions; no express robot/automation prohibition found in that page. This is not express contractual authorization. Retain the existing owner's read-only rule, no forms/accounts/consent/payment; screenshots in-session only. Paris Gare du Nord to Amsterdam Centraal public fares verified with January 9-11 2027 and one adult. Den Haag uses that explicitly labelled gateway only, with no onward transfer included. A direct Den Haag guessed code reset to blank search and is not wired.",
+      "justification": "Normal Chrome reread 2026-11-09: the public disclaimer reserves copyright, disclaims accuracy/availability and references transport conditions; no express robot/automation prohibition found in that page. This is not express contractual authorization. Retain the existing owner's read-only rule, no forms/accounts/consent/payment; screenshots in-session only. January 9-11 2027 one-adult public fares verified for Paris Nord-Amsterdam/Berlin, Paris Lyon-Lyon Part Dieu/Barcelona/Geneva, Brussels Midi-Amsterdam and Geneva-Zurich HB. March 20-22 Paris-Amsterdam final selected Check your trip pane also observed. Den Haag uses the reviewed Amsterdam gateway only, no onward transfer included. Timetable-only Zurich/Lyon-Barcelona and invalid guessed station codes were not added. P12 retains safe start fragments and accepts reviewed gateway cities; deterministic NS checkpoint remains an explicitly unverified distinct overview/review path, never the shared results URL. See docs/evidence/transport.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -2818,13 +2848,166 @@
               "origin_station_name": "Paris Gare du Nord"
             }
           },
-          "success_evidence": "Observed 2026-11-09: Paris Gare du Nord to Amsterdam Central, Sat 09 Jan / Mon 11 Jan 2027, 1 Adult (26-59 years), outbound train times and public EUR prices on NS International. Only this one-adult default age category is reviewed; stop if it does not match the traveler. For Den Haag, reviewed Amsterdam Centraal is the arrival gateway: READY covers the selected round trip to/from that gateway. The onward local transfer is out of scope and must be mentioned in the final report, never claimed as booked or included. Never substitute a non-reviewed gateway or replace expected.city. The unchanged hclient city verifier currently rejects Amsterdam-only city evidence for expected.city Den Haag; never fabricate Den Haag evidence to pass it. READY boundary is the NS journey/fare review after selecting outward AND return, with both routes/dates, party and full round-trip fare visible, before opening passenger details. STOP and report READY immediately there. That selected return/review state was not observed; unselected outbound fares and EUR 0.00 are not READY.",
-          "blocked_evidence": "At the first loaded NS booking page, if the reviewed route, both dates or party are absent/reset, STOP BLOCKED date_mismatch immediately. Never fill or submit search forms, reconstruct missing routing or keep browsing to the step limit. Block blank search, reset/stale route, missing or wrong dates/party, no connections/fares, sales horizon, unmatched age category, non-reviewed gateway, login, captcha, consent or any required form submission. The R4-02 live smoke failed step_limit at 40; the runner strips the public search fragment before session start. No selected NS review or READY was verified; the tightened early-stop instruction is not live-retested. A prohibited carrier host redirect is never allowed even if that carrier is named on an NS fare.",
+          "success_evidence": "Observed 2026-11-09: Paris Gare du Nord to Amsterdam Central, Jan 9-11 2027, one Adult (26-59 years), public outbound times and EUR fares. March 20-22 final Check your trip pane showed both selected trips and EUR90 total on the unchanged results URL. Only one adult in this default age category is reviewed. Den Haag uses Amsterdam Centraal as gateway: mention onward transfer is out of scope, never claim it included, invent Den Haag page evidence or replace expected.city. P12 verifies either race city or reviewed gateway with all other evidence unchanged. STOP after selecting BOTH legs and fares with exact dates, party and full round-trip total, before Enter your details. No distinct post-selection path/query was observed, so the overview/review URL checkpoint remains unverified. Shared result lists and EUR0.00 are not READY.",
+          "blocked_evidence": "At the first loaded NS booking page, if the reviewed route, both dates or party are absent/reset, STOP BLOCKED date_mismatch immediately. Never submit search forms or reconstruct a lost route. Block reset/stale search, wrong dates/party, no connections/fares, sales horizon, unmatched age category, non-reviewed gateway, login, captcha, required consent or form submission. R4-02's fragment-loss startup limitation is fixed by merged P12 plus task keep_fragment=true, not live-retested here. The remaining distinct checkpoint URL is unverified: never open passenger details to find it. Never follow a prohibited carrier-host redirect even when that carrier is named on an NS fare.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/traintickets-v3/(?:[/?#]|$)"
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
             ],
-            "requires_selection": true,
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "FR",
+            "ES",
+            "CH"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.nsinternational.com/en/traintickets-v3/#/search/{origin_station_code}/{station_code}/{arrival_ymd}?pax=A&inboundDate={departure_ymd}",
+          "places": {
+            "lyon": {
+              "station_code": "FRLPD",
+              "station_name": "Lyon Part Dieu"
+            },
+            "barcelona": {
+              "station_code": "ESBST",
+              "station_name": "Barcelona Sants"
+            },
+            "geneva": {
+              "station_code": "CHGVA",
+              "station_name": "Genève"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_station_code": "FRPLY",
+              "origin_station_name": "Paris Gare de Lyon"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09 in normal Chrome: exact round-trip dates 9-11 January 2027, one Adult (26-59 years), matching stations, departure/arrival times and public outbound EUR fares. See docs/evidence/transport.md for route-specific observations. Only one adult in the default age category is verified. Results are not READY: select both legs and fares, verify exact dates, party and full round-trip total before Enter your details. Answer immediately at this safe boundary even if no distinct URL checkpoint exists. The post-selection overview/review URL pattern remains unverified; never open passenger details or invent a checkpoint.",
+          "blocked_evidence": "Block blank/reset route or dates, wrong party/age category, timetable-only journeys without fares, no connections, sold out or sales horizon, login, captcha, required consent, form submission, passenger details or a non-reviewed carrier redirect. Never change dates. Fragment must be retained by P12; do not reconstruct a missing route by submitting a search.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "DE"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.nsinternational.com/en/traintickets-v3/#/search/{origin_station_code}/{station_code}/{arrival_ymd}?pax=A&inboundDate={departure_ymd}",
+          "places": {
+            "berlin": {
+              "station_code": "DEBHF",
+              "station_name": "Berlin Hbf"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_station_code": "FRPNO",
+              "origin_station_name": "Paris Gare du Nord"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09 in normal Chrome: exact round-trip dates 9-11 January 2027, one Adult (26-59 years), matching stations, departure/arrival times and public outbound EUR fares. See docs/evidence/transport.md for route-specific observations. Only one adult in the default age category is verified. Results are not READY: select both legs and fares, verify exact dates, party and full round-trip total before Enter your details. Answer immediately at this safe boundary even if no distinct URL checkpoint exists. The post-selection overview/review URL pattern remains unverified; never open passenger details or invent a checkpoint.",
+          "blocked_evidence": "Block blank/reset route or dates, wrong party/age category, timetable-only journeys without fares, no connections, sold out or sales horizon, login, captcha, required consent, form submission, passenger details or a non-reviewed carrier redirect. Never change dates. Fragment must be retained by P12; do not reconstruct a missing route by submitting a search.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "NL"
+          ],
+          "origin_countries": [
+            "BE"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.nsinternational.com/en/traintickets-v3/#/search/{origin_station_code}/{station_code}/{arrival_ymd}?pax=A&inboundDate={departure_ymd}",
+          "places": {
+            "amsterdam": {
+              "station_code": "NLASC",
+              "station_name": "Amsterdam Centraal"
+            }
+          },
+          "origin_places": {
+            "brussels": {
+              "origin_station_code": "BEBMI",
+              "origin_station_name": "Brussel Zuid - Midi"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09 in normal Chrome: exact round-trip dates 9-11 January 2027, one Adult (26-59 years), matching stations, departure/arrival times and public outbound EUR fares. See docs/evidence/transport.md for route-specific observations. Only one adult in the default age category is verified. Results are not READY: select both legs and fares, verify exact dates, party and full round-trip total before Enter your details. Answer immediately at this safe boundary even if no distinct URL checkpoint exists. The post-selection overview/review URL pattern remains unverified; never open passenger details or invent a checkpoint.",
+          "blocked_evidence": "Block blank/reset route or dates, wrong party/age category, timetable-only journeys without fares, no connections, sold out or sales horizon, login, captcha, required consent, form submission, passenger details or a non-reviewed carrier redirect. Never change dates. Fragment must be retained by P12; do not reconstruct a missing route by submitting a search.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "CH"
+          ],
+          "origin_countries": [
+            "CH"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.nsinternational.com/en/traintickets-v3/#/search/{origin_station_code}/{station_code}/{arrival_ymd}?pax=A&inboundDate={departure_ymd}",
+          "places": {
+            "zurich": {
+              "station_code": "CHAJD",
+              "station_name": "Zürich HB"
+            }
+          },
+          "origin_places": {
+            "geneva": {
+              "origin_station_code": "CHGVA",
+              "origin_station_name": "Genève"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09 in normal Chrome: exact round-trip dates 9-11 January 2027, one Adult (26-59 years), matching stations, departure/arrival times and public outbound EUR fares. See docs/evidence/transport.md for route-specific observations. Only one adult in the default age category is verified. Results are not READY: select both legs and fares, verify exact dates, party and full round-trip total before Enter your details. Answer immediately at this safe boundary even if no distinct URL checkpoint exists. The post-selection overview/review URL pattern remains unverified; never open passenger details or invent a checkpoint.",
+          "blocked_evidence": "Block blank/reset route or dates, wrong party/age category, timetable-only journeys without fares, no connections, sold out or sales horizon, login, captcha, required consent, form submission, passenger details or a non-reviewed carrier redirect. Never change dates. Fragment must be retained by P12; do not reconstruct a missing route by submitting a search.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
+            ],
             "beyond_patterns": [
               "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
             ]

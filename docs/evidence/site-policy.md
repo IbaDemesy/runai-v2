@@ -1,39 +1,45 @@
-# P11 selection-aware checkpoints — 2026-11-09
+# P11/P12 integration correction — 2026-11-09
 
-Optional checkpoint boolean `requires_selection` defaults to false; non-booleans
-fail closed. It is copied into primary and P7 alternative tasks alongside the two
-non-empty regex lists. Patterns use case-insensitive re.search on the full URL.
+Merged origin/main containing R5-01 and reread CONTRACTS.md P11/P12 and hclient
+_checkpoint/_checkpoint_matches/force_answer. Patterns match the **unquoted path
++ '?' + query**, never host or fragment. On the first matching observation the
+runtime emits the frame and requests force_answer (60-second answer deadline).
+Beyond patterns take precedence and cancel with policy_denied. The earlier
+requires_selection proposal is removed: the runtime does not implement it.
+Neither checkpoint list may match a task's start path/query or an unselected page.
+Primary and alternative task tests exercise these boundaries with the merged
+runtime helpers, not a separate guessed matcher.
 
-False: stop immediately on arrival at the checkpoint, READY with complete evidence
-or BLOCKED unsafe_claim otherwise (IHG Add Extras). True: the matching URL is a
-safe-stop zone shared by unselected and selected states (Vueling selectFlight,
-NS traintickets-v3 and B&B hotel pages). Select using safe public controls only;
-do not stop solely because the unselected page matches. Stop and answer immediately
-once both selected legs/fares and round-trip total, or selected room/rate and
-full-stay total, plus dates and party, are visible. Safety boundaries always win:
-never submit forms, enter personal data, accept consent or navigate beyond_patterns.
-NH remains an unverified post-rates pattern; mandatory consent means stop with
-BLOCKED consent_required, never accept it to continue.
+IHG Add Extras is a verified distinct checkpoint. Vueling selectFlight, NS
+traintickets-v3 and B&B hotel pages are shared selected/unselected URLs and MUST
+NOT be checkpoint patterns. Their remaining distinct review/extras patterns are
+explicitly unverified gaps, not claims of successful deterministic stopping.
+Their tasks still instruct an immediate safe answer after selection, never
+opening passenger/guest details or submitting a form to reach an invented URL.
+NH's post-rates pattern remains unverified; required consent means stop with
+BLOCKED consent_required.
 
-**Runtime-owner note:** hclient currently ignores checkpoint metadata; these rules
-are instructions, not deterministic enforcement. Any P11 enforcement must honor
-requires_selection, not terminate all same-URL tasks at their first observation.
-NS fragments are stripped before navigation and observations; its observed final
-pane does not change the fragment anyway. Match the scrubbed path AND selection
-state. Observed paths are not proof of READY or inventory on other dates/properties.
+P12: NS tasks set keep_fragment=true only when both scrub_url of a synthetic
+public fragment URL and scrub_text preserve the route/query unchanged, and the
+fragment-less URL survives scrubbing unchanged. The merged runtime independently
+rechecks this. Direct check of the reviewed NS route returned True from
+_safe_start_fragment. Observations still have no fragment for checkpoint matching.
+Gateway verification now accepts expected.city OR expected.gateway_city, not a
+third city; all dates, party and selection checks remain required.
 
 # R5-02 offline checkpoint contract (2026-11-09)
 
 Optional adapter `checkpoint` has non-empty string lists `url_patterns` and
 `beyond_patterns`. Load compiles each regex with IGNORECASE to validate it and
-retains plain strings for task JSON. Match using re.search on the full URL.
+retains plain strings for task JSON. Match using re.search on unquoted path/query
+as specified in the integration correction above.
 Missing is compatible; malformed, empty, non-string or invalid regex fails closed.
 Legacy adapters without this metadata receive an impossible `(?!)` ready pattern
 and the generic unsafe boundary; this is not evidence of a selected review page.
 Hotel/transport tasks and P7 alternatives carry independent copies. A checkpoint
 requires an immediate answer: READY only with complete evidence, else BLOCKED
 unsafe_claim. Never navigate beyond; all earlier safety boundaries still win.
-This handoff changes instructions/metadata only, not hclient runtime enforcement.
+The hclient runtime is inherited unchanged from the R5-01 origin/main merge.
 
 All checkpoint patterns exclude URLs containing the shared beyond expression:
 `guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay`.
@@ -47,8 +53,8 @@ These are desk-reviewed geographic allowances within Switzerland, not observed
 hotel inventory, proximity guarantees or included transfers. Search only that
 gateway; a property outside both race city and gateway blocks date_mismatch.
 No wider neighboring-city substitution is allowed. Transport `via` exposes its
-reviewed gateway city without replacing expected.city; hclient acceptance of that
-extra field is outside this ticket's runtime scope.
+reviewed gateway city without replacing expected.city; the merged P12 runtime
+accepts it with the same dates/party/selection requirements. No runtime edits here.
 
 # Site policy review: R2-02
 

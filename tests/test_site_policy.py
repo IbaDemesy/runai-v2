@@ -97,10 +97,12 @@ def assert_task_policy(task, monkeypatch, reg=None):
         for candidate in [task, *task.get("alternatives", [])]:
             if candidate["kind"] in ("hotel", "transport"):
                 checkpoint = candidate["checkpoint"]
-                assert isinstance(checkpoint["requires_selection"], bool)
-                if checkpoint["requires_selection"]:
-                    assert "safe-stop zone" in candidate["instructions"]
-                    assert "before selecting" in candidate["instructions"]
+                compiled = hclient._checkpoint(candidate)
+                assert compiled is not None
+                assert not hclient._checkpoint_matches(compiled, "url_patterns",
+                                                       candidate["start_url"])
+                assert not hclient._checkpoint_matches(compiled, "beyond_patterns",
+                                                       candidate["start_url"])
                 assert json.loads(json.dumps(checkpoint)) == checkpoint
                 for field in ("url_patterns", "beyond_patterns"):
                     assert checkpoint[field]
@@ -154,7 +156,7 @@ def test_checkpoint_optional_and_plain_patterns_retained():
     checkpoint = {"url_patterns": ["/review"], "beyond_patterns": ["payment"]}
     item["adapters"][0]["checkpoint"] = checkpoint
     parsed = parse_registry(registry(item))[0]["adapters"][0]["checkpoint"]
-    assert parsed == {**checkpoint, "requires_selection": False} and parsed is not checkpoint
+    assert parsed == checkpoint and parsed is not checkpoint
     assert re.search(parsed["url_patterns"][0], "https://example.test/REVIEW", re.IGNORECASE)
 
 
@@ -164,8 +166,7 @@ def test_all_committed_checkpoints_exclude_unsafe_urls():
             if adapter["kind"] not in ("hotel", "transport"):
                 continue
             checkpoint = adapter["checkpoint"]
-            assert set(checkpoint) == {"url_patterns", "beyond_patterns", "requires_selection"}
-            assert isinstance(checkpoint["requires_selection"], bool)
+            assert set(checkpoint) == {"url_patterns", "beyond_patterns"}
             for patterns in (checkpoint["url_patterns"], checkpoint["beyond_patterns"]):
                 assert patterns and all(isinstance(p, str) for p in patterns)
                 for pattern in patterns:
@@ -177,19 +178,30 @@ def test_all_committed_checkpoints_exclude_unsafe_urls():
                 assert not any(re.search(p, url, re.IGNORECASE) for p in checkpoint["url_patterns"])
 
 
-@pytest.mark.parametrize("value", [True, False, None, 0, 1, "true", [], {}])
-def test_checkpoint_requires_selection_boolean_only(value):
-    item = entry()
-    item["adapters"][0]["checkpoint"] = {
-        "url_patterns": ["/review"], "beyond_patterns": ["payment"],
-        "requires_selection": value,
-    }
-    if isinstance(value, bool):
-        parsed = parse_registry(registry(item))[0]["adapters"][0]["checkpoint"]
-        assert parsed["requires_selection"] is value
-    else:
-        with pytest.raises(PolicyError, match="requires_selection"):
-            parse_registry(registry(item))
+@pytest.mark.parametrize("policy_id,url", [
+    ("ihg-com", "https://www.ihg.com/hotels/gb/en/find-hotels/select-roomrate"),
+    ("vueling-com", "https://tickets.vueling.com/booking/selectFlight"),
+    ("ns-international", "https://www.nsinternational.com/en/traintickets-v3/"),
+    ("hotel-bb-com", "https://www.hotel-bb.com/en/hotel/milano-sant-ambrogio"),
+    ("nh-hotels-com", "https://www.nh-hotels.com/es/booking/step1-rates"),
+])
+def test_initial_unselected_pages_do_not_force_checkpoint(policy_id, url):
+    item = next(e for e in load_registry() if e["id"] == policy_id)
+    for adapter in item["adapters"]:
+        compiled = hclient._checkpoint({"checkpoint": adapter["checkpoint"]})
+        assert compiled is not None
+        assert not hclient._checkpoint_matches(compiled, "url_patterns", url)
+        assert not hclient._checkpoint_matches(compiled, "beyond_patterns", url)
+
+
+def test_ihg_checkpoint_matches_unquoted_path_query_not_host():
+    item = next(e for e in load_registry() if e["id"] == "ihg-com")
+    checkpoint = hclient._checkpoint({"checkpoint": item["adapters"][0]["checkpoint"]})
+    assert hclient._checkpoint_matches(checkpoint, "url_patterns",
+                                      "https://www.ihg.com/hotels/gb/en/find-hotels/"
+                                      "%73elect-enhance-stay?qAdlt=1")
+    assert not hclient._checkpoint_matches(checkpoint, "url_patterns",
+                                          "https://select-enhance-stay.example/search")
 
 
 CITY_ALIAS_CASES = [

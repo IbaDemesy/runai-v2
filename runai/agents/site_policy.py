@@ -141,7 +141,8 @@ def _codes(value: Any, field: str) -> frozenset[str] | None:
 def _adapter(raw: Any, entry_id: str, scope_hosts: set[str]) -> dict[str, Any]:
     """Validate deep links and checkpoints.
 
-    Checkpoint patterns use re.search against the full URL, case-insensitively.
+    Checkpoint patterns use re.search against unquoted path + '?' + query,
+    case-insensitively, matching P11 (no host or fragment).
     Beyond patterns are forbidden navigation boundaries, not success evidence.
     """
     if not isinstance(raw, Mapping) or raw.get("kind") not in KINDS:
@@ -162,11 +163,7 @@ def _adapter(raw: Any, entry_id: str, scope_hosts: set[str]) -> dict[str, Any]:
                     re.compile(pattern, re.IGNORECASE)
             except re.error as exc:
                 raise PolicyError(f"{entry_id}: invalid checkpoint regex") from exc
-        requires_selection = checkpoint.get("requires_selection", False)
-        if not isinstance(requires_selection, bool):
-            raise PolicyError(f"{entry_id}: checkpoint requires_selection must be boolean")
         checkpoint = {key: list(checkpoint[key]) for key in ("url_patterns", "beyond_patterns")}
-        checkpoint["requires_selection"] = requires_selection
     traveler_counts = raw.get("traveler_counts")
     if traveler_counts is not None and (
         not isinstance(traveler_counts, list) or not traveler_counts
@@ -518,7 +515,7 @@ _CITY_COUNTRIES = {
     "dublin": "IE", "athens": "GR",
     "den haag": "NL", "savognin": "CH", "grindelwald": "CH", "sierre": "CH",
     "birmingham": "GB",
-    "stoos": "CH", "morschach": "CH", "chur": "CH",
+    "stoos": "CH", "morschach": "CH", "brunnen": "CH", "chur": "CH",
 }
 
 
@@ -589,16 +586,13 @@ def hotel_search_city(expected: Mapping[str, Any]) -> str:
     return city
 
 
-def task_checkpoint(adapter: Mapping[str, Any]) -> dict[str, Any]:
+def task_checkpoint(adapter: Mapping[str, Any]) -> dict[str, list[str]]:
     """Legacy adapters without checkpoints cannot claim a URL-based ready boundary."""
     checkpoint = adapter.get("checkpoint") or {
         "url_patterns": [r"(?!)"],
         "beyond_patterns": [r"guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"],
     }
-    return {
-        **{key: list(checkpoint[key]) for key in ("url_patterns", "beyond_patterns")},
-        "requires_selection": checkpoint.get("requires_selection", False),
-    }
+    return {key: list(checkpoint[key]) for key in ("url_patterns", "beyond_patterns")}
 
 
 def _iso(value: Any, field: str) -> date:

@@ -1,3 +1,28 @@
+# R5-02 step 3 hotel research — 2026-11-09
+
+**Not completed:** no second executable reviewed hotel provider was added for
+NL or CH. Existing IHG coverage for Amsterdam/Den Haag and existing Swiss
+B&B/IHG regional coverage remain unchanged; this is not a two-provider claim.
+
+- Meininger `/en/imprint/`, including public collapsed copyright sections, was
+  reread. It prohibits reproduction/utilisation in other publications without
+  express agreement, not an affirmative automation license. Existing owner-rule
+  status is unchanged. Its dated Amsterdam booking target on
+  `mmb.meininger-hotels.com` returned ERR_TOO_MANY_REDIRECTS. No adapter or
+  extension to that host added; do not work around the redirect failure.
+- Radisson `/en-us/terms-and-conditions` reread: personal/non-commercial viewing
+  and downloading are distinguished from copying/reproduction requiring
+  permission. Scope remains materially ambiguous. A dated one-adult Amsterdam
+  room-display attempt showed no rendered results, not proof of availability.
+  No adapter or policy upgrade.
+- NH Amsterdam March 20–22 2027 one-adult attempt returned Spanish no-availability
+  text plus a required consent overlay with only Yes, I accept visible. No
+  consent accepted and no NL adapter added. Existing NH paths still require
+  BLOCKED consent_required at that overlay. NH was not globally demoted in the
+  registry; whether to prioritize IHG over it remains a follow-up decision.
+- Novum, Scandic and H10 were not fully reverified this handoff; Melia's existing
+  deep-link restriction and Motel One/Hilton prohibitions are unchanged.
+
 # R5-02 step 2 browser observations — 2026-11-09
 
 **IHG Amsterdam, 20–22 March 2027, one adult:** selected Kimpton De Witt via
@@ -34,23 +59,24 @@ no fragment change. The guessed `/booking/extras|review` path was not observed.
 Screenshot (in-session only): `/home/ubuntu/scratch/r5-bb-selected.png`.
 
 As with Vueling/NS, the B&B selected checkpoint is a state on the same URL as
-the initial unselected page. Per the follow-up decision, B&B hotel-page patterns
-now use requires_selection=true: only the selected state triggers the safe stop.
-The hotel-page pattern applies to existing properties, but selection behavior
-was verified only for Milano Sant'Ambrogio, not all B&B adapters.
+the initial unselected page. After integrating R5-01, matching that hotel page
+would force an answer prematurely. No separate safe path/query was observed;
+Book now is the next boundary and was not clicked. The distinct extras/review
+pattern is retained as **unverified**, not as selected-stop coverage. The earlier
+requires_selection field was removed; P11 does not support it.
 No account, personal data, consent acceptance, booking or payment occurred.
 
 # R5-02 offline checkpoint additions (2026-11-09)
 
 Every hotel adapter now carries checkpoint patterns. All are case-insensitive
-full-URL searches, prefixed with a negative lookahead excluding the shared unsafe
+unquoted path/query searches, prefixed with a negative lookahead excluding the shared unsafe
 expression documented in site-policy.md, and end with `(?:[/?#]|$)`.
 
 | Adapter | Checkpoint path expression | Evidence status |
 | --- | --- | --- |
 | IHG (both adapters) | `/select-enhance-stay` | Observed URL in prior R3/R4 navigation below; complete READY evidence still unverified. |
 | NH | `/booking/step2-(?:extras|services)` | **Guessed, unverified.** Only step1-rates is documented below. This is a prospective post-room/rate checkpoint, not an observed route. |
-| B&B (all fixed properties) | `/booking/(?:extras|review)` | **Guessed, unverified.** Only property rate lists were observed; selected review URL unknown. |
+| B&B (all fixed properties) | `/booking/(?:extras|review)` | **Guessed, unverified.** Selected room/rate state was observed on the unchanged property page; no distinct review URL verified. |
 
 No live runs in R5-02 step 1. Guessed routes do not authorize navigation or prove
 that these pages exist. Earlier guest/consent/form boundaries still block.
