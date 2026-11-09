@@ -58,6 +58,7 @@ def build_task(
     candidates = select_adapters(
         KIND, expected, origin_country=origin_country(trip), today=today, registry=registry,
         modes=("rail", "flight"),
+        url_filter=_runnable_start_url,
     )
     profile = trip.get("runner_profile")
     tasks = [_candidate_task(expected.copy(), budget, *candidate, profile=profile)
@@ -66,6 +67,18 @@ def build_task(
     if len(tasks) > 1:
         primary["alternatives"] = tasks[1:]
     return primary
+
+
+def _keep_fragment(url):
+    parts = urlsplit(url)
+    fragment_url = "https://fragment.example/" + parts.fragment.lstrip("/")
+    return bool(parts.fragment and scrub_url(fragment_url) == fragment_url
+                and scrub_text(parts.fragment) == parts.fragment
+                and scrub_url(url) == parts._replace(fragment="").geturl())
+
+
+def _runnable_start_url(url):
+    return scrub_url(url) == url or _keep_fragment(url)
 
 
 def _candidate_task(expected, budget, adapter, url, decision, *, profile=None):
@@ -204,10 +217,6 @@ def _candidate_task(expected, budget, adapter, url, decision, *, profile=None):
             "dates, party and authorized passenger fields completed; before seats, extras, "
             "insurance, terms or payment. Unobserved checkpoint means BLOCKED."
         )
-    parts = urlsplit(url)
-    fragment_url = "https://fragment.example/" + parts.fragment.lstrip("/")
-    if (parts.fragment and scrub_url(fragment_url) == fragment_url
-            and scrub_text(parts.fragment) == parts.fragment
-            and scrub_url(url) == parts._replace(fragment="").geturl()):
+    if _keep_fragment(url):
         task["keep_fragment"] = True
     return task

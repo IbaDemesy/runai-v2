@@ -1145,7 +1145,7 @@
             3,
             4
           ],
-          "url_template": "https://www.google.com/travel/flights?hl=en&q=Round%20trip%20flights%20from%20{origin_iata}%20to%20{iata}%20on%20{arrival_date}%20returning%20{departure_date}%20for%20{travelers}%20{adult_label}",
+          "url_template": "https://www.google.com/travel/flights?hl=en&q=Round+trip+flights+from+{origin_iata}+to+{iata}+on+{arrival_mon_d_yyyy}+returning+{departure_mon_d_yyyy}+for+{adult_phrase}",
           "places": {
             "milan": {
               "iata": "MIL"
@@ -1165,7 +1165,7 @@
               "origin_iata": "PAR"
             }
           },
-          "success_evidence": "Reject consent.google.com cookies only. Select outbound then return; stop on Google booking options with selected round-trip dates, party and total. Never click through to an airline or booking partner; those hosts are not allowed. H 2026-11-09 observed Paris-Valencia booking options EUR45. Disclose actual airports and reviewed gateway.",
+          "success_evidence": "Reject consent.google.com cookies only. Select outbound then return; stop on Google booking options with selected round-trip dates, party and total. Never click through to an airline or booking partner; those hosts are not allowed. H 2026-11-09 observed Paris-Valencia booking options EUR45. Disclose actual airports and reviewed gateway. Return the exact current public browser URL as handoff_url, retaining public locale, currency and query parameters; do not reconstruct or truncate it. Never include private session links or tokens.",
           "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
           "checkpoint": {
             "url_patterns": [
@@ -1176,7 +1176,9 @@
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
             ]
           },
-          "h_render_verified_at": "2026-11-09"
+          "h_render_verified_at": "2026-11-09",
+          "query_encoding": "form",
+          "priority": 1
         },
         {
           "kind": "transport",
@@ -1193,7 +1195,7 @@
             3,
             4
           ],
-          "url_template": "https://www.google.com/travel/flights?hl=en&q=Round%20trip%20flights%20from%20{origin_iata}%20to%20{iata}%20on%20{arrival_date}%20returning%20{departure_date}%20for%20{travelers}%20{adult_label}",
+          "url_template": "https://www.google.com/travel/flights?hl=en&q=Round+trip+flights+from+{origin_iata}+to+{iata}+on+{arrival_mon_d_yyyy}+returning+{departure_mon_d_yyyy}+for+{adult_phrase}",
           "places": {
             "barcelona": {
               "iata": "BCN"
@@ -1204,7 +1206,7 @@
               "origin_iata": "GVA"
             }
           },
-          "success_evidence": "Reject consent.google.com cookies only. Select outbound then return; stop on Google booking options with selected round-trip dates, party and total. Never click through to an airline or booking partner; those hosts are not allowed. H 2026-11-09 observed Paris-Valencia booking options EUR45. Disclose actual airports and reviewed gateway.",
+          "success_evidence": "Reject consent.google.com cookies only. Select outbound then return; stop on Google booking options with selected round-trip dates, party and total. Never click through to an airline or booking partner; those hosts are not allowed. H 2026-11-09 observed Paris-Valencia booking options EUR45. Disclose actual airports and reviewed gateway. Return the exact current public browser URL as handoff_url, retaining public locale, currency and query parameters; do not reconstruct or truncate it. Never include private session links or tokens.",
           "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
           "checkpoint": {
             "url_patterns": [
@@ -1215,7 +1217,9 @@
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
             ]
           },
-          "h_render_verified_at": "2026-11-09"
+          "h_render_verified_at": "2026-11-09",
+          "query_encoding": "form",
+          "priority": 1
         },
         {
           "kind": "transport",
@@ -1233,7 +1237,7 @@
             "BE",
             "CH"
           ],
-          "url_template": "https://www.google.com/travel/flights?hl=en&q=Round%20trip%20flights%20from%20{origin_iata}%20to%20{iata}%20on%20{arrival_date}%20returning%20{departure_date}%20for%20{travelers}%20{adult_label}",
+          "url_template": "https://www.google.com/travel/flights?hl=en&q=Round+trip+flights+from+{origin_iata}+to+{iata}+on+{arrival_mon_d_yyyy}+returning+{departure_mon_d_yyyy}+for+{adult_phrase}",
           "places": {
             "milan": {
               "iata": "MIL"
@@ -1290,7 +1294,7 @@
               "origin_iata": "GVA"
             }
           },
-          "success_evidence": "Reject consent.google.com cookies only. Select outbound then return; stop on Google booking options with selected round-trip dates, party and total. Never click through to an airline or booking partner; those hosts are not allowed. H 2026-11-09 observed Paris-Valencia booking options EUR45. Disclose actual airports and reviewed gateway.",
+          "success_evidence": "Reject consent.google.com cookies only. Select outbound then return; stop on Google booking options with selected round-trip dates, party and total. Never click through to an airline or booking partner; those hosts are not allowed. H 2026-11-09 observed Paris-Valencia booking options EUR45. Disclose actual airports and reviewed gateway. Return the exact current public browser URL as handoff_url, retaining public locale, currency and query parameters; do not reconstruct or truncate it. Never include private session links or tokens.",
           "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
           "checkpoint": {
             "url_patterns": [
@@ -1306,7 +1310,9 @@
             2,
             3,
             4
-          ]
+          ],
+          "query_encoding": "form",
+          "priority": 1
         }
       ]
     },

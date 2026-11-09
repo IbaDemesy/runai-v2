@@ -1287,3 +1287,122 @@ research remains separate historical evidence. No hclient/scrub edits, encoding
 bypass, policy widening or fabricated READY. Recommend core owner fix the known
 public-link handling, then rerun the same builder pipeline before integrated
 acceptance. No UI changes or independent screenshot visual review.
+
+# R7-02 scrub-stable Google workaround — 2026-11-09
+
+Supersedes earlier broad **runnable** coverage claims. Registry render evidence
+is retained; registry-level coverage is not proof that the runtime can preserve
+a deep link. transport.build_task now filters candidates BEFORE the distinct-policy
+cap and verified-primary selection: exact scrub_url(start_url)==start_url, with
+only the existing validated keep_fragment exception. No verified stable primary
+means ValueError. Unverified alternatives are never promoted to compensate.
+
+## Implementation and current runnable coverage
+
+- Generic English month-name date variant mon_d_yyyy (e.g. Jan29 2027 with spaces
+  between month/day/year), plus adult_phrase (one adult,2 adults,etc.).
+- Optional strictly validated query_encoding=form canonicalizes only query
+  encoding with urlencode/quote_plus; default percent behavior is unchanged.
+- Optional nonnegative integer priority, default0. Google priority1 outranks Omio
+  only within the existing verified/non-last-resort tiers. It cannot promote an
+  unverified or last-resort primary. Existing rail-first default is preserved.
+- Google q now uses month-name dates and + encoding. It survives scrub intact.
+- Omio remains dated in the registry but its public affiliate UUID still fails
+  scrub, so no Omio task is emitted on this core. No hclient/scrub edits.
+- TAP dotted depDate/retDate are removed by scrub, so TAP is filtered.
+- SBB retains all query keys but percent-space encoding is normalized to + by
+  scrub; exact equality fails, so its current URLs are filtered. No SBB/NS
+  registry or review changes were made in this workaround.
+
+Exactly7/48 eval combinations have a runnable verified primary for ONE adult:
+- Paris→Milan, Berlin, Lisbon, Valencia: Google Flights.
+- Paris→Amsterdam: NS International (validated public fragment retained).
+- Geneva→Barcelona: Google Flights.
+- Geneva→Zurich: NS International.
+- Lyon: none; Brussels: none.
+
+For2..4 adults, exactly the five Google routes above remain runnable. The two NS
+routes retain their original one-adult restriction. All other eval combinations,
+including all Brunnen/Stoos/Lucerne gateways and The Hague, fail closed pending
+R7-01's reviewed Omio scrub exemption (or new verified stable-provider evidence).
+Passing the start guard is not a promise that later selected-path privacy gates
+or checkout verification will pass. Tests condition Omio inclusion on actual
+scrub behavior, so they also support the future exemption without hard-coding
+Omio as permanently blocked. Prefill final sentinel remains (?!) unchanged.
+
+## Actual product-pipeline smokes
+
+Real trip dict → build_task → _policy → unmodified HAgentRunner.run; no profile,
+one adult, EUR800 budget, Jan29→31 2027 and explicitly synthetic race-like Jan30
+date. Provider max_steps60 unchanged. Alternatives retained as built (only
+Paris→Berlin had a stable NS alternative; no fallback actually ran). All runs
+used the new q wording, not a separately navigated raw probe.
+
+Public stop for every actual smoke: **www.google.com/travel/flights/booking**.
+Observed chain: consent.google.com/m → www.google.com/travel/flights →
+/travel/flights/search → /travel/flights/booking. No airline click-through
+reported. Hclient checkpoint patterns matched booking and did not match beyond.
+
+| Route | Provider | Actual status | reason_code | Steps / image-bearing observations | Checkpoint | Total evidence |
+|---|---|---|---|---|---|---|
+| Paris→Milan | Google | ready_for_payment | null | 3/4 | yes | Client verification passed; numeric amount not retained by initial observer |
+| Paris→Berlin | Google | ready_for_payment | null | 3/4 | yes | Client verification passed; numeric amount not retained by initial observer |
+| Paris→Lisbon | Google | blocked | checkpoint_unverified | 3/4 | yes | Amount not retained; verification failures only handoff_observed |
+| Geneva→Barcelona, first actual run | Google | blocked | checkpoint_unverified | 5/6 | yes | Amount not retained; verification failures only handoff_observed |
+| Geneva→Barcelona, allowed retry | Google | ready_for_payment | null | 3/4 | yes | EUR68 selected round trip; outbound/return/selected=true; exact dates/adult/cities verified |
+
+**3 routes reached client-verified READY.** READY here is the actual unmodified
+client classification, not independent screenshot review or a purchase claim.
+The retry recorded verification fields matching Geneva/Barcelona, Jan29/31,
+one adult, selected both legs, next boundary booking options, total EUR68, and
+scrubbed handoff URL equality true. Raw query values/opaque IDs are not retained.
+
+### Failures, instrumentation correction and retry limits
+
+Three initial Milan/Berlin/Lisbon attempts were invalidated by a scratch observer
+bug: raw checkpoint strings were passed to _checkpoint_matches instead of
+compiled patterns, causing the HTTP response hook to raise and the runner to
+report failed/provider_error, H run or event consumer failed, at consent.google.com/m.
+Those are harness failures, NOT provider failures. Fixed the observer with
+hclient._checkpoint(candidate), without modifying hclient, and reran each once.
+
+The real Lisbon and first Geneva runs then reached booking but failed only
+handoff_observed: the core compares scrub_url(answer.handoff_url) with the
+observed URL. Other client verification checks passed. The exact omitted/different
+parameter in those answers was not retained, so no specific URL mutation is
+claimed. Google instructions now say to copy the exact current public browser
+URL including public locale/currency/query parameters, without reconstructing
+or truncating it; private session links/tokens remain forbidden. A test pins
+this instruction. Geneva's single permitted retry passed with that instruction.
+Lisbon was NOT run a third time: its two session creations were already used
+by the instrumentation failure and corrected attempt. Do not relabel its
+checkpoint_unverified as READY.
+
+Eight session creations total across the four routes; at most two per route.
+Quota was checked before every smoke and every session creation, available>=1.
+One owned session at a time; every owned session DELETE returned HTTP204 before
+the next creation. Some blocked runs issued redundant idempotent DELETE calls.
+Organization active1/available2 appeared between some runs; ownership of that
+organization-wide session was unknown, and no other session was cancelled.
+No saved screenshots, profile values, private H IDs/URLs or query values in
+evidence. Frames above count image-bearing observation events, not deduplicated
+emitted frames. Full action audit/independent visual consent review unavailable;
+guardrails forbid acceptance, personal data, login, purchase and final submission.
+
+## Checks on the workaround
+
+`uv run ruff check . && uv run pytest -q &&
+uv run pytest -q tests/test_agent_transport.py tests/test_site_policy.py`:
+
+```text
+All checks passed!
+2638 passed, 1 warning in 78.09s (0:01:18)
+788 passed in 2.99s
+```
+
+Existing Starlette/httpx deprecation only. New tests cover all48×four party
+counts with explicit runnable sets and conditional Omio support, every emitted
+start URL's scrub stability, form-encoded month dates/party wording, filtering
+before the three-policy cap, no unverified promotion, malformed encoding/priority,
+month boundary examples, and profile unit behavior through a clearly synthetic
+stable Omio test link. These synthetic unit links are not production/live evidence.

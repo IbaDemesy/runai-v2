@@ -1007,3 +1007,36 @@ def test_prefill_validated_without_mutating_source_or_default_checkpoint():
     assert "prefill_patterns" not in site_policy.task_checkpoint(adapter)
     adapter["prefill"]["fields"].append("phone")
     assert item == before
+
+
+@pytest.mark.parametrize("value", [None, True, -1, 1.5, "1", [], {}])
+def test_adapter_priority_malformed_fails_closed(value):
+    item = transport_entry()
+    item["adapters"][0]["priority"] = value
+    with pytest.raises(PolicyError, match="priority"):
+        parse_registry(registry(item))
+
+
+@pytest.mark.parametrize("value", [None, True, 0, "", "url", [], {}])
+def test_query_encoding_malformed_fails_closed(value):
+    item = transport_entry()
+    item["adapters"][0]["query_encoding"] = value
+    with pytest.raises(PolicyError, match="query_encoding"):
+        parse_registry(registry(item))
+
+
+@pytest.mark.parametrize("day,expected", [(date(2027, 1, 9), "Jan 9 2027"),
+                                         (date(2027, 12, 31), "Dec 31 2027")])
+def test_month_name_date_variant(day, expected):
+    assert site_policy._date_values("arrival", day)["arrival_mon_d_yyyy"] == expected
+
+
+def test_priority_does_not_promote_unverified_transport():
+    items = [distinct_entry(n, "transport") for n in range(2)]
+    items[0]["adapters"][0].pop("h_render_verified_at")
+    items[0]["adapters"][0]["priority"] = 99
+    selected = site_policy.select_adapters(
+        "transport", {**EXPECTED, "country": "IT", "origin_city": "Paris"},
+        origin_country="FR", today=TODAY, registry=registry(*items),
+    )
+    assert selected[0][2]["policy_id"] == "site1"
