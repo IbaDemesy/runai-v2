@@ -370,3 +370,35 @@ Never fill/submit search forms, reconstruct routing or keep browsing to the step
 This is not live-retested and does not repair fragment removal. Gateway-city verification
 is a separate blocker for Den Haag. A separately scoped hclient/scrub contract change is
 needed, not invented Den Haag evidence, loosened city checks or widened provider policy.
+
+## Rebased R4-01 integration review — 2026-11-09 (offline only)
+
+Rebased without conflicts onto origin/main `26be977847f5acf23924ce19bf3890e3346f3e50`,
+including R4-01/#28 and R4-03/04/05. The live table above remains historical:
+no additional H sessions were started and no old outcome was upgraded.
+
+- Actual module remains runai.agents.hclient, not runai/hclient.py. LiveRunner passes
+  the complete builder task to HAgentRunner.run; app uses LiveRunner without stripping
+  alternatives. CONTRACTS P7 and the consumer agree with our existing ten-field task
+  shape, at most two alternatives, independent expected, no nested alternatives.
+- Startup observations whose URL is missing, empty or about:blank are now skipped
+  before the reviewed-URL gate. Three startup blank observations or 45 seconds without
+  reviewed progress yield provider_error, not unreviewed_redirect. Genuine foreign
+  redirects still fail closed. tests/test_hclient.py covers Vueling blank startup then
+  reviewed completion, bounded blank startup and blank followed by an unreviewed URL.
+  This fixes the reported about:blank mechanism offline; historical smoke metadata did
+  not retain the rejected URL, so neither its precise cause nor live Vueling success
+  is newly proven. No new live runs were authorized.
+- _verified still compares verification.city with expected.city via _matches_expected;
+  there is no reviewed gateway/via lookup or new gateway-aware city rule. The controlled
+  builder regression rejects Amsterdam for expected Den Haag, accepts the same evidence
+  with expected Amsterdam, and accepts the literal city text Den Haag via Amsterdam
+  through the pre-existing substring match. That last synthetic acceptance is not proof
+  of independently verified gateway evidence or permission to invent race-city evidence.
+- NS start_url still passes through scrub_url, which removes the public routing fragment.
+  R4-01's startup fix does not repair this separate integration limitation.
+- Rebuilt all 23 original city/origin matrix rows: 23 hotels and 12 supported transports;
+  the 11 intentionally uncovered transport pairs still fail closed. All 37 primary/
+  alternative candidates passed exact P7 keys, complete expected fields, evaluate_url
+  and the rebased hclient._policy. Existing coverage is unchanged:
+  `{'covered': True, 'policy_ids': ['vueling-com']}` for Barcelona from Paris.

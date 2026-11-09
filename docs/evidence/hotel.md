@@ -314,3 +314,19 @@ evidence, otherwise BLOCKED unsafe_claim immediately. Never add extras, navigate
 keep browsing. This is not a demonstrated fix; why the agent did not finish at the
 checkpoint is not established from retained safe metadata. No rerun: all three allowed
 sessions were exhausted. Post-refinement user-facing behavior remains visually unverified.
+
+## Rebased R4-01 integration review — 2026-11-09 (offline only)
+
+No additional live runs. The failed/step_limit result above remains unchanged.
+R4-01 HAgentRunner.run now consumes P7 alternatives; our hotel tasks already match
+the exact ten base fields, at most two distinct-policy alternatives and no nesting.
+A generated Milan hotel task was passed through the actual run consumer with synthetic
+_attempt responses and the real alternative policy gate: blocked/no_inventory primary
+advanced to its IHG alternative, emitted Essai d'un autre site and returned the synthetic
+ready result without network calls. This is compatibility evidence, NOT hotel live success.
+
+R4-01 converts failed/interrupted sessions after reviewed progress to blocked/
+session_failed and preserves the last reviewed public URL. That condition can now
+trigger P7 alternatives. It does not change the historical IHG step_limit result into
+READY, nor verify the refined Add Extras stop instruction. No applicable new live
+evidence or independent visual check was obtained.

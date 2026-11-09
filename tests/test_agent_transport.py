@@ -286,7 +286,7 @@ def test_via_text_not_url_substitution_and_still_requires_reviewed_ids():
         build(trip(city="Den Haag", country="DE"), registry(item))
 
 
-def test_gateway_ready_is_not_supported_by_unchanged_hclient_city_verifier():
+def test_gateway_city_verifier_requires_race_city_text():
     task = build_task(trip(city="Den Haag", country="NL", origin_city="Paris", travelers=1),
                       today=TODAY)
     url = task["start_url"].split("#", 1)[0]
@@ -302,3 +302,6 @@ def test_gateway_ready_is_not_supported_by_unchanged_hclient_city_verifier():
     control = copy.deepcopy(task)
     control["expected"]["city"] = "Amsterdam"
     assert hclient._verified(control, answer, url, url, url, reviews)
+    via_answer = copy.deepcopy(answer)
+    via_answer["verification"]["city"] = "Den Haag via Amsterdam"
+    assert hclient._verified(task, via_answer, url, url, url, reviews)
