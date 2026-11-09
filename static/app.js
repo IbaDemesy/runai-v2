@@ -3,7 +3,7 @@
   const $ = id => document.getElementById(id);
   const kinds = ['registration', 'hotel', 'transport'];
   const terminal = new Set(['ready_for_payment', 'blocked', 'failed', 'cancelled']);
-  const labels = {pending: 'En attente', running: 'En action', ready_for_payment: 'Prêt', blocked: 'À reprendre', failed: 'Interrompu', cancelled: 'Arrêté'};
+  const labels = {pending: 'En attente', queued: 'En file', running: 'En action', ready_for_payment: 'Prêt', blocked: 'À reprendre', failed: 'Interrompu', cancelled: 'Arrêté'};
   let mission = null, after = 0, timer = null, busy = false, generation = 0, liveReady = null;
   let backgroundSupported = true, language = globalThis.navigator?.language?.startsWith('en') ? 'en' : 'fr';
   const t = (fr, en) => language === 'en' ? en : fr;
@@ -16,7 +16,7 @@
     'La course': 'The race', 'Le plan': 'The plan', 'Le départ': 'The start', 'Votre message': 'Your message', 'Quelle course vous fait envie ?': 'What race inspires you?',
     'Envoyer le message': 'Send message', 'Les trois agents': 'The three agents', 'À votre rythme. Les agents s’arrêtent avant tout paiement ou engagement.': 'At your pace. Agents stop before any payment or commitment.',
     'VOTRE ÉQUIPE EN ACTION': 'YOUR TEAM IN ACTION', 'Trois agents. Un départ.': 'Three agents. One start.', 'Préparation en parallèle · arrêt avant paiement': 'Parallel preparation · stopping before payment',
-    'Inscription / dossard': 'Bib', 'Dossard': 'Bib', 'Hôtel': 'Hotel', 'En attente': 'Pending', 'En action': 'Working', 'À vous de jouer': 'Over to you', 'Prêt': 'Ready', 'À reprendre': 'Needs your help', 'Interrompu': 'Interrupted', 'Arrêté': 'Stopped',
+    'Inscription / dossard': 'Bib', 'Dossard': 'Bib', 'Hôtel': 'Hotel', 'En attente': 'Pending', 'En action': 'Working', 'À vous de jouer': 'Over to you', 'Prêt': 'Ready', 'À reprendre': 'Needs your help', 'Interrompu': 'Interrupted', 'Arrêté': 'Stopped', 'En file': 'Queued', 'Agrandir l’agent Dossard': 'Enlarge Bib agent', 'Agrandir l’agent Hôtel': 'Enlarge Hotel agent', 'Agrandir l’agent Transport': 'Enlarge Transport agent', 'Progression des agents': 'Agent progress',
     'En attente de la première capture': 'Waiting for the first screenshot', 'Aucune image reçue': 'No image received', 'L’agent se prépare.': 'The agent is getting ready.',
     'Démo et replay : illustrations synthétiques, aucun panier réel préparé.': 'Demo and replay: synthetic illustrations, no real checkout prepared.', 'Impossible de continuer': 'Unable to continue', 'Fermer la notification': 'Close notification',
     'RUNAI · VOTRE COPILOTE': 'RUNAI · YOUR COPILOT', 'Date à confirmer': 'Date to confirm', 'Distance à confirmer': 'Distance to confirm', 'Synthétique': 'Synthetic', 'Site officiel ↗': 'Official site ↗',
@@ -75,11 +75,12 @@
     unsafe_claim: ['Le résultat n’a pas pu être vérifié en sécurité.', 'Vérifiez vous-même sur le site avant tout paiement.', 'The result could not be safely verified.', 'Check it yourself on the site before paying.'],
     provider_error: ['Le service d’agents est momentanément indisponible.', 'Réessayez dans quelques minutes ou continuez sur le site.', 'The agent service is temporarily unavailable.', 'Try again in a few minutes or continue on the site.']
   };
+  const boundaryReason = ['L’agent s’est arrêté à la limite de ce qu’il a le droit de faire sur ce site.', 'Il ne va jamais plus loin sans vous : reprenez à cette étape sur le site.', 'The agent stopped at the edge of what it may do on this site.', 'It never goes further without you: continue from this step on the site.'];
   const kindReasons = {
     sold_out: {hotel: ['Hôtel complet à ces dates.', 'Hotel fully booked for these dates.'], transport: ['Trajets complets à ces dates.', 'Journeys sold out for these dates.']}
   };
-  const reasonCopy = (code, status, kind) => {
-    const entry = reasons[code], en = language === 'en';
+  const reasonCopy = (code, status, kind, active = false) => {
+    const entry = code === 'policy_denied' && active ? boundaryReason : reasons[code], en = language === 'en';
     if (entry) return [kindReasons[code]?.[kind]?.[en ? 1 : 0] || entry[en ? 2 : 0], entry[en ? 3 : 1]];
     return [{
       blocked: t('Une étape nécessite votre intervention.', 'This step needs your help.'),
@@ -87,7 +88,7 @@
       cancelled: t('L’agent est arrêté.', 'The agent was stopped.')
     }[status] || t('L’agent se prépare.', 'The agent is getting ready.'), terminal.has(status) ? t('Continuez sur le site officiel quand vous voulez.', 'Continue on the official site whenever you like.') : ''];
   };
-  const reason = (code, status, kind) => reasonCopy(code, status, kind)[0];
+  const reason = (code, status, kind, active) => reasonCopy(code, status, kind, active)[0];
   const countries = {italy: 'IT', italie: 'IT', italia: 'IT', france: 'FR', portugal: 'PT', spain: 'ES', espagne: 'ES', 'españa': 'ES', switzerland: 'CH', suisse: 'CH', schweiz: 'CH',
     germany: 'DE', allemagne: 'DE', deutschland: 'DE', belgium: 'BE', belgique: 'BE', netherlands: 'NL', 'pays-bas': 'NL', 'united kingdom': 'GB', 'royaume-uni': 'GB', uk: 'GB',
     austria: 'AT', autriche: 'AT', greece: 'GR', 'grèce': 'GR', ireland: 'IE', irlande: 'IE', denmark: 'DK', danemark: 'DK', sweden: 'SE', 'suède': 'SE', norway: 'NO', 'norvège': 'NO',
@@ -100,8 +101,23 @@
   const flag = race => { const code = isoCountry(race); return code ? [...code].map(c => String.fromCodePoint(127397 + c.charCodeAt())).join('') : ''; };
   const countdown = race => {
     const now = new Date(), days = Math.round((Date.parse(race.race_date) - Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
-    return Number.isFinite(days) && days >= 0 ? t(`J−${days}`, `${days} days to go`) : '';
+    return !Number.isFinite(days) || days < 0 ? '' : days === 0 ? t('aujourd’hui', 'today') : t(`dans ${days} j`, `in ${days} day${days > 1 ? 's' : ''}`);
   };
+  const cityNames = [['Genève', 'Geneva', 'geneve', 'genf', 'ginevra'], ['Milan', 'Milan', 'milano'], ['Lisbonne', 'Lisbon', 'lisboa'], ['Barcelone', 'Barcelona'],
+    ['La Haye', 'The Hague', 'den haag', "'s-gravenhage", 'hague'], ['Rome', 'Rome', 'roma'], ['Florence', 'Florence', 'firenze'], ['Venise', 'Venice', 'venezia'],
+    ['Turin', 'Turin', 'torino'], ['Naples', 'Naples', 'napoli'], ['Séville', 'Seville', 'sevilla'], ['Valence', 'Valencia'], ['Munich', 'Munich', 'münchen', 'muenchen'],
+    ['Vienne', 'Vienna', 'wien'], ['Bruxelles', 'Brussels', 'brussel'], ['Anvers', 'Antwerp', 'antwerpen'], ['Copenhague', 'Copenhagen', 'københavn'], ['Prague', 'Prague', 'praha'],
+    ['Londres', 'London'], ['Zurich', 'Zurich', 'zürich'], ['Berne', 'Bern'], ['Lucerne', 'Lucerne', 'luzern'], ['Bâle', 'Basel', 'basle'], ['Athènes', 'Athens', 'athina'],
+    ['Varsovie', 'Warsaw', 'warszawa'], ['Cologne', 'Cologne', 'köln', 'koeln'], ['Francfort', 'Frankfurt', 'frankfurt am main'], ['Édimbourg', 'Edinburgh'], ['Dublin', 'Dublin'],
+    ['Amsterdam', 'Amsterdam'], ['Berlin', 'Berlin'], ['Paris', 'Paris'], ['Lyon', 'Lyon'], ['Marseille', 'Marseille'], ['Nice', 'Nice'], ['Bordeaux', 'Bordeaux'], ['Porto', 'Porto'], ['Madrid', 'Madrid']]
+    .reduce((map, entry) => { for (const alias of entry) map[alias.toLowerCase()] = entry; return map; }, {});
+  const cityName = value => { const raw = String(value ?? '').trim(), entry = cityNames[raw.toLowerCase()]; return entry ? entry[language === 'en' ? 1 : 0] : raw; };
+  const countryName = race => {
+    const code = isoCountry(race);
+    try { if (code && Intl.DisplayNames) return new Intl.DisplayNames([locale()], {type: 'region'}).of(code) || race.country || ''; } catch { /* fall back */ }
+    return race.country || '';
+  };
+  const place = race => [cityName(race.city), countryName(race)].filter(Boolean).join(' · ');
   const agentState = {};
   const redact = value => String(value ?? '')
     .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '[contact masqué]')
@@ -227,7 +243,9 @@
     }
     return row;
   }
-  function accessWarning(race) {
+  function accessWarning(race, plan = false) {
+    if (plan && (race.date_status !== 'official' || !race.race_date))
+      return node('p', 'access-warning', t('Date pas encore confirmée par une source officielle : les agents attendent une date officielle avant de préparer quoi que ce soit.', 'Date not yet confirmed by an official source: the agents wait for an official date before preparing anything.'));
     const access = race.registration_access;
     if (!access) return null;
     const copy = [access.account_required === true ? 'Compte requis : reprise manuelle avant sa création.' : null,
@@ -243,20 +261,22 @@
     if (raw === true || ['covered', 'ready', 'ok', 'available', 'supported', 'open'].includes(raw)) return 'ok';
     if (['sold_out', 'full', 'complete'].includes(raw)) return 'sold_out';
     if (['closed', 'registration_closed'].includes(raw)) return 'closed';
-    if (raw === false || ['uncovered', 'not_covered', 'none', 'unsupported', 'no_site_coverage', 'policy_denied'].includes(raw)) return 'none';
+    if (raw === 'not_open') return 'not_open';
+    if (raw === false || ['uncovered', 'not_covered', 'none', 'unsupported', 'no_site_coverage', 'policy_denied', 'prohibited'].includes(raw)) return 'none';
     return null;
   }
   const prepSite = value => value && typeof value === 'object' ? [value.site, value.host, value.domain].find(x => typeof x === 'string' && /^[a-z0-9.-]{3,120}$/i.test(x))?.replace(/^www\./, '') || '' : '';
   function prepBadges(race) {
     const prep = race?.preparation; if (!prep || typeof prep !== 'object') return null;
     const copy = {
-      registration: {ok: t('Inscription ✓', 'Registration ✓'), sold_out: t('Complet', 'Sold out'), closed: t('Inscriptions fermées', 'Registration closed'), none: t('Inscription non couverte', 'Registration not covered')},
+      registration: {ok: t('Inscription ✓', 'Registration ✓'), sold_out: t('Complet', 'Sold out'), closed: t('Inscriptions fermées', 'Registration closed'), not_open: t('Inscriptions bientôt ouvertes', 'Registration opens soon'), none: t('Inscription non couverte', 'Registration not covered')},
       hotel: {ok: t('Hôtel ✓', 'Hotel ✓'), sold_out: t('Hôtels complets', 'Hotels full'), closed: t('Hôtel non couvert', 'Hotel not covered'), none: t('Hôtel non couvert', 'Hotel not covered')},
       transport: {ok: t('Transport ✓', 'Transport ✓'), sold_out: t('Trajets complets', 'Journeys full'), closed: t('Transport non couvert', 'Transport not covered'), none: t('Transport non couvert', 'Transport not covered')}};
     const row = node('div', 'prep'); row.setAttribute('aria-label', t('Préparation possible', 'Preparation coverage'));
+    const trusted = race.date_status === 'official' && prepState(prep.registration) === 'ok';
     for (const kind of kinds) {
-      const state = prepState(prep[kind]); if (!state) continue;
-      const badge = node('span', 'prep-badge', copy[kind][state]); badge.dataset.state = state; row.append(badge);
+      const state = prepState(prep[kind]); if (!state || (state === 'ok' && !trusted)) continue;
+      const badge = node('span', 'prep-badge', copy[kind][state] || copy[kind].none); badge.dataset.state = state; row.append(badge);
     }
     return row.children.length ? row : null;
   }
@@ -276,20 +296,28 @@
     for (const [value, format, label] of stats) { const item = node('div'); item.append(node('dt', '', label), node('dd', '', format(value))); row.append(item); }
     return row;
   }
+  function dateStatus(race) {
+    const official = race.date_status === 'official' && race.race_date, tag = node('span', 'date-status', official ? 'Date officielle' : 'Date à confirmer');
+    tag.dataset.state = official ? 'official' : 'unverified'; return tag;
+  }
   function raceWhen(race) {
     const when = node('div', 'race-when'), left = node('div');
-    left.append(node('p', 'race-date', date(race.race_date)), node('span', 'date-status', race.date_status === 'official' ? 'Date officielle' : 'Date à confirmer'));
+    left.append(node('p', 'race-date', date(race.race_date)), dateStatus(race));
     when.append(left); const days = countdown(race); if (days) when.append(node('p', 'countdown', days));
     return when;
   }
   function candidates(items) {
     const grid = node('div', 'candidates');
     for (const race of items) {
-      const card = node('article', 'candidate'), top = node('div', 'candidate-top');
-      top.append(bigDistance(race), node('span', 'flag', flag(race)));
-      card.append(top, node('h3', '', race.name || 'Course proposée'),
-        node('p', 'location', [race.city, race.country].filter(Boolean).join(' · ')), raceWhen(race));
-      for (const extra of [raceStats(race), prepBadges(race), sources(race), accessWarning(race)]) if (extra) card.append(extra);
+      const card = node('article', 'candidate'), top = node('div', 'candidate-top'), days = countdown(race);
+      top.append(bigDistance(race)); if (days) top.append(node('span', 'countdown', days));
+      const where = node('p', 'location'); if (flag(race)) where.append(node('span', 'flag', flag(race)));
+      where.append(node('span', '', place(race)));
+      const tiles = node('dl', 'race-tiles'), when = node('div', 'tile tile-date');
+      when.append(node('dt', '', t('Date', 'Date')), node('dd', '', date(race.race_date)), dateStatus(race)); tiles.append(when);
+      for (const stat of raceStats(race)?.children || []) { stat.className = 'tile'; tiles.append(stat); }
+      card.append(top, node('h3', '', race.name || 'Course proposée'), where, tiles);
+      for (const extra of [prepBadges(race), sources(race), accessWarning(race)]) if (extra) card.append(extra);
       grid.append(card);
     }
     return grid;
@@ -297,13 +325,13 @@
   function planCard(p, ready) {
     const card = node('section', 'plan-card'), head = node('div', 'plan-head');
     head.append(node('p', 'eyebrow', 'VOTRE LIGNE DE DÉPART'), node('h3', '', p.race.name),
-      node('p', 'location', `${flag(p.race)} ${[p.race.city, p.race.country].filter(Boolean).join(' · ')} · ${distance(p.race)}`), raceWhen(p.race), sources(p.race));
+      node('p', 'location', [flag(p.race), [place(p.race), distance(p.race)].filter(Boolean).join(' · ')].filter(Boolean).join(' ')), raceWhen(p.race), sources(p.race));
     const prep = prepBadges(p.race); if (prep) head.append(prep);
     card.append(head);
     if (p.origin_city || p.race.city) {
       const route = node('div', 'route'), from = node('div', 'route-end'), to = node('div', 'route-end to');
-      from.append(node('span', 'route-label', 'Départ'), node('strong', '', p.origin_city || '—'), node('span', 'route-date', p.arrival_date ? date(p.arrival_date) : ''));
-      to.append(node('span', 'route-label', 'Course'), node('strong', '', p.race.city || p.race.name), node('span', 'route-date', p.departure_date ? `${t('Retour', 'Return')} ${date(p.departure_date)}` : ''));
+      from.append(node('span', 'route-label', 'Départ'), p.origin_city ? node('strong', '', cityName(p.origin_city)) : node('span', 'route-placeholder', t('Origine à choisir', 'Origin to choose')), node('span', 'route-date', p.arrival_date ? date(p.arrival_date) : ''));
+      to.append(node('span', 'route-label', 'Course'), node('strong', '', cityName(p.race.city) || p.race.name), node('span', 'route-date', p.departure_date ? `${t('Retour', 'Return')} ${date(p.departure_date)}` : ''));
       const line = node('div', 'route-line'); line.setAttribute('aria-hidden', 'true'); line.append(node('i'), node('b', '', '→'), node('i'));
       route.append(from, line, to); card.append(route);
     }
@@ -323,7 +351,7 @@
       crew.append(item);
     }
     card.append(crew, node('p', 'plan-note', 'Départ, nuits et budget : préférences modifiables, pas des disponibilités réservées.'));
-    const warning = accessWarning(p.race); if (warning) card.append(warning);
+    const warning = accessWarning(p.race, true); if (warning) card.append(warning);
     const site = link(p.race.registration_url || p.race.official_url, 'Voir l’inscription officielle ↗', 'site-link'); if (site) card.append(site);
     if (ready) {
       const area = node('div', 'confirm-area'), button = node('button', 'confirm', 'Confirmer le plan et lancer les 3 agents ↗');
@@ -421,10 +449,24 @@
   const FRESH_MS = 15000;
   const duration = seconds => seconds < 60 ? `${seconds} s` : `${Math.floor(seconds / 60)} min ${String(seconds % 60).padStart(2, '0')}`;
   const stageLabels = () => [t('Démarrage', 'Starting'), t('Sur le site', 'On the site'), t('Sélection', 'Selecting')];
+  const activityCodes = [[/navigateur disponible|file d.attente|queued|waiting for (?:a )?(?:free )?browser|browser slot/i, 'queued'],
+    [/autre site|alternativ|another site|fallback/i, 'alternative'], [/ouverture|opening/i, 'opening'],
+    [/navigation|browsing|reviewing|parcour/i, 'browsing'], [/handoff|relais/i, 'handoff']];
+  function activityOf(e) {
+    const message = String(e.message ?? ''), step = Number.isInteger(e.step) && e.step > 0 ? e.step : Number(/(?:étape|step)\s*(\d{1,3})\b/i.exec(message)?.[1]) || null;
+    const code = e.queued === true || e.status === 'queued' ? 'queued' : activityCodes.find(([pattern]) => pattern.test(message))?.[1] || null;
+    return code || step ? {code, step} : null;
+  }
+  function phase(state) {
+    if (!state) return 'pending';
+    if (state.status === 'ready_for_payment') return 'ready';
+    if (terminal.has(state.status)) return 'stopped';
+    return state.queued ? 'queued' : state.status === 'running' ? 'working' : 'pending';
+  }
   function stepper(kind) {
     const state = agentState[kind], list = cardFor(kind).querySelector('.stepper'); if (!list || !state) return;
     const done = terminal.has(state.status), ready = state.status === 'ready_for_payment';
-    const final = ready ? t('Prêt avant paiement', 'Ready before payment') : done ? t('Bloqué', 'Blocked') : t('Avant paiement', 'Before payment');
+    const final = ready ? t('Prêt avant paiement', 'Ready before payment') : done ? t('Relais', 'Handover') : t('Avant paiement', 'Before payment');
     const items = [...stageLabels(), final].map((label, index) => {
       const item = node('li', '', label);
       item.dataset.state = index === 3 ? (ready ? 'done' : done ? 'blocked' : 'todo')
@@ -435,35 +477,69 @@
     if (state.level < 0 && done && !ready) items.slice(0, 3).forEach(item => { item.dataset.state = 'skipped'; });
     list.replaceChildren(...items);
   }
+  const frameAge = state => state.received ? Math.max(0, Math.floor((Date.now() - state.received) / 1000)) : null;
+  const ageCopy = age => age < 2 ? t('image à l’instant', 'frame just now') : age < 60 ? t(`image il y a ${age} s`, `frame ${age} s ago`)
+    : t(`image il y a ${Math.floor(age / 60)} min`, `frame ${Math.floor(age / 60)} min ago`);
+  function activityLine(kind) {
+    const state = agentState[kind], a = state.activity || {};
+    if (state.queued) return t('En attente d’un navigateur disponible', 'Waiting for a free browser');
+    const fallback = state.status === 'running'
+      ? {registration: t('Parcours d’inscription officiel', 'Official registration journey'), hotel: t('Recherche de chambre pour vos dates', 'Finding a room for your dates'), transport: t('Recherche de votre aller-retour', 'Finding your return journey')}[kind]
+      : t('L’agent se prépare', 'The agent is getting ready');
+    const base = state.alternative && a.code !== 'queued' ? t('Essai d’un autre site', 'Trying another site')
+      : {opening: t('Ouverture du site', 'Opening the site'), browsing: t('Navigation sur le site', 'Browsing the site'), handoff: t('Préparation du relais', 'Preparing the handover')}[a.code] || fallback;
+    return a.step ? `${t(`Étape ${a.step}`, `Step ${a.step}`)} · ${base}` : base;
+  }
+  function statusLine(kind) {
+    const state = agentState[kind], steps = cardFor(kind)?.querySelector('.steps'); if (!state || !steps || terminal.has(state.status)) return;
+    const age = state.image ? frameAge(state) : null, line = node('span', 'activity', activityLine(kind));
+    line.dataset.phase = phase(state);
+    steps.replaceChildren(line, ...(age === null ? [] : [node('span', 'frame-age', ` · ${ageCopy(age)}`)]));
+  }
   function frameMeta(kind) {
     const state = agentState[kind], card = cardFor(kind); if (!state) return;
-    const done = terminal.has(state.status), mode = $('mode').value;
-    const age = state.received ? Math.max(0, Math.floor((Date.now() - state.received) / 1000)) : 0;
-    const stale = state.image && !done && (state.stale || Date.now() - state.received >= FRESH_MS);
-    const interrupted = state.pollFailed || ['blocked', 'failed', 'cancelled'].includes(state.status);
-    const status = state.image ? interrupted ? t('Image conservée · suivi interrompu', 'Image retained · tracking interrupted')
+    const done = terminal.has(state.status), mode = $('mode').value, age = frameAge(state) ?? 0;
+    const stale = state.image && !done && (state.stale || age * 1000 >= FRESH_MS);
+    const interrupted = state.pollFailed || ['failed', 'cancelled'].includes(state.status);
+    const synthetic = mode !== 'live';
+    const status = !state.image ? '' : interrupted ? t('Image conservée · suivi interrompu', 'Image retained · tracking interrupted')
       : done ? t('Dernière capture · agent arrêté', 'Last screenshot · agent stopped')
-      : stale ? t(`L’agent travaille · image il y a ${age} s`, `Agent working · frame ${age} s ago`)
-      : mode === 'live' ? t('EN DIRECT', 'LIVE') : t('SYNTHÉTIQUE · démo', 'SYNTHETIC · demo') : '';
+      : stale ? (synthetic ? t('SYNTHÉTIQUE · AGENT AU TRAVAIL', 'SYNTHETIC · AGENT WORKING') : t('AGENT AU TRAVAIL', 'AGENT WORKING'))
+      : synthetic ? t(`SYNTHÉTIQUE · ${mode === 'replay' ? 'replay' : 'démo'}`, `SYNTHETIC · ${mode === 'replay' ? 'replay' : 'demo'}`) : t('EN DIRECT', 'LIVE');
     const badge = card.querySelector('.live-badge');
-    if (badge) { badge.textContent = status; badge.hidden = !status; badge.dataset.tone = interrupted || done ? 'stopped' : stale ? 'stale' : mode === 'live' ? 'live' : 'synthetic'; }
+    if (badge) { badge.textContent = status; badge.hidden = !status; badge.dataset.tone = interrupted || done ? 'stopped' : stale ? 'working' : synthetic ? 'synthetic' : 'live'; }
+    card.dataset.phase = phase(state);
     const preview = card.querySelector('.preview');
-    preview.dataset.state = state.image ? stale ? 'stale' : 'available' : 'unavailable';
+    preview.dataset.state = state.image ? stale ? 'stale' : 'available' : done ? 'ended' : state.queued ? 'queued' : 'unavailable';
     const time = state.image ? (mode === 'replay' ? state.recorded : state.observed) : null;
     const clock = time && Number.isFinite(Date.parse(time)) ? `${mode === 'replay' ? t('heure originale', 'original time') : t('observée', 'observed')} ${new Intl.DateTimeFormat(locale(), {hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'UTC'}).format(new Date(time))} UTC` : '';
     const seconds = state.started ? Math.floor(((state.ended || Date.now()) - state.started) / 1000) : 0;
     const elapsed = done && !state.active ? t('Non démarré', 'Not started') : !state.started ? '' : done ? seconds < 1 ? t('Terminé', 'Finished') : t(`Terminé en ${duration(seconds)}`, `Finished in ${duration(seconds)}`) : t(`Durée ${duration(seconds)}`, `Elapsed ${duration(seconds)}`);
-    const meta = [!state.image && !done ? t('En attente de la première capture', 'Waiting for the first screenshot') : '', clock, elapsed].filter(Boolean).join(' · ');
+    const meta = [!state.image && !done ? state.queued ? t('En file d’attente', 'Queued') : t('En attente de la première capture', 'Waiting for the first screenshot') : '', clock, elapsed].filter(Boolean).join(' · ');
     card.querySelector('.frame-meta').textContent = meta;
     if (!state.image && done) {
       const box = node('div', 'terminal-state'), ready = state.status === 'ready_for_payment';
-      box.append(node('span', 'terminal-icon', ready ? '✓' : state.active ? '!' : '–'),
-        node('strong', '', ready ? t('Prêt avant paiement', 'Ready before payment') : state.active ? t('Reprenez la main', 'Over to you') : t('Non démarré', 'Not started')));
+      box.append(node('span', 'terminal-icon', ready ? '✓' : state.active ? '↗' : '–'),
+        node('strong', '', ready ? t('Prêt avant paiement', 'Ready before payment') : state.active ? t('L’agent vous passe le relais', 'The agent hands over to you') : t('Aucun site ouvert', 'No site opened')));
       preview.replaceChildren(box);
-    } else if (!state.image && !preview.querySelector('.waiting')) {
-      const box = node('div', 'waiting'); box.append(node('span', 'pulse-dot'), node('span', '', t('Ouverture du navigateur de l’agent…', 'Opening the agent’s browser…')));
-      preview.replaceChildren(box);
+    } else if (!state.image) {
+      const copy = state.queued ? t('En attente d’un navigateur disponible…', 'Waiting for a free browser…') : t('Ouverture du navigateur de l’agent…', 'Opening the agent’s browser…');
+      if (preview.querySelector('.waiting')?.textContent !== copy) {
+        const box = node('div', 'waiting'); box.append(node('span', 'pulse-dot'), node('span', '', copy)); preview.replaceChildren(box);
+      }
     }
+    statusLine(kind);
+  }
+  function showFrame(kind, img) {
+    const state = agentState[kind], preview = cardFor(kind).querySelector('.preview'), previous = preview.querySelector('img:not(.previous-frame)') || preview.querySelector('img');
+    state.image = img; state.stale = false; state.received = Date.now();
+    img.className = previous ? 'frame' : 'frame first-frame';
+    preview.replaceChildren(img);
+    if (previous && previous !== img) {
+      previous.className = 'previous-frame'; previous.alt = ''; preview.append(previous);
+      const drop = () => previous.remove(); previous.onanimationend = drop; setTimeout(drop, 700);
+    }
+    frameMeta(kind);
   }
   function loadFrame(kind, e) {
     if (typeof e.frame_id !== 'string' || !/^[a-zA-Z0-9_-]{1,160}$/.test(e.frame_id)) return;
@@ -471,21 +547,14 @@
     if (state.requested === e.frame_id) return;
     state.requested = e.frame_id;
     const version = state.version = (state.version || 0) + 1;
-    const img = new Image(); img.alt = `${$('mode').value === 'live' ? t('Navigateur de l’agent', 'Agent browser') : t('Illustration SYNTHÉTIQUE', 'SYNTHETIC illustration')} · ${kind}`; img.referrerPolicy = 'no-referrer';
+    const img = new Image(); img.alt = `${$('mode').value === 'live' ? t('Navigateur de l’agent', 'Agent browser') : t('Illustration SYNTHÉTIQUE', 'SYNTHETIC illustration')} · ${agentNames()[kind]}`; img.referrerPolicy = 'no-referrer';
     const current = () => token === generation && agentState[kind] === state && version === state.version;
     const fail = () => { if (current()) { state.stale = true; frameMeta(kind); } };
     img.onerror = fail;
     img.onload = async () => {
       try {
         if (img.decode) await img.decode(); if (!current()) return;
-        state.image = img; state.stale = false; state.received = Date.now(); state.observed = e.observed_at; state.recorded = e.recorded_at;
-        const preview = cardFor(kind).querySelector('.preview'), previous = preview.querySelector('img');
-        preview.replaceChildren(img);
-        if (previous && previous !== img) {
-          previous.className = 'previous-frame'; preview.append(previous);
-          setTimeout(() => previous.remove(), 450);
-        }
-        frameMeta(kind);
+        state.observed = e.observed_at; state.recorded = e.recorded_at; showFrame(kind, img);
       } catch { fail(); }
     };
     img.src = `/api/frames/${encodeURIComponent(e.frame_id)}`;
@@ -513,21 +582,22 @@
   }
   function render(kind) {
     const state = agentState[kind], card = cardFor(kind); if (!state || !card) return;
-    card.dataset.status = state.status;
-    const pill = card.querySelector('.status'); pill.dataset.status = state.status; pill.textContent = translate(labels[state.status] || labels.pending);
+    card.dataset.status = state.status; card.dataset.phase = phase(state);
+    const pill = card.querySelector('.status'), key = state.queued && !terminal.has(state.status) ? 'queued' : state.status;
+    pill.dataset.status = key; pill.textContent = translate(labels[key] || labels.pending);
     const heading = card.querySelector('h3'); if (heading) heading.textContent = agentNames()[kind];
     const site = card.querySelector('.site');
     if (site) site.textContent = state.site ? `${state.alternative ? t('Autre site · ', 'Alternative · ') : ''}${state.site}` : terminal.has(state.status) && !state.active ? t('Aucun site ouvert', 'No site opened') : t('Site choisi au lancement', 'Site picked at launch');
     stepper(kind);
     const steps = card.querySelector('.steps'), handoff = card.querySelector('.handoff');
-    const running = {registration: t('Vérifie le parcours d’inscription officiel.', 'Checking the official registration journey.'), hotel: t('Compare les chambres pour vos dates.', 'Comparing rooms for your dates.'), transport: t('Cherche votre aller-retour.', 'Finding your outbound and return journey.')}[kind];
     if (state.status === 'ready_for_payment') steps.textContent = kind === 'registration' ? t('Prêt : vous complétez vous-même l’inscription, puis payez.', 'Ready: you complete the registration details yourself, then pay.') : t('Tout est prêt : il ne reste que le paiement, par vous.', 'All set: only the payment is left, for you.');
     else if (terminal.has(state.status)) {
-      const [title, next] = reasonCopy(state.reason, state.status, kind);
+      const [title, next] = reasonCopy(state.reason, state.status, kind, state.active);
       steps.replaceChildren(node('strong', 'reason-title', title), ...(next ? [node('span', 'reason-next', next)] : []));
-    } else steps.textContent = state.status === 'running' ? state.alternative ? t('Essai d’un autre site…', 'Trying another site…') : running : t('L’agent se prépare.', 'The agent is getting ready.');
+    } else statusLine(kind);
     if (state.status === 'ready_for_payment') handoff.replaceChildren(successBox(kind, state));
     else {
+      handoff.replaceChildren();
       const domain = domainOf(state.handoff), next = link(state.handoff, t(`Continuer sur ${domain} ↗`, `Continue on ${domain} ↗`), 'handoff-link');
       if (next) handoff.replaceChildren(next);
       else if (terminal.has(state.status)) handoff.replaceChildren(node('p', 'no-site', t('Pas de site vérifié pour cette étape', 'No verified site for this step')));
@@ -543,26 +613,25 @@
     ];
   }
   const coverageReasons = new Set(['no_site_coverage', 'policy_denied']);
-  function overview() {
-    const states = kinds.map(kind => agentState[kind]), finished = states.every(state => state && terminal.has(state.status));
-    const ready = states.filter(state => state?.status === 'ready_for_payment').length, banner = $('mission-banner'), coverage = $('coverage');
-    const dead = finished && !ready && states.every(state => !state.active && coverageReasons.has(state.reason));
-    $('agents').dataset.view = dead ? 'coverage' : 'agents';
-    banner.hidden = !finished || dead;
-    if (finished && !dead) {
-      banner.dataset.tone = ready === 3 ? 'success' : 'partial';
-      banner.replaceChildren(node('strong', '', ready === 3 ? t('Tout est prêt avant paiement', 'Everything is ready before payment') : t(`${ready}/3 prêt${ready > 1 ? 's' : ''} avant paiement`, `${ready}/3 ready before payment`)),
-        node('span', '', ready === 3 ? t('Les trois étapes vous attendent : vous complétez vos informations et payez vous-même, sur chaque site.', 'All three steps are waiting: you enter your details and pay yourself, on each site.') : t('Reprenez les autres étapes sur les sites proposés.', 'Continue the other steps on the suggested sites.')));
-    }
-    coverage.hidden = !dead;
-    if (!dead || coverage.dataset.rendered === 'true') return;
-    coverage.dataset.rendered = 'true';
-    const list = node('ul', 'coverage-reasons'), names = agentNames(), links = node('div', 'coverage-links'), seen = new Set();
+  function liveStrip(states) {
+    const race = tripFacts().race, recap = document.querySelector('.mission-recap'), count = document.querySelector('.live-count');
+    if (recap) recap.textContent = race?.name ? [race.name, date(race.race_date), [tripFacts().origin_city && cityName(tripFacts().origin_city), cityName(race.city)].filter(Boolean).join(' → ')].filter(Boolean).join(' · ') : '';
+    if (!count) return;
+    const tally = [[t('En action', 'Working'), states.filter(s => s && !terminal.has(s.status)).length, 'working'],
+      [t('Prêts', 'Ready'), states.filter(s => s?.status === 'ready_for_payment').length, 'ready'],
+      [t('Relais', 'Handover'), states.filter(s => s && terminal.has(s.status) && s.status !== 'ready_for_payment').length, 'stopped']];
+    count.replaceChildren(...tally.map(([label, value, tone]) => { const item = node('div'); item.dataset.tone = tone; item.append(node('dt', '', label), node('dd', '', `${value}/3`)); return item; }));
+  }
+  function summaryCard(dead, ready) {
+    const names = agentNames(), list = node('ul', 'summary-list'), coverage = $('coverage');
     for (const kind of kinds) {
-      const item = node('li'); item.append(node('span', 'agent-icon', agentIcons[kind]), node('strong', '', names[kind]), node('span', '', reason(agentState[kind].reason, agentState[kind].status, kind)));
+      const state = agentState[kind], ok = state.status === 'ready_for_payment', item = node('li'), body = node('div', 'summary-body');
+      const [title, next] = ok ? [t('Prêt avant paiement', 'Ready before payment'), t('Il ne reste que vos informations et le paiement, par vous.', 'Only your details and the payment are left, for you.')] : reasonCopy(state.reason, state.status, kind, state.active);
+      item.dataset.status = ok ? 'ready' : 'stopped';
+      body.append(node('strong', '', names[kind]), node('span', 'summary-reason', title), ...(next ? [node('span', 'summary-next', next)] : []));
+      const domain = domainOf(state.handoff), go = link(state.handoff, ok ? t(`Payer sur ${domain} ↗`, `Pay on ${domain} ↗`) : t(`Continuer sur ${domain} ↗`, `Continue on ${domain} ↗`), 'summary-link');
+      item.append(node('span', 'agent-icon', ok ? '✓' : agentIcons[kind]), body, go || node('span', 'summary-none', t('Pas de site vérifié', 'No verified site')));
       list.append(item);
-      const domain = domainOf(agentState[kind].handoff);
-      if (domain && !seen.has(domain)) { seen.add(domain); const a = link(agentState[kind].handoff, t(`${names[kind]} · ${domain} ↗`, `${names[kind]} · ${domain} ↗`), 'source-badge'); if (a) links.append(a); }
     }
     const chips = node('div', 'chips coverage-chips');
     for (const [label, text] of changeChips()) {
@@ -570,26 +639,65 @@
       button.type = 'button'; button.onclick = () => restart(text);
       item.append(button, node('span', 'suggestion-meta', text)); chips.append(item);
     }
-    coverage.replaceChildren(node('span', 'coverage-icon', '↺'), node('p', 'eyebrow', t('COUVERTURE', 'COVERAGE')),
-      node('h3', '', t('Ce voyage n’est pas encore couvert par nos agents', 'Our agents do not cover this trip yet')),
-      node('p', 'coverage-copy', t('Aucun agent n’a pu démarrer : nos sites vérifiés ne couvrent pas encore cette course, cette ville ou ce départ. Rien n’a été réservé ni envoyé.', 'No agent could start: our reviewed sites do not cover this race, city or origin yet. Nothing was booked or sent.')),
-      list, ...(links.children.length ? [links] : []), node('p', 'question', t('On essaie autre chose ?', 'Shall we try something else?')), chips);
+    coverage.dataset.tone = dead ? 'coverage' : ready ? 'partial' : 'handover';
+    const title = dead ? t('Ce voyage n’est pas encore couvert par nos agents', 'Our agents do not cover this trip yet')
+      : ready ? t(`${ready}/3 prêt${ready > 1 ? 's' : ''} avant paiement`, `${ready}/3 ready before payment`) : t('Vos agents vous passent le relais', 'Your agents hand over to you');
+    const copy = dead ? t('Aucun agent n’a pu démarrer : nos sites vérifiés ne couvrent pas encore cette course, cette ville ou ce départ. Rien n’a été réservé ni envoyé.', 'No agent could start: our reviewed sites do not cover this race, city or origin yet. Nothing was booked or sent.')
+      : ready ? t('Une partie est prête. Reprenez le reste en un clic sur les sites indiqués : rien n’a été réservé, payé ni envoyé.', 'Part of the trip is ready. Pick up the rest in one click on the sites below: nothing was booked, paid or sent.')
+      : t('Cette fois, aucune étape n’est allée jusqu’au paiement. Rien n’a été réservé, payé ni envoyé : voici où reprendre, en un clic.', 'This time no step reached payment. Nothing was booked, paid or sent: here is where to pick up, in one click.');
+    const head = node('div', 'summary-head'), heading = node('div');
+    head.append(node('span', 'coverage-icon', dead ? '↺' : ready ? '✓' : '↗'), heading);
+    heading.append(node('p', 'eyebrow', dead ? t('COUVERTURE', 'COVERAGE') : t('BILAN DE LA PRÉPARATION', 'PREPARATION SUMMARY')), node('h3', '', title));
+    coverage.replaceChildren(head, node('p', 'coverage-copy', copy), list, node('p', 'question', t('On essaie autre chose ?', 'Shall we try something else?')), chips);
+  }
+  function overview() {
+    const states = kinds.map(kind => agentState[kind]), finished = states.every(state => state && terminal.has(state.status));
+    const ready = states.filter(state => state?.status === 'ready_for_payment').length, banner = $('mission-banner'), coverage = $('coverage');
+    const dead = finished && !ready && states.every(state => !state.active && coverageReasons.has(state.reason));
+    $('agents').dataset.view = dead ? 'coverage' : finished && ready < 3 ? 'summary' : 'agents';
+    $('agents').dataset.finished = String(finished);
+    liveStrip(states);
+    banner.hidden = !(finished && ready === 3);
+    if (!banner.hidden && banner.dataset.rendered !== language) {
+      banner.dataset.rendered = language; banner.dataset.tone = 'success';
+      const race = tripFacts().race?.name;
+      banner.replaceChildren(node('span', 'banner-check', '✓'), node('strong', '', t('3/3 · Tout est prêt avant paiement', '3/3 · Everything is ready before payment')),
+        node('span', '', race ? t(`${race} : dossard, hôtel et trajet vous attendent. Vous complétez vos informations et payez vous-même, sur chaque site.`, `${race}: bib, hotel and journey are waiting. You enter your details and pay yourself, on each site.`)
+          : t('Les trois étapes vous attendent : vous complétez vos informations et payez vous-même, sur chaque site.', 'All three steps are waiting: you enter your details and pay yourself, on each site.')));
+    }
+    coverage.hidden = !(finished && ready < 3);
+    if (coverage.hidden) return;
+    const signature = `${language}|${dead}|${states.map(state => `${state.status}:${state.reason}:${state.handoff}:${state.active}`).join('|')}`;
+    if (coverage.dataset.rendered === signature) return;
+    coverage.dataset.rendered = signature; summaryCard(dead, ready);
+  }
+  function focusAgent(kind) {
+    const agents = $('agents'), next = kinds.includes(kind) && agents.dataset.focus !== kind ? kind : '';
+    if (next) agents.dataset.focus = next; else delete agents.dataset.focus;
+    for (const name of kinds) {
+      const card = cardFor(name), on = name === next, button = card?.querySelector('.focus-toggle'); if (!card) continue;
+      card.dataset.focused = String(on);
+      if (button) { button.setAttribute('aria-pressed', String(on)); button.setAttribute('aria-label', on ? t('Revenir aux trois agents', 'Back to all three agents') : `${t('Agrandir l’agent', 'Enlarge agent')} ${agentNames()[name]}`); button.textContent = on ? '✕' : '⤢'; }
+    }
+    return next || null;
   }
   function event(raw) {
     const e = {...raw, ...raw.data}; if (Number.isFinite(Number(e.sequence))) after = Math.max(after, Number(e.sequence));
     if (!kinds.includes(e.kind)) return;
     const state = agentState[e.kind] ||= {status: 'pending', level: -1, frames: 0, progress: 0};
-    const message = String(e.message ?? '');
+    const message = String(e.message ?? ''), activity = e.type === 'step_progress' || e.status === 'queued' ? activityOf(e) : null;
     if (e.type === 'step_started') { state.started ||= Date.now(); state.level = Math.max(state.level, 0); }
-    if (e.type === 'live_frame' || (e.type === 'step_progress' && !/unavailable|size limit/i.test(message))) {
-      state.active = true; state.started ||= Date.now();
+    if (activity?.code === 'queued') { state.queued = true; state.started ||= Date.now(); state.level = Math.max(state.level, 0); if (!terminal.has(state.status)) state.status = 'running'; }
+    else if (e.type === 'live_frame' || (e.type === 'step_progress' && !/unavailable|size limit/i.test(message))) {
+      state.active = true; state.queued = false; state.started ||= Date.now();
       if (e.type === 'live_frame') state.frames++; else state.progress++;
       state.level = Math.max(state.level, state.frames >= 3 || state.progress >= 3 ? 2 : 1);
     }
-    if (e.type === 'step_progress' && (e.alternative === true || /alternativ|another site|autre site|fallback/i.test(message))) state.alternative = true;
+    if (activity) state.activity = activity.code === null && state.activity?.code ? {...state.activity, step: activity.step} : activity;
+    if (e.type === 'step_progress' && (e.alternative === true || activity?.code === 'alternative')) state.alternative = true;
     if (terminal.has(e.status)) state.status = e.status;
     else if (e.type === 'step_started' && !terminal.has(state.status)) state.status = 'running';
-    if (terminal.has(state.status)) state.ended ||= Date.now();
+    if (terminal.has(state.status)) { state.ended ||= Date.now(); state.queued = false; }
     if (terminal.has(e.status)) { state.reason = e.reason_code || state.reason; state.total = shownTotal(e.summary) || state.total; }
     const visited = domainOf(e.final_url) || domainOf(e.site_url) || domainOf(e.start_url);
     if (visited) state.site = visited;
@@ -633,15 +741,18 @@
   $('toast').querySelector('button').onclick = () => { $('toast').hidden = true; };
   function resetStage() {
     for (const kind of kinds) delete agentState[kind];
+    focusAgent(null);
     document.querySelectorAll('.agent').forEach(card => {
-      card.dataset.status = 'pending';
+      card.dataset.status = 'pending'; card.dataset.phase = 'pending';
       card.querySelector('.preview').textContent = translate('En attente de la première capture'); card.querySelector('.preview').dataset.state = 'unavailable';
       card.querySelector('.frame-meta').textContent = translate('Aucune image reçue'); card.querySelector('.steps').textContent = translate('L’agent se prépare.'); card.querySelector('.handoff').replaceChildren();
       const pill = card.querySelector('.status'); pill.dataset.status = 'pending'; pill.textContent = translate(labels.pending);
       for (const [cls, value] of [['.site', 'Site choisi au lancement'], ['.live-badge', '']]) { const el = card.querySelector(cls); if (el) { el.textContent = translate(value); if (cls === '.live-badge') el.hidden = true; } }
       card.querySelector('.stepper')?.replaceChildren();
     });
-    $('mission-banner').hidden = true; $('coverage').hidden = true; $('coverage').replaceChildren(); $('coverage').dataset.rendered = 'false'; $('agents').dataset.view = 'agents';
+    $('mission-banner').hidden = true; $('mission-banner').dataset.rendered = ''; $('coverage').hidden = true; $('coverage').replaceChildren(); $('coverage').dataset.rendered = '';
+    $('agents').dataset.view = 'agents'; $('agents').dataset.finished = 'false';
+    document.querySelector('.mission-recap')?.replaceChildren(); document.querySelector('.live-count')?.replaceChildren();
     $('agents').hidden = true; $('history-toggle').hidden = true; $('history-toggle').setAttribute('aria-expanded', 'false');
     $('workspace').classList.remove('executing'); $('workspace').classList.remove('history-open');
   }
@@ -653,36 +764,52 @@
     resetStage(); document.querySelectorAll('.message').forEach(el => el.remove());
     $('welcome').hidden = false; $('message').value = ''; $('toast').hidden = true; localize(); badge();
   };
+  document.querySelectorAll('.agent').forEach(card => {
+    const kind = card.dataset.agent, button = card.querySelector('.focus-toggle'), stage = card.querySelector('.stage');
+    if (button) button.onclick = e => { e?.stopPropagation?.(); focusAgent(kind); };
+    if (stage) stage.onclick = () => { if ($('agents').dataset.focus !== kind) focusAgent(kind); };
+  });
+  globalThis.addEventListener?.('keydown', e => {
+    const current = $('agents').dataset.focus; if (!current || $('agents').hidden) return;
+    if (e.key === 'Escape') { focusAgent(null); cardFor(current)?.querySelector('.focus-toggle')?.focus?.(); }
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      const next = kinds[(kinds.indexOf(current) + (e.key === 'ArrowRight' ? 1 : 2)) % 3]; focusAgent(next); cardFor(next)?.querySelector('.focus-toggle')?.focus?.();
+    }
+  });
+  let demoCount = 0;
   function demoFrame(kind) {
-    const state = agentState[kind], label = {registration: 'REGISTRATION', hotel: 'HOTEL', transport: 'TRANSPORT'}[kind];
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="800" height="500" fill="#1d1d22"/><rect x="40" y="40" width="720" height="10" rx="5" fill="#fc4c02"/><text x="40" y="120" fill="#fff" font-family="Arial" font-size="40" font-weight="700">${label}</text><text x="40" y="180" fill="#c9c9d2" font-family="Arial" font-size="24">SYNTHETIC demo screen · not a real site</text><rect x="40" y="230" width="460" height="24" rx="12" fill="#33333b"/><rect x="40" y="280" width="340" height="24" rx="12" fill="#33333b"/></svg>`;
-    const img = new Image(); img.alt = `${t('Illustration SYNTHÉTIQUE', 'SYNTHETIC illustration')} · ${kind}`;
+    const label = {registration: 'REGISTRATION', hotel: 'HOTEL', transport: 'TRANSPORT'}[kind], shade = ['#1d1d22', '#22222a', '#1a1f24'][demoCount++ % 3];
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500"><rect width="800" height="500" fill="${shade}"/><rect x="40" y="40" width="${300 + (demoCount % 4) * 100}" height="10" rx="5" fill="#fc4c02"/><text x="40" y="120" fill="#fff" font-family="Arial" font-size="40" font-weight="700">${label}</text><text x="40" y="180" fill="#c9c9d2" font-family="Arial" font-size="24">SYNTHETIC demo screen · not a real site</text><rect x="40" y="230" width="460" height="24" rx="12" fill="#33333b"/><rect x="40" y="280" width="${200 + (demoCount % 3) * 80}" height="24" rx="12" fill="#33333b"/></svg>`;
+    const img = new Image(); img.alt = `${t('Illustration SYNTHÉTIQUE', 'SYNTHETIC illustration')} · ${agentNames()[kind]}`;
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-    state.image = img; state.received = Date.now(); state.stale = false;
-    cardFor(kind).querySelector('.preview').replaceChildren(img); frameMeta(kind);
+    showFrame(kind, img);
   }
   function demoStage(name) {
     if ($('mode').value === 'live') return false;
-    $('agents').hidden = false; $('workspace').classList.add('executing'); $('history-toggle').hidden = false;
     const fake = (kind, data) => event({kind, synthetic: true, ...data});
-    if (name === 'stale') kinds.forEach(kind => { const state = agentState[kind]; if (state?.received) { state.received -= FRESH_MS + 7000; frameMeta(kind); } });
-    else if (name === 'alternative') fake('hotel', {type: 'step_progress', message: 'SYNTHETIC: trying alternative site'});
+    const show = () => { $('agents').hidden = false; $('workspace').classList.add('executing'); $('history-toggle').hidden = false; };
+    if (name === 'stale') kinds.forEach(kind => { const state = agentState[kind]; if (state?.received) { state.received -= FRESH_MS + 27000; frameMeta(kind); } });
+    else if (name === 'alternative') fake('hotel', {type: 'step_progress', message: 'Essai d\'un autre site'});
+    else if (name === 'frame') kinds.forEach(kind => { if (agentState[kind] && !terminal.has(agentState[kind].status)) demoFrame(kind); });
+    else if (name === 'focus') focusAgent('hotel');
     else {
-      resetStage(); $('agents').hidden = false; $('workspace').classList.add('executing'); $('history-toggle').hidden = false;
+      resetStage(); show();
       const codes = name === 'coverage' ? ['no_site_coverage', 'no_site_coverage', 'policy_denied'] : ['sold_out', 'no_inventory', 'captcha'];
       kinds.forEach((kind, index) => {
         fake(kind, {type: 'step_started'});
+        if (name === 'queued') { fake(kind, {type: 'step_progress', message: index === 2 ? 'Ouverture du site' : 'En attente d\'un navigateur disponible'}); return; }
         if (name === 'coverage') { fake(kind, {status: 'blocked', reason_code: codes[index], handoff_url: index ? null : 'https://example.com/runai-synthetic/registration'}); return; }
-        fake(kind, {type: 'step_progress', message: 'SYNTHETIC: opening site', start_url: `https://example.com/runai-synthetic/${kind}`});
-        if (name === 'running') { demoFrame(kind); return; }
-        fake(kind, {type: 'step_progress', message: 'SYNTHETIC: reviewing'}); fake(kind, {type: 'step_progress', message: 'SYNTHETIC: selecting'});
-        fake(kind, name === 'success' ? {status: 'ready_for_payment', summary: kind === 'registration' ? '' : 'SYNTHETIC total 312 €', handoff_url: `https://example.com/runai-synthetic/${kind}`}
-          : {status: 'blocked', reason_code: codes[index], handoff_url: `https://example.com/runai-synthetic/${kind}`});
+        fake(kind, {type: 'step_progress', message: 'Ouverture du site', start_url: `https://example.com/runai-synthetic/${kind}`});
+        if (name === 'running') { fake(kind, {type: 'step_progress', message: `Étape ${index + 3}`}); demoFrame(kind); return; }
+        fake(kind, {type: 'step_progress', message: 'Navigation sur le site'}); fake(kind, {type: 'step_progress', message: 'Étape 6'}); demoFrame(kind);
+        const win = name === 'success' || (name === 'partial' && index === 1);
+        fake(kind, win ? {status: 'ready_for_payment', summary: kind === 'registration' ? '' : 'SYNTHETIC total 312 €', handoff_url: `https://example.com/runai-synthetic/${kind}`}
+          : {status: 'blocked', reason_code: name === 'partial' ? ['policy_denied', null, 'no_inventory'][index] : codes[index], handoff_url: `https://example.com/runai-synthetic/${kind}`});
       });
     }
     return true;
   }
-  globalThis.__runai = {event, consume, frameMeta, safeURL, reason, reasonCopy, reasons, detectLanguage: value => { detectLanguage(value); return language; }, demo: demoStage, translate, setLanguage: value => { language = value; localize(); badge(); }};
+  globalThis.__runai = {event, consume, frameMeta, safeURL, reason, reasonCopy, reasons, detectLanguage: value => { detectLanguage(value); return language; }, demo: demoStage, focus: focusAgent, cityName, translate, setLanguage: value => { language = value; localize(); badge(); }};
   localize(); badge(); const initialGeneration = generation;
   api('/api/health').then(health => {
     liveReady = health.live_ready || null;
