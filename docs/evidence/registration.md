@@ -1,5 +1,25 @@
 # Registration path evidence (R2-02, supersedes R1-05 "assumed" claims)
 
+## R8-03 live smoke — 2026-11-09
+
+Real `registration.build_task` -> `HAgentRunner.run` (R8-01 core branch hclient +
+this ticket's adapters), alternatives removed, fake profile only (Test Runner,
+test.runner@example.com, +33 6 00 00 00 00, 1990-01-01, FR, 1 rue de Test,
+75001 Paris). Quota GET immediately before: limit=3, active=1, available=2. One
+session, sequential with the hotel smokes.
+
+| Race | Start host/path | Status | reason_code | Steps | Frames | Stop page | Elapsed |
+|---|---|---|---|---:|---:|---|---:|
+| Wizz Air Milano Marathon 2027-04-04, 42.195 km | in.njuko.com/wizz-air-milano-marathon-20271776152378557 | blocked | session_failed | 60 (max) | 34 | ?currentPage=form_individual-form | 402.3s |
+
+Not READY. H reached the reviewed Njuko participant form (prefill pattern) and
+spent its remaining steps there until the 60-step limit; no recap/cart page was
+observed, so the recap currentPage value stays unverified. No verify_failed gate
+fired because H never answered. Follow-up in this ticket: the prefilled form is
+now also a valid url_pattern (READY with personal_data_entered=true), and the
+prompt bounds form filling to 15 steps and asks for an answer before step 45.
+That change was not re-run live (three-run ticket cap).
+
 ## R8-03 normal-Chrome observations — 2026-11-09
 
 Read-only Chrome walk (cookies refused, nothing typed or submitted, no login, no

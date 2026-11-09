@@ -1,3 +1,37 @@
+# R8-03 Booking guest-details smokes — 2026-11-09
+
+Normal-Chrome walk first (fake identity, nothing submitted): Booking deep link
+`www.booking.com/searchresults.html?ss=Milan, Italy&checkin=2027-04-03&checkout=2027-04-05&group_adults=1&no_rooms=1&group_children=0&selected_currency=EUR`
+-> Hotel Milano Navigli (8.6) -> room select -> I'll reserve ->
+`secure.booking.com/book.html` (Your details: first/last name, email, country,
+phone; phone accepted only with the France +33 country code selected) -> Next:
+Final details -> same `/book.html` path, title "Booking.com: Final details",
+payment iframe and "Complete booking" button (not clicked). Both steps share the
+path and, after scrubbing (sid/basket_id removed), the query: a URL pattern cannot
+separate them, so with a profile `/book.html` is both prefill_pattern and
+url_pattern and the prompt bounds the step. secure.booking.com `/book.html` is now
+reviewed in the `r7-booking-hotel` entry (R8-01 host equivalence requires it).
+
+Live: real `hotel.build_task` -> `HAgentRunner.run` (R8-01 core branch hclient +
+this ticket), Milan 2027-04-03..05, 1 adult, EUR600, alternatives removed, fake
+profile (Test Runner, test.runner@example.com, +33 6 00 00 00 00, FR). Quota GET
+immediately before each run: limit=3, active=1, available=2. One session at a
+time.
+
+| Run | Prompt | Status | reason_code | Steps | Frames | Final host/path | Elapsed |
+|---|---|---|---|---:|---:|---|---:|
+| 1 | initial R8-03 prefill prompt | blocked | session_failed | 60 (max) | 30 | secure.booking.com/book.html | 296.5s |
+| 2 | + phone/country hint, 8-step book.html bound, answer before step 45 | blocked | session_failed | 60 (max) | 38 | secure.booking.com/book.html | 360.2s |
+
+Not READY. Both runs passed policy review, search, property and room selection
+and reached the reviewed `secure.booking.com/book.html` (no unreviewed_redirect,
+no beyond-pattern trigger, unlike all five R7 runs) but H kept acting on the page
+until the step limit and never answered, so no verification gate was evaluated.
+Prompt step bounds were ignored. Root cause is in the runner: on a prefill page
+hclient deliberately does not force an answer, and nothing forces one near
+max_steps. Requested from R8-01: force_answer on prefill pages a few steps
+before max_steps. No frames, private URLs, session IDs or profile values kept.
+
 # R7-03 Booking offline diagnosis — 2026-11-09
 
 No further H sessions. Rebuilt the exact Berlin task from the smoke: same race,

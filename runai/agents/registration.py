@@ -613,7 +613,9 @@ def _prefill_task(task: dict[str, Any], fields: list[str]) -> None:
         r"sign[-_]?in|payment|checkout)(?:[/?]|$)|"
         r"[?&](?:currentPage|step)=(?:terms|consent|medical|account|login|payment)(?:[&#]|$))"
     )
-    checkpoint["url_patterns"] = [NJUKO_RECAP, boundary] if njuko else [boundary]
+    # The prefilled Njuko form stays a valid stop if the recap is not reached in budget.
+    checkpoint["url_patterns"] = (
+        [*checkpoint["prefill_patterns"], NJUKO_RECAP, boundary] if njuko else [boundary])
     checkpoint["beyond_patterns"] = [r"/(?:[^?]*/)?(?:confirm|complete|submit)(?:[/?]|$)"] + (
         [r"(?i)[?&#]currentPage=(?:confirm\w*|success|thank\w*|complete\w*)(?:[&#]|$)"]
         if njuko else [])
@@ -632,8 +634,12 @@ def _prefill_task(task: dict[str, Any], fields: list[str]) -> None:
         "values blank. Use only intermediate Next/Continue buttons, never final submission. "
         "STOP at the first page with terms, medical consent, account/login or payment"
         + ("; on Njuko the recap/cart page (currentPage=cart/recap/summary) after the form is "
-           "that boundary: STOP there and answer immediately, never tick its terms or pay; "
+           "that boundary: STOP there and answer immediately, never tick its terms or pay. "
+           "Fill each provided field once; skip unknown or rejecting fields. If the recap is "
+           "not reached within 15 steps of opening the form, STOP on the filled form and "
+           "answer; "
            if njuko else "; ") +
+        f"answer before step {task['max_steps'] - 15} at the latest. "
         "report READY with prefilled info only if edition/distance/date match and provided fields "
         "were entered before that boundary. Never echo field values in the answer. "
         "If login/consent comes before the participant form, report BLOCKED login_required or "

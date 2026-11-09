@@ -61,6 +61,11 @@ def _prefill(task, fields, budget):
         "Booking flow: on secure.booking.com/book.html (Your details) type only the provided "
         "guest name/email/phone/country, then click only 'Next: Final details'. On the Final "
         "details page (payment form visible) STOP and answer; never click 'Complete booking'. "
+        "Phone: pick the country code matching the number prefix, then type the national "
+        "number without it. Skip members-only/Genius sign-in offers. If a field still rejects "
+        "input after one retry, or Final details is not reached within 8 steps of opening "
+        "book.html, STOP on the current book.html page and answer with the verification. "
+        "Answer before step 45 at the latest. "
         if booking else
         "Open guest details, type only the provided guest fields, use only intermediate "
         "Continue/Next buttons and stop on the reviewed review page before card entry. "

@@ -1199,7 +1199,8 @@ def test_r8_njuko_profile_prefills_form_and_stops_at_recap():
     assert task["prefill_scope"] == "participant form"
     assert "nationality" in task["prefill_fields"] and "address_line" in task["prefill_fields"]
     assert hclient._checkpoint_matches(checkpoint, "prefill_patterns", NJUKO_FORM)
-    assert not hclient._checkpoint_matches(checkpoint, "url_patterns", NJUKO_FORM)
+    assert hclient._checkpoint_matches(checkpoint, "url_patterns", NJUKO_FORM)
+    assert "answer before step 45" in task["instructions"]
     recap = NJUKO_FORM.replace("form_individual-form", "cart")
     assert hclient._checkpoint_matches(checkpoint, "url_patterns", recap)
     assert not hclient._checkpoint_matches(checkpoint, "beyond_patterns", recap)
