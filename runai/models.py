@@ -210,6 +210,7 @@ class StepResult(Model):
 
 
 class Event(Model):
+    stale_frame: bool | None = None
     sequence: int = Field(ge=1)
     type: Literal[
         "turn", "confirmed", "step_started", "step_progress", "live_view_available",

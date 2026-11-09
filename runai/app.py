@@ -341,6 +341,8 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
                 if event_type not in {"step_progress", "live_view_available", "live_frame"}:
                     return
                 fields = {}
+                if isinstance(data.get("stale_frame"), bool):
+                    fields["stale_frame"] = data["stale_frame"]
                 if data.get("recorded_at"):
                     fields["recorded_at"] = data["recorded_at"]
                 if event_type == "live_frame":

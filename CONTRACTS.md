@@ -19,6 +19,14 @@ True means the agent is running and its newest genuine frame is older than
 Missing footage is unavailable, never simulated or asserted fresh. This metadata
 does not weaken P13 verification or turn blocked checkpoints into READY.
 
+While running, an observation gap of 150 seconds triggers a terminal-session
+check before one force-answer request. A further 60 seconds without an answer
+cancels the session and returns blocked/timeout, retaining the last reviewed
+checkpoint frame URL when available. These timings and the 60-second frame
+freshness threshold are module constants; the total per-agent cap remains
+15 minutes. Step progress/frame events carry nullable `stale_frame` metadata;
+no frame means unknown, not fresh. A watchdog timeout does not try alternatives.
+
 RunnerProfile also accepts `address` as an input alias of `address_line` with
 the same validation. Matching duplicate keys are accepted; differing values
 return 422, as do unknown keys. `profile_status.fields` always uses canonical

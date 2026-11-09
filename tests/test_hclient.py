@@ -2452,3 +2452,158 @@ def test_heartbeat_waits_for_observation_gap_and_skips_queued_or_terminal(monkey
     monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
     _, emitted = run(handle)
     assert not any("l'agent lit la page" in event.get("message", "") for event in emitted)
+
+
+@pytest.mark.parametrize("terminal,progressing,checkpoint", [
+    (False, False, False), (True, False, False), (False, True, False),
+    (False, False, True),
+])
+def test_stall_watchdog_fake_clock(monkeypatch, terminal, progressing, checkpoint):
+    now = 0
+    provider = Provider()
+    task = dict(TASK)
+    if checkpoint:
+        task.update(checkpoint={"url_patterns": [r"/registration"], "beyond_patterns": [r"/pay"],
+                                "prefill_patterns": [r"/registration"]},
+                    runner_profile={"full_name": "Test Runner"}, prefill_fields=["full_name"],
+                    prefill_scope="participant form")
+
+    def handle(request):
+        nonlocal now
+        if request.url.path.endswith("/force_answer"):
+            provider.requests.append(request)
+            return httpx.Response(202)
+        if request.url.path.endswith("/changes"):
+            provider.requests.append(request)
+            provider.polls += 1
+            now = (provider.polls - 1) * 30
+            if progressing and now >= 300:
+                return httpx.Response(200, json=batch(state="completed", answer=ANSWER))
+            return httpx.Response(200, json=batch(*(
+                [observation()] if progressing or provider.polls == 1 else []
+            )))
+        if request.url.path == "/api/v2/sessions/test-session" and terminal:
+            provider.requests.append(request)
+            return httpx.Response(200, json={"status": "completed", "latest_answer": ANSWER})
+        return provider(request)
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    result, events = run(handle, task)
+    forces = [r for r in provider.requests if r.url.path.endswith("/force_answer")]
+    if terminal or progressing:
+        assert result["status"] == "ready_for_payment", result
+        assert forces == []
+    else:
+        assert result["status"] == "blocked", result
+        assert result["reason_code"] == "timeout"
+        assert len(forces) == 1
+        assert now <= 240
+        assert provider.cancelled
+        assert result["handoff_url"] == (HANDOFF if checkpoint else None)
+    assert any(event.get("stale_frame") is False for event in events)
+    assert any(event.get("stale_frame") is True for event in events) is (not progressing)
+
+
+def test_stall_watchdog_constants_are_patchable(monkeypatch):
+    now = 0
+    provider = Provider()
+
+    def handle(request):
+        nonlocal now
+        if request.url.path.endswith("/changes"):
+            provider.requests.append(request)
+            provider.polls += 1
+            now = (provider.polls - 1) * 5
+            return httpx.Response(200, json=batch(*([observation()] if now == 0 else [])))
+        if request.url.path.endswith("/force_answer"):
+            provider.requests.append(request)
+            return httpx.Response(202)
+        return provider(request)
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    monkeypatch.setattr("runai.agents.hclient.STALL_TIMEOUT_S", 15)
+    monkeypatch.setattr("runai.agents.hclient.STALL_FORCE_GRACE_S", 10)
+    monkeypatch.setattr("runai.agents.hclient.STALE_FRAME_S", 5)
+    result, events = run(handle)
+    assert result["reason_code"] == "timeout"
+    assert now == 25
+    assert sum(r.url.path.endswith("/force_answer") for r in provider.requests) == 1
+    assert any(event.get("stale_frame") is True for event in events)
+
+
+BOOKING_SHAPES = json.loads((Path(__file__).parent / "fixtures/h_booking_observations.json").read_text())
+
+
+@pytest.mark.parametrize("locale", ["verification", "french_verification"])
+@pytest.mark.parametrize("mutation", [None, "wrong_date", "missing_frame", "beyond", "host_alias",
+                                     "unreviewed_alias", "missing_total", "invalid_total"])
+def test_booking_live_shapes(locale, mutation, monkeypatch):
+    row = BOOKING_SHAPES["booking"]
+    hosts = ["www.booking.com", "secure.booking.com"]
+    if mutation == "unreviewed_alias":
+        hosts = ["www.booking.com"]
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(
+        evaluate_url=lambda url, kind: {
+            "allowed": True, "policy_id": "synthetic-booking", "screenshot_scope": True,
+            "allowed_hosts": hosts, "allowed_paths": ["/"],
+        },
+    ))
+    task = {**TASK, "kind": "hotel", "start_url": row["room_url"],
+            "fallback_url": row["room_url"], "expected": row["expected"],
+            "checkpoint": {"url_patterns": [r"^/book\.html"],
+                           "beyond_patterns": [r"/payment"]}}
+    verification = json.loads(row[locale])
+    if mutation == "wrong_date":
+        verification["Arrival_Date"] = "Sat 3 Apr 2027"
+    if mutation == "missing_total":
+        verification.pop("Total")
+    if mutation == "invalid_total":
+        verification["Total"] = "not a price"
+    url = row["checkpoint_url"] + ("&next=/payment" if mutation == "beyond" else "")
+    events = []
+    for location in (row["room_url"], url):
+        event = observation()
+        event["data"]["metadata"] = {"url": location, "title": "Synthetic guest-details boundary"}
+        if mutation == "missing_frame" and location == url:
+            event["data"].pop("image")
+        events.append(event)
+    answer_url = url.replace("secure.booking.com", "www.booking.com") if mutation in {
+        "host_alias", "unreviewed_alias",
+    } else url
+    result, _ = run(Provider(events=events, answer={
+        **ANSWER, "handoff_url": answer_url, "verification": json.dumps(verification),
+    }), task)
+    assert (result["status"] == "ready_for_payment") is (mutation in {None, "host_alias"}), result
+    if mutation == "wrong_date":
+        assert result["reason_code"] == "date_mismatch"
+
+
+def test_njuko_live_stringified_mixed_case_shape():
+    row = BOOKING_SHAPES["njuko"]
+    event = observation()
+    event["data"]["metadata"] = {"url": row["url"], "title": "Synthetic participant boundary"}
+    task = {**TASK, "start_url": row["url"], "fallback_url": row["url"],
+            "checkpoint": {"url_patterns": [r"currentPage=form_individual-form"],
+                           "beyond_patterns": [r"/payment"]}}
+    result, _ = run(Provider(events=[event], answer={
+        **ANSWER, "handoff_url": row["url"], "verification": row["verification"],
+    }), task)
+    assert result["status"] == "ready_for_payment", result
+
+
+@pytest.mark.parametrize("actual", [
+    "Fri 2 Apr 2027", "ven. 2 avr. 2027", "Fr. 2. April 2027", "venerdì 2 aprile 2027",
+    "vie. 2 abril 2027", "sex. 2 abril 2027", "2 Apr 2027", "2027-04-02",
+])
+def test_localized_verification_dates(actual):
+    from runai.agents.hclient import _matches_expected
+
+    assert _matches_expected("arrival_date", actual, "2027-04-02")
+    assert not _matches_expected("arrival_date", actual, "2027-04-03")
+
+
+@pytest.mark.parametrize("value", ["€1,234.50", "1 234,50 €", "EUR 1234.50", "1.234,50 EUR"])
+def test_verification_money_normalization(value):
+    from runai.agents.hclient import _verification_money
+
+    assert _verification_money(value) == 1234.5
