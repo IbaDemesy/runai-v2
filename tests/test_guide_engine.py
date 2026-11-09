@@ -943,7 +943,7 @@ def test_deduplicate_standard_distance_aliases(distance, label):
                  "race_date": "2027-04-10", "date_status": "official",
                  "source_urls": ["https://label.example/edition"]}]
 
-    state, _ = run(engine(discover).start("une course"))
+    state, _ = run(engine(discover).start("un marathon"))
     assert len(state.candidates) == 1
     assert len(state.candidates[0].source_urls) == 2
 
