@@ -207,6 +207,19 @@ _EXPECTED_FIELDS = {
     "hotel": {"arrival_date", "departure_date", "travelers", "city"},
     "transport": {"origin_city", "city", "arrival_date", "departure_date", "travelers"},
 }
+_REQUIRED_EXPECTED = {
+    "registration": {"race_date", "distance_km"},
+    "hotel": {"arrival_date", "departure_date", "travelers"},
+    "transport": {"origin_city", "city", "arrival_date", "departure_date", "travelers"},
+}
+
+
+def _complete_expected(task):
+    expected = task.get("expected")
+    required = _REQUIRED_EXPECTED.get(task.get("kind"))
+    return isinstance(expected, dict) and bool(required) and required.issubset(expected) and all(
+        expected[key] not in (None, "") for key in required
+    )
 
 
 def _matches_expected(key, actual, expected):
@@ -247,14 +260,7 @@ def _verified(task, answer, handoff, observed, frame_seen, reviews):
     fields = _VERIFY_FIELDS.get(task.get("kind"), ())
     if not expected or not isinstance(verification, dict) or not fields:
         return False
-    required_expected = {
-        "registration": {"race_date", "distance_km"},
-        "hotel": {"arrival_date", "departure_date", "travelers"},
-        "transport": {"origin_city", "city", "arrival_date", "departure_date", "travelers"},
-    }[task["kind"]]
-    if not required_expected.issubset(expected) or any(
-        expected[key] in (None, "") for key in required_expected
-    ):
+    if not _complete_expected(task):
         return False
     if not all(verification.get(key) for key in fields):
         return False
@@ -437,7 +443,7 @@ class HAgentRunner:
                 continue
             if (
                 not isinstance(alternative.get("instructions"), str)
-                or not isinstance(alternative.get("expected"), dict)
+                or not _complete_expected(alternative)
                 or not isinstance(alternative.get("stop_before"), list)
                 or type(alternative.get("max_steps", 80)) is not int
                 or alternative.get("max_steps", 80) < 1

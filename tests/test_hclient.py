@@ -1387,6 +1387,41 @@ def test_blocked_alternative_uses_its_own_policy_checked_fallback():
     assert result["handoff_url"] != TASK["fallback_url"]
 
 
+@pytest.mark.parametrize("kind,expected", [
+    ("registration", {"race_date": "2027-04-04", "distance_km": 42.195}),
+    ("hotel", {"arrival_date": "2027-04-03", "departure_date": "2027-04-05", "travelers": 1}),
+    ("transport", {"origin_city": "Paris", "city": "Milan", "arrival_date": "2027-04-03",
+                   "departure_date": "2027-04-05", "travelers": 1}),
+])
+@pytest.mark.parametrize("invalid", ["missing", "empty", "partial", "null", "blank"])
+def test_unverifiable_alternatives_are_skipped_without_replacing_primary(kind, expected, invalid):
+    alternative = {**TASK, "kind": kind, "expected": expected}
+    if invalid == "missing":
+        alternative.pop("expected")
+    elif invalid == "empty":
+        alternative["expected"] = {}
+    else:
+        alternative["expected"] = dict(expected)
+        for key in expected:
+            broken = dict(alternative["expected"])
+            if invalid == "partial":
+                broken.pop(key)
+            else:
+                broken[key] = None if invalid == "null" else ""
+            provider = Provider(events=[blank_observation("https://evil.example/")])
+            result, emitted = run(provider, task={
+                **TASK, "kind": kind, "alternatives": [{**alternative, "expected": broken}],
+            })
+            assert result["reason_code"] == "unreviewed_redirect"
+            assert sum(r.method == "POST" for r in provider.requests) == 1
+            assert not any(e.get("message") == "Essai d'un autre site" for e in emitted)
+        return
+    provider = Provider(events=[blank_observation("https://evil.example/")])
+    result, _ = run(provider, task={**TASK, "kind": kind, "alternatives": [alternative]})
+    assert result["reason_code"] == "unreviewed_redirect"
+    assert sum(r.method == "POST" for r in provider.requests) == 1
+
+
 @pytest.mark.parametrize("alternatives", [None, {}, "invalid", [], [None, {},
     {**TASK, "kind": "hotel"}], [{**TASK, "max_steps": False}]])
 def test_missing_or_invalid_alternatives_ignored(alternatives):
