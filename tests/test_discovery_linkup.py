@@ -16,6 +16,7 @@ from runai.discovery import (
     DiscoveryTimeout,
     DiscoveryUnavailable,
     discover,
+    linkup,
 )
 from runai.guide.types import RaceOption, RegistrationAccess
 
@@ -27,6 +28,13 @@ EXPECTED_KEYS = {
     "city", "country", "official_url", "registration_url", "source_urls", "retrieved_at",
     "synthetic", "registration_access",
 }
+
+
+@pytest.fixture(autouse=True)
+def isolated_discovery_cache():
+    linkup.clear_cache()
+    yield
+    linkup.clear_cache()
 
 
 def race(**changes):
@@ -46,6 +54,7 @@ def race(**changes):
 
 
 def search(rows, **kwargs):
+    linkup.clear_cache()
     async def run():
         async with httpx.AsyncClient(transport=httpx.MockTransport(
             lambda _: httpx.Response(200, json={"candidates": rows})
@@ -483,7 +492,7 @@ def test_semi_en_espagne_recovers_from_past_only_strict_reply_with_one_broadened
             return await engine.start("un semi en Espagne")
 
     _state, turn = asyncio.run(run())
-    assert len(calls) == 2
+    assert len(calls) == 4
     assert len(turn.candidates) == 4 and not turn.error
     assert all(r.country == "Spain" and r.distance_km == 21.097 for r in turn.candidates)
     assert all(len(r.source_urls) == 1 for r in turn.candidates)  # one provenance per domain
@@ -565,3 +574,158 @@ def test_dated_source_survives_per_domain_provenance_dedupe():
     _state, turn = asyncio.run(GuideEngine(provider, today=datetime.now(UTC).date())
                                .start("le marathon Example"))
     assert turn.candidates[0].source_urls == ["https://race.example/2027-announcement"]
+
+
+def test_discovery_queries_overlap_and_merge_in_request_order():
+    active = 0
+    maximum = 0
+    both_started = asyncio.Event()
+
+    async def handler(request):
+        nonlocal active, maximum
+        active += 1
+        maximum = max(maximum, active)
+        if active == 2:
+            both_started.set()
+        await asyncio.wait_for(both_started.wait(), timeout=1)
+        focused = "Prioritize the organizers" in json.loads(request.content)["q"]
+        await asyncio.sleep(0.01 if focused else 0.03)
+        active -= 1
+        return httpx.Response(200, json={"candidates": [race(name="Second" if focused else "First")]})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await discover("overlap", api_key=KEY, client=client)
+
+    results = asyncio.run(run())
+    assert maximum == 2
+    assert [r["name"] for r in results] == ["First", "Second"]
+
+
+def test_per_call_wall_timeout_retries_once_and_closes_requests():
+    calls = 0
+    finished = 0
+
+    async def handler(request):
+        nonlocal calls, finished
+        calls += 1
+        try:
+            await asyncio.sleep(1)
+        finally:
+            finished += 1
+        return httpx.Response(200, json={"candidates": [race()]})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            with pytest.raises(DiscoveryTimeout):
+                await discover("timeout", api_key=KEY, client=client, timeout_s=0.01)
+            assert not client.is_closed
+
+    asyncio.run(run())
+    assert calls == finished == 4
+    assert not linkup._cache
+
+
+@pytest.mark.parametrize("failure", ["timeout", "connection", "429", "500", "503"])
+def test_transient_search_retries_once_then_succeeds(failure):
+    calls = {}
+
+    def handler(request):
+        q = json.loads(request.content)["q"]
+        calls[q] = calls.get(q, 0) + 1
+        if calls[q] == 1:
+            if failure == "timeout":
+                raise httpx.ReadTimeout("offline", request=request)
+            if failure == "connection":
+                raise httpx.ConnectError("offline", request=request)
+            return httpx.Response(int(failure))
+        return httpx.Response(200, json={"candidates": [race()]})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await discover("retry", api_key=KEY, client=client)
+
+    assert len(asyncio.run(run())) == 1
+    assert list(calls.values()) == [2, 2]
+
+
+@pytest.mark.parametrize("status", [400, 401, 403, 404, 429, 503])
+def test_retry_limit_and_errors_not_cached(status):
+    calls = 0
+
+    def handler(request):
+        nonlocal calls
+        calls += 1
+        return httpx.Response(status)
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            for _ in range(2):
+                with pytest.raises(DiscoveryProviderError, match=str(status)):
+                    await discover("failure", api_key=KEY, client=client)
+
+    asyncio.run(run())
+    assert calls == (8 if status in {429, 503} else 4)
+    assert not linkup._cache
+
+
+def test_cache_normalized_hit_defensive_copy_expiry_and_clear(monkeypatch):
+    clock = [100.0]
+    monkeypatch.setattr(linkup, "monotonic", lambda: clock[0])
+    calls = 0
+
+    def handler(request):
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json={"candidates": [race()]})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            first = await discover("  A   RACE ", {"country": "Italy"}, api_key=KEY, client=client)
+            original = copy.deepcopy(first)
+            first[0]["name"] = "modified"
+            hit = await discover("a race", {"country": "italy"}, api_key=KEY, client=client)
+            assert hit == original and calls == 2
+            assert all(KEY not in key and len(key) == 64 for key in linkup._cache)
+            clock[0] += linkup.CACHE_TTL_S + 1
+            assert await discover("a race", {"country": "Italy"}, api_key=KEY, client=client)
+            assert calls == 4
+            linkup.clear_cache()
+            assert not linkup._cache
+
+    asyncio.run(run())
+
+
+def test_cache_bounded_and_empty_results_not_cached(monkeypatch):
+    monkeypatch.setattr(linkup, "CACHE_MAX_SIZE", 2)
+    calls = 0
+
+    def handler(request):
+        nonlocal calls
+        calls += 1
+        q = json.loads(request.content)["q"]
+        return httpx.Response(200, json={"candidates": [] if '"query": "empty"' in q else [race()]})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            for query in ["first", "second", "third", "empty", "empty"]:
+                await discover(query, api_key=KEY, client=client)
+            assert len(linkup._cache) == 2 and calls == 10
+            await discover("first", api_key=KEY, client=client)
+            assert calls == 12
+
+    asyncio.run(run())
+
+
+def test_partial_query_failure_returns_sourced_results_without_caching():
+    async def handler(request):
+        if "Prioritize the organizers" in json.loads(request.content)["q"]:
+            return httpx.Response(503)
+        return httpx.Response(200, json={"candidates": [race()]})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await discover("partial", api_key=KEY, client=client)
+
+    assert len(asyncio.run(run())) == 1
+    assert not linkup._cache

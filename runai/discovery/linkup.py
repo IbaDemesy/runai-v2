@@ -1,14 +1,19 @@
 """Read-only, source-grounded race discovery through Linkup structured search."""
 
+import asyncio
+import copy
+import hashlib
 import json
 import math
 import os
 import re
 import unicodedata
+from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime, timedelta
 from importlib import import_module
 from inspect import isawaitable
+from time import monotonic
 from urllib.parse import unquote, urlsplit
 
 import httpx
@@ -30,6 +35,60 @@ DISTANCES = {
     "ultra": "ultra-distance race (longer than 42.195 km)",
 }
 _OPTIONAL_ROW_FIELDS = ("distance_km", "official_url", "registration_url", "registration_source_url")
+CACHE_TTL_S = 1800
+CACHE_MAX_SIZE = 128
+CALL_BUDGET_S = 15
+_cache: OrderedDict[str, tuple[float, list[dict]]] = OrderedDict()
+
+
+def clear_cache() -> None:
+    """Clear process-local discovery snapshots without retaining provider credentials."""
+    _cache.clear()
+
+
+def _cache_key(query, constraints, today):
+    def normalized(value):
+        if isinstance(value, str):
+            return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
+        return value
+
+    data = {"query": normalized(query), "hints": {
+        name: normalized(value) for name, value in constraints.items()
+    }, "day": today.isoformat()}
+    return hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
+
+
+async def _search(client, payload, key, timeout_s):
+    for attempt in range(2):
+        try:
+            async with asyncio.timeout(min(timeout_s, CALL_BUDGET_S)):
+                response = await client.post(
+                    SEARCH_URL, json=payload, headers={"Authorization": f"Bearer {key}"},
+                    timeout=timeout_s,
+                )
+            response.raise_for_status()
+            if key in response.text:
+                raise DiscoveryResponseError("Race discovery returned an unsafe response.")
+            return _rows(response.json())
+        except (TimeoutError, httpx.TimeoutException):
+            if attempt == 0:
+                continue
+            raise DiscoveryTimeout("Race discovery timed out. Please try again.") from None
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            if attempt == 0 and (status == 429 or 500 <= status < 600):
+                continue
+            raise DiscoveryProviderError(
+                f"Race discovery service returned HTTP {status}."
+            ) from None
+        except (httpx.TransportError, ConnectionError):
+            if attempt == 0:
+                continue
+            raise DiscoveryProviderError("Race discovery service could not be reached.") from None
+        except httpx.HTTPError:
+            raise DiscoveryProviderError("Race discovery service could not be reached.") from None
+        except (ValueError, ValidationError):
+            raise DiscoveryResponseError("Race discovery returned a malformed response.") from None
 
 
 class DiscoveryError(RuntimeError):
@@ -308,7 +367,8 @@ async def discover(
 
     Official status is grounded in per-source dates and the identified official
     host, not a provider-generated status label. Unknown dates stay unknown.
-    A caller-provided client remains open; its per-request timeout is overridden.
+    A caller-provided client remains open. Each search has a 15-second wall-clock
+    budget (or the caller's shorter timeout) and at most one transient retry.
     """
     key = api_key if api_key is not None else os.getenv("LINKUP_API_KEY")
     if not key or not key.strip():
@@ -316,17 +376,25 @@ async def discover(
     today = datetime.now(UTC).date()
     horizon = (today + timedelta(days=548)).isoformat()
     constraints = {
-        name: _data_text(value) if isinstance(value, str) else value
+        name: _data_text(value.replace(key, "[redacted]")) if isinstance(value, str) else value
         for name, value in (hints or {}).items()
         if name in HINT_KEYS and isinstance(value, (str, int, float, bool))
     }
+    safe_query = _data_text(query.replace(key, "[redacted]"))
+    cache_key = _cache_key(safe_query, constraints, today)
+    now = monotonic()
+    for expired in [k for k, (expires, _) in _cache.items() if expires <= now]:
+        del _cache[expired]
+    if cache_key in _cache:
+        _cache.move_to_end(cache_key)
+        return copy.deepcopy(_cache[cache_key][1])
     search_terms = {}
     if isinstance(constraints.get("distance"), str):
         search_terms["distance"] = DISTANCES.get(constraints["distance"], constraints["distance"])
     code = _country_code(constraints.get("country"))
     if code:
         search_terms["country_code"] = code
-    intent_data = json.dumps({"query": _data_text(query), "hints": constraints,
+    intent_data = json.dumps({"query": safe_query, "hints": constraints,
                               "search_terms": search_terms}, ensure_ascii=True)
     intent_data = intent_data.replace("<", "\\u003c").replace(">", "\\u003e")
     if constraints.get("broaden"):
@@ -373,24 +441,16 @@ async def discover(
     owned_client = client is None
     active_client = client if client is not None else httpx.AsyncClient()
     try:
-        response = await active_client.post(
-            SEARCH_URL, json=payload, headers={"Authorization": f"Bearer {key}"},
-            timeout=timeout_s,
+        focused = {**payload, "q": prompt + "\nPrioritize the organizers' official edition "
+                   "and registration pages over calendars; keep the same requested constraints."}
+        results = await asyncio.gather(
+            *(_search(active_client, request, key, timeout_s) for request in (payload, focused)),
+            return_exceptions=True,
         )
-        response.raise_for_status()
-        if key in response.text:
-            raise DiscoveryResponseError("Race discovery returned an unsafe response.")
-        rows = _rows(response.json())
-    except httpx.TimeoutException:
-        raise DiscoveryTimeout("Race discovery timed out. Please try again.") from None
-    except httpx.HTTPStatusError as exc:
-        raise DiscoveryProviderError(
-            f"Race discovery service returned HTTP {exc.response.status_code}."
-        ) from None
-    except httpx.HTTPError:
-        raise DiscoveryProviderError("Race discovery service could not be reached.") from None
-    except (ValueError, ValidationError):
-        raise DiscoveryResponseError("Race discovery returned a malformed response.") from None
+        rows = [row for result in results if isinstance(result, list) for row in result]
+        errors = [result for result in results if isinstance(result, Exception)]
+        if not rows and errors:
+            raise errors[0]
     finally:
         if owned_client:
             await active_client.aclose()
@@ -403,4 +463,9 @@ async def discover(
                 url, registration_info or _site_registration_info
             )
         RaceOption.model_validate(candidate)
+    if candidates and not errors:
+        _cache[cache_key] = (monotonic() + CACHE_TTL_S, copy.deepcopy(candidates))
+        _cache.move_to_end(cache_key)
+        while len(_cache) > CACHE_MAX_SIZE:
+            _cache.popitem(last=False)
     return candidates

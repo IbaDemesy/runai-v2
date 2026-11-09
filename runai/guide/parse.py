@@ -137,6 +137,7 @@ class Intent(Model):
     budget_eur: int | None = None
     travelers: int | None = None
     correction: bool = False
+    same_place: bool = False
     lang: str = "fr"
     fr_cues: int = 0
     en_cues: int = 0
@@ -164,9 +165,11 @@ def parse_intent(text: str, *, today: date) -> Intent:
         lang = "en" if cues and cues[0].lastgroup == "en" else "fr"
     result = Intent(lang=lang, fr_cues=fr_cues, en_cues=en_cues)
     result.correction = bool(re.search(r"\b(plutot|actually|instead)\b", t))
+    result.same_place = bool(re.search(
+        r"\b(?:same city|same place|(?:la )?meme ville|la-bas)\b", t))
     result.deferred = bool(re.search(
         r"peu importe|je (?:ne )?sais pas|tu en penses quoi|whatever|i don.?t know|"
-        r"you choose|what do you think|comme tu veux|a toi de choisir", t,
+        r"you choose|what do you think|comme tu veux|a toi de choisir|tu me conseilles", t,
     ))
     if re.search(r"(?:in english|en anglais)(?: please| s.il te plait)?", t):
         result.switch_language = "en"

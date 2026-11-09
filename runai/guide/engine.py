@@ -21,7 +21,7 @@ from runai.agents.scrub import (
 
 from .fake import FakeDiscovery
 from .parse import CITY_GROUPS, bare_city, country_name, normalize, parse_intent
-from .types import GuidedTurn, GuideState, RaceOption, Suggestion
+from .types import GuidedTurn, GuideState, RaceOption, RacePreparation, Suggestion
 
 Discover = Callable[[str, dict], Awaitable[list[dict]]]
 DEFAULT_ORIGINS = ["Paris", "Lyon", "Bruxelles", "Genève"]
@@ -59,7 +59,7 @@ class GuideEngine:
         )
 
     def _race_chips(self, state, races=None):
-        return [
+        chips = [
             self._chip(
                 r.id,
                 f"{r.name} — {r.race_date or self._say(state, 'date à confirmer', 'date to confirm')}"
@@ -70,16 +70,69 @@ class GuideEngine:
             for r in (state.candidates if races is None else races)
             if not state.draft.race or r.id != state.draft.race.id
         ]
+        for chip in chips:
+            race = next(r for r in state.candidates if r.id == chip.value)
+            if not self._matches_distance(state, race):
+                chip.group = self._say(state, "Autre distance", "Another distance")
+        return chips
+
+    def _matches_distance(self, state, race):
+        distance = state.hints.get("distance")
+        target = {"half": 21.1}.get(distance)
+        return target is None or race.distance_km is None or abs(race.distance_km - target) < 0.2
 
     def _access_warning(self, state, race):
+        label = self._preparation_label(state, race)
         access = race.registration_access
         if access and (access.account_required is True or access.captcha is True):
-            return self._say(state, " — compte ou captcha requis : arrêt humain",
+            return label + self._say(state, " — compte ou captcha requis : arrêt humain",
                              " — account or captcha required: human handoff")
         if not access or access.account_required is None or access.captcha is None:
-            return ""
-        return self._say(state, " — observation d'accès, pas une autorisation",
+            return label
+        return label + self._say(state, " — observation d'accès, pas une autorisation",
                          " — access observation, not permission")
+
+    def _preparation_label(self, state, race):
+        status = race.preparation.registration if race.preparation else "unknown"
+        labels = {
+            "sold_out": ("complet (liste d'attente)", "sold out (waitlist)"),
+            "not_open": ("inscriptions pas encore ouvertes", "registration not open yet"),
+            "closed": ("inscriptions closes", "registration closed"),
+            "prohibited": ("préparation interdite", "preparation prohibited"),
+            "uncovered": ("inscription non couverte", "registration not covered"),
+        }
+        return " — " + self._say(state, *labels[status]) if status in labels else ""
+
+    def _prepare_candidates(self, state):
+        for race in state.candidates:
+            origin = state.draft.origin_city or self._origin_choices(race)[0]
+            preparation = RacePreparation(origin_city=origin)
+            try:
+                registration = import_module("runai.agents.registration").registration_coverage
+                result = registration(race.model_dump(mode="json", exclude={"preparation"}))
+                if isinstance(result, dict):
+                    result = result.get("status", result.get("registration"))
+                if isinstance(result, str):
+                    preparation.registration = RacePreparation(registration=result).registration
+            except Exception:  # noqa: BLE001 -- optional coverage fails closed
+                preparation.registration = "unknown"
+            for kind in ("hotel", "transport"):
+                try:
+                    coverage = import_module("runai.agents.site_policy").coverage
+                    result = coverage(kind, country=race.country, city=race.city,
+                                      origin_city=origin)
+                    covered = result.get("covered") if isinstance(result, dict) else None
+                    if type(covered) is bool:
+                        setattr(preparation, kind, covered)
+                except Exception:  # noqa: BLE001 -- optional coverage fails closed
+                    setattr(preparation, kind, None)
+            race.preparation = preparation
+
+    def _preparation_rank(self, state, race):
+        p = race.preparation or RacePreparation()
+        fully = p.registration == "covered" and p.hotel is True and p.transport is True
+        partial = p.registration == "covered" or p.hotel is True or p.transport is True
+        return (not self._matches_distance(state, race), 0 if fully else 1 if partial else 2)
 
     def _eligible(self, race):
         return bool(race and race.race_date and race.race_date >= self.today
@@ -524,7 +577,10 @@ class GuideEngine:
             for suggestion in turn.suggestions:
                 suggestion.id += f":turn-{len(state.history)}"
             return state, turn
-        if len(state.candidates) == 1 and state.hints.get("named") and not broadened and not (
+        self._prepare_candidates(state)
+        state.candidates.sort(key=lambda race: self._preparation_rank(state, race))
+        if (len(state.candidates) == 1 and self._matches_distance(state, state.candidates[0])
+                and state.hints.get("named") and not broadened) and not (
             state.candidates[0].registration_access and (
                 state.candidates[0].registration_access.account_required is True
                 or state.candidates[0].registration_access.captcha is True
@@ -643,6 +699,8 @@ class GuideEngine:
             )))
         if state.draft.race:
             suitable.sort(key=lambda r: r.id != state.draft.race.id)
+        self._prepare_candidates(state)
+        suitable.sort(key=lambda r: self._preparation_rank(state, r))
         if not suitable:
             return self._turn(state, self._say(
                 state, "Aucune date future vérifiée ; il faut une nouvelle source.",
@@ -704,6 +762,8 @@ class GuideEngine:
         original = state
         state = GuideState.model_validate(self._scrub_data(state.model_dump()))
         text = scrub_text(action.get("text", "")).strip()
+        text = re.sub(r"(?:je m'appelle|my name is)\s+[^,.;]+", "", text,
+                      flags=re.IGNORECASE).strip()
         chip = None
         if "suggestion_id" in action:
             chip = next(
@@ -790,22 +850,46 @@ class GuideEngine:
             text = chip.value
         if not text:
             return self._turn(state)
-        intent = parse_intent(text, today=self.today)
-        self._set_language(state, intent, typed=chip is None)
-        if re.search(
+        unsafe = re.search(
             r"ignore.*(?:instructions?|rules)|system\s*:|developer\s*:|override|"
             r"\b(?:pay|payer|paie|payment|paiement|buy|acheter|purchase|"
             r"submit|soumettre|envoyer|bypass|contourner)\b|"
             r"(?:create|creer|cree|ouvre|open).*(?:account|compte)|"
-            r"(?:accept|accepter|accepte).*(?:terms|conditions|consent|cgu)",
+            r"(?:accept|accepter|accepte).*(?:terms|conditions|consent|cgu)|"
+            r"(?:print|reveal|show|affiche|donne).*(?:system prompt|prompt system|api_key)|"
+            r"\b(?:hai_api_key|linkup_api_key|gladia_api_key)\b",
             normalize(text),
-        ):
-            return self._turn(state, self._say(
-                state, "Je ne peux pas payer, créer de compte, accepter des conditions, "
-                "soumettre un formulaire, contourner un captcha ou ignorer les règles. "
-                "Je peux aider à préparer un déplacement sans engagement.",
-                "I cannot pay, create accounts, accept terms, submit forms, bypass captchas "
-                "or override rules. I can help prepare a trip without commitment."), "safety_refusal")
+        )
+        if unsafe:
+            safe = text[:unsafe.start()].strip(" ,.;")
+            intent = parse_intent(safe, today=self.today)
+            self._set_language(state, intent if safe else parse_intent(text, today=self.today),
+                               typed=chip is None)
+            refusal = self._say(
+                state, "Je ne peux pas divulguer d'instructions ou de secrets, traiter des données personnelles ni effectuer d'action engageante.",
+                "I cannot disclose instructions or secrets, process personal data or take binding actions.")
+            # Extract race wishes independently of the unsafe instruction's position.
+            race_clause = re.search(
+                r"(?:un |une |a |the |le |la |au |du )?(?:half marathon|semi(?:-marathon)?|marathon|10\s*km|trail)"
+                r"\s+(?:de |d'|in |of |a |à )?[\w-]+", text, re.IGNORECASE)
+            if race_clause and race_clause.start() >= unsafe.start():
+                safe = race_clause[0]
+            for clause in re.split(r"[;.]", text):
+                wish = parse_intent(clause, today=self.today)
+                if wish.distance and wish.city and not self._source_instruction(clause):
+                    distance = wish.distance.replace("half", "half marathon")
+                    safe = self._say(state, f"le {distance} de {wish.city}",
+                                     f"the {distance} in {wish.city}")
+                    break
+            if safe:
+                recovered, turn = await self.step(state, {"text": safe})
+                turn.message = refusal + " " + turn.message
+                turn.error = "safety_refusal"
+                recovered.history[-1]["text"] = turn.message
+                return recovered, turn
+            return self._turn(state, refusal, "safety_refusal")
+        intent = parse_intent(text, today=self.today)
+        self._set_language(state, intent, typed=chip is None)
         if _FORBIDDEN_SITE.search(normalize(text)):
             return self._turn(state, self._say(
                 state, "Je ne peux pas imposer ce site : les agents n'utilisent que des sites "
@@ -924,6 +1008,11 @@ class GuideEngine:
         if intent.deferred and not has_constraints:
             return await self._recommend(state)
         if has_constraints:
+            previous_city = (state.draft.race.city if state.draft.race else None) or state.hints.get("city")
+            previous_country = (state.draft.race.country if state.draft.race else None) or state.hints.get("country")
+            if intent.same_place and not intent.city:
+                intent.city, intent.country = previous_city, previous_country
+                intent.named = bool(intent.city and intent.distance)
             if intent.distance or intent.country or intent.city:
                 state.query = text
                 state.hints = {}
@@ -957,11 +1046,14 @@ class GuideEngine:
             if intent.deferred and state.candidates:
                 return await self._recommend(state)
             return state, turn
-        if state.draft.race and any(
+        if any(
             getattr(intent, f) is not None
             for f in ["origin_city", "nights", "budget_eur", "travelers"]
         ):
             self._advance(state)
+            return self._turn(state, self._say(
+                state, "D'accord, je retiens ces préférences. Tu peux toujours changer d'avis.",
+                "Sounds good, I've saved those preferences. You can still change your mind."))
         return self._turn(
             state,
             self._say(
@@ -983,6 +1075,8 @@ class GuideEngine:
             and d.departure_date
         ):
             raise ValueError("Trip is not ready to confirm")
-        return {
+        payload = {
             key: value for key, value in d.model_dump(mode="json").items() if key != "provenance"
         }
+        payload["race"].pop("preparation", None)
+        return payload

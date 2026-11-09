@@ -336,3 +336,38 @@ meia maratona), per-row validation so one malformed row no longer discards the
 whole reply, edition year derived from sourced dates, and one broadened
 sourced retry (no month window, close distance variants) before any "no race"
 answer. Dates still come only from sources; nothing was invented.
+
+## R4-04 — 2026-11-09 offline latency/determinism checks
+
+No live Linkup or H calls were made for this change. The live first-reply p50
+target of <=35 seconds is **not measured or established** by these tests.
+
+One discovery now runs its general structured query and an organizer-focused
+structured query concurrently, merging rows in request order rather than
+completion order. Each query has a 15-second wall-clock budget (or a shorter
+caller timeout), including when the app supplies a larger HTTP timeout. A
+timeout, connection/transport error, HTTP 429 or HTTP 5xx gets one retry;
+other HTTP 4xx and malformed/unsafe responses do not. Two failed attempts can
+take about 30 seconds; an engine-level broadened search after an honest empty
+result can still increase total first-reply latency. This is not a successful
+discovery latency guarantee, and slow providers may now return a timeout.
+
+Nonempty, wholly successful candidate snapshots are cached for 30 minutes,
+bounded to 128 normalized-query/hints/date hashes. No credentials form part of
+the key. Returned snapshots are defensive copies. Empty, failed and partially
+failed searches are not cached. `clear_cache()` resets process-local snapshots;
+tests inject the monotonic clock to verify expiry without sleeping.
+
+Offline evidence: barrier-based fake HTTP handlers prove both queries overlap
+and preserve result ordering when completion order reverses. Additional fakes
+verify wall-clock cancellation, exactly one transient retry, no auth retry,
+cache hits/expiry/eviction/isolation and non-caching of empty/error/partial
+responses. No partial candidate progress is emitted: the guide/discovery
+interface returns a final list/turn, not a partial-turn callback or stream.
+
+Final full offline check:
+
+```text
+All checks passed!
+1152 passed, 1 warning in 14.12s
+```
