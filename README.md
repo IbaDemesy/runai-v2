@@ -15,13 +15,14 @@ chips, plan cards and three agent panels is the design priority.
 The chat should feel natural in French and English, with streaming-like replies,
 a bottom composer and one-click defaults or free-text corrections.
 
-**Status:** round 6 scored **38/100, 0/5 visible live successes**, design 8/10
-([docs/eval/round-6.md](docs/eval/round-6.md)). The current R7 queue targets
-transport coverage, verified safe checkpoints, owner-approved private profile
-prefill, fewer questions and >=9/10 design. R7-01 owns core + integration
-acceptance/shared docs; R7-02 transport + generic policy/base registry;
-R7-03 hotel + registration and their shards; R7-04 guide/discovery;
-R7-05 UI/profile card. No complete live success is claimed. Read
+**Status:** round 7 scored **33/100, 0/5 visible live successes**, design 7.5/10
+([docs/eval/round-7.md](docs/eval/round-7.md)). The current R8 queue targets
+transport horizons, verified safe checkpoints, P15 preflight/freshness and a
+bounded stall watchdog, owner-approved private profile
+prefill, fewer questions and >=9/10 design. R8-01 owns core + integration
+acceptance/shared docs; R8-02 transport + generic policy/base registry;
+R8-03 hotel + registration and their shards; R8-04 guide/discovery;
+R8-05 UI/profile card. No complete live success is claimed. Read
 [HANDOFF.md](HANDOFF.md) for evidence and remaining integration work.
 
 ## Run locally (Python 3.12)
@@ -85,12 +86,12 @@ CI tests never call live providers. Live verification requires separate dated,
 scrubbed observed evidence. See [AGENTS.md](AGENTS.md) for scoped branch/PR and
 safety rules, [PLAN.md](PLAN.md) for the architecture/evaluation set,
 [CONTRACTS.md](CONTRACTS.md) for API contracts, and
-[docs/tickets/index.json](docs/tickets/index.json) for the current round-7 queue,
-validated by tests/test_r7_scope_contract.py. R6 and earlier tickets are history.
-Keep main green; R7-01..R7-05 merge in any order. R7-01 rebases last for visible
-integrated acceptance after siblings merge: at least Milan, Berlin and one other
-case, using fake profiles. This is planned, not completed evidence. Only R7-01
-edits shared docs/queue/contracts (P1–P14).
+[docs/tickets/index.json](docs/tickets/index.json) for the current round-8 queue,
+validated by tests/test_r8_scope_contract.py. R7 and earlier tickets are history.
+Keep main green; R8-01..R8-05 merge in any order. R8-01 rebases last for visible
+integrated acceptance after siblings merge: Milan (April 2027), Valencia (6 December 2026) and one of
+Berlin/Lisbon/Frankfurt, using fake profiles. This is planned, not completed evidence. Only R8-01
+edits shared docs/queue/contracts (P1–P15).
 
 H's organization quota is three sessions: final acceptance runs **one mission
 at a time**, with its three agents parallel. A queued browser displays honest

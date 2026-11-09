@@ -29,6 +29,25 @@ def test_profile_normal_empty_and_delete():
         assert client.post(url + "/profile", json={}).status_code == 404
 
 
+@pytest.mark.parametrize("extra,status", [
+    ({}, 200), ({"address_line": "1 rue de Test, 75001 Paris"}, 200),
+    ({"address_line": "Another address"}, 422), ({"unknown": "value"}, 422),
+    ({"address": "x" * 301}, 422), ({"address": 123}, 422),
+])
+def test_static_test_profile_address_alias(extra, status):
+    profile = {"full_name": "Test Runner", "email": "test.runner@example.com",
+               "phone": "+33 6 00 00 00 00", "birth_date": "1990-01-01", "gender": "F",
+               "nationality": "FR", "address": "1 rue de Test, 75001 Paris", **extra}
+    with TestClient(create_app(guide=StubGuide())) as client:
+        response = client.post(ready(client) + "/profile", json=profile)
+        assert response.status_code == status
+        if status == 200:
+            assert response.json()["profile_status"] == {
+                "complete": True, "fields": ["full_name", "email", "phone", "birth_date",
+                                             "gender", "nationality", "address_line"],
+            }
+
+
 def test_delete_mission_purges_only_its_frames():
     with TestClient(create_app(guide=StubGuide())) as client:
         urls = [ready(client), ready(client)]

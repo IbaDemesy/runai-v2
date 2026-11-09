@@ -13,7 +13,8 @@ SENTINELS = ["4111 1111 1111 1111", "4111-1111-1111-1111",
 TEXT = "budget 800 € le 2027-04-04 " + " ; ".join(SENTINELS)
 
 
-def test_profile_values_never_leave_mission_runtime(caplog, monkeypatch):
+@pytest.mark.parametrize("address_key", ["address_line", "address"])
+def test_profile_values_never_leave_mission_runtime(caplog, monkeypatch, address_key):
     profile = {"full_name": "Sentinel Runnerxyz", "given_name": "Sentinelgivenxyz",
                "family_name": "Sentinelfamilyxyz", "city": "Sentinelvillexyz",
                "email": "sentinel.prefill@example.com", "birth_date": "1990-01-01",
@@ -34,7 +35,9 @@ def test_profile_values_never_leave_mission_runtime(caplog, monkeypatch):
     with TestClient(create_app(guide=StubGuide(live=True),
                               runner_factory=lambda mode: EchoRunner())) as c:
         url = ready(c, mode="live")
-        response = c.post(url + "/profile", json=profile)
+        body = dict(profile)
+        body[address_key] = body.pop("address_line")
+        response = c.post(url + "/profile", json=body)
         assert response.status_code == 200
         output = response.text
         assert c.post(url + "/confirm", json={"confirmed": True}).status_code == 202
@@ -45,6 +48,28 @@ def test_profile_values_never_leave_mission_runtime(caplog, monkeypatch):
         assert all(result["handoff_url"] is None for result in mission["results"])
         assert captured == [profile] * 3
         assert "runner_profile" not in str(mission)
+
+
+def test_preflight_blocks_are_not_launched_agents(monkeypatch):
+    from runai.agents import hotel, registration, transport
+    from runai.providers import LiveRunner
+
+    for builder in (hotel, registration, transport):
+        monkeypatch.setattr(builder, "build_task", lambda trip: {
+            "preflight_block": {"reason_code": "not_yet_bookable",
+                                "summary": "Réservation pas encore ouverte.", "handoff_url": None},
+        })
+    monkeypatch.setenv("HAI_API_KEY", "test-key")
+    with TestClient(create_app(guide=StubGuide(live=True),
+                              runner_factory=lambda mode: LiveRunner())) as client:
+        url = ready(client, mode="live")
+        assert client.post(url + "/confirm", json={"confirmed": True}).status_code == 202
+        mission = terminal(client, url)
+        assert len(mission["results"]) == 3
+        assert all(result["status"] == "blocked" for result in mission["results"])
+        assert all(result["reason_code"] == "not_yet_bookable" for result in mission["results"])
+        assert not any(event["type"] in {"step_started", "live_frame", "live_view_available"}
+                       for event in mission["events"])
 
 
 def test_paris_profile_preserves_public_transport_handoff(monkeypatch):

@@ -119,16 +119,24 @@ def sanitize(value, key=""):
             return None
         parsed = urlsplit(url)
         segments = [unquote(segment) for segment in parsed.path.split("/")]
-        queries = [item for _, item in parse_qsl(parsed.query, keep_blank_values=True)]
+        queries = parse_qsl(parsed.query, keep_blank_values=True)
         try:
-            from runai.agents.scrub import _njuko_public_id
+            from runai.agents.scrub import (
+                _google_flights_token,
+                _njuko_public_id,
+                _omio_public_id,
+            )
 
             safe = all(_njuko_public_id(parsed.hostname, segments, index) or
+                       _omio_public_id(parsed.hostname, parsed.path, index) or
                        sanitize(item, "path_segment") == item
                        for index, item in enumerate(segments))
+            safe_query = all(_google_flights_token(parsed.hostname, parsed.path, name, item)
+                             or sanitize(item) == item for name, item in queries)
         except ImportError:
             safe = all(sanitize(item, "path_segment") == item for item in segments)
-        return url if safe and all(sanitize(item) == item for item in queries) else None
+            safe_query = all(sanitize(item) == item for _, item in queries)
+        return url if safe and safe_query else None
     parts = re.split(r"(\b\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)?\b)", value)
     if len(parts) > 1:
         return "".join(part if index % 2 else sanitize(part, key) for index, part in enumerate(parts))
@@ -325,17 +333,24 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
 
     async def prepare(mission):
         async def run(kind):
-            emit(mission, "step_started", "Preparation started; no purchases or submissions", kind)
+            started = False
 
             async def progress(data):
+                nonlocal started
                 if mission.id not in missions:
                     return
+                if not started:
+                    started = True
+                    emit(mission, "step_started",
+                         "Preparation started; no purchases or submissions", kind)
                 data = scrub_profile(data, profiles.get(mission.id, {}),
                                      public_profile_context(mission.trip))
                 event_type = data.get("type", "step_progress")
                 if event_type not in {"step_progress", "live_view_available", "live_frame"}:
                     return
                 fields = {}
+                if isinstance(data.get("stale_frame"), bool):
+                    fields["stale_frame"] = data["stale_frame"]
                 if data.get("recorded_at"):
                     fields["recorded_at"] = data["recorded_at"]
                 if event_type == "live_frame":

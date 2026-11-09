@@ -55,6 +55,11 @@ _ANSWER_SCHEMA = {
 _TERMINAL = {"completed", "failed", "timed_out", "interrupted"}
 POLICY_MODULE = "runai.agents.site_policy"
 _IMAGE_LIMIT = 5 * 1024 * 1024
+STALL_TIMEOUT_S = 150
+STALL_FORCE_GRACE_S = 60
+STALE_FRAME_S = 60
+PREFILL_STEP_MARGIN = 10
+PREFILL_OBSERVATION_LIMIT = 8
 _FORBIDDEN = re.compile(
     r"login|log-in|sign-in|signin|sign-up|signup|account|payment|"
     r"(?<![?&;])checkout|checkout(?!=)|captcha|"
@@ -253,7 +258,7 @@ def _blocked_reason(answer, task):
     for reason, pattern in patterns:
         if re.search(pattern, text):
             return reason
-    verification = answer.get("verification")
+    verification = _verification_object(answer.get("verification"))
     if not isinstance(verification, dict):
         verification = {}
     for key in _EXPECTED_FIELDS.get(task.get("kind"), ()):
@@ -295,7 +300,7 @@ def _matches_expected(key, actual, expected):
         return False
     try:
         if "date" in key:
-            return date.fromisoformat(str(actual)[:10]) == date.fromisoformat(str(expected)[:10])
+            return _verification_date(actual) == _verification_date(expected)
         if key in {"travelers", "distance_km"}:
             def number(value):
                 match = re.fullmatch(r"\s*(\d+(?:[.,]\d+)?)\s*(?:km)?\s*", str(value))
@@ -320,6 +325,85 @@ def _matches_expected(key, actual, expected):
         )
     except (ValueError, TypeError):
         return False
+
+
+def _verification_date(value):
+    text = "".join(char for char in unicodedata.normalize("NFKD", str(value).casefold())
+                   if not unicodedata.combining(char)).strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}(?:T.*|t.*)?", text):
+        return date.fromisoformat(text[:10])
+    months = (
+        "jan january janvier januar gen gennaio ene enero janeiro",
+        "feb february fev fevr fevrier februar febbraio febrero fevereiro",
+        "mar march mars marz marzo marco",
+        "apr april avr avril aprile abr abril",
+        "may mai mag maggio mayo maio", "jun june juin juni giu giugno junio junho",
+        "jul july juil juillet juli lug luglio julio julho",
+        "aug august aout ago agosto",
+        "sep sept september septembre set settembre septiembre setembro",
+        "oct october octobre okt oktober ott ottobre octubre outubro",
+        "nov november novembre noviembre novembro",
+        "dec december decembre dez dezember dic dicembre diciembre dezembro",
+    )
+    tokens = text.replace(".", "").replace(",", "").split()
+    weekdays = {
+        "mon", "monday", "tue", "tues", "tuesday", "wed", "wednesday", "thu", "thurs",
+        "thursday", "fri", "friday", "sat", "saturday", "sun", "sunday", "lun", "lundi",
+        "mar", "mardi", "mer", "mercredi", "jeu", "jeudi", "ven", "vendredi", "sam", "samedi",
+        "dim", "dimanche", "mo", "montag", "di", "dienstag", "mi", "mittwoch", "do",
+        "donnerstag", "fr", "freitag", "sa", "samstag", "so", "sonntag", "lunedi", "martedi",
+        "mercoledi", "giovedi", "gio", "venerdi", "sab", "sabato", "dom", "domenica", "lunes",
+        "martes", "mie", "miercoles", "jue", "jueves", "vie", "viernes", "sabado", "domingo",
+        "seg", "segunda", "segunda-feira", "ter", "terca", "terca-feira", "qua", "quarta",
+        "quarta-feira", "qui", "quinta", "quinta-feira", "sex", "sexta", "sexta-feira",
+    }
+    if tokens and tokens[0] in weekdays:
+        tokens = tokens[1:]
+    if len(tokens) == 5 and tokens[1] == tokens[3] == "de":
+        tokens = [tokens[0], tokens[2], tokens[4]]
+    if len(tokens) != 3 or not tokens[0].isdigit() or not re.fullmatch(r"\d{4}", tokens[2]):
+        raise ValueError("Invalid verification date")
+    month = next((i for i, names in enumerate(months, 1) if tokens[1] in names.split()), None)
+    if month is None:
+        raise ValueError("Invalid verification month")
+    return date(int(tokens[2]), month, int(tokens[0]))
+
+
+def _verification_money(value):
+    if isinstance(value, bool):
+        raise TypeError("Invalid total")
+    text = re.sub(r"EUR|USD|GBP|CHF|[€$£]", "", str(value), flags=re.IGNORECASE).strip()
+    text = re.sub(r"[\s\u00a0\u202f]", "", text)
+    if not re.fullmatch(r"\d+(?:[.,]\d+)*", text):
+        raise ValueError("Invalid total")
+    separators = list(re.finditer(r"[.,]", text))
+    if separators and len(text) - separators[-1].start() - 1 in {1, 2}:
+        decimal = separators[-1].start()
+        integer, fraction = text[:decimal], text[decimal + 1:]
+    else:
+        integer, fraction = text, "0"
+    if re.search(r"[.,]", integer) and not re.fullmatch(r"\d{1,3}(?:[.,]\d{3})+", integer):
+        raise ValueError("Invalid thousands grouping")
+    return float(re.sub(r"[.,]", "", integer) + "." + fraction)
+
+
+def _verification_object(value):
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except ValueError:
+            return None
+    if not isinstance(value, dict):
+        return None
+    result = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            return None
+        key = key.casefold()
+        if key in result and result[key] != item:
+            return None
+        result[key] = item
+    return result
 
 
 def _verified(task, answer, handoff, observed, frame_seen, reviews):
@@ -349,7 +433,7 @@ def _ihg_dates_match(task, url):
 def _verification_failures(task, answer, handoff, observed, frame_seen, reviews):
     failures = []
     expected = task.get("expected")
-    verification = answer.get("verification")
+    verification = _verification_object(answer.get("verification"))
     fields = _VERIFY_FIELDS.get(task.get("kind"), ())
     if any((task.get("runner_profile") or {}).get(key)
            for key in task.get("prefill_fields", [])):
@@ -366,6 +450,12 @@ def _verification_failures(task, answer, handoff, observed, frame_seen, reviews)
     if not _complete_expected(task):
         return ["expected_fields"]
     failures.extend("missing_" + key for key in fields if not verification.get(key))
+    if "total" in fields and verification.get("total"):
+        try:
+            if _verification_money(verification["total"]) <= 0:
+                failures.append("invalid_total")
+        except (ValueError, TypeError):
+            failures.append("invalid_total")
     if verification.get("selected") is not True:
         failures.append("selected")
     if not verification.get("next_safe_boundary"):
@@ -390,7 +480,14 @@ def _verification_failures(task, answer, handoff, observed, frame_seen, reviews)
         failures.append("checkpoint_frame")
     if not observed or not _reviewed(handoff, reviews):
         failures.append("reviewed_handoff")
-    if _page_identity(handoff) != _page_identity(observed):
+    same_page = _page_identity(handoff) == _page_identity(observed)
+    booking_hosts = {"www.booking.com", "secure.booking.com"}
+    if (not same_page
+            and {urlsplit(url or "").hostname for url in (handoff, observed)} == booking_hosts
+            and any(booking_hosts <= hosts for hosts, _ in reviews)
+            and _reviewed(handoff, reviews) and _reviewed(observed, reviews)):
+        same_page = _page_identity(handoff)[2:] == _page_identity(observed)[2:]
+    if not same_page:
         failures.append("handoff_observed")
     if "checkpoint" in task and not _checkpoint_matches(
         _checkpoint(task), "url_patterns", observed,
@@ -458,6 +555,10 @@ class _UnsafeClaim(RuntimeError):
 
 
 class _StepLimit(RuntimeError):
+    pass
+
+
+class _StallTimeout(RuntimeError):
     pass
 
 
@@ -616,7 +717,7 @@ class HAgentRunner:
                 return False
             if outcome.get("reason_code") in {
                 "captcha", "consent_required", "login_required", "policy_denied",
-                "checkpoint_unverified", "unsafe_claim",
+                "checkpoint_unverified", "unsafe_claim", "timeout",
             }:
                 return False
             return (outcome.get("reason_code") in {"provider_error", "no_site_coverage"}
@@ -681,6 +782,12 @@ class HAgentRunner:
         checkpoint_frame_url = None
         hard_boundary = False
         forced_at = None
+        stall_forced = False
+        prefill_identity = None
+        prefill_observations = 0
+        prefill_current_url = None
+        last_frame_at = None
+        state = None
         force_window = None
         queue_total = queue_wait[0] if queue_wait is not None else 0.0
         queued_since = None
@@ -704,6 +811,10 @@ class HAgentRunner:
 
         async def emit(event: dict):
             nonlocal last_progress
+            if event["type"] in {"step_progress", "live_frame"}:
+                event["stale_frame"] = (state not in _TERMINAL | {"queued", "pending"}
+                                        and time.monotonic() - last_frame_at > STALE_FRAME_S
+                                        if last_frame_at is not None else None)
             if "message" in event:
                 event["message"] = clean_text(event["message"])
             if event["type"] == "step_progress":
@@ -719,7 +830,7 @@ class HAgentRunner:
             if forced_at is not None and method != "DELETE":
                 remaining = force_window - (time.monotonic() - forced_at)
                 if remaining <= 0:
-                    raise _StepLimit
+                    raise _StallTimeout if stall_forced else _StepLimit
                 request_timeout = min(request_timeout, remaining)
             response = await client.request(
                 method, self.base_url + path,
@@ -739,12 +850,12 @@ class HAgentRunner:
             except (httpx.HTTPError, TimeoutError):
                 return False
 
-        async def force_answer(window):
-            if allow_prefill and _checkpoint_matches(
+        async def force_answer(window, *, prefill_limit=False):
+            if not stall_forced and not prefill_limit and allow_prefill and _checkpoint_matches(
                 checkpoint, "prefill_patterns", result.get("final_url"),
             ):
                 return
-            nonlocal forced_at, force_window
+            nonlocal forced_at, force_window, answer
             if forced_at is not None:
                 force_window = min(force_window, window)
                 return
@@ -753,14 +864,18 @@ class HAgentRunner:
                 try:
                     await request("POST", f"/sessions/{session_id}/force_answer")
                 except httpx.HTTPStatusError:
-                    raise _StepLimit from None
+                    if prefill_limit and answer is None:
+                        session = (await request("GET", f"/sessions/{session_id}")).json()
+                        answer = session.get("latest_answer")
+                    if not stall_forced and answer is None:
+                        raise _StepLimit from None
 
         def session_state(value):
             state = value.get("status")
             return state.get("status") if isinstance(state, dict) else state
 
         async def frame(data: dict, timestamp: str | None, page_url: str | None):
-            nonlocal frame_seen, last_frame_hash, checkpoint_frame_url
+            nonlocal frame_seen, last_frame_hash, checkpoint_frame_url, last_frame_at
             image = data.get("image") or {}
             if not isinstance(image, dict):
                 return
@@ -812,6 +927,7 @@ class HAgentRunner:
                 else:
                     raise ValueError("Too many screenshot redirects")
             if content:
+                last_frame_at = time.monotonic()
                 if len(content) > _IMAGE_LIMIT:
                     raise ValueError("Screenshot too large")
                 if page_url == result["final_url"]:
@@ -971,7 +1087,7 @@ class HAgentRunner:
                         raise _PolicyBlocked("provider_error")
                     if (forced_at is not None
                             and time.monotonic() - forced_at >= force_window):
-                        raise _StepLimit
+                        raise _StallTimeout if stall_forced else _StepLimit
                     wait = min(self.poll_s, max(0, 3 - (time.monotonic() - last_attempt))) if (
                         last_attempt is not None
                     ) else self.poll_s
@@ -988,7 +1104,7 @@ class HAgentRunner:
                         changes = response.json()
                     if (forced_at is not None
                             and time.monotonic() - forced_at >= force_window):
-                        raise _StepLimit
+                        raise _StallTimeout if stall_forced else _StepLimit
                     new_state = session_state(changes) or state
                     await update_clock(new_state)
                     if (new_state not in {"queued", "pending"} and not observed_progress
@@ -1010,12 +1126,14 @@ class HAgentRunner:
                                 if kind == "answer_event":
                                     outcome = data.get("outcome", outcome)
                             if kind == "observation_event":
+                                prefill_current_url = None
                                 metadata = data.get("metadata") or {}
                                 last_observation_at = time.monotonic()
                                 if not observed_progress and _browser_error(metadata.get("url")):
                                     result["steps"].append("site_unreachable_in_h")
                                     raise _PolicyBlocked("provider_error")
                                 if _browser_internal(metadata.get("url")):
+                                    prefill_identity, prefill_observations = None, 0
                                     if not observed_progress and new_state not in {"queued", "pending"}:
                                         blank_observations += 1
                                         if blank_observations >= 3:
@@ -1055,6 +1173,15 @@ class HAgentRunner:
                                 ):
                                     raise _PolicyBlocked
                                 result["final_url"] = observed
+                                prefill_current_url = observed
+                                if _checkpoint_matches(checkpoint, "prefill_patterns", observed):
+                                    identity = _page_identity(observed)
+                                    prefill_observations = (
+                                        prefill_observations + 1 if identity == prefill_identity else 1
+                                    )
+                                    prefill_identity = identity
+                                else:
+                                    prefill_identity, prefill_observations = None, 0
                                 await emit({"type": "step_progress", "message": "Navigation sur le site"})
                                 pending_frame = (data, event.get("timestamp"), observed)
                                 if (_checkpoint_matches(checkpoint, "url_patterns", observed)
@@ -1103,6 +1230,38 @@ class HAgentRunner:
                         await emit({"type": "step_progress", "message": f"Étape {steps}"})
                     now = time.monotonic()
                     if (state not in _TERMINAL | {"queued", "pending"}
+                            and forced_at is None
+                            and _checkpoint_matches(checkpoint, "prefill_patterns",
+                                                    prefill_current_url)
+                            and (max_observed_steps >= max(1, max_steps - PREFILL_STEP_MARGIN)
+                                 or prefill_observations >= PREFILL_OBSERVATION_LIMIT)):
+                        terminal_state = None
+                        if answer is None:
+                            session = (await request("GET", f"/sessions/{session_id}")).json()
+                            terminal_state = session_state(session)
+                            answer = session.get("latest_answer")
+                        if terminal_state in _TERMINAL or answer is not None:
+                            state = terminal_state if terminal_state in _TERMINAL else "completed"
+                            events = []
+                            if answer is not None:
+                                await stop()
+                        else:
+                            await force_answer(60, prefill_limit=True)
+                    if (state not in _TERMINAL | {"queued", "pending"}
+                            and now - last_observation_at >= STALL_TIMEOUT_S
+                            and forced_at is None):
+                        session = (await request("GET", f"/sessions/{session_id}")).json()
+                        terminal_state = session_state(session)
+                        if terminal_state in _TERMINAL:
+                            state = terminal_state
+                            answer = session.get("latest_answer", answer)
+                            events = []
+                        else:
+                            stall_forced = True
+                            await emit({"type": "step_progress",
+                                        "message": "Le site ne répond plus ; vérification de l'étape"})
+                            await force_answer(STALL_FORCE_GRACE_S)
+                    if (state not in _TERMINAL | {"queued", "pending"}
                             and now - last_observation_at > 20
                             and now - last_heartbeat_at >= 20):
                         last_heartbeat_at = now
@@ -1117,7 +1276,7 @@ class HAgentRunner:
                         await force_answer(45)
                     if (forced_at is not None and time.monotonic() - forced_at >= force_window
                             and answer is None):
-                        raise _StepLimit
+                        raise _StallTimeout if stall_forced else _StepLimit
                     if (forced_at is not None and answer is None
                             and changes.get("error_code") == "step_limit"):
                         state = "running"
@@ -1168,12 +1327,9 @@ class HAgentRunner:
                                                 .removesuffix("```").strip())
                         if not isinstance(answer, dict):
                             raise ValueError("H returned no structured answer")
-                        if isinstance(answer.get("verification"), str):
-                            try:
-                                verification = json.loads(answer["verification"])
-                            except (ValueError, TypeError):
-                                verification = None
-                            answer = {**answer, "verification": verification}
+                        answer = {**answer, "verification": _verification_object(
+                            answer.get("verification"),
+                        )}
                         if _payment_claim(answer, allow_prefill):
                             raise _UnsafeClaim
                         prefilled = allow_prefill and answer.get("personal_data_entered") is True
@@ -1245,9 +1401,24 @@ class HAgentRunner:
                 result["error"] = "Browser startup unavailable"
             if not stopped:
                 result["error"] += "; cancellation failed"
+        except _StallTimeout:
+            stopped = await asyncio.shield(stop())
+            result.update(status="blocked", reason_code="timeout",
+                          summary="Le site ne répond plus ; reprenez sur le site officiel.",
+                          error="H observation stalled", handoff_url=checkpoint_frame_url)
+            if checkpoint_frame_url:
+                result["checkpoint_reached"] = True
+            if not stopped:
+                result["error"] += "; cancellation failed"
         except (TimeoutError, httpx.TimeoutException):
             stopped = await asyncio.shield(stop())
-            if queued_since is not None:
+            if stall_forced:
+                result.update(status="blocked", reason_code="timeout",
+                              summary="Le site ne répond plus ; reprenez sur le site officiel.",
+                              error="H observation stalled", handoff_url=checkpoint_frame_url)
+                if checkpoint_frame_url:
+                    result["checkpoint_reached"] = True
+            elif queued_since is not None:
                 result["status"] = "blocked"
                 result["reason_code"] = "provider_error"
                 result["summary"] = "Le site n'a pas pu s'ouvrir"

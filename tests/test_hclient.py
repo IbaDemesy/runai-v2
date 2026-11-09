@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from test_scrub import GOOGLE_FLIGHTS
 
 from runai.agents import hotel as hotel_builder
 from runai.agents import registration as registration_builder
@@ -25,6 +26,9 @@ from runai.agents.hclient import (
     _verification_failures,
 )
 from runai.agents.scrub import scrub_text, scrub_url
+from runai.app import sanitize_state
+from runai.models import Kind
+from runai.providers import LiveRunner
 
 API = "https://agp.eu.hcompany.ai/api/v2"
 START = "https://race.example.org/"
@@ -129,6 +133,32 @@ def run(provider, task=None, **kwargs):
     return asyncio.run(execute()), emitted
 
 
+@pytest.mark.parametrize("url", [GOOGLE_FLIGHTS])
+def test_public_itinerary_ready_handoff_survives_all_passes(monkeypatch, url):
+    event = observation()
+    event["data"]["metadata"]["url"] = url
+    provider = Provider(answer={**ANSWER, "handoff_url": url}, events=[event])
+    task = {**TASK, "start_url": url, "fallback_url": url}
+    monkeypatch.setattr(registration_builder, "build_task", lambda trip: task)
+
+    async def execute():
+        async def emit(event):
+            pass
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(provider)) as client:
+            runner = HAgentRunner("test-api-key", base_url=API, client=client, poll_s=0)
+            monkeypatch.setattr("runai.agents.hclient.HAgentRunner", lambda: runner)
+            result = await LiveRunner().run(Kind.registration, {}, emit)
+            assert result.status == "ready_for_payment"
+            assert str(result.handoff_url) == url
+            for _ in range(2):
+                result = sanitize_state(result)
+                assert result.status == "ready_for_payment"
+                assert str(result.handoff_url) == url
+
+    asyncio.run(execute())
+
+
 @pytest.mark.parametrize("fields", [[], ["full_name"], ["email"]])
 def test_prefill_prompt_is_scoped_and_outputs_private(fields):
     profile = {"full_name": "Sentinel Runnerxyz", "city": "Sentinelvillexyz"}
@@ -168,7 +198,7 @@ def test_personal_data_claim_requires_effective_prefill(profile, fields):
     assert result["reason_code"] == "unsafe_claim"
 
 
-def test_prefill_page_never_forces_answer():
+def test_short_prefill_page_run_does_not_force_answer():
     task = {**TASK, "runner_profile": {"full_name": "Test Runner"},
             "prefill_fields": ["full_name"], "checkpoint": {
                 "url_patterns": ["registration"], "beyond_patterns": [],
@@ -183,6 +213,223 @@ def test_prefill_page_never_forces_answer():
     provider = PrefillProvider()
     run(provider, task, timeout_s=0.02)
     assert not any(r.url.path.endswith("/force_answer") for r in provider.requests)
+
+
+@pytest.mark.parametrize("trigger", ["steps", "observations"])
+@pytest.mark.parametrize("gate", [None, "wrong_date", "missing_frame", "checkpoint_pattern"])
+@pytest.mark.parametrize("terminal", [False, True])
+@pytest.mark.parametrize("patched", [False, True])
+def test_prefill_limits_force_once_and_preserve_verification(
+    monkeypatch, trigger, gate, terminal, patched,
+):
+    now = 0
+    observation_limit = 3 if patched else 8
+    if patched:
+        monkeypatch.setattr("runai.agents.hclient.PREFILL_STEP_MARGIN", 11)
+        monkeypatch.setattr("runai.agents.hclient.PREFILL_OBSERVATION_LIMIT", observation_limit)
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    monkeypatch.setattr("runai.agents.hclient.STALL_TIMEOUT_S", 15)
+    url = HANDOFF + "?currentPage=form_individual-form&distance=42"
+    answer = {**ANSWER, "handoff_url": url, "personal_data_entered": True}
+    if gate == "wrong_date":
+        answer["verification"] = {**ANSWER["verification"], "race_date": "2027-04-05"}
+    task = {**TASK, "max_steps": 60, "runner_profile": {"full_name": "Test Runner"},
+            "prefill_fields": ["full_name"], "checkpoint": {
+                "url_patterns": ["unmatched" if gate == "checkpoint_pattern" else "registration"],
+                "beyond_patterns": ["/payment"], "prefill_patterns": ["registration"],
+            }}
+    provider = Provider(answer=answer)
+    forced_polls = []
+    terminal_checks = []
+
+    def handle(request):
+        nonlocal now
+        if request.url.path.endswith("/force_answer"):
+            provider.requests.append(request)
+            forced_polls.append(provider.polls)
+            assert terminal_checks == [provider.polls]
+            return httpx.Response(202)
+        if request.method == "GET" and request.url.path == "/api/v2/sessions/test-session":
+            provider.requests.append(request)
+            terminal_checks.append(provider.polls)
+            return httpx.Response(200, json={
+                "status": "completed" if terminal else "running",
+                "latest_answer": answer if terminal else None,
+            })
+        if request.url.path.endswith("/changes"):
+            provider.requests.append(request)
+            provider.polls += 1
+            now += 20
+            if (forced_polls and provider.polls >= forced_polls[0] + 2) or provider.polls == 12:
+                return httpx.Response(200, json=batch(state="completed", answer=answer))
+            if forced_polls:
+                return httpx.Response(200, json=batch())
+            event = observation()
+            event["data"]["metadata"]["url"] = (
+                url if provider.polls % 2 else
+                HANDOFF + "?distance=42&currentPage=form_individual-form"
+            )
+            if gate == "missing_frame":
+                event["data"]["image"] = {}
+            return httpx.Response(200, json=batch(
+                event, metrics={"steps": (49 if patched else 50) if trigger == "steps" else 10},
+            ))
+        return provider(request)
+
+    result, _ = run(handle, task)
+    assert terminal_checks == [1 if trigger == "steps" else observation_limit]
+    assert forced_polls == ([] if terminal else terminal_checks)
+    assert result["status"] == ("blocked" if gate else "ready_for_payment"), result
+    if gate is None:
+        assert result["prefilled"] is True
+        assert result["handoff_url"] == url
+    else:
+        assert any("verify_failed" in step for step in result["steps"])
+
+
+@pytest.mark.parametrize("source", ["changes", "session", "rejected_force"])
+@pytest.mark.parametrize("valid", [False, True])
+def test_prefill_threshold_uses_available_answer_before_forcing(source, valid):
+    answer = {**ANSWER, "verification": {**ANSWER["verification"]}}
+    if not valid:
+        answer["verification"]["race_date"] = "2027-04-05"
+    provider = Provider(answer=answer)
+    forces = []
+    task = {**TASK, "max_steps": 60, "runner_profile": {"full_name": "Test Runner"},
+            "prefill_fields": ["full_name"], "checkpoint": {
+                "url_patterns": ["registration"], "beyond_patterns": [],
+                "prefill_patterns": ["registration"],
+            }}
+
+    def handle(request):
+        if request.url.path.endswith("/force_answer"):
+            provider.requests.append(request)
+            forces.append(request)
+            return httpx.Response(409)
+        if request.method == "GET" and request.url.path == "/api/v2/sessions/test-session":
+            provider.requests.append(request)
+            return httpx.Response(200, json={
+                "status": "running", "latest_answer": (
+                    answer if source == "session" or forces else None
+                ),
+            })
+        if request.url.path.endswith("/changes"):
+            provider.requests.append(request)
+            provider.polls += 1
+            return httpx.Response(200, json=batch(
+                observation(), state="running" if provider.polls == 1 else "completed",
+                answer=answer if source == "changes" or provider.polls > 1 else None,
+                metrics={"steps": 50},
+            ))
+        return provider(request)
+
+    result, _ = run(handle, task)
+    assert result["status"] == ("ready_for_payment" if valid else "blocked"), result
+    assert len(forces) == (1 if source == "rejected_force" else 0)
+    assert provider.polls == 1
+    assert provider.cancelled
+
+
+@pytest.mark.parametrize("skipped", ["about:blank", "chrome://newtab/", "", None])
+@pytest.mark.parametrize("same_batch", [False, True])
+def test_skipped_observation_does_not_force_previous_prefill_page(skipped, same_batch):
+    task = {**TASK, "max_steps": 60, "runner_profile": {"full_name": "Test Runner"},
+            "prefill_fields": ["full_name"], "checkpoint": {
+                "url_patterns": ["registration"], "beyond_patterns": [],
+                "prefill_patterns": ["registration"],
+            }}
+    skipped_event = observation()
+    skipped_event["data"]["metadata"]["url"] = skipped
+    first = [observation(), skipped_event] if same_batch else [observation()]
+    batches = [batch(*first, metrics={"steps": 50 if same_batch else 10})]
+    if not same_batch:
+        batches.append(batch(skipped_event, metrics={"steps": 50}))
+    batches.extend([batch(metrics={"steps": 50}), batch(state="completed", answer=ANSWER)])
+    provider = CheckpointProvider(batches)
+
+    def handle(request):
+        if request.method == "GET" and request.url.path == "/api/v2/sessions/test-session":
+            provider.requests.append(request)
+            return httpx.Response(200, json={"status": "running", "latest_answer": None})
+        return provider(request)
+
+    result, _ = run(handle, task)
+    assert not any(r.url.path.endswith("/force_answer") for r in provider.requests)
+    assert result["status"] == "ready_for_payment", result
+
+
+def test_stall_watchdog_forces_after_blank_prefill_observation(monkeypatch):
+    now = 0
+    provider = Provider()
+    task = {**TASK, "max_steps": 60, "runner_profile": {"full_name": "Test Runner"},
+            "prefill_fields": ["full_name"], "checkpoint": {
+                "url_patterns": ["registration"], "beyond_patterns": [],
+                "prefill_patterns": ["registration"],
+            }}
+    forced_at = []
+
+    def handle(request):
+        nonlocal now
+        if request.url.path.endswith("/force_answer"):
+            provider.requests.append(request)
+            forced_at.append(now)
+            return httpx.Response(202)
+        if request.method == "GET" and request.url.path == "/api/v2/sessions/test-session":
+            provider.requests.append(request)
+            return httpx.Response(200, json={"status": "running", "latest_answer": None})
+        if request.url.path.endswith("/changes"):
+            provider.requests.append(request)
+            provider.polls += 1
+            now = (provider.polls - 1) * 30
+            events = []
+            if provider.polls <= 2:
+                event = observation()
+                if provider.polls == 2:
+                    event["data"]["metadata"]["url"] = "about:blank"
+                events.append(event)
+            return httpx.Response(200, json=batch(
+                *events, metrics={"steps": 10 if provider.polls == 1 else 50},
+            ))
+        return provider(request)
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    result, _ = run(handle, task)
+    assert forced_at == [180]
+    assert now == 240
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == "timeout"
+    assert result["final_url"] == HANDOFF
+    assert result["handoff_url"] == HANDOFF
+    assert provider.cancelled
+
+
+@pytest.mark.parametrize("prefill", [False, True])
+def test_prefill_observation_counter_does_not_affect_other_pages(prefill):
+    task = {**TASK, "max_steps": 60, "runner_profile": {"full_name": "Test Runner"},
+            "prefill_fields": ["full_name"], "checkpoint": {
+                "url_patterns": ["registration"], "beyond_patterns": [],
+                "prefill_patterns": ["registration" if prefill else "guest-details"],
+            }}
+    if not prefill:
+        task.pop("checkpoint")
+    provider = Provider()
+
+    def handle(request):
+        if request.url.path.endswith("/changes"):
+            provider.requests.append(request)
+            provider.polls += 1
+            if provider.polls == 12:
+                return httpx.Response(200, json=batch(state="completed", answer=ANSWER))
+            event = observation()
+            event["data"]["metadata"]["url"] = HANDOFF + (
+                f"?page={provider.polls}" if prefill else ""
+            )
+            return httpx.Response(200, json=batch(event, metrics={"steps": 10}))
+        return provider(request)
+
+    result, _ = run(handle, task)
+    assert not any(r.url.path.endswith("/force_answer") for r in provider.requests)
+    assert result["status"] == ("blocked" if prefill else "ready_for_payment")
 
 
 def test_real_milan_registration_fallback_is_handoff_only(monkeypatch):
@@ -2452,3 +2699,158 @@ def test_heartbeat_waits_for_observation_gap_and_skips_queued_or_terminal(monkey
     monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
     _, emitted = run(handle)
     assert not any("l'agent lit la page" in event.get("message", "") for event in emitted)
+
+
+@pytest.mark.parametrize("terminal,progressing,checkpoint", [
+    (False, False, False), (True, False, False), (False, True, False),
+    (False, False, True),
+])
+def test_stall_watchdog_fake_clock(monkeypatch, terminal, progressing, checkpoint):
+    now = 0
+    provider = Provider()
+    task = dict(TASK)
+    if checkpoint:
+        task.update(checkpoint={"url_patterns": [r"/registration"], "beyond_patterns": [r"/pay"],
+                                "prefill_patterns": [r"/registration"]},
+                    runner_profile={"full_name": "Test Runner"}, prefill_fields=["full_name"],
+                    prefill_scope="participant form")
+
+    def handle(request):
+        nonlocal now
+        if request.url.path.endswith("/force_answer"):
+            provider.requests.append(request)
+            return httpx.Response(202)
+        if request.url.path.endswith("/changes"):
+            provider.requests.append(request)
+            provider.polls += 1
+            now = (provider.polls - 1) * 30
+            if progressing and now >= 300:
+                return httpx.Response(200, json=batch(state="completed", answer=ANSWER))
+            return httpx.Response(200, json=batch(*(
+                [observation()] if progressing or provider.polls == 1 else []
+            )))
+        if request.url.path == "/api/v2/sessions/test-session" and terminal:
+            provider.requests.append(request)
+            return httpx.Response(200, json={"status": "completed", "latest_answer": ANSWER})
+        return provider(request)
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    result, events = run(handle, task)
+    forces = [r for r in provider.requests if r.url.path.endswith("/force_answer")]
+    if terminal or progressing:
+        assert result["status"] == "ready_for_payment", result
+        assert forces == []
+    else:
+        assert result["status"] == "blocked", result
+        assert result["reason_code"] == "timeout"
+        assert len(forces) == 1
+        assert now <= 240
+        assert provider.cancelled
+        assert result["handoff_url"] == (HANDOFF if checkpoint else None)
+    assert any(event.get("stale_frame") is False for event in events)
+    assert any(event.get("stale_frame") is True for event in events) is (not progressing)
+
+
+def test_stall_watchdog_constants_are_patchable(monkeypatch):
+    now = 0
+    provider = Provider()
+
+    def handle(request):
+        nonlocal now
+        if request.url.path.endswith("/changes"):
+            provider.requests.append(request)
+            provider.polls += 1
+            now = (provider.polls - 1) * 5
+            return httpx.Response(200, json=batch(*([observation()] if now == 0 else [])))
+        if request.url.path.endswith("/force_answer"):
+            provider.requests.append(request)
+            return httpx.Response(202)
+        return provider(request)
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    monkeypatch.setattr("runai.agents.hclient.STALL_TIMEOUT_S", 15)
+    monkeypatch.setattr("runai.agents.hclient.STALL_FORCE_GRACE_S", 10)
+    monkeypatch.setattr("runai.agents.hclient.STALE_FRAME_S", 5)
+    result, events = run(handle)
+    assert result["reason_code"] == "timeout"
+    assert now == 25
+    assert sum(r.url.path.endswith("/force_answer") for r in provider.requests) == 1
+    assert any(event.get("stale_frame") is True for event in events)
+
+
+BOOKING_SHAPES = json.loads((Path(__file__).parent / "fixtures/h_booking_observations.json").read_text())
+
+
+@pytest.mark.parametrize("locale", ["verification", "french_verification"])
+@pytest.mark.parametrize("mutation", [None, "wrong_date", "missing_frame", "beyond", "host_alias",
+                                     "unreviewed_alias", "missing_total", "invalid_total"])
+def test_booking_live_shapes(locale, mutation, monkeypatch):
+    row = BOOKING_SHAPES["booking"]
+    hosts = ["www.booking.com", "secure.booking.com"]
+    if mutation == "unreviewed_alias":
+        hosts = ["www.booking.com"]
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(
+        evaluate_url=lambda url, kind: {
+            "allowed": True, "policy_id": "synthetic-booking", "screenshot_scope": True,
+            "allowed_hosts": hosts, "allowed_paths": ["/"],
+        },
+    ))
+    task = {**TASK, "kind": "hotel", "start_url": row["room_url"],
+            "fallback_url": row["room_url"], "expected": row["expected"],
+            "checkpoint": {"url_patterns": [r"^/book\.html"],
+                           "beyond_patterns": [r"/payment"]}}
+    verification = json.loads(row[locale])
+    if mutation == "wrong_date":
+        verification["Arrival_Date"] = "Sat 3 Apr 2027"
+    if mutation == "missing_total":
+        verification.pop("Total")
+    if mutation == "invalid_total":
+        verification["Total"] = "not a price"
+    url = row["checkpoint_url"] + ("&next=/payment" if mutation == "beyond" else "")
+    events = []
+    for location in (row["room_url"], url):
+        event = observation()
+        event["data"]["metadata"] = {"url": location, "title": "Synthetic guest-details boundary"}
+        if mutation == "missing_frame" and location == url:
+            event["data"].pop("image")
+        events.append(event)
+    answer_url = url.replace("secure.booking.com", "www.booking.com") if mutation in {
+        "host_alias", "unreviewed_alias",
+    } else url
+    result, _ = run(Provider(events=events, answer={
+        **ANSWER, "handoff_url": answer_url, "verification": json.dumps(verification),
+    }), task)
+    assert (result["status"] == "ready_for_payment") is (mutation in {None, "host_alias"}), result
+    if mutation == "wrong_date":
+        assert result["reason_code"] == "date_mismatch"
+
+
+def test_njuko_live_stringified_mixed_case_shape():
+    row = BOOKING_SHAPES["njuko"]
+    event = observation()
+    event["data"]["metadata"] = {"url": row["url"], "title": "Synthetic participant boundary"}
+    task = {**TASK, "start_url": row["url"], "fallback_url": row["url"],
+            "checkpoint": {"url_patterns": [r"currentPage=form_individual-form"],
+                           "beyond_patterns": [r"/payment"]}}
+    result, _ = run(Provider(events=[event], answer={
+        **ANSWER, "handoff_url": row["url"], "verification": row["verification"],
+    }), task)
+    assert result["status"] == "ready_for_payment", result
+
+
+@pytest.mark.parametrize("actual", [
+    "Fri 2 Apr 2027", "ven. 2 avr. 2027", "Fr. 2. April 2027", "venerdì 2 aprile 2027",
+    "vie. 2 abril 2027", "sex. 2 abril 2027", "2 Apr 2027", "2027-04-02",
+])
+def test_localized_verification_dates(actual):
+    from runai.agents.hclient import _matches_expected
+
+    assert _matches_expected("arrival_date", actual, "2027-04-02")
+    assert not _matches_expected("arrival_date", actual, "2027-04-03")
+
+
+@pytest.mark.parametrize("value", ["€1,234.50", "1 234,50 €", "EUR 1234.50", "1.234,50 EUR"])
+def test_verification_money_normalization(value):
+    from runai.agents.hclient import _verification_money
+
+    assert _verification_money(value) == 1234.5

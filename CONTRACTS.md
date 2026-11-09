@@ -1,5 +1,57 @@
 # Generic guided-mission contract
 
+## P15 Preflight availability and frame freshness (round 8)
+
+Task builders may return `preflight_block: {reason_code, summary, handoff_url}`.
+`summary` is short French user-facing text; `handoff_url` is an HTTPS public URL
+or null. LiveRunner returns a non-synthetic `blocked` StepResult without creating
+an H session (zero H POSTs), emitting launch events or trying alternatives.
+These tasks are not launched agents and count as uncovered for CTA coverage,
+never as READY. `not_yet_bookable` is an additive ReasonCode for booking windows
+that have not opened; unknown/missing preflight reasons become `no_site_coverage`.
+The handoff is scrubbed and must pass the same public HTTPS, reviewed host/path
+policy gates as other handoffs; unavailable/denied policy or unsafe URLs yield
+null, never an unchecked fallback. Profile privacy applies to this result too.
+
+`StepResult.stale_frame: bool|null = null` is additive: old JSON remains valid.
+True means the agent is running and its newest genuine frame is older than
+60 seconds. False means it is not stale; null means freshness was not reported.
+Missing footage is unavailable, never simulated or asserted fresh. This metadata
+does not weaken P13 verification or turn blocked checkpoints into READY.
+
+While running, an observation gap of 150 seconds triggers a terminal-session
+check before one force-answer request. A further 60 seconds without an answer
+cancels the session and returns blocked/timeout, retaining the last reviewed
+checkpoint frame URL when available. These timings and the 60-second frame
+freshness threshold are module constants; the total per-agent cap remains
+15 minutes. Step progress/frame events carry nullable `stale_frame` metadata;
+no frame means unknown, not fresh. A watchdog timeout does not try alternatives.
+Prefill pages no longer suppress forced answers indefinitely: while the current
+observed URL matches `prefill_patterns`, force once at `max_steps - 10` steps
+or eight consecutive observations of the same normalized page path/query.
+Changing page identity or leaving the prefill page resets that observation count.
+`PREFILL_STEP_MARGIN` and `PREFILL_OBSERVATION_LIMIT` are patchable module constants.
+Check for and consume a terminal session answer before forcing; these triggers
+share the existing once-only force flag with the stall watchdog. The answer
+passes unchanged P13 URL-pattern/frame/verification gates; prefill alone never
+grants READY or permission to enter data without effective `prefill_fields`.
+
+Google Flights public itinerary query keys `tfs`/`tfu` survive opaque-token
+scrubbing only on google.com or google.<two-letter cc> (optionally www), at
+exact paths `/travel/flights/booking` and `/travel/flights/search`, with values
+matching `[A-Za-z0-9_-]{1,600}`. Invalid/oversized values there are dropped.
+Other keys/hosts/paths retain existing scrubbing; tracking is still stripped.
+Omio com/fr/de hosts (bare or www) also preserve redirected result paths exactly
+matching `/app/search-frontend/results/<id>/<train|bus|flight>`, where id is
+`[A-Za-z0-9_-]{1,64}`. Only that id segment is exempt from opaque-path rejection;
+other frontend subpaths/hosts remain unchanged. Travel dates/party survive
+normal query scrubbing and tracking is still removed.
+
+RunnerProfile also accepts `address` as an input alias of `address_line` with
+the same validation. Matching duplicate keys are accepted; differing values
+return 422, as do unknown keys. `profile_status.fields` always uses canonical
+`address_line`; neither alias exposes profile values in missions/events/logs.
+
 ## P14 Runner profile prefill (round 7)
 
 `RunnerProfile` has twelve optional, length-capped strings: full_name, given_name,

@@ -1,0 +1,15 @@
+{
+  "synthetic": true,
+  "description": "Synthetic reconstructions of round-7 answer shapes, not live evidence or footage.",
+  "booking": {
+    "room_url": "https://www.booking.com/hotel/it/test-hotel.html?checkin=2027-04-02&checkout=2027-04-04&group_adults=1",
+    "checkpoint_url": "https://secure.booking.com/book.html?checkin=2027-04-02&checkout=2027-04-04&group_adults=1",
+    "expected": {"city": "Milan", "arrival_date": "2027-04-02", "departure_date": "2027-04-04", "travelers": 1},
+    "verification": "{\"City\":\"Milan\",\"Arrival_Date\":\"Fri 2 Apr 2027\",\"Departure_DATE\":\"Sun 4 Apr 2027\",\"Travelers\":1,\"Room\":\"Standard\",\"Rate\":\"Flexible\",\"Total\":\"€1,234.50\",\"Selected\":true,\"Next_Safe_Boundary\":\"guest details\"}",
+    "french_verification": "{\"CITY\":\"Milan\",\"Arrival_Date\":\"ven. 2 avr. 2027\",\"Departure_Date\":\"dim. 4 avr. 2027\",\"Travelers\":1,\"Room\":\"Standard\",\"Rate\":\"Flexible\",\"Total\":\"1 234,50 €\",\"Selected\":true,\"Next_Safe_Boundary\":\"guest details\"}"
+  },
+  "njuko": {
+    "url": "https://in.njuko.com/wizz-air-milano-marathon-20271776152378557?currentPage=form_individual-form",
+    "verification": "{\"Race_Name\":\"Wizz Air Milano Marathon\",\"Edition\":\"2027\",\"Race_Date\":\"dim. 4 avr. 2027\",\"Distance_KM\":42.195,\"Participant_Data_Untouched\":true,\"Selected\":true,\"Next_Safe_Boundary\":\"participant data\"}"
+  }
+}
