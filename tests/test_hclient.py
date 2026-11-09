@@ -358,6 +358,51 @@ def test_skipped_observation_does_not_force_previous_prefill_page(skipped, same_
     assert result["status"] == "ready_for_payment", result
 
 
+def test_stall_watchdog_forces_after_blank_prefill_observation(monkeypatch):
+    now = 0
+    provider = Provider()
+    task = {**TASK, "max_steps": 60, "runner_profile": {"full_name": "Test Runner"},
+            "prefill_fields": ["full_name"], "checkpoint": {
+                "url_patterns": ["registration"], "beyond_patterns": [],
+                "prefill_patterns": ["registration"],
+            }}
+    forced_at = []
+
+    def handle(request):
+        nonlocal now
+        if request.url.path.endswith("/force_answer"):
+            provider.requests.append(request)
+            forced_at.append(now)
+            return httpx.Response(202)
+        if request.method == "GET" and request.url.path == "/api/v2/sessions/test-session":
+            provider.requests.append(request)
+            return httpx.Response(200, json={"status": "running", "latest_answer": None})
+        if request.url.path.endswith("/changes"):
+            provider.requests.append(request)
+            provider.polls += 1
+            now = (provider.polls - 1) * 30
+            events = []
+            if provider.polls <= 2:
+                event = observation()
+                if provider.polls == 2:
+                    event["data"]["metadata"]["url"] = "about:blank"
+                events.append(event)
+            return httpx.Response(200, json=batch(
+                *events, metrics={"steps": 10 if provider.polls == 1 else 50},
+            ))
+        return provider(request)
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    result, _ = run(handle, task)
+    assert forced_at == [180]
+    assert now == 240
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == "timeout"
+    assert result["final_url"] == HANDOFF
+    assert result["handoff_url"] == HANDOFF
+    assert provider.cancelled
+
+
 @pytest.mark.parametrize("prefill", [False, True])
 def test_prefill_observation_counter_does_not_affect_other_pages(prefill):
     task = {**TASK, "max_steps": 60, "runner_profile": {"full_name": "Test Runner"},
