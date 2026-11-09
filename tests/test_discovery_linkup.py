@@ -32,6 +32,23 @@ EXPECTED_KEYS = {
 }
 
 
+@pytest.mark.parametrize("name,km,domain", [
+    ("EDP Lisbon Half Marathon", 21.1, "maratonaclubedeportugal.com"),
+    ("semi de Lisbonne", None, "maratonaclubedeportugal.com"),
+    ("Madrid Half Marathon", 21.0975, "rocknrollmadridrun.com"),
+    ("Unknown Half Marathon", 21.1, None),
+    ("Berlin Half Marathon", 21.1, None),
+    ("Lisbon Half Marathon", 10, None),
+])
+def test_half_organizer_hints_do_not_reuse_unrelated_marathon_domains(name, km, domain):
+    hint = linkup.official_search_hint(name, km)
+    if domain:
+        assert hint["official_domains"] == domain
+        assert hint["race_name"] == name
+    else:
+        assert not hint
+
+
 @pytest.fixture(autouse=True)
 def isolated_discovery_cache():
     linkup.clear_cache()

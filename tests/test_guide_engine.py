@@ -73,6 +73,28 @@ def test_distance_contradiction_pills_search_selected_format(text, choice, km, o
         assert not turn.ready_to_confirm
 
 
+@pytest.mark.parametrize("text,city,domain", [
+    ("le semi de Madrid", "Madrid", "rocknrollmadridrun.com"),
+    ("the Madrid half marathon", "Madrid", "rocknrollmadridrun.com"),
+    ("le semi de Lisbonne", "Lisbon", "maratonaclubedeportugal.com"),
+    ("the Lisbon half marathon", "Lisbon", "maratonaclubedeportugal.com"),
+])
+def test_known_half_timeout_retry_has_organizer_and_preserves_format(text, city, domain):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        raise TimeoutError("offline")
+
+    _, turn = run(engine(discover).start(text))
+    assert len(calls) == 2
+    assert calls[1][1]["depth"] == "standard"
+    assert calls[1][1]["official_domains"] == domain
+    assert all(h["city"] == city and h["distance"] == "half" for _, h in calls)
+    assert city in turn.message or "Lisbonne" in turn.message
+    assert not turn.ready_to_confirm
+
+
 @pytest.mark.parametrize("text,delegation,label", [
     ("un semi", "tu me conseilles", "Autre distance"),
     ("a half marathon", "you choose", "Another distance"),

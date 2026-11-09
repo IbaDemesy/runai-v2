@@ -80,12 +80,22 @@ MAJOR_ORGANIZERS = {
 
 
 def official_search_hint(name: str, distance: float | None = None, edition_year: int | None = None) -> dict:
-    if distance is not None and not 42 <= distance <= 42.3:
-        return {}
     if edition_year is not None:
         name = re.sub(rf"\b{edition_year}\b", "", name).strip()
     slug = _slug(name)
     words = set(slug.split("-"))
+    if words & {"half", "semi"} or distance is not None and 20 <= distance <= 22:
+        if distance is not None and not 20 <= distance <= 22:
+            return {}
+        for aliases, country, domain in [
+            ({"lisbon", "lisbonne", "lisboa"}, "Portugal", "maratonaclubedeportugal.com"),
+            ({"madrid"}, "Spain", "rocknrollmadridrun.com"),
+        ]:
+            if words & aliases:
+                return {"race_name": name, "country": country, "official_domains": domain}
+        return {}
+    if distance is not None and not 42 <= distance <= 42.3:
+        return {}
     if "marathon" not in words or words & {"half", "semi"}:
         return {}
     if words & {"lisbon", "lisbonne", "lisboa"}:
