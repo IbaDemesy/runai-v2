@@ -1,5 +1,63 @@
 # Registration path evidence (R2-02, supersedes R1-05 "assumed" claims)
 
+## R7-03 live registration smokes — 2026-11-09
+
+Real `registration.build_task` -> `HAgentRunner.run`, without runner_profile.
+Only alternatives were removed to keep each invocation to one reviewed
+provider/session; no checkpoint, safety rule or verification gate was relaxed.
+The H key was bound through exec environment. Each run had a fresh quota GET
+immediately before it: org limit=3, active=1, available=2. Both ran sequentially,
+after the Booking hotel smoke, with HTTP204 cancellation/explicit DELETE cleanup
+before the next run. Exactly three ticket sessions total; no fourth/retry.
+
+| Race/date/distance | Public requested and final host/path | Quota available | Status | reason_code | Stop evidence | Max reported provider steps | Emitted frames | Elapsed |
+|---|---|---:|---|---|---|---:|---:|---:|
+| Milano Marathon, 2027-04-04, 42.195km | in.njuko.com/wizz-air-milano-marathon-20271776152378557 | 2 | ready_for_payment | null | First participant personal-data boundary accepted by hclient verification; public handoff same host/path | 5 | 4 | 41.6s |
+| NN CPC Loop Den Haag, 2027-03-14, 10km | in.njuko.com/nn-cpc-loop-den-haag-20261784205635566 | 2 | failed | timeout | Same event URL last observed; no verified safe stop or handoff | 27 | 5 | 486.4s |
+
+Milano returned genuine runtime READY with changing/deduplicated live_frame
+events and no verify_failed gates. It is not a registration/submission or a
+payment claim. Frames were counted then discarded, not independently visually
+reviewed; no screenshots were persisted and no comprehensive hosted-action
+audit is claimed. The normal instructions stop before personal data, login,
+consent, submission or payment; no profile/identity was provided.
+
+CPC did not reproduce the historical `Site blocked preparation` policy denial:
+this run reached observed/framed Njuko content but timed out. Sanitized
+observation metadata showed only the same public event path, with no recorded
+forbidden-title/URL or beyond-pattern trigger. No structured answer or
+verification-failure list explains why it stalled; the timeout is not evidence
+of sold-out status, the wrong edition, a captcha or consent. The exact UI stage
+is unverified because the event is a same-URL flow and frames were not reviewed.
+No URL/checkpoint correction was supported; none was made. One of two requested
+registration READY results was achieved; the three-run cap is exhausted.
+
+No private H links, queries, session IDs, personal data or image payloads were
+retained. Each run created one session and cleanup returned HTTP204 twice
+(runner stop plus explicit cleanup).
+
+### Review follow-up: bounded stops survive stale observations
+
+Commit `2dfba91` decouples adapter-level early_stop_reason from the 21-day
+availability freshness window. Berlin's account wall and Valencia/Lisbon
+unverified entry boundaries retain max_steps=12, first-five-step BLOCKED,
+disabled READY checkpoints and no prefill even after observations expire.
+Availability coverage still becomes unknown when stale; this does not renew
+or promote old observations. Added fresh/day-22 tests for all four explicit
+early-stop adapters plus a missing-observation case. Ordinary adapters keep
+their existing freshness behavior. No core files or policy shards changed.
+
+Final implementation checks:
+```
+uv run ruff check .
+All checks passed!
+uv run pytest -q
+2340 passed, 1 warning in 63.08s (0:01:03)
+uv run pytest -q tests/test_agent_hotel.py tests/test_agent_registration.py tests/test_site_policy.py
+807 passed in 8.73s
+```
+Warning: existing Starlette httpx TestClient deprecation.
+
 ## R6-03 read-only observations and coverage — 2026-11-09
 
 Normal Chrome (the session browser), anonymous, read-only: pages rendered, cookie banners

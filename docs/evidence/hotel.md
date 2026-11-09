@@ -1,3 +1,45 @@
+# R7-03 live hotel smoke — 2026-11-09
+
+Real `hotel.build_task` -> `HAgentRunner.run`, without runner_profile. Selected
+the Booking adapter and removed alternatives only, limiting this smoke to one
+provider/session. Berlin race 2027-09-26, stay 2027-09-25 to 2027-09-27, one
+adult, EUR600 budget, Paris origin. API key bound through exec environment;
+no key, private H URL, session ID, query, personal data or image was logged.
+
+| Adapter | Public requested host/path | Quota available | Status | reason_code | Accepted final/stop page | Max reported provider steps | Emitted frames | Elapsed |
+|---|---|---:|---|---|---|---:|---:|---:|
+| r7-booking-hotel | www.booking.com/searchresults.html | 2 | blocked | policy_denied | unavailable; final/handoff URLs null | 0 | 0 | 9.9s |
+
+Quota immediately before the run: org limit=3, active=1, available=2. Exactly
+one H session was created. Runner cancellation and explicit DELETE cleanup
+both returned HTTP204 before the Milano registration smoke began.
+
+This is **not READY** and provides no verified selected-room/rate boundary.
+The session was created, so this was not the builder/pre-session review gate.
+No accepted page/frame was emitted; the launcher did not retain rejected
+observation metadata, so the particular policy/title/URL trigger and stop page
+are unknown. Zero is the maximum returned metrics.steps value, not an audit
+proving no hosted actions occurred. No adapter/checkpoint fix is justified by
+this evidence; no speculative relaxation was made and no retry was run.
+
+The normal task prohibits personal-data entry, login, consent, submission and
+payment. No profile was supplied. No screenshot was saved or independently
+reviewed; no comprehensive hosted-action audit is claimed. All three allowed
+ticket sessions were used (one hotel, two registration), yielding zero hotel
+READY results; the two-hotel target including Booking remains unmet.
+
+Final implementation checks (including the separately committed registration
+freshness fix):
+```
+uv run ruff check .
+All checks passed!
+uv run pytest -q
+2340 passed, 1 warning in 63.08s (0:01:03)
+uv run pytest -q tests/test_agent_hotel.py tests/test_agent_registration.py tests/test_site_policy.py
+807 passed in 8.73s
+```
+Warning: existing Starlette httpx TestClient deprecation.
+
 # R6-01 live IHG hotel acceptance — 2026-11-09
 
 Runtime commit: `84e301e`. Real `hotel.build_task` → `HAgentRunner.run`;
