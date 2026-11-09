@@ -207,6 +207,7 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
     locks: dict[str, asyncio.Lock] = {}
     frames: dict[str, tuple[bytes, str, str]] = {}
     tasks: set[asyncio.Task] = set()
+    mission_tasks: dict[str, set[asyncio.Task]] = {}
     generations: dict[str, int] = {}
     profiles: dict[str, dict] = {}
 
@@ -228,10 +229,20 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
              "msg": "Invalid request", "type": error["type"]} for error in exc.errors()
         ]})
 
-    def track(coro):
+    def track(coro, mission_id):
         task = asyncio.create_task(coro)
         tasks.add(task)
-        task.add_done_callback(tasks.discard)
+        mission_tasks.setdefault(mission_id, set()).add(task)
+
+        def finished(done):
+            tasks.discard(done)
+            owned = mission_tasks.get(mission_id)
+            if owned is not None:
+                owned.discard(done)
+                if not owned:
+                    mission_tasks.pop(mission_id, None)
+
+        task.add_done_callback(finished)
         return task
 
     def get(mission_id: str) -> Mission:
@@ -286,7 +297,7 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
                     return await engine.step(sanitize_state(states[mission.id]), answer)
 
             started = asyncio.get_running_loop().time()
-            worker = track(search())
+            worker = track(search(), mission.id)
             try:
                 while not worker.done():
                     done, _ = await asyncio.wait({worker}, timeout=discovery_heartbeat_s)
@@ -310,13 +321,15 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
                 if generations[mission.id] == generation:
                     mission.status = previous
                     discovery_failed(mission)
-        track(discover())
+        track(discover(), mission.id)
 
     async def prepare(mission):
         async def run(kind):
             emit(mission, "step_started", "Preparation started; no purchases or submissions", kind)
 
             async def progress(data):
+                if mission.id not in missions:
+                    return
                 data = scrub_profile(data, profiles.get(mission.id, {}),
                                      public_profile_context(mission.trip))
                 event_type = data.get("type", "step_progress")
@@ -500,6 +513,12 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
     @app.delete("/api/missions/{mission_id}", status_code=204)
     async def delete_mission(mission_id: str):
         get(mission_id)
+        missions.pop(mission_id, None)
+        profiles.pop(mission_id, None)
+        pending = list(mission_tasks.get(mission_id, set()))
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
         for frame_id, (_, _, owner) in list(frames.items()):
             if owner == mission_id:
                 frames.pop(frame_id, None)
@@ -529,9 +548,7 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
                         raise HTTPException(501, "Live H preparation modules unavailable") from exc
             mission.status = "running"
             emit(mission, "confirmed", "Explicitly confirmed; stop before payment or commitment")
-            task = asyncio.create_task(prepare(mission))
-            tasks.add(task)
-            task.add_done_callback(tasks.discard)
+            track(prepare(mission), mission_id)
             return mission
 
     @app.get("/api/missions/{mission_id}", response_model=Mission)

@@ -1,3 +1,7 @@
+import asyncio
+from inspect import getclosurevars
+from threading import Event
+
 import pytest
 from fastapi.testclient import TestClient
 from test_api_guided import StubGuide, ready, terminal
@@ -41,6 +45,39 @@ def test_delete_mission_purges_only_its_frames():
                    for frame_id in frame_ids[0])
         assert all(client.get(f"/api/frames/{frame_id}").status_code == 200
                    for frame_id in frame_ids[1])
+
+
+def test_delete_running_mission_cancels_all_agents_and_drops_profile():
+    started = Event()
+    running, cancelled = [], []
+
+    class PausedRunner:
+        async def run(self, kind, trip, emit):
+            running.append(kind)
+            if len(running) == 3:
+                started.set()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError:
+                cancelled.append(kind)
+                raise
+
+    app = create_app(guide=StubGuide(), runner_factory=lambda mode: PausedRunner())
+    delete = next(route.endpoint for route in app.routes
+                  if getattr(route, "name", None) == "delete_mission")
+    private = getclosurevars(delete).nonlocals
+    with TestClient(app) as client:
+        url = ready(client)
+        mission_id = url.rsplit("/", 1)[1]
+        client.post(url + "/profile", json={"full_name": "Test Runner"})
+        assert mission_id in private["profiles"]
+        client.post(url + "/confirm", json={"confirmed": True})
+        assert started.wait(2)
+        assert client.delete(url).status_code == 204
+        assert len(cancelled) == 3
+        assert mission_id not in private["profiles"]
+        assert mission_id not in private["mission_tasks"]
+        assert client.get(url).status_code == 404
 
 
 @pytest.mark.parametrize("profile", [
