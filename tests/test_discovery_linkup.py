@@ -289,6 +289,38 @@ def test_review_cityless_identity_includes_normalized_country(reverse):
     assert {r["id"] for r in result} == {r["id"] for r in search(list(reversed(rows)))}
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("distance", [42.195, 10.0, None])
+def test_review_cityless_distance_identity_preserves_dates_and_conflicts(reverse, distance):
+    other_day = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
+    rows = [race(city="", distance_km=42.195), race(city="", distance_km=10.0, sources=[{
+        "url": "https://race.example/10k", "race_date": other_day}]),
+        race(city="", distance_km=None)]
+    result = search(list(reversed(rows)) if reverse else rows)
+    assert len(result) == 3 and len({r["id"] for r in result}) == 3
+    assert {(r["distance_km"], r["race_date"], r["date_status"]) for r in result} == {
+        (42.195, DAY, "official"), (10.0, other_day, "official"), (None, DAY, "official")}
+    rows.append(race(city="", distance_km=distance, sources=[{
+        "url": "https://race.example/conflict", "race_date": (
+            datetime.fromisoformat(other_day).date() + timedelta(days=1)).isoformat()}]))
+    conflicting = search(list(reversed(rows)) if reverse else rows)
+    assert len(conflicting) == 3
+    selected = next(r for r in conflicting if r["distance_km"] == distance)
+    assert selected["date_status"] == "conflicting" and selected["race_date"] is None
+    assert all(r["date_status"] == "official" for r in conflicting if r is not selected)
+    assert {r["id"] for r in result} == {r["id"] for r in conflicting}
+
+
+@pytest.mark.parametrize("first,second", [(42.195, 42.2), (21.0975, 21.1), (10.0, 10.0001),
+                                        (None, None)])
+def test_review_cityless_equivalent_distances_share_identity(first, second):
+    other_day = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
+    result = search([race(city="", distance_km=first), race(city="", distance_km=second,
+        sources=[{"url": "https://race.example/other", "race_date": other_day}])])
+    assert len(result) == 1
+    assert result[0]["date_status"] == "conflicting" and result[0]["race_date"] is None
+
+
 @pytest.mark.parametrize("city,domain", [
     ("Valencia", "valenciaciudaddelrunning.com"),
     ("Paris", "schneiderelectricparismarathon.com"),

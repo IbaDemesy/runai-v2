@@ -303,8 +303,18 @@ def _distance(value: float | None) -> float | None:
     return value if value is not None and math.isfinite(value) and value > 0 else None
 
 
+def _dedupe_distance(value: float | None) -> float | None:
+    value = _distance(value)
+    if value is None:
+        return None
+    for standard in (21.1, 42.195):
+        if abs(value - standard) < 0.01:
+            return standard
+    return round(value, 3)
+
+
 def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
-    groups: dict[tuple[str, ...], list[_Race]] = {}
+    groups: dict[tuple[str | float | None, ...], list[_Race]] = {}
     for row in rows:
         row = row.model_copy(update={
             field: _data_text(getattr(row, field))
@@ -316,7 +326,7 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
         name = re.sub(rf"\b{re.escape(edition)}\b", "", row.name)
         key = (_slug(name), edition, _slug(row.city))
         if not key[2]:
-            key += (_slug(row.country),)
+            key += (_slug(row.country), _dedupe_distance(row.distance_km))
         if key[0] and key[1]:
             groups.setdefault(key, []).append(row)
 
@@ -366,7 +376,7 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
             edition_years and max(edition_years) < today.year
         )
         candidates.append((is_past, {
-            "id": "-".join(part for part in key if part),
+            "id": "-".join(str(part) for part in key if part),
             "name": row.name.strip(),
             "edition": row.edition.strip(),
             "distance_km": _distance(row.distance_km),
