@@ -897,6 +897,37 @@ def test_off_topic_never_discovers_or_treats_weather_as_date(text):
     assert "événement sourcé" not in turn.message and "event for tomorrow" not in turn.message
 
 
+@pytest.mark.parametrize("distances,labels,expected", [
+    ([42.195, 10], ["", ""], 2),
+    ([42.195, 42.195], ["", ""], 1),
+    ([None, 10], ["", ""], 1),
+    ([10, None], ["", ""], 1),
+    ([None, None], ["", ""], 1),
+    ([10, None], ["", "10 km"], 1),
+    ([42.195, None], ["", "10 km"], 2),
+    ([None, None], ["marathon", "10 km"], 2),
+])
+def test_deduplication_preserves_distinct_distances(distances, labels, expected):
+    async def discover(query, hints):
+        return [{"id": f"race-{index}", "name": "City Run", "race_date": "2027-04-10",
+                 "date_status": "official", "distance_km": distance, "distance_label": label,
+                 "source_urls": [f"https://source{index}.example/edition"]}
+                for index, (distance, label) in enumerate(zip(distances, labels, strict=True))]
+
+    e = engine(discover)
+    state, turn = run(e.start("un marathon"))
+    assert len(state.candidates) == expected
+    if expected == 1:
+        assert len(state.candidates[0].source_urls) == 2
+        if 10 in distances:
+            assert state.candidates[0].distance_km == 10
+    else:
+        for race in state.candidates:
+            chip = next(s for s in turn.suggestions if s.value == race.id)
+            selected, _ = run(e.step(state, {"suggestion_id": chip.id}))
+            assert selected.draft.race.id == race.id
+
+
 def test_deduplicate_normalized_name_date_and_merge_sources():
     async def discover(query, hints):
         return [{"id": str(index), "name": name, "race_date": "2027-04-10",

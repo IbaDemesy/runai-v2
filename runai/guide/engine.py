@@ -201,6 +201,18 @@ class GuideEngine:
                          if item["race_id"] == race.id), [])
         return []
 
+    def _dedupe_distance(self, race):
+        if race.distance_km is not None:
+            return (round(race.distance_km, 3),)
+        label = normalize(race.distance_label)
+        values = self._distance_values(re.sub(r"\bk\b", "km", label))
+        if values:
+            return tuple(sorted(round(value, 3) for value in values))
+        named = {"marathon": 42.195, "half marathon": 21.1, "semi marathon": 21.1}
+        if label in named:
+            return (named[label],)
+        return label or None
+
     def _pending_distances(self, state):
         race = state.draft.race
         return (self._sourced_distances(state)
@@ -528,8 +540,14 @@ class GuideEngine:
                 return " ".join(re.findall(r"\w+", normalize(name)))
             duplicate = next((r for r in state.candidates
                               if identity(r.name) == identity(race.name)
-                              and r.race_date == race.race_date), None)
+                              and r.race_date == race.race_date
+                              and (self._dedupe_distance(r) is None
+                                   or self._dedupe_distance(race) is None
+                                   or self._dedupe_distance(r) == self._dedupe_distance(race))), None)
             if duplicate:
+                if self._dedupe_distance(duplicate) is None:
+                    duplicate.distance_km = race.distance_km
+                    duplicate.distance_label = race.distance_label
                 duplicate.source_urls = list(dict.fromkeys(
                     [*duplicate.source_urls, *race.source_urls]))
                 if race.date_status == "official":
