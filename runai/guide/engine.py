@@ -79,6 +79,9 @@ class GuideEngine:
         )
 
     def _race_chips(self, state, races=None):
+        choices = list(state.candidates if races is None else races)
+        choices.sort(key=lambda r: (not self._default_race(state, r),
+                                    not self._eligible(r), self._preparation_rank(state, r)))
         chips = [
             self._chip(
                 r.id,
@@ -87,7 +90,7 @@ class GuideEngine:
                 "choose_race",
                 "synthetic" if r.synthetic else "source",
             )
-            for r in (state.candidates if races is None else races)
+            for r in choices
             if not state.draft.race or r.id != state.draft.race.id
         ]
         for chip in chips:
@@ -95,6 +98,10 @@ class GuideEngine:
             if not self._matches_distance(state, race):
                 chip.group = self._say(state, "Autre distance", "Another distance")
         return chips
+
+    def _default_race(self, state, race):
+        return (self._eligible(race) and self._matches_distance(state, race)
+                and self._preparation_rank(state, race)[-1] == 0)
 
     def _matches_distance(self, state, race):
         distance = state.hints.get("distance")
@@ -134,7 +141,11 @@ class GuideEngine:
                 registration = import_module("runai.agents.registration").registration_coverage
                 result = registration(race.model_dump(mode="json", exclude={"preparation"}))
                 if isinstance(result, dict):
-                    result = result.get("status", result.get("registration"))
+                    status = result.get("status", result.get("registration"))
+                    result = ("covered" if result.get("covered") is True
+                              and status == "open" else status)
+                    if result == "open":
+                        result = "uncovered"
                 if isinstance(result, str):
                     preparation.registration = RacePreparation(registration=result).registration
             except Exception:  # noqa: BLE001 -- optional coverage fails closed
@@ -164,19 +175,29 @@ class GuideEngine:
 
     def _preparation_message(self, state, race):
         p = race.preparation or RacePreparation()
-        parts = [(p.registration == "covered", "l'inscription", "registration"),
-                 (p.hotel is True, "l'hôtel", "hotel"),
-                 (p.transport is True, "le transport", "transport")]
+        parts = [(True if p.registration == "covered" else None if p.registration == "unknown"
+                  else False, "l'inscription", "registration"),
+                 (p.hotel, "l'hôtel", "hotel"),
+                 (p.transport, "le transport", "transport")]
         covered = [self._say(state, fr, en) for ok, fr, en in parts if ok]
-        missing = [self._say(state, fr, en) for ok, fr, en in parts if not ok]
+        missing = [self._say(state, fr, en) for ok, fr, en in parts if ok is False]
         message = self._say(
             state, f" Je peux préparer {', '.join(covered)} pour {race.name}." if covered
             else f" Aucune préparation couverte pour {race.name}.",
-            f" I can prepare {', '.join(covered)} for {race.name}." if covered
+            f" I can prepare {', '.join(covered)} for {race.name} (covered agents)." if covered
             else f" No preparation is covered for {race.name}.")
         if missing:
             message += self._say(state, f" Non couverts : {', '.join(missing)}.",
                                  f" Not covered: {', '.join(missing)}.")
+        unknown = [self._say(state, fr, en) for ok, fr, en in parts if ok is None]
+        if unknown:
+            message += self._say(state, f" À vérifier : {', '.join(unknown)}.",
+                                 f" To check: {', '.join(unknown)}.")
+        alternatives = [r for r in state.candidates if r.id != race.id and self._eligible(r)
+                        and self._preparation_rank(state, r)[-1] == 0]
+        if (missing or unknown) and alternatives:
+            message += self._say(state, f" Je propose plutôt {alternatives[0].name}, préparable.",
+                                 f" Try {alternatives[0].name} instead: all three agents are covered.")
         return message
 
     def _eligible(self, race):
@@ -273,6 +294,10 @@ class GuideEngine:
         elif state.stage == "choose_race":
             question = self._say(state, "Laquelle te tente ?", "Which one catches your eye?")
             chips = self._race_chips(state)
+            if not d.race and not any(self._eligible(r) for r in state.candidates):
+                chips = [self._chip("alternative", self._say(
+                    state, "Chercher une course préparable", "Find a preparable race"), "retry")]
+                chips += self._recovery_chips(state) + self._race_chips(state)
             if not d.race and (
                 state.hints.get("retry_count") and not any(self._eligible(r) for r in state.candidates)
                 or not any(r.race_date for r in state.candidates)
@@ -280,15 +305,18 @@ class GuideEngine:
                 chips += (self._recovery_chips(state) if state.hints.get("retry_count") else
                           [self._chip("retry", self._say(state, "Relancer", "Try again"), "retry")])
             if d.race:
+                chips = self._race_chips(state, [r for r in state.candidates
+                                                 if self._eligible(r)])
                 explanation = self._say(
                     state,
                     "Les sources actuelles ne permettent pas de confirmer la date de cette course ; choisissons une autre option.",
                     "This race's date cannot be confirmed from the current sources; let's try another option.",
                 )
                 message = (message + " " if message else "") + explanation
-                chips += (self._recovery_chips(state) if state.hints.get("retry_count")
-                          else [self._chip("retry", self._say(state, "Relancer", "Try again"),
-                                           "retry")])
+                if not state.hints.get("retry_count"):
+                    chips += [self._chip("retry", self._say(state, "Relancer", "Try again"),
+                                         "retry")]
+                chips += self._recovery_chips(state)
         elif state.stage in {"origin", "nights", "budget"}:
             if state.stage == "origin":
                 choices = self._origin_choices(d.race)
@@ -547,6 +575,15 @@ class GuideEngine:
             if race.race_date and race.race_date < self.today:
                 flags["past"] = True
                 continue
+            key = f"{normalize(race.name)}|{race.race_date}|{self._dedupe_distance(race)}"
+            cached = state.verification_cache.get(key)
+            if cached and cached.date_status == "official":
+                race.date_status = "official"
+                race.source_urls = list(dict.fromkeys([*cached.source_urls, *race.source_urls]))
+                race.official_url = race.official_url or cached.official_url
+                race.registration_url = race.registration_url or cached.registration_url
+            elif race.date_status == "official":
+                state.verification_cache[key] = race.model_copy(deep=True)
             def identity(name):
                 return " ".join(re.findall(r"\w+", normalize(name)))
             duplicate = next((r for r in state.candidates
@@ -608,18 +645,98 @@ class GuideEngine:
     def _recovery_chips(self, state):
         return [self._chip(value) for value in self._say(
             state, ["En Suisse", "En juillet", "Un marathon"],
-            ["In Switzerland", "In July", "A marathon"])]
+            ["In Switzerland", "In July", "A marathon"])
+                if state.recovery_failures.get(normalize(value), 0) < 2]
 
     def _escalate(self, state):
         attempt = state.hints.get("retry_count", 0) + 1
         state.hints["retry_count"] = attempt
         state.hints["depth"] = "deep"
         state.hints["official_date_required"] = True
+        state.query = re.sub(r" recovery \d+ official alternatives$", "", state.query)
+        state.query += f" recovery {attempt} official alternatives"
         if attempt >= 2:
             state.hints["broaden"] = True
             state.hints["alternative_scope"] = "same country, other cities and neighbouring months"
 
     async def _discover(self, state):
+        previous = next((row["text"] for row in reversed(state.history)
+                         if row.get("role") == "assistant"), None)
+        recovery = state.hints.pop("_recovery_action", None)
+        state, turn = await self._search_races(state)
+        if recovery and not any(self._default_race(state, r) for r in state.candidates):
+            state.recovery_failures[recovery] = state.recovery_failures.get(recovery, 0) + 1
+        if recovery and sum(state.recovery_failures.values()) >= 2:
+            state, turn = await self._preparable_alternative(state, turn)
+        months = state.hints.get("months")
+        if months and not turn.error and not any(
+            r.race_date and r.race_date.strftime("%Y-%m") in months for r in state.candidates
+        ):
+            requested = ", ".join(months)
+            turn.message = self._say(
+                state, f"Aucune course sourcée en {requested}. ",
+                f"No sourced race in {requested}. ") + turn.message
+            first = date.fromisoformat(min(months) + "-01")
+            last = date.fromisoformat(max(months) + "-01")
+            adjacent = [(first - timedelta(days=1)).replace(day=1),
+                        (last + timedelta(days=32)).replace(day=1)]
+            turn.suggestions += [self._chip("month:" + day.strftime("%Y-%m"),
+                                            day.strftime("%Y-%m")) for day in adjacent]
+            previous = next((row["text"] for row in reversed(state.history[:-1])
+                             if row.get("role") == "assistant"), None)
+            if turn.message == previous:
+                turn.message += self._say(state, " Précisons une autre piste.",
+                                          " Let's refine another option.")
+            state.pending_suggestions = turn.suggestions
+            state.history[-1]["text"] = turn.message
+        turn.suggestions = [s for s in turn.suggestions
+                            if state.recovery_failures.get(normalize(s.value), 0) < 2]
+        if not state.draft.race and not any(self._default_race(state, r) for r in state.candidates):
+            turn.suggestions.sort(key=lambda s: s.kind == "choose_race")
+        if turn.message == previous:
+            turn.message += self._say(state, " Précisons une autre piste.",
+                                      " Let's refine another option.")
+        if not turn.suggestions and state.recovery_failures.get("alternative", 0) < 2:
+            turn.suggestions = [self._chip("alternative", self._say(
+                state, "Chercher une course préparable", "Find a preparable race"), "retry")]
+        state.pending_suggestions = turn.suggestions
+        state.history[-1]["text"] = turn.message
+        return state, turn
+
+    async def _preparable_alternative(self, state, turn):
+        original = state.candidates
+        try:
+            seeds = import_module("runai.discovery.linkup").RACE_SEARCH_SEEDS
+            names = seeds.get(state.hints.get("country"), seeds["Italy"])
+            attempt = sum(state.recovery_failures.values()) - 2
+            name = names[attempt % len(names)]
+            hints = {"race_name": name, "named": True, "depth": "deep",
+                     "retry_count": state.hints.get("retry_count", 0),
+                     "official_date_required": True, "broaden": True,
+                     "alternative_scope": "open registration and covered hotel and transport"}
+            query = state.query
+            state.query = (name + " official open registration preparable alternative"
+                           f" recovery {state.hints.get('retry_count', 0)}")
+            state.candidates = []
+            try:
+                await self._collect(state, hints, broadened=True)
+            finally:
+                state.query = query
+            self._prepare_candidates(state)
+            alternatives = [r for r in state.candidates if self._default_race(state, r)]
+        except Exception:  # noqa: BLE001 -- optional recovery never invents an alternative
+            alternatives = []
+        state.candidates = alternatives + [r for r in original
+                                           if r.id not in {a.id for a in alternatives}]
+        if alternatives:
+            state.draft.race = None
+            self._advance(state)
+            return self._turn(state, self._say(
+                state, f"Je propose {alternatives[0].name} : date officielle, trois agents couverts.",
+                f"Try {alternatives[0].name}: official date, all three agents covered."))
+        return state, turn
+
+    async def _search_races(self, state):
         state.draft.race = None
         state.draft.arrival_date = state.draft.departure_date = None
         state.candidates = []
@@ -648,7 +765,11 @@ class GuideEngine:
                 official = [r for r in state.candidates if self._eligible(r)]
                 alternative_ids.update(r.id for r in official)
                 state.candidates = official + [r for r in original_candidates
-                                               if r.id not in {a.id for a in official}]
+                                               if r.id not in {a.id for a in official}
+                                               if not any(normalize(r.name) == normalize(a.name)
+                                                          and r.race_date == a.race_date
+                                                          and self._dedupe_distance(r) == self._dedupe_distance(a)
+                                                          for a in official)]
                 if official:
                     months = hints.get("months")
                     if not months:
@@ -700,12 +821,7 @@ class GuideEngine:
                 "On essaie un autre pays, mois ou format ?",
                 "Shall we try another country, month or distance?",
             )
-            values = self._say(
-                state,
-                ["En Suisse", "En juillet", "Un marathon"],
-                ["In Switzerland", "In July", "A marathon"],
-            )
-            turn.suggestions = [self._chip(v) for v in values]
+            turn.suggestions = self._recovery_chips(state)
             state.pending_suggestions = turn.suggestions
             if unsafe_source:
                 turn.message = self._say(
@@ -975,8 +1091,17 @@ class GuideEngine:
                 distances[0] if len(distances) == 1 else None,
             )
         if chip:
-            if chip.kind == "retry":
+            if chip.kind == "retry" or chip.value.startswith("month:"):
+                state.hints["_recovery_action"] = normalize(chip.value)
                 self._escalate(state)
+                if chip.value.startswith("month:"):
+                    month = chip.value.removeprefix("month:")
+                    state.hints["months"] = [month]
+                    state.hints["year"] = int(month[:4])
+                    state.hints.pop("exact_date", None)
+                    state.hints.pop("broaden", None)
+                    state.query = re.sub(r"\s+month:\d{4}-\d{2}", "", state.query)
+                    state.query += " " + chip.value
                 if chip.value == "next_edition":
                     state.hints.pop("year", None)
                     state.hints.pop("months", None)
@@ -994,6 +1119,25 @@ class GuideEngine:
                 return self._turn(state)
             if chip.kind == "choose_race":
                 state.draft.race = next(r for r in state.candidates if r.id == chip.value)
+                if not self._eligible(state.draft.race):
+                    race = state.draft.race
+                    key = f"{normalize(race.name)}|{race.race_date}|{self._dedupe_distance(race)}"
+                    if key not in state.verification_attempts:
+                        state.verification_attempts.append(key)
+                        state.query = race.name + " official edition date"
+                        state.hints.update(race_name=race.name, named=True, depth="deep",
+                                           official_date_required=True)
+                        state, turn = await self._discover(state)
+                        selected = next((r for r in state.candidates
+                                         if normalize(r.name) == normalize(race.name)), None)
+                        if selected and not self._eligible(selected):
+                            state.draft.race = selected
+                            self._advance(state)
+                            return self._turn(state, turn.message, turn.error)
+                        return state, turn
+                    return self._turn(state, self._say(
+                        state, "Date à confirmer : choisis une alternative officielle ou une autre recherche.",
+                        "Date to confirm: choose an official alternative or another search."))
                 state.draft.provenance["race"] = "source"
                 state.draft.provenance.pop("distance_km", None)
                 if state.draft.race.distance_km is not None:
@@ -1054,8 +1198,8 @@ class GuideEngine:
         if unsafe:
             safe = text[:unsafe.start()].strip(" ,.;")
             intent = parse_intent(safe, today=self.today)
-            self._set_language(state, intent if safe else parse_intent(text, today=self.today),
-                               typed=chip is None)
+            if not state.history:
+                self._set_language(state, parse_intent(text, today=self.today), typed=True)
             refusal = self._say(
                 state, "Je ne peux pas divulguer d'instructions ou de secrets, traiter des données personnelles ni effectuer d'action engageante.",
                 "I cannot disclose instructions or secrets, process personal data or take binding actions.")
@@ -1082,10 +1226,11 @@ class GuideEngine:
         intent = parse_intent(text, today=self.today)
         if introduction and not intent.fr_cues and not intent.en_cues:
             intent.switch_language = introduced_language
-        self._set_language(state, intent, typed=chip is None)
         if re.search(r"\b(?:meteo|weather|poeme?|poetry)\b", normalize(text)) and not (
             intent.distance or intent.named
         ):
+            if not state.history:
+                self._set_language(state, intent, typed=True)
             return self._turn(state, self._say(
                 state, "Restons sur ton projet de course : dis-moi quelle course te tente.",
                 "Let's focus on your running trip: tell me which race interests you."))
@@ -1101,6 +1246,7 @@ class GuideEngine:
                 "via le bouton dédié. Reprenons ici.",
                 "Nothing starts without your explicit confirmation of the ready plan, "
                 "via the dedicated button. Let's continue here."), "confirmation_required")
+        self._set_language(state, intent, typed=chip is None)
         state.history.append({"role": "user", "text": text})
         if bare_city(text) and (state.stage in {"origin", "confirm", "confirmed"}
                                 or (state.query and not state.draft.origin_city)):
@@ -1218,6 +1364,8 @@ class GuideEngine:
                 "a marathon",
             } and bool(state.query) and (state.stage == "discover"
                                          or not self._eligible(state.draft.race))
+            if recovery and chip:
+                state.hints["_recovery_action"] = normalize(chip.value)
             if (intent.distance or intent.country or intent.city) and not recovery:
                 state.query = (named_query(intent.city, intent.distance)
                                if intent.named else text)
@@ -1255,6 +1403,8 @@ class GuideEngine:
             if recovery:
                 place = state.hints.get("city") or state.hints.get("country", "")
                 state.query = named_query(place, state.hints.get("distance", "race"))
+                state.query += " " + " ".join(state.hints.get("months", []))
+                state.query += f" search {state.hints.get('retry_count', 0)}"
                 if state.hints.get("named"):
                     state.hints["race_name"] = state.query
             if intent.problem == "exact_date":
@@ -1268,9 +1418,18 @@ class GuideEngine:
             for f in ["origin_city", "nights", "budget_eur", "travelers"]
         ):
             self._advance(state)
-            return self._turn(state, self._say(
-                state, "D'accord, je retiens ces préférences. Tu peux toujours changer d'avis.",
-                "Sounds good, I've saved those preferences. You can still change your mind."))
+            values = []
+            if intent.origin_city:
+                city = self._display_text(state, intent.origin_city)
+                values.append(self._say(state, f"départ de {city}", f"leaving from {city}"))
+            if intent.nights:
+                values.append(self._say(state, f"{intent.nights} nuits", f"{intent.nights} nights"))
+            if intent.budget_eur:
+                values.append(f"{intent.budget_eur} €")
+            if intent.travelers:
+                values.append(self._say(state, f"{intent.travelers} voyageurs", f"{intent.travelers} travelers"))
+            return self._turn(state, self._say(state, "D'accord, je retiens : ", "Saved: ")
+                              + ", ".join(values) + ".")
         return self._turn(
             state,
             self._say(

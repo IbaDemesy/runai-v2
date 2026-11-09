@@ -20,6 +20,8 @@ class FakeDiscovery:
             ("Lausanne", "Switzerland", "trail", 6, 20),
             ("Interlaken", "Switzerland", "trail", 8, 15),
             ("Lisbon", "Portugal", "half", 3, 14),
+            ("Berlin", "Germany", "marathon", 9, 20),
+            ("Frankfurt", "Germany", "marathon", 10, 25),
             ("Chamonix", "France", "ultra", None, None),
         ]
         results = []

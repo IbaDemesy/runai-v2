@@ -88,3 +88,6 @@ class GuideState(Model):
     history: list[dict] = Field(default_factory=list)
     lang: Literal["fr", "en"] = "fr"
     pending_suggestions: list[Suggestion] = Field(default_factory=list)
+    verification_cache: dict[str, RaceOption] = Field(default_factory=dict)
+    recovery_failures: dict[str, int] = Field(default_factory=dict)
+    verification_attempts: list[str] = Field(default_factory=list)

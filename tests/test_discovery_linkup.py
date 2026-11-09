@@ -125,6 +125,34 @@ def test_named_query_enrichment_survives_app_hint_mapping():
     asyncio.run(run())
 
 
+@pytest.mark.parametrize("outcome", ["normal", "empty", "error"])
+def test_country_autumn_seeds_are_only_query_hints(outcome):
+    async def run():
+        def handler(request):
+            prompt = json.loads(request.content)["q"]
+            for name in ("Berlin Marathon", "Frankfurt Marathon", "Cologne Marathon",
+                         "Munich Marathon", "Hamburg Marathon"):
+                assert name in prompt
+            assert "2027-09" in prompt and "2027-11" in prompt
+            assert "Names are search hints only" in prompt
+            if outcome == "error":
+                return httpx.Response(400)
+            return httpx.Response(200, json={"candidates": [] if outcome == "empty" else [race()]})
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            kwargs = {"api_key": KEY, "client": client, "hints": {
+                "country": "Germany", "distance": "marathon", "month_from": "2027-09",
+                "month_to": "2027-11", "year": 2027}}
+            if outcome == "error":
+                with pytest.raises(DiscoveryProviderError):
+                    await discover("big marathon in Germany next autumn", **kwargs)
+            else:
+                result = await discover("big marathon in Germany next autumn", **kwargs)
+                assert [r["name"] for r in result] == ([] if outcome == "empty" else ["Example Marathon"])
+
+    asyncio.run(run())
+
+
 def test_normal_multi_candidate_and_structured_request():
     async def run():
         def handler(request):

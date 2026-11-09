@@ -478,7 +478,10 @@ def assert_immediate(case, state, turn, discovery):
                    and r.distance_km == 21.097 for r in turn.candidates)
         assert all(len({url.split("/")[2] for url in r.source_urls}) == len(r.source_urls)
                    for r in turn.candidates)
-        assert {s.kind for s in turn.suggestions} == {"choose_race"}
+        race_choices = [s for s in turn.suggestions if not s.value.startswith("month:")]
+        assert {s.kind for s in race_choices} == {"choose_race"}
+        if expected == "spain-broadened" and state.hints.get("months"):
+            assert len([s for s in turn.suggestions if s.value.startswith("month:")]) == 2
         final = case.switch or case.lang
         if expected == "spain":
             assert ("Voici les options" if final == "fr" else "Here are sourced") in turn.message

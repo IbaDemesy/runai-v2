@@ -36,6 +36,21 @@ DISTANCES = {
     "trail": "trail running race (any distance)",
     "ultra": "ultra-distance race (longer than 42.195 km)",
 }
+RACE_SEARCH_SEEDS = {
+    "Germany": ("Berlin Marathon", "Frankfurt Marathon", "Cologne Marathon",
+                "Munich Marathon", "Hamburg Marathon"),
+    "Italy": ("Milano Marathon", "Rome Marathon", "Florence Marathon"),
+    "France": ("Paris Marathon", "Nice Cannes Marathon", "Lyon Marathon"),
+    "Spain": ("Valencia Marathon", "Barcelona Marathon", "Seville Marathon"),
+    "Portugal": ("Lisbon Marathon", "Porto Marathon", "Lisbon Half Marathon",
+                 "Porto Half Marathon"),
+    "Switzerland": ("Lucerne Marathon", "Lausanne Marathon", "Geneva Marathon"),
+    "Netherlands": ("Amsterdam Marathon", "Rotterdam Marathon", "Eindhoven Marathon"),
+    "Austria": ("Vienna City Marathon", "Graz Marathon", "Wachau Marathon"),
+    "Belgium": ("Brussels Marathon", "Antwerp Marathon", "Ghent Marathon"),
+    "United Kingdom": ("London Marathon", "Manchester Marathon", "Chester Marathon",
+                       "Yorkshire Marathon", "Edinburgh Marathon"),
+}
 _OPTIONAL_ROW_FIELDS = ("distance_km", "official_url", "registration_url", "registration_source_url")
 CACHE_TTL_S = 1800
 CACHE_MAX_SIZE = 128
@@ -420,6 +435,15 @@ async def discover(
             f"{distance} {localized} {year} date officielle; "
             f"major {distance} editions in {country} {year} official date. "
             "Search main national editions and organizer calendars; return only sourced dates.")
+        search_terms["candidate_search_hints"] = {
+            "names": RACE_SEARCH_SEEDS.get(country, ()),
+            "window": [constraints.get("month_from"), constraints.get("month_to")],
+            "query": f"{country} {distance} {constraints.get('month_from', year)} "
+                     f"{constraints.get('month_to', '')} official organizer race calendar",
+            "instruction": "Names are search hints only, not evidence of dates, distances, "
+                           "availability or coverage. Search the requested season first; "
+                           "verify every edition and distance from returned sources.",
+        }
     intent_data = json.dumps({"query": safe_query, "hints": constraints,
                               "search_terms": search_terms}, ensure_ascii=True)
     intent_data = intent_data.replace("<", "\\u003c").replace(">", "\\u003e")
