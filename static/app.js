@@ -521,7 +521,7 @@
     stepper(kind);
     const steps = card.querySelector('.steps'), handoff = card.querySelector('.handoff');
     const running = {registration: t('Vérifie le parcours d’inscription officiel.', 'Checking the official registration journey.'), hotel: t('Compare les chambres pour vos dates.', 'Comparing rooms for your dates.'), transport: t('Cherche votre aller-retour.', 'Finding your outbound and return journey.')}[kind];
-    if (state.status === 'ready_for_payment') steps.textContent = t('Tout est prêt : il ne reste que le paiement, par vous.', 'All set: only the payment is left, for you.');
+    if (state.status === 'ready_for_payment') steps.textContent = kind === 'registration' ? t('Prêt : vous complétez vous-même l’inscription, puis payez.', 'Ready: you complete the registration details yourself, then pay.') : t('Tout est prêt : il ne reste que le paiement, par vous.', 'All set: only the payment is left, for you.');
     else if (terminal.has(state.status)) {
       const [title, next] = reasonCopy(state.reason, state.status, kind);
       steps.replaceChildren(node('strong', 'reason-title', title), ...(next ? [node('span', 'reason-next', next)] : []));
@@ -538,20 +538,21 @@
     const trip = tripFacts(), race = trip.race || {}, km = Number.isFinite(race.distance_km) ? distance(race) : race.distance_label || '';
     return [
       [t('Une autre course', 'Another race'), km && race.country ? t(`Propose-moi une autre course de ${km} en ${race.country}`, `Suggest another ${km} race in ${race.country}`) : t('Propose-moi une autre course', 'Suggest another race')],
-      [t('Une autre ville', 'Another city'), km && race.city ? t(`Un ${km} dans une autre ville que ${race.city}`, `A ${km} race in another city than ${race.city}`) : t('Une course dans une autre ville', 'A race in another city')],
+      [t('Une autre ville', 'Another city'), km ? t(`Propose-moi un ${km} dans une autre ville${race.country ? ` en ${race.country}` : ''}`, `Suggest a ${km} race in a different city${race.country ? ` in ${race.country}` : ''}`) : t('Une course dans une autre ville', 'A race in another city')],
       [t('Un autre départ', 'Another origin'), race.name && trip.origin_city ? t(`${race.name}, en partant d’une autre ville que ${trip.origin_city}`, `${race.name}, leaving from another city than ${trip.origin_city}`) : t('Je pars d’une autre ville', 'I am leaving from another city')]
     ];
   }
+  const coverageReasons = new Set(['no_site_coverage', 'policy_denied']);
   function overview() {
     const states = kinds.map(kind => agentState[kind]), finished = states.every(state => state && terminal.has(state.status));
     const ready = states.filter(state => state?.status === 'ready_for_payment').length, banner = $('mission-banner'), coverage = $('coverage');
-    const dead = finished && !ready && states.every(state => !state.active);
+    const dead = finished && !ready && states.every(state => !state.active && coverageReasons.has(state.reason));
     $('agents').dataset.view = dead ? 'coverage' : 'agents';
     banner.hidden = !finished || dead;
     if (finished && !dead) {
       banner.dataset.tone = ready === 3 ? 'success' : 'partial';
       banner.replaceChildren(node('strong', '', ready === 3 ? t('Tout est prêt avant paiement', 'Everything is ready before payment') : t(`${ready}/3 prêt${ready > 1 ? 's' : ''} avant paiement`, `${ready}/3 ready before payment`)),
-        node('span', '', ready === 3 ? t('Les trois étapes vous attendent : vous seul payez, sur chaque site.', 'All three steps are waiting: only you pay, on each site.') : t('Reprenez les autres étapes sur les sites proposés.', 'Continue the other steps on the suggested sites.')));
+        node('span', '', ready === 3 ? t('Les trois étapes vous attendent : vous complétez vos informations et payez vous-même, sur chaque site.', 'All three steps are waiting: you enter your details and pay yourself, on each site.') : t('Reprenez les autres étapes sur les sites proposés.', 'Continue the other steps on the suggested sites.')));
     }
     coverage.hidden = !dead;
     if (!dead || coverage.dataset.rendered === 'true') return;

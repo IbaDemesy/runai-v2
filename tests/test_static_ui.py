@@ -363,6 +363,10 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
   } else if (scenario === 'coverage') {
     await initial(true);
     kinds.forEach(kind => ui.event({kind, type:'step_started'}));
+    kinds.forEach(kind => ui.event({kind, status:'failed', reason_code:'provider_error'}));
+    assert.equal(ids.coverage.hidden, true, 'Provider failures are not a coverage gap'); assert.equal(ids.agents.dataset.view, 'agents');
+    await initial(true);
+    kinds.forEach(kind => ui.event({kind, type:'step_started'}));
     kinds.forEach(kind => { assert.equal(ids.coverage.hidden, true); ui.event({kind, status:'blocked', reason_code:'no_site_coverage', summary:'RAW_SUMMARY'}); });
     assert.equal(ids.coverage.hidden, false); assert.equal(ids.agents.dataset.view, 'coverage');
     assert.equal(ids['mission-banner'].hidden, true);
@@ -370,6 +374,7 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     assert.ok(!root.textContent.includes('RAW_SUMMARY'));
     respond('/api/missions', mission(false)); await chips[0].onclick(); await flush();
     assert.equal(calls.at(-1).path, '/api/missions'); assert.ok(calls.at(-1).body.text.includes('autre course'));
+    assert.ok(!ids.coverage.textContent.includes('autre ville que'));
     assert.equal(ids.agents.hidden, true); assert.equal(ids.coverage.hidden, true);
   } else if (scenario === 'success') {
     await initial(true);
