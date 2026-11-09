@@ -1,98 +1,12 @@
 [
   {
-    "id": "R3-01",
-    "round": 3,
+    "id": "R4-01",
+    "round": 4,
     "priority": "P0",
-    "title": "R3-01: P0: site-policy registry fragments, registration adapter validation, coverage() and hotel/transport adapters for the evaluation cities and default origins",
+    "title": "R4-01: P0 / H runtime + integration: unblock live runs (about:blank start, handoff-URL gate bug that kills Milan registration, live screenshot cadence, site alternatives, IHG session_failed), R4 docs/queue/owner feedback, final 3-agent live acceptance",
     "depends_on": [],
     "merge_order": 1,
-    "merge_note": "Independent; implements P1, P2 and P3.",
-    "files": [
-      "runai/agents/site_policy.py",
-      "runai/agents/hotel.py",
-      "runai/agents/transport.py",
-      "docs/site-policy.json",
-      "docs/site-policy.d/hotel.json",
-      "docs/site-policy.d/transport.json",
-      "tests/test_site_policy.py",
-      "tests/test_agent_hotel.py",
-      "tests/test_agent_transport.py",
-      "docs/evidence/site-policy.md",
-      "docs/evidence/hotel.md",
-      "docs/evidence/transport.md",
-      "docs/handoff/R3-01.md"
-    ]
-  },
-  {
-    "id": "R3-02",
-    "round": 3,
-    "priority": "P0",
-    "title": "R3-02: P0: reviewed race-registration adapters (Milan, Lisbon and other evaluation races) reaching the first personal-data page untouched",
-    "depends_on": [],
-    "merge_order": 1,
-    "merge_note": "Consumes P2 adapters; fails closed until R3-01 lands.",
-    "files": [
-      "runai/agents/registration.py",
-      "docs/site-policy.d/registration.json",
-      "tests/test_agent_registration.py",
-      "docs/evidence/registration.md",
-      "docs/handoff/R3-02.md"
-    ]
-  },
-  {
-    "id": "R3-03",
-    "round": 3,
-    "priority": "P0",
-    "title": "R3-03: P0 / design-first: Strava-grade UI, ChatGPT-style suggestion pills, live three-agent stage with fresh frames and friendly reason-code messages, FR/EN localisation",
-    "depends_on": [],
-    "merge_order": 1,
-    "merge_note": "Independent; consumes P4 and P6 with baseline fallbacks.",
-    "files": [
-      "static/index.html",
-      "static/styles.css",
-      "static/app.js",
-      "tests/test_static_ui.py",
-      "docs/evidence/R3-03-ui.md",
-      "docs/handoff/R3-03.md"
-    ]
-  },
-  {
-    "id": "R3-04",
-    "round": 3,
-    "priority": "P1",
-    "title": "R3-04: P1: guide robustness (live false negatives, distance chips, coherent origin defaults via coverage(), GuidedTurn.language)",
-    "depends_on": [],
-    "merge_order": 1,
-    "merge_note": "Independent; consumes P3 lazily and exposes P6.",
-    "files": [
-      "runai/guide/__init__.py",
-      "runai/guide/types.py",
-      "runai/guide/parse.py",
-      "runai/guide/engine.py",
-      "runai/guide/fake.py",
-      "runai/discovery/__init__.py",
-      "runai/discovery/linkup.py",
-      "tests/test_guide_parse.py",
-      "tests/test_guide_engine.py",
-      "tests/test_discovery_linkup.py",
-      "tests/test_guide_adversarial.py",
-      "docs/evidence/discovery.md",
-      "docs/handoff/R3-04.md"
-    ]
-  },
-  {
-    "id": "R3-05",
-    "round": 3,
-    "priority": "P0",
-    "title": "R3-05: P0 / integration: honest H runtime (no false unsafe verdicts, fresh frames, fast no-inventory stops), reason codes, R3 docs/queue and final 3-agent live acceptance",
-    "depends_on": [
-      "R3-01",
-      "R3-02",
-      "R3-03",
-      "R3-04"
-    ],
-    "merge_order": 2,
-    "merge_note": "Docs/core may merge any time while green; final live acceptance after R3-01..R3-04 merge, on a rebased branch.",
+    "merge_note": "PR-A (hclient fixes, core, R4 docs/queue, owner feedback) merges any time while green; PR-B (final live acceptance, >=5 UI-driven cases) after R4-02..R4-05 merge, on a rebased branch.",
     "files": [
       "runai/agents/hclient.py",
       "runai/agents/scrub.py",
@@ -107,8 +21,9 @@
       "tests/test_journey_e2e.py",
       "tests/test_api_privacy.py",
       "tests/test_api_discovery_progress.py",
-      "tests/test_r2_scope_contract.py",
       "tests/test_r3_scope_contract.py",
+      "tests/test_r4_scope_contract.py",
+      "tests/fixtures/h_vueling_observations.json",
       "docs/evidence/h-client.md",
       "AGENTS.md",
       "PLAN.md",
@@ -117,13 +32,94 @@
       "HANDOFF.md",
       "docs/feedback/owner.md",
       "docs/tickets/index.json",
-      "docs/tickets/R3-01.md",
-      "docs/tickets/R3-02.md",
-      "docs/tickets/R3-03.md",
-      "docs/tickets/R3-04.md",
-      "docs/tickets/R3-05.md",
-      "docs/handoff/R3-05.md",
-      "docs/eval/round-3-acceptance.md"
+      "docs/tickets/R4-01.md",
+      "docs/tickets/R4-02.md",
+      "docs/tickets/R4-03.md",
+      "docs/tickets/R4-04.md",
+      "docs/tickets/R4-05.md",
+      "docs/handoff/R4-01.md",
+      "docs/eval/round-4-acceptance.md"
+    ]
+  },
+  {
+    "id": "R4-02",
+    "round": 4,
+    "priority": "P0",
+    "title": "R4-02: P0: hotel + transport coverage that actually reaches pre-payment from default origins (Vueling BCN/AMS/more, rail adapters Trenitalia/SBB/Renfe/Ouigo/NS International, IHG Europe-wide incl. NL, IHG Add-Extras success evidence, alternatives per P7)",
+    "depends_on": [],
+    "merge_order": 1,
+    "merge_note": "Independent; produces P7 alternatives for hotel/transport; live smoke after R4-01 PR-A.",
+    "files": [
+      "runai/agents/site_policy.py",
+      "runai/agents/hotel.py",
+      "runai/agents/transport.py",
+      "docs/site-policy.json",
+      "docs/site-policy.d/hotel.json",
+      "docs/site-policy.d/transport.json",
+      "tests/test_site_policy.py",
+      "tests/test_agent_hotel.py",
+      "tests/test_agent_transport.py",
+      "docs/evidence/site-policy.md",
+      "docs/evidence/hotel.md",
+      "docs/evidence/transport.md",
+      "docs/handoff/R4-02.md"
+    ]
+  },
+  {
+    "id": "R4-03",
+    "round": 4,
+    "priority": "P0",
+    "title": "R4-03: P0: registration coverage + availability for the races the assistant proposes (Barcelona half/rpmsports, Swiss Irontrail, NN CPC Den Haag, open alternatives to sold-out Lisbon), registration_coverage() API",
+    "depends_on": [],
+    "merge_order": 1,
+    "merge_note": "Independent; implements P8 registration_coverage and P7 registration alternatives; live smoke after R4-01 PR-A.",
+    "files": [
+      "runai/agents/registration.py",
+      "docs/site-policy.d/registration.json",
+      "tests/test_agent_registration.py",
+      "docs/evidence/registration.md",
+      "docs/handoff/R4-03.md"
+    ]
+  },
+  {
+    "id": "R4-04",
+    "round": 4,
+    "priority": "P1",
+    "title": "R4-04: P1 guide: propose races that can actually be prepared (coverage + open registration ranking, P9 RaceOption.preparation), fix round-3 adversarial failures, faster deterministic first reply, adversarial suite >=45",
+    "depends_on": [],
+    "merge_order": 1,
+    "merge_note": "Independent; consumes P8/P3 lazily and produces P9 RaceOption.preparation; fails closed when missing.",
+    "files": [
+      "runai/guide/__init__.py",
+      "runai/guide/types.py",
+      "runai/guide/parse.py",
+      "runai/guide/engine.py",
+      "runai/guide/fake.py",
+      "runai/discovery/__init__.py",
+      "runai/discovery/linkup.py",
+      "tests/test_guide_parse.py",
+      "tests/test_guide_engine.py",
+      "tests/test_discovery_linkup.py",
+      "tests/test_guide_adversarial.py",
+      "docs/evidence/discovery.md",
+      "docs/handoff/R4-04.md"
+    ]
+  },
+  {
+    "id": "R4-05",
+    "round": 4,
+    "priority": "P0",
+    "title": "R4-05: P0 / design-first: Strava-grade polish to 9/10 - data-rich race/plan cards with preparation badges, honest live stage (fresh-frame LIVE badge, per-agent progress stepper, specific blocked reasons, success celebration), locale fixes, consolidated no-coverage state",
+    "depends_on": [],
+    "merge_order": 1,
+    "merge_note": "Independent; renders P9 preparation and P7 'Essai d'un autre site' when present, baseline otherwise.",
+    "files": [
+      "static/index.html",
+      "static/styles.css",
+      "static/app.js",
+      "tests/test_static_ui.py",
+      "docs/evidence/R4-05-ui.md",
+      "docs/handoff/R4-05.md"
     ]
   }
 ]

@@ -51,12 +51,13 @@
   directly to main. Keep main green; merge only with green CI, including
   tests/test_journey_e2e.py, and reviewed safety/evidence boundaries.
 - Read CONTRACTS.md, your ticket under docs/tickets/ and docs/tickets/index.json
-  first. index.json is the authoritative current queue (round 3: R3-01..R3-05);
+  first. index.json is the authoritative current queue (round 4: R4-01..R4-05);
   R2-*/R1-*/T* ticket files are history and grant no current scope. Touch only the
   ticket's allowed files; otherwise stop and request a scope amendment.
-- Round 3: R3-01..R3-04 merge in any order; R3-05 owns core integration
-  (app/models/providers and hclient/scrub), CONTRACTS.md and shared docs, and
-  runs final integrated live acceptance after the other four merge, on a rebased branch. Code against
+- Round 4: R4-01..R4-05 merge in any order. R4-01 owns core integration
+  (app/models/providers and hclient/scrub), CONTRACTS.md and shared docs; its
+  PR-A lands the H runtime fixes and docs, and its PR-B runs final integrated
+  live acceptance after R4-02..R4-05 merge, on a rebased branch. Code against
   the pinned additive interfaces in CONTRACTS.md; import sibling modules lazily
   and fail closed when they are missing.
 - Each ticket writes docs/handoff/<id>.md with changes, checks (pasted

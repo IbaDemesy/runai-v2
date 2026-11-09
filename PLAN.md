@@ -34,19 +34,19 @@ not a substitute for design work.
 The conversation should feel natural in French and English, with chat bubbles,
 streaming-like replies, a bottom composer, one-click defaults and typed corrections.
 
-## Architecture and round-3 ownership
-- R3-01: site-policy registry fragments, registration adapter validation,
-  coverage(), reviewed exact-date hotel/transport adapters.
-- R3-02: registration builders and the registration registry fragment;
-  first personal-data page reached untouched.
-- R3-03: premium Strava UI, chronological ChatGPT-style suggestions, fresh
-  screenshot-only three-agent stage, friendly reason codes and FR/EN cards.
-- R3-04: guide/discovery robustness, distance chips, coverage-aware origins
-  and GuidedTurn.language; >=30 adversarial FR/EN conversations.
-- R3-05: core app/models/providers plus hclient/scrub, reason codes, language,
-  honest outcomes, fresh frames, runtime limits, shared docs and final acceptance.
+## Architecture and round-4 ownership
+- R4-01: core app/models/providers plus hclient/scrub: handoff-only fallback
+  gate (P10), about:blank startup tolerance, live frame cadence, site
+  alternatives (P7), session_failed handoff, shared docs and final acceptance.
+- R4-02: site policy, hotel and transport adapters reaching pre-payment from
+  default origins (rail and flights, IHG Europe-wide), P7 alternatives.
+- R4-03: registration coverage and availability, `registration_coverage()` (P8).
+- R4-04: preparation-aware race proposals (P9 `RaceOption.preparation`),
+  previous-round adversarial fixes, faster deterministic first reply, >=45 conversations.
+- R4-05: Strava-grade polish to 9/10: data-rich cards, preparation badges,
+  honest live stage, specific blocked reasons, success celebration.
 
-CONTRACTS.md (owned by R3-05) pins P1–P6. Import sibling modules lazily and
+CONTRACTS.md (owned by R4-01) pins P1–P10. Import sibling modules lazily and
 fail closed when absent.
 
 ## Modes and truthfulness
@@ -80,8 +80,9 @@ The exact live-success definition is in
 date, explicit confirmation, three overlapping live H agents, changing on-page
 screenshots and verified safe pre-payment stops for all three. An earlier
 mandatory safety stop is a blocker. Never quietly swap a named request to force
-a pass. Round-3 target: >=1 complete success, ideally Milan and Lisbon.
-Record >=5 cases in docs/eval/round-3-acceptance.md after the other four merge.
+a pass. Round-4 target: >=1 complete success. Record >=5 UI-driven live cases
+(Milan marathon, Lisbon/Porto, Barcelona/Spain half, Swiss trail, Netherlands
+10K) in docs/eval/round-4-acceptance.md after R4-02..R4-05 merge.
 
 ## Safety and evidence boundary
 The owner has approved read/prepare-only live H runs, not transactions. Never
@@ -95,9 +96,9 @@ handoff links and scrubbed evidence. Never claim unobserved results.
 
 ## Continuous implementation loop
 Each ticket has one branch/PR and non-overlapping allowed files listed in
-docs/tickets/index.json (validated by tests/test_r3_scope_contract.py). Round
-3: R3-01..R3-04 merge in any order; R3-05 integrates and certifies live last.
-R2-*, R1-* and T* ticket files are history and grant no current scope.
+docs/tickets/index.json (validated by tests/test_r4_scope_contract.py). Round
+4: R4-01..R4-05 merge in any order; R4-01 PR-B integrates and certifies live last.
+R3-*, R2-*, R1-* and T* ticket files are history and grant no current scope.
 
 Keep main green: Python 3.12, `uv sync --frozen`,
 `uv run ruff check . && uv run pytest -q`, including the journey E2E tests.

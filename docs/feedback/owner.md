@@ -1,5 +1,40 @@
 # Owner product feedback
 
+## Round 4: owner hands-on feedback after testing round 1 live (recorded 2026-11-09)
+
+TOP PRIORITY, beats everything else. Verbatim owner hands-on feedback:
+- **(a)** "Suggestions must be redesigned like ChatGPT/OpenAI suggestion UI:
+  elegant, clear, clickable suggestion pills/cards under the assistant reply,
+  not raw buttons."
+- **(b)** "Each new assistant question must appear BELOW the latest proposals in
+  the thread (chronological chat flow), never appended next to the initial
+  question."
+- **(c)** "After launch: keep the 3 agent cards, and below them the user must
+  ONLY SEE THE AGENTS ACTING LIVE (live browser view / animated screenshots)
+  through to the final pre-payment step. NEVER show raw task text, prompts,
+  JSON or technical logs to the user; at most short human-friendly status
+  lines."
+- **(d)** "First reply takes ~1 min with no feedback: add immediate
+  streaming/typing/progress feedback."
+- "The owner wants by morning a fully functional, beautiful, near-perfect site."
+
+Owner priorities: a BEAUTIFUL, polished UX/UI is the single most important
+criterion (hackathon): premium modern visual design inspired by Strava (bold
+athletic look, energetic orange accent, clean cards, data-rich activity feel,
+great typography), spacing, motion, empty/loading/error states, responsive;
+design work is never optional. H API budget is not a constraint: run live H
+sessions whenever useful, agents in parallel. Prefer registration/hotel/transport
+sites without captchas whose terms do not forbid automated agents; document the
+choice. Organizers whose terms forbid extraction (e.g. 10K Valencia) stay
+prohibited; the guide steers to preparable races instead.
+
+Exact live success definition (ONE successful race case): the assistant itself
+proposes the race and its official date (the user never supplies the date),
+the user explicitly confirms, then the 3 H agents run LIVE in parallel (race
+bib/registration + hotel + transport), each reaching its verified pre-payment
+stop, and the user SEES all three agents working live on the page. Synthetic,
+replay or API-only ready states do not count.
+
 ## Round 3: owner hands-on feedback after testing round 1 live (2026-11-09)
 
 Strava-inspired beautiful UX is the #1 criterion, not optional polish.

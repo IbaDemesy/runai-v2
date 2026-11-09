@@ -133,6 +133,15 @@ def sanitize_state(state):
     return clean
 
 
+def execution_trip(value):
+    if isinstance(value, dict):
+        return {name: execution_trip(item) for name, item in value.items()
+                if name != "preparation"}
+    if isinstance(value, list):
+        return [execution_trip(item) for item in value]
+    return value
+
+
 def valid_plan(mission, today):
     try:
         if not mission.turns or not mission.turns[-1].get("ready_to_confirm"):
@@ -228,7 +237,7 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
         mission.turns.append(turn)
         if turn.get("language") in ("fr", "en"):
             mission.language = turn["language"]
-        mission.trip = sanitize(trip)
+        mission.trip = execution_trip(sanitize(trip))
         mission.status = "ready" if turn.get("ready_to_confirm") else "guiding"
         if turn.get("error") == "discovery_failed":
             discovery_failed(mission)

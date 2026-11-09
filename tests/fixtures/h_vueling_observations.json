@@ -1,0 +1,27 @@
+{
+  "synthetic": true,
+  "description": "Synthetic recorded-style startup sequence; not live evidence.",
+  "changes": [
+    {
+      "status": "running",
+      "new_events": [
+        {
+          "type": "AgentEvent",
+          "data": {"kind": "observation_event", "metadata": {"url": "about:blank"}}
+        },
+        {
+          "type": "AgentEvent",
+          "data": {
+            "kind": "observation_event",
+            "metadata": {
+              "url": "https://tickets.vueling.com/booking/flightSearch?o=CDG&d=BCN&dd=2027-04-03&rd=2027-04-05&adt=1",
+              "title": "Flight selection"
+            },
+            "image": {"type": "base64", "media_type": "image/png", "source": "c3ludGhldGljIHNjcmVlbnNob3QgYnl0ZXMsIG5vdCBsaXZlIGV2aWRlbmNl"}
+          }
+        }
+      ]
+    },
+    {"status": "completed", "new_events": []}
+  ]
+}

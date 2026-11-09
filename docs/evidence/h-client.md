@@ -1,5 +1,42 @@
 # H client: private screenshot transport and evidence boundary
 
+## R4-01 runtime changes — 2026-11-09
+
+Offline synthetic regression evidence only; no live certification.
+
+The owner's H documentation review found no endpoint for a current browser
+screenshot between steps. Screenshots are per-observation resources:
+`GET /sessions/{id}/resources/screenshots/<key>` redirects (302) to a presigned
+URL. OpenAPI access is restricted to H employees; it is not used here.
+References: [changes](https://hub.hcompany.ai/agents-api/sessions/changes.md),
+[status](https://hub.hcompany.ai/agents-api/sessions/status.md),
+[resources](https://hub.hcompany.ai/agents-api/sessions/resources.md),
+[observe and steer](https://hub.hcompany.ai/agents-api/observe-and-steer.md).
+
+- Long polls wait at most two seconds. Each new reviewed observation's image
+  is fetched immediately after its changes batch, with a three-second download
+  bound. Failed transient fetches are retried, not successful payloads. SHA-256
+  deduplication remains. A fake-clock regression proves distinct frames emit
+  within three seconds of arrival under successful mocked downloads; network
+  failures cannot guarantee delivery. No between-step frames are fabricated.
+- French progress lines are short, fixed, and emitted only when they change;
+  provider task, prompt and action text are never progress messages.
+- Fallback URLs are public HTTPS, non-Accor, unexpired policy-approved handoff
+  links only. They do not expand the task's reviewed navigation scopes.
+- Raw about:blank, empty and missing observation URLs produce no progress,
+  final URL or frame. Before a reviewed page, three blanks or 45 monotonic
+  seconds block startup as provider_error and stop the session. Later blanks
+  are ignored. Nonblank unreviewed redirects remain immediately blocked.
+- P7 alternatives use at most the first two supplied entries, within the
+  original ten-minute maximum budget. Invalid, kind-mismatched and policy-denied
+  alternatives are skipped. Only blocked unreviewed_redirect, provider_error,
+  no_inventory, sold_out, captcha and session_failed allow another attempt.
+  Results are never merged or upgraded: return first READY or last attempt.
+- Failed/interrupted sessions after reviewed progress return blocked
+  session_failed with the last reviewed public URL and a friendly resume line;
+  they are stopped before any alternative starts. Pre-progress retry stays
+  limited to one fresh session. All attempts share the event consumer.
+
 ## R3-05 runtime changes — 2026-11-09 UTC
 
 Offline regression coverage, not live certification:

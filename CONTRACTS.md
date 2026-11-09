@@ -257,8 +257,9 @@ with `no_site_coverage`, or `policy_denied` when its message says denied, and
 a friendly summary. No result is upgraded to success.
 
 ### P5 Live frame cadence
-R3-05/hclient attempts a new screenshot fetch every <=3 s while the H session
-is running, de-duplicated by image hash. Missing frames are never fabricated.
+hclient emits each new observation screenshot within <=3 s of it appearing in
+`/changes`, de-duplicated by image hash (H exposes no current-screenshot
+endpoint between steps; see docs/evidence/h-client.md). Missing frames are never fabricated.
 R3 runtime caps `max_steps` at 80 and each agent at 10 minutes, with remote
 cancellation; it retries once on session failure only before progress.
 
@@ -266,3 +267,50 @@ cancellation; it retries once on session failure only before progress.
 `Mission.language` is optional `'fr'|'en'`, from the latest guide turn language.
 R3-04 exposes `GuidedTurn.language`; R3-05 copies it; R3-03 localizes plan and
 agent cards, defaulting to browser/thread language when absent.
+
+## Round-4 pinned additive interfaces
+
+Consumers import sibling modules lazily and fail closed when missing. All
+round-3 interfaces (P1–P6) remain in force.
+
+### P7 Task alternatives
+A builder task dict may carry `alternatives`: a list of task-like dicts with
+`kind, site_name, start_url, fallback_url, instructions, success_signal,
+stop_before, expected, allowed_hosts, max_steps` (at most 2 are used). R4-02
+(hotel/transport) and R4-03 (registration) produce them; R4-01/hclient consumes
+them. If an attempt ends `blocked` with reason_code in `unreviewed_redirect`,
+`provider_error`, `no_inventory`, `sold_out`, `captcha` or `session_failed`
+within the 10-minute wall clock, hclient stops that session, runs the policy
+gate on the next alternative and starts it, emitting step_progress
+"Essai d'un autre site". The result is the first `ready_for_payment` attempt,
+else the last attempt; never upgraded or merged. Missing, malformed or
+policy-failing alternatives are skipped.
+
+### P8 Registration coverage
+`runai.agents.registration.registration_coverage(race, *, today=None,
+registry=None) -> {covered: bool, status: 'open'|'sold_out'|'not_open'|'closed'|
+'unknown', policy_id: str|None, observed_at: str|None, prohibited: bool}`.
+Pure, offline, never raises; observations older than 21 days are `unknown`.
+`covered` means `build_task` would succeed. R4-03 implements; R4-04 consumes.
+
+### P9 RaceOption.preparation
+`RaceOption` gains optional `preparation: {registration: 'covered'|'sold_out'|
+'not_open'|'closed'|'prohibited'|'uncovered'|'unknown', hotel: bool|null,
+transport: bool|null, origin_city: str|null}`. R4-04 produces it lazily (P8 and
+P3; missing modules give `unknown`/null); R4-05 renders badges when present.
+It is display-only: `trip_payload` and the app strip it, so builders receive the
+CONTRACTS trip dict unchanged.
+
+### P10 hclient fallback gate (handoff-only)
+`start_url` (and each alternative's `start_url`) is a navigation scope checked
+as before: public HTTPS, not Accor, allowed, unexpired review with policy id and
+screenshot scope, host and path inside review hosts ∩ task `allowed_hosts`.
+`fallback_url` is a handoff-only link: it must be public HTTPS, not Accor,
+`evaluate_url(fallback_url, kind)` allowed and unexpired, but its host need not
+be in task `allowed_hosts` and it never widens navigation reviews. A denied,
+expired or unknown `fallback_url` still blocks before any H session. Startup
+observations whose URL is exactly `about:blank` (or empty) are skipped without
+frame, progress or final URL; 45 s or 3 such observations before the first
+reviewed page end blocked `provider_error`. A session that fails after reviewed
+progress ends blocked `session_failed` with the last reviewed public URL as
+handoff.

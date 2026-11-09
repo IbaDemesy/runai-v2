@@ -89,9 +89,11 @@ def _policy(task):
     try:
         module = importlib.import_module(POLICY_MODULE)
         evaluate = module.evaluate_url
-        urls = [task.get("start_url"), task.get("fallback_url")]
+        urls = [(task.get("start_url"), False), (task.get("fallback_url"), True)]
         reviews = []
-        for url in filter(None, urls):
+        for url, handoff_only in urls:
+            if not url:
+                continue
             host = urlsplit(url).hostname or ""
             if not _public_https(url) or host == "accor.com" or host.endswith(".accor.com"):
                 raise _PolicyBlocked
@@ -112,6 +114,8 @@ def _policy(task):
                         expires_at = expires_at.replace(tzinfo=UTC)
                     if expires_at <= now:
                         raise _PolicyBlocked
+            if handoff_only:
+                continue
             if _field(review, "screenshot_scope") is not True:
                 raise _PolicyBlocked
             if not _field(review, "policy_id"):
@@ -411,19 +415,54 @@ class HAgentRunner:
         if timeout_s <= 0 or poll_s < 0:
             raise ValueError("timeout_s must be positive and poll_s non-negative")
         self.timeout_s = min(timeout_s, 600)
-        self.poll_s = min(poll_s, 3)
+        self.poll_s = min(poll_s, 2)
 
     async def run(
         self,
         task: dict,
         on_event: Callable[[dict], Awaitable[None]] | None = None,
     ) -> dict:
+        deadline = time.monotonic() + self.timeout_s
+        result = await self._attempt(task, on_event, self.timeout_s)
+        alternatives = task.get("alternatives")
+        if not isinstance(alternatives, list):
+            return result
+        for alternative in alternatives[:2]:
+            if result["status"] != "blocked" or result["reason_code"] not in {
+                "unreviewed_redirect", "provider_error", "no_inventory", "sold_out",
+                "captcha", "session_failed",
+            } or time.monotonic() >= deadline:
+                break
+            if not isinstance(alternative, dict) or alternative.get("kind") != task.get("kind"):
+                continue
+            if (
+                not isinstance(alternative.get("instructions"), str)
+                or not isinstance(alternative.get("expected"), dict)
+                or not isinstance(alternative.get("stop_before"), list)
+                or type(alternative.get("max_steps", 80)) is not int
+                or alternative.get("max_steps", 80) < 1
+            ):
+                continue
+            try:
+                _policy(alternative)
+            except _PolicyBlocked:
+                continue
+            if on_event:
+                await on_event({"type": "step_progress", "message": "Essai d'un autre site"})
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            result = await self._attempt(alternative, on_event, remaining)
+        return result
+
+    async def _attempt(self, task, on_event, timeout_s):
         if not self.api_key or not self.api_key.strip():
             raise HUnavailable("HAI_API_KEY is required for live H runs")
         client = self.client or httpx.AsyncClient()
         session_id = None
         frame_seen = None
         last_frame_hash = None
+        last_progress = None
         result = {
             "status": "failed", "summary": "", "handoff_url": None,
             "start_url": None, "final_url": None,
@@ -439,9 +478,13 @@ class HAgentRunner:
             return scrub_url(value)
 
         async def emit(event: dict):
+            nonlocal last_progress
             if "message" in event:
                 event["message"] = clean_text(event["message"])
             if event["type"] == "step_progress":
+                if event["message"] == last_progress:
+                    return
+                last_progress = event["message"]
                 result["steps"].append(event["message"])
             if on_event:
                 await on_event(event)
@@ -450,7 +493,7 @@ class HAgentRunner:
             response = await client.request(
                 method, self.base_url + path,
                 headers={"Authorization": f"Bearer {self.api_key}"},
-                timeout=min(self.timeout_s, 30), follow_redirects=False, **kwargs,
+                timeout=min(timeout_s, 30), follow_redirects=False, **kwargs,
             )
             response.raise_for_status()
             return response
@@ -520,19 +563,20 @@ class HAgentRunner:
             if content:
                 if len(content) > _IMAGE_LIMIT:
                     raise ValueError("Screenshot too large")
-                frame_seen = page_url
+                if page_url == result["final_url"]:
+                    frame_seen = page_url
                 digest = hashlib.sha256(content).digest()
                 if digest == last_frame_hash:
                     return
+                last_frame_hash = digest
                 await emit({
                     "type": "live_frame", "image": content, "mime": mime,
                     "observed_at": clean_text(timestamp or datetime.now(UTC).isoformat()),
                     "message": "Live browser view",
                 })
-                last_frame_hash = digest
 
         try:
-            async with asyncio.timeout(self.timeout_s):
+            async with asyncio.timeout(timeout_s):
                 start_url = clean_url(task.get("start_url"))
                 if not _public_https(start_url):
                     raise ValueError("start_url must be a public HTTPS URL")
@@ -573,8 +617,8 @@ class HAgentRunner:
                 body = {
                     "agent": "h/web-surfer-flash",
                     "messages": [{"type": "user_message", "message": clean_text(prompt)}],
-                    "max_time_s": max(1, self.timeout_s - 90) if self.timeout_s > 90 else (
-                        self.timeout_s / 2
+                    "max_time_s": max(1, timeout_s - 90) if timeout_s > 90 else (
+                        timeout_s / 2
                     ),
                     "max_steps": max_steps,
                     "delete_after_min": 60,
@@ -585,18 +629,22 @@ class HAgentRunner:
                         "agent.answer_format": schema,
                     },
                 }
+                session_started = time.monotonic()
                 created = (await request("POST", "/sessions", json=body)).json()
                 session_id = quote(str(created["id"]), safe="")
-                await emit({"type": "step_progress", "message": "H browser session started"})
+                await emit({"type": "step_progress", "message": "Ouverture du site"})
                 cursor = 0
                 answer = None
                 state = None
                 outcome = None
-                latest_frame = None
+                pending_frame = None
                 retried = False
                 observed_progress = False
+                blank_observations = 0
                 last_attempt = None
                 while True:
+                    if not observed_progress and time.monotonic() - session_started >= 45:
+                        raise _PolicyBlocked("provider_error")
                     wait = min(self.poll_s, max(0, 3 - (time.monotonic() - last_attempt))) if (
                         last_attempt is not None
                     ) else self.poll_s
@@ -611,6 +659,8 @@ class HAgentRunner:
                         changes = {"status": state, "new_events": []}
                     else:
                         changes = response.json()
+                    if not observed_progress and time.monotonic() - session_started >= 45:
+                        raise _PolicyBlocked("provider_error")
                     events = changes.get("new_events") or []
                     for event in events:
                         data = event.get("data") or {}
@@ -627,12 +677,18 @@ class HAgentRunner:
                                 if kind == "answer_event":
                                     outcome = data.get("outcome", outcome)
                             if kind == "observation_event":
-                                observed_progress = True
                                 metadata = data.get("metadata") or {}
+                                if metadata.get("url") in (None, "", "about:blank"):
+                                    if not observed_progress:
+                                        blank_observations += 1
+                                        if blank_observations >= 3:
+                                            raise _PolicyBlocked("provider_error")
+                                    continue
                                 observed = clean_url(metadata.get("url"))
                                 location = urlsplit(observed or "")
                                 if not _reviewed(observed, reviews):
                                     raise _PolicyBlocked("unreviewed_redirect")
+                                observed_progress = True
                                 forbidden = _OBSERVATION_FORBIDDEN.search(
                                     unquote(location.path + "?" + location.query) + " "
                                     + str(metadata.get("title", ""))
@@ -650,18 +706,19 @@ class HAgentRunner:
                                 ):
                                     raise _PolicyBlocked
                                 result["final_url"] = observed
-                                await emit({"type": "step_progress", "message": "Browsing reviewed site"})
-                                latest_frame = (data, event.get("timestamp"), observed)
-                    if latest_frame:
+                                await emit({"type": "step_progress", "message": "Navigation sur le site"})
+                                pending_frame = (data, event.get("timestamp"), observed)
+                    if pending_frame is not None:
                         last_attempt = time.monotonic()
                         try:
                             async with asyncio.timeout(3):
-                                await frame(*latest_frame)
+                                await frame(*pending_frame)
+                            pending_frame = None
                         except (TimeoutError, httpx.TimeoutException, httpx.NetworkError):
                             pass
                         except httpx.HTTPStatusError as exc:
                             if exc.response.status_code < 500:
-                                latest_frame = None
+                                pending_frame = None
                     cursor = (changes.get("first_index") or cursor) + len(events)
                     if changes.get("answer") is not None:
                         answer = changes["answer"]
@@ -681,10 +738,12 @@ class HAgentRunner:
                         if state in {"failed", "interrupted"} and not observed_progress and not retried:
                             await asyncio.shield(stop())
                             retried = True
+                            session_started = time.monotonic()
                             created = (await request("POST", "/sessions", json=body)).json()
                             session_id = quote(str(created["id"]), safe="")
                             cursor, answer, state, outcome = 0, None, None, None
-                            latest_frame = None
+                            pending_frame = None
+                            blank_observations = 0
                             continue
                         if answer is None:
                             session = (await request("GET", f"/sessions/{session_id}")).json()
@@ -694,6 +753,15 @@ class HAgentRunner:
                             result["reason_code"] = (
                                 "timeout" if state == "timed_out" else "session_failed"
                             )
+                            if state in {"failed", "interrupted"} and observed_progress:
+                                result["status"] = "blocked"
+                                result["summary"] = (
+                                    "Le site s'est interrompu ; reprenez depuis le dernier écran"
+                                )
+                                if _public_https(result["final_url"]) and _reviewed(
+                                    result["final_url"], reviews,
+                                ):
+                                    result["handoff_url"] = result["final_url"]
                             if not await stop():
                                 result["error"] += "; cancellation failed"
                             break
@@ -724,6 +792,8 @@ class HAgentRunner:
                                 "Verification unavailable or site blocked"
                             )
                             result["handoff_url"] = None
+                            if not await stop():
+                                result["error"] += "; cancellation failed"
                         else:
                             result["reason_code"] = None
                         break
@@ -738,6 +808,9 @@ class HAgentRunner:
             result["handoff_url"] = None
             result["summary"] = "Site policy or sensitive page blocked this run"
             result["error"] = "Site policy unavailable or destination not authorized"
+            if exc.reason_code == "provider_error":
+                result["summary"] = "Le site n'a pas pu s'ouvrir"
+                result["error"] = "Browser startup unavailable"
             if not stopped:
                 result["error"] += "; cancellation failed"
         except (TimeoutError, httpx.TimeoutException):
