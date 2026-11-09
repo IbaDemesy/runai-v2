@@ -80,7 +80,16 @@ _AVAILABILITY_EVIDENCE = (
         r"inschrijving (?:is )?geopend|registration (?:is )?open\b")),
 )
 _PROHIBITED = "site terms prohibit"
+_KEYS = ("Return verification with these keys read from the page: race_name, edition (year), "
+         "race_date (ISO YYYY-MM-DD), distance_km (number), {data}, selected (true only when the "
+         "distance/category is actually selected), next_safe_boundary; never invent evidence.")
+VERIFICATION_KEYS = _KEYS.format(
+    data="participant_data_untouched (true only if nothing was typed)")
+PREFILL_VERIFICATION_KEYS = _KEYS.format(
+    data="personal_data_entered (true once the provided fields were typed)")
 
+NJUKO_RECAP = (r"(?i)[?&#]currentPage=(?:cart|basket|recap\w*|summary|order[-_]?summary|"
+               r"panier|warenkorb|carrello|cesta)(?:[&#]|$)")
 NJUKO_CHECKPOINT = {
     "url_patterns": [r"(?i)[?&#]currentPage=form(?:_individual(?:-form)?)?(?:[&#]|$)"],
     "beyond_patterns": [r"(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"],
@@ -289,6 +298,9 @@ def _registration_adapter(raw: Any, entry: Mapping[str, Any]) -> dict[str, Any]:
     for key in ("success_evidence", "blocked_evidence"):
         if not isinstance(raw.get(key), str) or not raw[key].strip():
             raise site_policy.PolicyError(f"{entry_id}: adapter {key} is required")
+    max_steps = raw.get("max_steps", DEFAULT_MAX_STEPS)
+    if type(max_steps) is not int or not 5 <= max_steps <= DEFAULT_MAX_STEPS:
+        raise site_policy.PolicyError(f"{entry_id}: max_steps must be an integer in 5..60")
     early_stop = raw.get("early_stop_reason")
     if early_stop not in (None, "sold_out", "registration_closed", "no_inventory", "login_required"):
         raise site_policy.PolicyError(f"{entry_id}: invalid early_stop_reason")
@@ -304,6 +316,7 @@ def _registration_adapter(raw: Any, entry: Mapping[str, Any]) -> dict[str, Any]:
         "blocked_evidence": raw["blocked_evidence"].strip(),
         "availability": _availability(raw.get("availability"), entry_id),
         "early_stop_reason": early_stop,
+        "max_steps": max_steps,
         "checkpoint": _checkpoint(raw.get("checkpoint"), entry_id),
     }
 
@@ -446,6 +459,7 @@ def _plan(
         f"{adapter['success_evidence']} BLOCKED looks like: {adapter['blocked_evidence']}\n"
         if adapter else ""
     )
+    max_steps = adapter["max_steps"] if adapter else DEFAULT_MAX_STEPS
     status, observed_at = _fresh_status(adapter, today, distance_km, expected["race_date"])
     early_stop = adapter.get("early_stop_reason") if adapter else None
     seen = f"on {observed_at} ({adapter['availability']['source']})" if adapter and (
@@ -491,7 +505,7 @@ def _plan(
         f"Goal: open the official registration for {label} ({distance}; race date "
         f"{expected['race_date']}; {expected['city']}, {expected['country']}) and stop at its "
         "first personal-data page without touching it. Be step-efficient: finish in under "
-        f"{DEFAULT_MAX_STEPS} steps.\n"
+        f"{max_steps} steps.\n"
         f"1. Start at {start_url}. Allowed navigation hosts (reviewed policy "
         f"{decision['policy_id']}): {', '.join(hosts)}. Stay on pages for this race only. If a "
         "link or redirect leaves these hosts, STOP and report BLOCKED unreviewed_redirect.\n"
@@ -521,6 +535,7 @@ def _plan(
         "was booked, registered, submitted or paid; your answer must state 'no payment, "
         "booking or submission was made'.\n"
         f"9. Blocked reason codes: {', '.join(REASON_CODES)}.\n"
+        f"10. {VERIFICATION_KEYS}\n"
         f"Report: {success}"
     )
     task = {
@@ -531,15 +546,15 @@ def _plan(
         "stop_before": list(STOP_BEFORE),
         "success_signal": success,
         "fallback_url": fallback_url,
-        "max_steps": DEFAULT_MAX_STEPS,
+        "max_steps": max_steps,
         "expected": expected,
         "allowed_hosts": hosts,
         "checkpoint": copy.deepcopy(checkpoint),
     }
     if early_stop:
-        task["max_steps"] = 12
+        task["max_steps"] = min(12, max_steps)
         task["instructions"] = task["instructions"].replace(
-            f"{DEFAULT_MAX_STEPS} steps", "12 steps")
+            f"{max_steps} steps", f"{task['max_steps']} steps")
         task["success_signal"] = (
             f"BLOCKED {early_stop}: stop within 5 steps at the unavailable entry or account "
             "boundary. Never log in, enter a ballot or join a waiting list. Not READY. "
@@ -551,6 +566,8 @@ def _plan(
             official_url if official_url and evaluate_url(
                 official_url, KIND, today=today, registry=view)["allowed"] else fallback_url
         )
+    if status in ("sold_out", "closed"):
+        task["preflight_block"] = _preflight_block(status, label, start_url)
     profile = trip.get("runner_profile")
     fields = [field for field in PREFILL_FIELDS if isinstance(profile, dict)
               and isinstance(profile.get(field), str) and profile[field].strip()]
@@ -577,16 +594,31 @@ def _plan(
     return task, adapter
 
 
+def _preflight_block(status: str, label: str, url: str) -> dict[str, Any]:
+    """P15: availability already known before H, so no H session is created."""
+    if status == "sold_out":
+        reason, summary = "sold_out", f"Inscriptions complètes pour {label} (dossards épuisés)."
+    else:
+        reason, summary = "registration_closed", f"Inscriptions fermées pour {label}."
+    return {"reason_code": reason, "summary": summary + " Vérifiez la page officielle.",
+            "handoff_url": url}
+
+
 def _prefill_task(task: dict[str, Any], fields: list[str]) -> None:
     checkpoint = task["checkpoint"]
+    njuko = any("currentPage=form" in p for p in checkpoint["url_patterns"])
     checkpoint["prefill_patterns"] = checkpoint["url_patterns"].copy()
     boundary = (
         r"(?:/(?:[^?]*/)?(?:terms|consent|waiver|medical|health[-_]?declaration|account|login|"
         r"sign[-_]?in|payment|checkout)(?:[/?]|$)|"
         r"[?&](?:currentPage|step)=(?:terms|consent|medical|account|login|payment)(?:[&#]|$))"
     )
-    checkpoint["url_patterns"] = [boundary]
-    checkpoint["beyond_patterns"] = [r"/(?:[^?]*/)?(?:confirm|complete|submit)(?:[/?]|$)"]
+    # The prefilled Njuko form stays a valid stop if the recap is not reached in budget.
+    checkpoint["url_patterns"] = (
+        [*checkpoint["prefill_patterns"], NJUKO_RECAP, boundary] if njuko else [boundary])
+    checkpoint["beyond_patterns"] = [r"/(?:[^?]*/)?(?:confirm|complete|submit)(?:[/?]|$)"] + (
+        [r"(?i)[?&#]currentPage=(?:confirm\w*|success|thank\w*|complete\w*)(?:[&#]|$)"]
+        if njuko else [])
     task["prefill_fields"] = fields.copy()
     task["prefill_scope"] = "participant form"
     task["stop_before"] = [item for item in STOP_BEFORE if item not in (
@@ -600,7 +632,15 @@ def _prefill_task(task: dict[str, Any], fields: list[str]) -> None:
         "Cookie banners: reject or necessary-only, never accept optional consent. "
         "Open the participant form and type only the provided participant fields; leave missing "
         "values blank. Use only intermediate Next/Continue buttons, never final submission. "
-        "STOP at the first page with terms, medical consent, account/login or payment; "
+        "STOP at the first page with terms, medical consent, account/login or payment"
+        + ("; on Njuko the recap/cart page (currentPage=cart/recap/summary) after the form is "
+           "that boundary: STOP there and answer immediately, never tick its terms or pay. "
+           "Fill each provided field once; skip unknown or rejecting fields. If the recap is "
+           f"not reached within {min(15, task['max_steps'] // 3)} steps of opening the form, "
+           "STOP on the filled form and answer; "
+           if njuko else "; ") +
+        f"answer before step {max(task['max_steps'] - 15, task['max_steps'] * 3 // 4)} "
+        "at the latest. "
         "report READY with prefilled info only if edition/distance/date match and provided fields "
         "were entered before that boundary. Never echo field values in the answer. "
         "If login/consent comes before the participant form, report BLOCKED login_required or "
@@ -611,7 +651,7 @@ def _prefill_task(task: dict[str, Any], fields: list[str]) -> None:
         "Match case-insensitively against unquoted URL path + '?' + query. "
         "Wrong edition/date/distance: BLOCKED date_mismatch; other hosts: BLOCKED "
         "unreviewed_redirect; captcha: BLOCKED captcha. Include the last safe public URL. "
-        "No payment, booking or submission was made."
+        f"{PREFILL_VERIFICATION_KEYS} No payment, booking or submission was made."
     )
     task["success_signal"] = (
         "READY only with confirmed edition/distance/date and provided participant fields "

@@ -322,7 +322,7 @@ def test_numbered_prompt_p4_reasons_and_early_inventory_stop():
     }
     assert "reviewed selection page" in task["success_signal"]
     assert "full-stay total for the whole party" in task["success_signal"]
-    assert "before guest details, personal data or payment" in task["success_signal"]
+    assert "untouched guest-details page, before typing" in task["success_signal"]
     assert "report BLOCKED unsafe_claim" in task["success_signal"]
     assert set(task) == KEYS and task["max_steps"] == 60
     assert task["fallback_url"] == task["start_url"]
@@ -466,10 +466,17 @@ def test_guest_profile_names_only_and_payment_boundary():
         assert "payment page" in candidate["stop_before"]
         assert "Never tick terms/marketing" in candidate["instructions"]
         assert "reject or necessary-only" in candidate["instructions"]
-        assert any(re.search(p, "/payment", re.IGNORECASE)
-                   for p in candidate["checkpoint"]["url_patterns"])
-        for p in candidate["checkpoint"]["url_patterns"]:
-            assert not re.search(p, "/book.html?guests=1", re.IGNORECASE)
+        checkpoint = hclient._checkpoint(candidate)
+        assert hclient._checkpoint_matches(checkpoint, "beyond_patterns", "https://x.com/payment")
+        assert not hclient._checkpoint_matches(
+            checkpoint, "beyond_patterns", "https://x.com/s?checkout=2027-04-05")
+        for key in ("hotel_name", "rooms", "currency", "personal_data_entered"):
+            assert key in candidate["instructions"]
+    booking = task["checkpoint"]
+    assert task["site_name"] == "r7-booking-hotel"
+    assert booking["prefill_patterns"] == booking["url_patterns"] == [r"^/book\.html(?:[/?]|$)"]
+    assert "never click 'Complete booking'" in task["instructions"]
+    assert "Next: Final details" in task["instructions"]
 
 
 @pytest.mark.parametrize("profile", [None, {}, [], "bad", 1, {"email": []},
@@ -486,3 +493,59 @@ def test_profile_cannot_bypass_policy_error():
     with pytest.raises(ValueError, match="no policy-reviewed hotel"):
         build_current_task(trip(runner_profile={"given_name": "Example"}), today=TODAY,
                            registry={"schema_version": 1, "entries": []})
+
+
+R8_CITIES = [
+    ("Milan", "Italy"), ("Berlin", "Germany"), ("Frankfurt", "Germany"), ("Lisbon", "Portugal"),
+    ("Valencia", "Spain"), ("Seville", "Spain"), ("Zurich", "Switzerland"),
+    ("Stoos", "Switzerland"), ("Brunnen", "Switzerland"), ("Den Haag", "Netherlands"),
+    ("Barcelona", "Spain"), ("Rome", "Italy"), ("Madrid", "Spain"),
+]
+BOOK_STEP = ("https://secure.booking.com/book.html?checkin=2027-04-03&checkout=2027-04-05"
+             "&selected_currency=EUR&lang=en-gb")
+
+
+@pytest.mark.parametrize("city,country", R8_CITIES)
+def test_r8_every_eval_city_has_two_runnable_hotel_candidates(city, country):
+    task = build_current_task(trip(city=city, country=country, travelers=1), today=TODAY)
+    candidates = [task, *task.get("alternatives", [])]
+    assert len({c["site_name"] for c in candidates}) >= 2
+    for candidate in candidates:
+        assert hclient._policy(candidate)
+
+
+def test_r8_booking_reviews_secure_book_html_and_deep_link_carries_stay():
+    task = build_current_task(trip(travelers=1), today=TODAY)
+    assert task["site_name"] == "r7-booking-hotel"
+    assert {"www.booking.com", "secure.booking.com"} <= set(task["allowed_hosts"])
+    query = parse_qs(urlsplit(task["start_url"]).query)
+    assert query["ss"] == ["Milan, Italy"] and query["checkin"] == ["2027-04-03"]
+    assert query["checkout"] == ["2027-04-05"] and query["group_adults"] == ["1"]
+    assert query["no_rooms"] == ["1"] and query["selected_currency"] == ["EUR"]
+    reviews = hclient._policy(task)
+    assert hclient._reviewed(BOOK_STEP, reviews)
+    checkpoint = hclient._checkpoint(task)
+    assert hclient._checkpoint_matches(checkpoint, "url_patterns", BOOK_STEP)
+    room_table = ("https://www.booking.com/hotel/it/hotel-milano-navigli.en-gb.html"
+                  "?checkin=2027-04-03&checkout=2027-04-05&group_adults=1&no_rooms=1")
+    for url in (task["start_url"], room_table):
+        assert not hclient._checkpoint_matches(checkpoint, "url_patterns", url)
+        assert not hclient._checkpoint_matches(checkpoint, "beyond_patterns", url)
+    assert not hclient._checkpoint_matches(checkpoint, "beyond_patterns", BOOK_STEP)
+    assert "I'll reserve" in task["instructions"] and "STOP there untouched" in task["instructions"]
+    for key in ("hotel_name", "rooms", "currency", "total", "city"):
+        assert key in task["instructions"]
+
+
+def test_r8_booking_profile_prefill_on_book_html_without_profile_values():
+    profile = {"full_name": "Test Runner", "email": "test.runner@example.com",
+               "phone": "+33 6 00 00 00 00", "nationality": "FR"}
+    task = build_current_task(trip(travelers=1, runner_profile=profile), today=TODAY)
+    assert all(v not in json.dumps(task) for v in profile.values())
+    assert task["prefill_fields"] == ["full_name", "email", "phone", "nationality"]
+    checkpoint = hclient._checkpoint(task)
+    assert hclient._checkpoint_matches(checkpoint, "prefill_patterns", BOOK_STEP)
+    assert not hclient._checkpoint_matches(checkpoint, "beyond_patterns", BOOK_STEP)
+    assert not hclient._checkpoint_matches(checkpoint, "beyond_patterns", task["start_url"])
+    assert hclient._checkpoint_matches(
+        checkpoint, "beyond_patterns", "https://secure.booking.com/confirmation.html")

@@ -1,5 +1,38 @@
 # Registration path evidence (R2-02, supersedes R1-05 "assumed" claims)
 
+## R8-03 live smoke — 2026-11-09
+
+Real `registration.build_task` -> `HAgentRunner.run` (R8-01 core branch hclient +
+this ticket's adapters), alternatives removed, fake profile only (Test Runner,
+test.runner@example.com, +33 6 00 00 00 00, 1990-01-01, FR, 1 rue de Test,
+75001 Paris). Quota GET immediately before: limit=3, active=1, available=2. One
+session, sequential with the hotel smokes.
+
+| Race | Start host/path | Status | reason_code | Steps | Frames | Stop page | Elapsed |
+|---|---|---|---|---:|---:|---|---:|
+| Wizz Air Milano Marathon 2027-04-04, 42.195 km | in.njuko.com/wizz-air-milano-marathon-20271776152378557 | blocked | session_failed | 60 (max) | 34 | ?currentPage=form_individual-form | 402.3s |
+
+Not READY. H reached the reviewed Njuko participant form (prefill pattern) and
+spent its remaining steps there until the 60-step limit; no recap/cart page was
+observed, so the recap currentPage value stays unverified. No verify_failed gate
+fired because H never answered. Follow-up in this ticket: the prefilled form is
+now also a valid url_pattern (READY with personal_data_entered=true), and the
+prompt bounds form filling to 15 steps and asks for an answer before step 45.
+That change was not re-run live (three-run ticket cap).
+
+## R8-03 normal-Chrome observations — 2026-11-09
+
+Read-only Chrome walk (cookies refused, nothing typed or submitted, no login, no
+waiting list). Public host/path only; no frames or screenshots kept.
+
+| Policy | Requested | Observed host/path | Finding |
+|---|---|---|---|
+| `r7-lisbon-marathon-2027` | maratonaclubedeportugal.com/maratona-de-lisboa/ | maratonaclubedeportugal.com/en/ (English locale) or same path (Portuguese) | Locale redirect stays on the reviewed host; scope widened to `/` so the run keeps frames. INSCREVA-SE links: meia-maratona.inscricoes.maratonaportugal.com prova_id 3765-3768 (March 2027 half/10k/7k), 3769 half waiting list; no 2027 full-marathon entry link. Bounded no_inventory early stop kept. |
+| `r8-zurich-marathon-goactive` | www.zuerichmarathon.ch/ | www.goactive.ch/event/ochsner-sport-zurich-marathon-2027-138 | All "Jetzt anmelden"/"ZUR ANMELDUNG" buttons link to GoActive; Marathon 42.2 km and Halbmarathon 21.1 km shown Sold Out. P15 preflight_block sold_out with the GoActive handoff (no H session). GoActive /login is out of scope. |
+| `r7-valencia-marathon-2026` / `-2027` | www.valenciaciudaddelrunning.com/en/marathon/ | /en/marathon/maraton/ (same reviewed prefix) | 2026 edition sold_out (existing dated FAQ evidence) -> preflight_block; 2027 platform still unverified -> bounded no_inventory early stop. |
+| `frankfurt-marathon-de` | www.frankfurt-marathon.com/anmeldelink-2027/ | in.motionevents-registrations.com/mainova-frankfurt-marathon-2027-1789303690969?currentPage=select-competition | MAINOVA FRANKFURT MARATHON 2027, 31.10.2027; EINZELANMELDUNG -> currentPage=form_individual-form (empty participant fields, ZURÜCK/WEITER). Task now starts on the provider with max_steps=15. |
+| `milanomarathon-it` | in.njuko.com/wizz-air-milano-marathon-20271776152378557 | ?currentPage=select-competition | 04/04/2027, two categories at EUR 114. The recap/cart currentPage value after the form was not reached in Chrome; the profile url_pattern (cart/recap/summary/panier/warenkorb) is provisional until the live smoke below. |
+
 ## R7-03 live registration smokes — 2026-11-09
 
 Real `registration.build_task` -> `HAgentRunner.run`, without runner_profile.

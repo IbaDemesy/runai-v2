@@ -11,6 +11,10 @@
     {
      "host": "www.booking.com",
      "path_prefix": "/"
+    },
+    {
+     "host": "secure.booking.com",
+     "path_prefix": "/book.html"
     }
    ],
    "terms_urls": [
@@ -18,7 +22,7 @@
    ],
    "reviewed_at": "2026-11-09",
    "expires_at": "2027-02-07",
-   "reviewed_sections": "Owner decision; historical terms findings retained in the base registry.",
+   "reviewed_sections": "Owner decision; historical terms findings retained in the base registry. 2026-11-09 normal-Chrome walk (fake identity, nothing submitted): searchresults deep link -> property page -> room select -> I'll reserve -> secure.booking.com/book.html guest details -> Next: Final details (same /book.html path, payment iframe + Complete booking button, not clicked).",
    "justification": "Allowed for read/prepare-only automation by owner decision in docs/handoff/lift-site-exclusions.md, not site-granted authorization. No payment, submission, accounts, consent or CAPTCHA bypass; in-session screenshots only.",
    "automation": "allowed_owner_rule",
    "screenshot_scope": "in_session_only",
@@ -40,17 +44,17 @@
       "GB",
       "CZ"
      ],
-     "url_template": "https://www.booking.com/searchresults.html?ss={city_query}%2C%20{country}&checkin={arrival_date}&checkout={departure_date}&group_adults={travelers}&no_rooms=1&group_children=0",
+     "url_template": "https://www.booking.com/searchresults.html?ss={city_query}%2C%20{country}&checkin={arrival_date}&checkout={departure_date}&group_adults={travelers}&no_rooms=1&group_children=0&selected_currency=EUR",
      "checkpoint": {
       "url_patterns": [
        "^/book\\.html(?:[/?]|$)"
       ],
       "beyond_patterns": [
-       "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|/checkout|/book/confirm|/booking/confirm|card[-_]?details"
+       "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay(?:[/?#]|$)|/checkout|/book/confirm|/booking/confirm|/confirmation|card[-_]?details"
       ]
      },
-     "success_evidence": "Selected room AND rate, exact dates and adults, full-stay total visible; stop at the untouched guest-details boundary. Provisional URL pattern requires live validation; never infer selection from a URL alone.",
-     "blocked_evidence": "No availability, dates not on sale, sold out, wrong city/dates/party, required login, captcha or consent. Search results and unselected hotel pages are not ready."
+     "success_evidence": "Well-rated property within budget, cheapest refundable room x1 selected, I'll reserve opened secure.booking.com/book.html with exact dates, adults, 1 room and full-stay total in EUR; stop there untouched (no profile) or after typing only the provided guest fields and Next: Final details (with profile). Never click Complete booking. Observed 2026-11-09 in normal Chrome.",
+     "blocked_evidence": "No availability, dates not on sale, sold out, wrong city/dates/party, required login (Genius/members-only wall without skip), captcha or consent. Search results, property pages and the room table are not ready."
     }
    ]
   },

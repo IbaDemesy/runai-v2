@@ -1,7 +1,9 @@
+import copy
 import json
 import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 from test_site_policy import TODAY, registration_entry, registry
@@ -12,6 +14,7 @@ from runai.agents.registration import (
     _distance_matches,
     availability_from_evidence,
     build_task,
+    default_registry,
     policy_view,
     registration_coverage,
 )
@@ -1096,3 +1099,125 @@ def test_invalid_availability_race_dates_fail_closed():
     reg = _with_availability()
     reg["entries"][0]["adapters"][0]["availability"]["race_dates"] = ["2027-13-40"]
     assert _coverage(reg=reg)["covered"] is False
+
+
+R8_TODAY = date(2026, 11, 9)
+NJUKO_FORM = "https://in.njuko.com/wizz-air-milano-marathon-20271776152378557?currentPage=form_individual-form"
+R8_RACES = {
+    "zurich": ("OCHSNER SPORT Zürich Marathon", "2027-04-18", 42.195, "Zürich", "Switzerland",
+               "https://www.zuerichmarathon.ch/"),
+    "valencia26": ("Valencia Marathon Trinidad Alfonso", "2026-12-06", 42.195, "Valencia",
+                   "Spain", "https://www.valenciaciudaddelrunning.com/en/marathon/"),
+    "valencia27": ("Valencia Marathon Trinidad Alfonso", "2027-12-05", 42.195, "Valencia",
+                   "Spain", "https://www.valenciaciudaddelrunning.com/en/marathon/"),
+    "lisbon": ("EDP Lisbon Marathon", "2027-10-10", 42.195, "Lisboa", "Portugal",
+               "https://maratonaclubedeportugal.com/maratona-de-lisboa/"),
+    "frankfurt": ("Mainova Frankfurt Marathon", "2027-10-31", 42.195, "Frankfurt", "Germany",
+                  "https://www.frankfurt-marathon.com/"),
+    "berlin": ("BMW Berlin-Marathon", "2027-09-26", 42.195, "Berlin", "Germany",
+               "https://www.generali-berlin-marathon.com/en/"),
+    "milan": ("Wizz Air Milano Marathon", "2027-04-04", 42.195, "Milano", "Italy",
+              "https://www.milanomarathon.it/"),
+}
+R8_PROFILE = {"full_name": "Test Runner", "email": "test.runner@example.com",
+              "phone": "+33 6 00 00 00 00", "birth_date": "1990-01-01", "nationality": "FR",
+              "address_line": "1 rue de Test, 75001 Paris"}
+
+
+def _r8(key, edition=None, **extra):
+    name, day, *rest = R8_RACES[key]
+    return {**_race_trip(name, day, *rest, edition=edition or day[:4]), **extra}
+
+
+@pytest.mark.parametrize("key", list(R8_RACES))
+def test_r8_eval_races_runnable_or_honestly_preflight_blocked(key):
+    task = build_task(_r8(key), today=R8_TODAY)
+    reviews = hclient._policy(task)
+    block = task.get("preflight_block")
+    if block is not None:
+        assert block["reason_code"] in {"sold_out", "registration_closed"}
+        assert block["summary"] and "http" not in block["summary"]
+        assert hclient._reviewed(scrub_url(block["handoff_url"]), reviews)
+    assert task["max_steps"] <= 60
+    assert "race_date (ISO YYYY-MM-DD)" in task["instructions"]
+
+
+def test_r8_zurich_goactive_sold_out_is_preflight_blocked_with_official_handoff():
+    task = build_task(_r8("zurich"), today=R8_TODAY)
+    assert task["start_url"] == "https://www.goactive.ch/event/ochsner-sport-zurich-marathon-2027-138"
+    assert task["preflight_block"] == {
+        "reason_code": "sold_out", "handoff_url": task["start_url"],
+        "summary": task["preflight_block"]["summary"]}
+    assert task["max_steps"] == 12
+    assert task["checkpoint"]["url_patterns"] == [r"(?!)"]
+    assert evaluate_url("https://www.goactive.ch/login", "registration", today=R8_TODAY)[
+        "policy_id"] != "r8-zurich-marathon-goactive"
+
+
+def test_r8_valencia_sold_out_edition_preflight_but_next_edition_bounded():
+    assert build_task(_r8("valencia26"), today=R8_TODAY)["preflight_block"]["reason_code"] == "sold_out"
+    task = build_task(_r8("valencia27"), today=R8_TODAY)
+    assert "preflight_block" not in task and task["max_steps"] == 12
+    assert "BLOCKED no_inventory" in task["instructions"].splitlines()[0]
+
+
+def test_r8_preflight_block_goes_stale_with_availability():
+    assert "preflight_block" not in build_task(_r8("zurich"), today=date(2027, 1, 15))
+
+
+def test_r8_lisbon_locale_redirect_hosts_are_reviewed():
+    task = build_task(_r8("lisbon"), today=R8_TODAY)
+    reviews = hclient._policy(task)
+    for url in ("https://maratonaclubedeportugal.com/en/",
+                "https://maratonaclubedeportugal.com/maratona-de-lisboa/",
+                "https://maratonaclubedeportugal.com/"):
+        assert hclient._reviewed(url, reviews)
+    assert task["max_steps"] == 12 and "preflight_block" not in task
+
+
+def test_r8_frankfurt_bounded_flow_starts_on_provider():
+    for profile in (None, R8_PROFILE):
+        task = build_task(_r8("frankfurt", runner_profile=profile), today=R8_TODAY)
+        assert urlsplit(task["start_url"]).hostname == "in.motionevents-registrations.com"
+        assert task["max_steps"] <= 15
+        assert "under 15 steps" in task["instructions"] or profile
+        if profile:
+            assert "answer before step 11 " in task["instructions"]
+            assert "within 5 steps of opening the form" in task["instructions"]
+        assert hclient._policy(task)
+
+
+def test_r8_adapter_max_steps_is_validated():
+    reg = copy.deepcopy(default_registry())
+    entry = next(e for e in reg["entries"] if e["id"] == "frankfurt-marathon-de")
+    entry["adapters"][0]["max_steps"] = 500
+    with pytest.raises(site_policy.PolicyError, match="max_steps"):
+        policy_view(reg)
+
+
+def test_r8_njuko_profile_prefills_form_and_stops_at_recap():
+    task = build_task(_r8("milan", runner_profile=R8_PROFILE), today=R8_TODAY)
+    assert all(value not in json.dumps(task, ensure_ascii=False) for value in R8_PROFILE.values())
+    checkpoint = hclient._checkpoint(task)
+    assert task["prefill_scope"] == "participant form"
+    assert "nationality" in task["prefill_fields"] and "address_line" in task["prefill_fields"]
+    assert hclient._checkpoint_matches(checkpoint, "prefill_patterns", NJUKO_FORM)
+    assert hclient._checkpoint_matches(checkpoint, "url_patterns", NJUKO_FORM)
+    assert "answer before step 45" in task["instructions"]
+    recap = NJUKO_FORM.replace("form_individual-form", "cart")
+    assert hclient._checkpoint_matches(checkpoint, "url_patterns", recap)
+    assert not hclient._checkpoint_matches(checkpoint, "beyond_patterns", recap)
+    assert hclient._checkpoint_matches(
+        checkpoint, "beyond_patterns", NJUKO_FORM.replace("form_individual-form", "confirmation"))
+    assert "personal_data_entered" in task["instructions"]
+    assert "recap/cart page" in task["instructions"]
+
+
+def test_r8_njuko_without_profile_stops_on_untouched_form():
+    task = build_task(_r8("milan"), today=R8_TODAY)
+    checkpoint = hclient._checkpoint(task)
+    assert "prefill_fields" not in task and "preflight_block" not in task
+    assert hclient._checkpoint_matches(checkpoint, "url_patterns", NJUKO_FORM)
+    assert "participant_data_untouched (true only if nothing was typed)" in task["instructions"]
+    for key in ("race_name", "edition", "distance_km"):
+        assert key in task["instructions"]
