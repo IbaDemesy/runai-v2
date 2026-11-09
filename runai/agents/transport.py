@@ -14,7 +14,7 @@ from typing import Any
 from runai.agents.site_policy import city_country, country_code, select_adapter, trip_expected
 
 KIND = "transport"
-MAX_STEPS = 80
+MAX_STEPS = 40
 STOP_BEFORE = [
     "passenger details / personal data form", "login or account creation", "payment page",
     "booking confirmation", "terms or consent checkbox", "cookie consent acceptance",
@@ -47,33 +47,51 @@ def build_task(
     budget = _budget(trip)
     adapter, url, decision = select_adapter(
         KIND, expected, origin_country=origin_country(trip), today=today, registry=registry,
+        modes=("rail", "flight"),
     )
     origin, city = expected["origin_city"], expected["city"]
+    mode = {"rail": "train", "flight": "flight"}.get(adapter.get("mode"), "transport")
+    place = adapter["places"].get(city.strip().casefold(), {})
+    destination = ", ".join(dict.fromkeys(
+        place[key] for key in ("station_name", "station_code", "iata") if place.get(key)
+    ))
+    route_city = f"{city} via {destination}" if destination else city
     arrival, departure, adults = (
         expected["arrival_date"], expected["departure_date"], expected["travelers"]
     )
     hosts = decision["allowed_hosts"]
-    budget_hint = f"Total budget hint: EUR {budget}." if budget is not None else "No budget given."
+    budget_hint = (
+        f"Round-trip budget: EUR {budget} for the whole party, not per person or leg. "
+        "If no fare fits, report BLOCKED over_budget with the cheapest full total seen."
+        if budget is not None else "No budget given: choose the cheapest suitable full total."
+    )
     instructions = (
-        f"Goal: select a viable round trip {origin} -> {city}, {expected['country']} for "
-        f"{adults} adults: outbound arriving on or before {arrival}, return departing on "
-        f"{departure}; stop before passenger data.\n"
-        f"1. The start URL already encodes the route, dates and party. Allowed navigation hosts: "
-        f"{', '.join(hosts)}. If any page redirects to another host (including a carrier or "
-        "reseller), STOP at once and report BLOCKED unreviewed_redirect with that host.\n"
-        f"2. DATE CHECK before anything else: the page must show outbound {arrival}, return "
-        f"{departure}, {origin} -> {city} and {adults} adults. If it shows other dates (e.g. "
-        "today's), a one-way trip, swapped dates, another route or party, or they can only be "
-        "changed by submitting a search form, STOP and report BLOCKED date_mismatch.\n"
-        "3. Cookie banners: reject or close only, never accept optional consent.\n"
-        f"4. {budget_hint} Select one outbound that arrives in {city} no later than {arrival} AND "
-        f"one return departing {departure}, then the fare, using only public select buttons. "
-        "Never fill or submit any form.\n"
+        f"1. DATE CHECK first: round-trip {mode}, {origin} -> {route_city}, "
+        f"{expected['country']}; outbound {arrival}, return {departure}, {adults} adults. "
+        "For missing/wrong dates, route or party, or a one-way trip, report BLOCKED "
+        "date_mismatch. Never change the dates or submit search forms.\n"
+        f"2. Allowed hosts: {', '.join(hosts)}. STOP on any other host (including a carrier or "
+        "reseller) and report BLOCKED unreviewed_redirect; do not interact with it. "
+        "Cookie banners: reject or close only; never accept optional consent.\n"
+        "3. Within your first ~10 steps, if the site shows its no-availability / not-on-sale / "
+        "sales-horizon message (see blocked evidence), report BLOCKED no_inventory immediately "
+        "— do not wander until the step limit. If the selected fare is sold out, "
+        "report BLOCKED sold_out.\n"
+        f"4. {budget_hint} Use public links only: select outbound arriving on or before "
+        f"{arrival} AND return departing on {departure}, then fare with the full round-trip "
+        "total for the whole party. Never fill or submit any form. "
+        "Unselected result lists or a homepage are NOT ready.\n"
         f"5. Site-specific success evidence: {adapter['success_evidence']}\n"
         f"6. Site-specific blocked evidence: {adapter['blocked_evidence']}\n"
-        "7. STOP at the first passenger-details, login, account, consent, captcha or payment "
-        "page. Never type personal data, log in, create accounts, tick terms, solve captchas "
-        "or pay. Unselected result lists or a homepage are NOT ready."
+        "7. Stop before opening passenger details or payment. Never type personal data, log in, "
+        "create accounts, tick terms, solve captchas or pay. For login/account walls report "
+        "BLOCKED login_required; for captcha report BLOCKED captcha; for required consent "
+        "report BLOCKED consent_required. Safety rules override site evidence.\n"
+        "8. Finish within 40 steps; otherwise report BLOCKED step_limit. For missing site "
+        "coverage report BLOCKED no_site_coverage; denied policy report BLOCKED policy_denied; "
+        "session failure report BLOCKED session_failed; timeout report BLOCKED timeout; "
+        "site error report BLOCKED provider_error. Never invent success: report BLOCKED "
+        "unsafe_claim if selection evidence is incomplete. Include the last safe public URL."
     )
     return {
         "kind": KIND,
@@ -82,10 +100,11 @@ def build_task(
         "instructions": instructions,
         "stop_before": list(STOP_BEFORE),
         "success_signal": (
-            f"READY only when a selected outbound (arriving by {arrival}) and return "
-            f"({departure}) with fare and total price for {adults} adults are shown, stopped "
-            "before passenger details; report that URL. Otherwise BLOCKED (date_mismatch, "
-            "no_inventory, login, captcha, consent, unreviewed_redirect) with reason and last URL."
+            f"READY only on the reviewed selection page where a selected outbound "
+            f"(arriving by {arrival}) and return ({departure}) show the fare and full round-trip "
+            f"total for {adults} adults, before passenger details, personal data or payment. "
+            "Report that safe public URL. For incomplete evidence report BLOCKED unsafe_claim; "
+            "for other stops use the exact BLOCKED reason from the instructions."
         ),
         "fallback_url": url,
         "max_steps": MAX_STEPS,

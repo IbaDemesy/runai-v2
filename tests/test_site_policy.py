@@ -13,7 +13,7 @@ from runai.agents.site_policy import (
     registration_info,
 )
 
-TODAY = date(2026, 11, 8)
+TODAY = date(2026, 11, 9)
 
 
 def entry(**changes):
@@ -348,3 +348,204 @@ def test_registry_reload_picks_up_revocation(tmp_path):
     import os
     os.utime(path, ns=(1, 1))
     assert load_registry(path)[0]["automation"] == "prohibited"
+
+
+def test_registry_fragments_order_reload_and_fail_closed(tmp_path, monkeypatch):
+    path = tmp_path / "policy.json"
+    fragments = tmp_path / "site-policy.d"
+    fragments.mkdir()
+    path.write_text(json.dumps(registry(entry())))
+    def fragment(name, ident):
+        target = fragments / name
+        target.write_text(json.dumps(registry(entry(id=ident))))
+        return target
+    fragment("b.json", "second")
+    first = fragment("a.json", "first")
+    assert [e["id"] for e in load_registry(path)] == ["example-hotels", "first", "second"]
+    first.write_text(json.dumps(registry(entry(id="updated"))))
+    fragment("c.json", "third")
+    assert [e["id"] for e in load_registry(path)] == [
+        "example-hotels", "updated", "second", "third",
+    ]
+    fragment("d.json", "example-hotels")
+    loader = site_policy.load_registry
+    monkeypatch.setattr(site_policy, "load_registry", lambda: loader(path))
+    assert not evaluate_url("https://www.hotels.example/search", "hotel")["allowed"]
+    with pytest.raises(ValueError, match="registry"):
+        site_policy.select_adapter("hotel", EXPECTED)
+    (fragments / "d.json").write_text("not json")
+    with pytest.raises(PolicyError):
+        loader(path)
+
+
+def test_registry_documents_and_scope_conflicts():
+    documents = [registry(entry()), registry(entry(id="other"))]
+    assert len(site_policy._registry(tuple(documents))) == 2
+    assert check("https://www.hotels.example/search", reg=documents)["allowed"]
+    with pytest.raises(PolicyError, match="conflicting"):
+        parse_registry(registry(entry(), entry(id="other", automation="prohibited")))
+
+
+@pytest.mark.parametrize("template", [
+    "https://www.hotels.example/search?q={city!r}",
+    "https://www.hotels.example/search?q={city:>5}",
+    "https://www.hotels.example/search?q={unknown}",
+    "https://www.hotels.example/{city}", "https://{city}/search",
+    "https://www.hotels.example/search?q={city.upper}",
+])
+def test_strict_template_fields(template):
+    with pytest.raises(PolicyError):
+        parse_registry(_place_registry(url_template=template, places=None))
+
+
+def test_free_text_lookup_defaults_overrides_and_dates():
+    reg = _place_registry(
+        url_template="https://www.hotels.example/search?c={city_query}&o={origin_city_query}"
+                     "&a={arrival_ymd}&d={departure_dmy_dash}", places=None,
+    )
+    expected = {**EXPECTED, "origin_city": "Bâle"}
+    url = site_policy.select_adapter("hotel", expected, today=TODAY, registry=reg)[1]
+    assert "c=z%C3%BCrich&o=B%C3%A2le&a=20270313&d=15-03-2027" in url
+    reg["entries"][0]["adapters"][0]["places"] = {"ZÜRICH": {"city_query": "Zurich, CH"}}
+    assert "c=Zurich%2C%20CH" in site_policy.select_adapter(
+        "hotel", expected, today=TODAY, registry=reg,
+    )[1]
+
+
+def test_iata_requires_reviewed_city_and_field():
+    reg = _place_registry(url_template="https://www.hotels.example/search?to={iata}",
+                          places={"Zurich": {"iata": "ZRH"}})
+    assert "to=ZRH" in site_policy.select_adapter(
+        "hotel", {**EXPECTED, "city": "Zurich"}, today=TODAY, registry=reg,
+    )[1]
+    with pytest.raises(ValueError, match="no reviewed place IDs"):
+        site_policy.select_adapter("hotel", EXPECTED, today=TODAY, registry=reg)
+
+
+@pytest.mark.parametrize("counts", [[], [0], [True], ["1"], "1"])
+def test_invalid_reviewed_traveler_counts(counts):
+    with pytest.raises(PolicyError, match="traveler_counts"):
+        parse_registry(_place_registry(traveler_counts=counts))
+
+
+def test_reviewed_traveler_counts_and_mdy_dates():
+    reg = _place_registry(traveler_counts=[1], url_template=(
+        "https://www.hotels.example/search?in={arrival_mdy_slash}&out={departure_mdy_slash}"))
+    url = site_policy.select_adapter("hotel", EXPECTED, today=TODAY, registry=reg)[1]
+    assert "in=03%2F13%2F2027&out=03%2F15%2F2027" in url
+    with pytest.raises(ValueError, match="party size not reviewed"):
+        site_policy.select_adapter("hotel", {**EXPECTED, "travelers": 2},
+                                   today=TODAY, registry=reg)
+
+
+def test_mode_ordering_and_unmoded_fallback():
+    base = transport_entry()
+    adapter = base["adapters"][0]
+    base["adapters"] = [{**adapter, "mode": mode} for mode in ("flight", "rail", None)]
+    reg = registry(base)
+    assert site_policy.select_adapter("transport", EXPECTED, origin_country="FR",
+                                     today=TODAY, registry=reg)[0]["mode"] == "flight"
+    assert site_policy.select_adapter("transport", EXPECTED, origin_country="FR",
+                                     today=TODAY, registry=reg,
+                                     modes=["rail", "flight"])[0]["mode"] == "rail"
+    assert site_policy.select_adapter("transport", EXPECTED, origin_country="FR",
+                                     today=TODAY, registry=reg, modes=["bus"])[0]["mode"] is None
+    base["adapters"][0]["mode"] = "boat"
+    with pytest.raises(PolicyError):
+        parse_registry(reg)
+
+
+def registration_adapter_registry(**changes):
+    adapter = {
+        "kind": "registration", "race_match": {"name_patterns": ["example marathon"],
+                                                "countries": ["IT"]},
+        "platform_hosts": ["platform.example"],
+        "url_template": "https://www.example-marathon.test/?race={race_name}",
+        "success_evidence": "race visible", "blocked_evidence": "account wall",
+        **changes,
+    }
+    return registry(registration_entry(adapters=[adapter]), registration_entry(
+        id="platform", scopes=[{"host": "platform.example", "path_prefix": "/"}],
+    ))
+
+
+@pytest.mark.parametrize("changes", [
+    {"race_match": {"name_patterns": ["["]}}, {"race_match": {"name_patterns": []}},
+    {"platform_hosts": []}, {"platform_hosts": ["unknown.example"]},
+])
+def test_registration_adapter_validation(changes):
+    with pytest.raises(PolicyError):
+        parse_registry(registration_adapter_registry(**changes))
+
+
+def test_registration_matching_country_and_platform_expiry():
+    reg = registration_adapter_registry()
+    expected = {**EXPECTED, "country": "IT", "race_name": "EXAMPLE MARATHON 2027"}
+    assert "race=EXAMPLE%20MARATHON%202027" in site_policy.select_adapter(
+        "registration", expected, today=TODAY, registry=reg,
+    )[1]
+    assert site_policy.coverage("registration", country="IT", today=TODAY,
+                                registry=reg)["covered"]
+    assert not site_policy.coverage("registration", country="FR", today=TODAY,
+                                    registry=reg)["covered"]
+    for update in ({"race_name": "Other race"}, {"country": "FR"}):
+        with pytest.raises(ValueError, match="does not match"):
+            site_policy.select_adapter("registration", {**expected, **update},
+                                       today=TODAY, registry=reg)
+    reg["entries"][1]["expires_at"] = "2026-11-07"
+    with pytest.raises(ValueError, match="platform unavailable or expired"):
+        site_policy.select_adapter("registration", expected, today=TODAY, registry=reg)
+    assert not site_policy.coverage("registration", today=TODAY, registry=reg)["covered"]
+
+
+def test_coverage_normal_empty_and_error():
+    reg = _place_registry()
+    assert site_policy.coverage("hotel", city="Zürich", country="Switzerland",
+                                today=TODAY, registry=reg) == {
+        "covered": True, "policy_ids": ["example-hotels"],
+    }
+    assert site_policy.coverage("hotel", today=TODAY, registry=reg)["covered"]
+    for kwargs in ({"city": "Basel"}, {"today": date(2028, 1, 1)}, {"country": "unknown"}):
+        assert not site_policy.coverage("hotel", registry=reg, **kwargs)["covered"]
+    for bad in (None, {}, [], 42, object(), {"schema_version": 1, "entries": [object()]}):
+        if bad is None:
+            continue
+        assert site_policy.coverage("hotel", registry=bad) == {"covered": False, "policy_ids": []}
+    assert not site_policy.coverage([], registry=reg)["covered"]
+    assert not site_policy.coverage("hotel", city=[], registry=reg)["covered"]
+    assert not site_policy.coverage("hotel", today="bad", registry=reg)["covered"]
+
+
+def test_coverage_origin_filters_and_policy_order():
+    reg = registry(transport_entry(), transport_entry(id="other"))
+    result = site_policy.coverage("transport", country="CH", origin_city="Freiburg",
+                                  today=TODAY, registry=reg)
+    assert result == {"covered": True, "policy_ids": ["example-rail", "other"]}
+    assert not site_policy.coverage("transport", origin_city="Dublin", today=TODAY,
+                                    registry=reg)["covered"]
+
+
+def test_origin_lookup_and_coverage():
+    base = transport_entry()
+    base["adapters"][0].update({
+        "url_template": "https://tickets.rail.example/?o={origin_station_code}&s={station_name}",
+        "places": {"Zürich": {"station_name": "Zürich HB"}},
+        "origin_places": {"Bâle": {"origin_station_code": "8500010"}},
+    })
+    reg = registry(base)
+    expected = {**EXPECTED, "origin_city": "bÂLE"}
+    assert "o=8500010&s=Z%C3%BCrich%20HB" in site_policy.select_adapter(
+        "transport", expected, origin_country="CH", today=TODAY, registry=reg,
+    )[1]
+    assert site_policy.coverage("transport", city="Zürich", origin_city="Bâle",
+                                today=TODAY, registry=reg)["covered"]
+    assert not site_policy.coverage("transport", city="Zürich", origin_city="Paris",
+                                    today=TODAY, registry=reg)["covered"]
+    with pytest.raises(ValueError, match="no reviewed place IDs for this origin"):
+        site_policy.select_adapter("transport", {**expected, "origin_city": "Paris"},
+                                   origin_country="FR", today=TODAY, registry=reg)
+
+
+@pytest.mark.parametrize("host", ["www.flixbus.com", "www.sncf-connect.com", "www.omio.com"])
+def test_unreviewed_transport_stays_denied(host):
+    assert not evaluate_url(f"https://{host}/", "transport", today=TODAY)["allowed"]

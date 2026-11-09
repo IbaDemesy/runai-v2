@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from urllib.parse import parse_qs, urlsplit
 
@@ -5,6 +6,7 @@ import pytest
 from test_site_policy import TODAY, entry, registry
 
 from runai.agents.hotel import build_task
+from runai.agents.site_policy import evaluate_url, load_registry
 
 KEYS = {"kind", "site_name", "start_url", "instructions", "stop_before", "success_signal",
         "fallback_url", "max_steps", "expected", "allowed_hosts"}
@@ -39,7 +41,7 @@ def test_deep_link_encodes_exact_stay(city, country):
                      "adults": ["2"]}
     assert task["start_url"].isascii()
     assert task["fallback_url"] == task["start_url"]
-    assert task["max_steps"] == 80
+    assert task["max_steps"] == 40
     assert task["allowed_hosts"] == ["secure.hotels.example", "www.hotels.example"]
     assert task["site_name"] == "example-hotels"
     assert task["expected"] == {
@@ -79,7 +81,69 @@ def test_policy_gaps_block(reg):
 
 def test_committed_registry_blocks_destination_without_reviewed_adapter():
     with pytest.raises(ValueError, match="no policy-reviewed hotel"):
-        build_task(trip(), today=TODAY)
+        build_task(trip(city="Unknown City", country="NZ"), today=TODAY)
+
+
+@pytest.mark.parametrize("city,country", [
+    ("Milan", "Italy"), ("Lisbon", "Portugal"), ("Valencia", "Spain"),
+    ("Zurich", "Switzerland"), ("Geneva", "Switzerland"), ("Lausanne", "Switzerland"),
+    ("Freiburg im Breisgau", "Germany"),
+])
+@pytest.mark.parametrize("travelers", [1, 2])
+def test_committed_seven_city_exact_date_links(city, country, travelers):
+    data = trip(city=city, country=country, travelers=travelers,
+                arrival_date="2027-01-09", departure_date="2027-01-11",
+                race_changes={"race_date": "2027-01-10"})
+    task = build_task(data, today=date(2026, 11, 9))
+    url = task["start_url"]
+    decision = evaluate_url(url, "hotel", today=date(2026, 11, 9))
+    assert decision["allowed"]
+    assert urlsplit(url).hostname in task["allowed_hosts"] == decision["allowed_hosts"]
+    query = parse_qs(urlsplit(url).query)
+    if task["site_name"] == "nh-hotels-com":
+        assert city == "Lisbon"
+        assert query["destinationId"] == ["Lisbon"]
+        assert query["hotelId"] == ["PT11.LIBER"]
+        assert query["fini"] == ["09/01/2027"]
+        assert query["fout"] == ["11/01/2027"]
+        assert query["nadults1"] == [str(travelers)]
+        assert "fini=09%2F01%2F2027&fout=11%2F01%2F2027" in url
+    elif task["site_name"] == "hotel-bb-com":
+        assert city == "Freiburg im Breisgau" and travelers == 1
+        assert query == {"arrival_date": ["01/09/2027"], "departure_date": ["01/11/2027"],
+                         "rooms": ["1"], "destination": ["Freiburg-Nord"]}
+        assert "arrival_date=01%2F09%2F2027&departure_date=01%2F11%2F2027" in url
+    else:
+        assert task["site_name"] == "ihg-com"
+        assert query == {
+            "qDest": [f"{city}, {country}"], "qCiD": ["09"], "qCiMy": ["002027"],
+            "qCoD": ["11"], "qCoMy": ["002027"], "qAdlt": [str(travelers)],
+            "qChld": ["0"], "qRms": ["1"],
+        }
+        assert "qCiD=09&qCiMy=002027&qCoD=11&qCoMy=002027" in url
+        assert f"qAdlt={travelers}" in url
+        assert "no hotel in the confirmed city" in task["instructions"]
+    assert task["expected"]["origin_city"] == "Paris"
+    assert task["expected"]["travelers"] == travelers
+    assert task["expected"]["arrival_date"] == "2027-01-09"
+    assert task["expected"]["departure_date"] == "2027-01-11"
+
+
+def test_committed_accor_stays_denied():
+    assert not evaluate_url("https://all.accor.com/", "hotel", today=TODAY)["allowed"]
+
+
+@pytest.mark.parametrize("city", ["Freiburg", "FREIBURG IM BREISGAU"])
+def test_freiburg_one_adult_only_uses_reviewed_in_city_hotel(city):
+    one = build_task(trip(city=city, country="DE", travelers=1), today=TODAY)
+    assert one["site_name"] == "hotel-bb-com"
+    two = build_task(trip(city=city, country="DE", travelers=2), today=TODAY)
+    assert two["site_name"] == "ihg-com"
+
+
+def test_melia_deep_links_withdrawn_after_terms_reread():
+    melia = next(e for e in load_registry() if e["id"] == "melia-com")
+    assert melia["adapters"] == []
 
 
 @pytest.mark.parametrize("city", ["Lisbon", "Lisboa", "LISBONNE"])
@@ -149,9 +213,34 @@ def test_defaults_and_stops():
     for rule in ("guest details", "login", "payment", "captcha", "any form submission",
                  "cookie consent acceptance"):
         assert any(rule in s for s in task["stop_before"])
-    for rule in ("never fill or submit any form", "solve captchas", "log in",
+    for rule in ("Never fill or submit any form", "solve captchas", "log in",
                  "never accept optional consent", "Never change the dates"):
         assert rule in task["instructions"]
+
+
+def test_numbered_prompt_p4_reasons_and_early_inventory_stop():
+    task = build(trip())
+    instructions = task["instructions"]
+    assert instructions.startswith("1. DATE CHECK first:")
+    assert [int(n) for n in re.findall(r"^(\d+)\.", instructions, re.MULTILINE)] == list(range(1, 9))
+    assert "Within your first ~10 steps" in instructions
+    assert "report BLOCKED no_inventory immediately — do not wander until the step limit" in instructions
+    assert "Never change the dates or submit search forms" in instructions
+    assert "STOP on any other host" in instructions
+    codes = set(re.findall(r"report BLOCKED ([a-z_]+)", instructions))
+    assert codes == {
+        "no_site_coverage", "policy_denied", "date_mismatch", "no_inventory", "sold_out",
+        "login_required", "captcha", "consent_required", "unreviewed_redirect", "over_budget",
+        "step_limit", "session_failed", "timeout", "unsafe_claim", "provider_error",
+    }
+    assert "reviewed selection page" in task["success_signal"]
+    assert "full-stay total for the whole party" in task["success_signal"]
+    assert "before guest details, personal data or payment" in task["success_signal"]
+    assert "report BLOCKED unsafe_claim" in task["success_signal"]
+    assert set(task) == KEYS and task["max_steps"] <= 40
+    assert task["fallback_url"] == task["start_url"]
+    assert urlsplit(task["fallback_url"]).hostname == "www.hotels.example"
+    assert urlsplit(task["fallback_url"]).path not in ("", "/")
 
 
 def test_budget_caps_selected_rate():

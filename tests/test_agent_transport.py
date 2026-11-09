@@ -1,3 +1,5 @@
+import copy
+import re
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -38,7 +40,7 @@ def test_round_trip_deep_link(origin, city, country):
         "pax": ["2"],
     }
     assert task["start_url"].isascii()
-    assert task["max_steps"] == 80
+    assert task["max_steps"] == 40
     assert task["allowed_hosts"] == ["tickets.rail.example"]
     assert task["expected"]["origin_city"] == origin
     assert task["expected"]["kind"] == "transport"
@@ -78,8 +80,8 @@ def test_policy_gaps_block(reg):
 
 
 def test_committed_registry_blocks_unreviewed_transport():
-    for data in (trip(origin_city="Paris"), trip(origin_city="Paris", city="Milan",
-                                                  country="Italy")):
+    for data in (trip(origin_city="London"), trip(origin_city="Paris",
+                 city="Reykjavik", country="IS")):
         with pytest.raises(ValueError):
             build_task(data, today=TODAY)
 
@@ -124,3 +126,70 @@ def test_guardrails():
         assert any(rule in s for s in task["stop_before"])
     for rule in ("Never fill or submit any form", "solve captchas", "reseller"):
         assert rule in task["instructions"]
+
+
+def test_numbered_prompt_p4_reasons_and_early_inventory_stop():
+    task = build(trip())
+    instructions = task["instructions"]
+    assert instructions.startswith("1. DATE CHECK first:")
+    assert [int(n) for n in re.findall(r"^(\d+)\.", instructions, re.MULTILINE)] == list(range(1, 9))
+    assert "Within your first ~10 steps" in instructions
+    assert "report BLOCKED no_inventory immediately — do not wander until the step limit" in instructions
+    assert "Never change the dates or submit search forms" in instructions
+    assert "STOP on any other host" in instructions
+    assert set(re.findall(r"report BLOCKED ([a-z_]+)", instructions)) == {
+        "no_site_coverage", "policy_denied", "date_mismatch", "no_inventory", "sold_out",
+        "login_required", "captcha", "consent_required", "unreviewed_redirect", "over_budget",
+        "step_limit", "session_failed", "timeout", "unsafe_claim", "provider_error",
+    }
+    assert "reviewed selection page" in task["success_signal"]
+    assert "full round-trip total" in task["success_signal"]
+    assert "before passenger details, personal data or payment" in task["success_signal"]
+    assert "report BLOCKED unsafe_claim" in task["success_signal"]
+    assert set(task) == KEYS and task["max_steps"] <= 40
+    assert task["fallback_url"] == task["start_url"]
+    assert urlsplit(task["fallback_url"]).hostname == "tickets.rail.example"
+    assert urlsplit(task["fallback_url"]).path not in ("", "/")
+
+
+@pytest.mark.parametrize("rail_covers", [True, False])
+def test_train_preferred_and_flight_fallback_with_reviewed_destination(rail_covers):
+    flight = transport_entry(id="flight")
+    flight["scopes"] = [{"host": "tickets.flight.example", "path_prefix": "/"}]
+    flight["adapters"][0].update({
+        "mode": "flight", "places": {"Lisbon": {"iata": "LIS"}},
+    })
+    flight["adapters"][0]["url_template"] = flight["adapters"][0]["url_template"].replace(
+        "tickets.rail.example", "tickets.flight.example",
+    ) + "&airport={iata}"
+    rail = copy.deepcopy(flight)
+    rail["id"] = "rail"
+    rail["scopes"] = [{"host": "tickets.rail.example", "path_prefix": "/"}]
+    rail["adapters"][0].update({
+        "mode": "rail", "origin_countries": ["PT"] if rail_covers else ["CH"],
+        "places": {"Lisbon": {"station_name": "Lisboa Santa Apolónia", "station_code": "LIS"}},
+        "url_template": flight["adapters"][0]["url_template"].replace(
+            "airport={iata}", "station={station_code}",
+        ).replace("tickets.flight.example", "tickets.rail.example"),
+    })
+    reg = registry(flight, rail)
+    original = copy.deepcopy(reg)
+    task = build(trip(), reg)
+    assert reg == original
+    assert task["site_name"] == ("rail" if rail_covers else "flight")
+    assert ("round-trip train" if rail_covers else "round-trip flight") in task["instructions"]
+    destination = "Lisbon via Lisboa Santa Apolónia, LIS" if rail_covers else "Lisbon via LIS"
+    assert destination in task["instructions"]
+    assert set(task) == KEYS
+
+
+def test_flight_airport_mapping_keeps_expected_city():
+    flight = transport_entry()
+    flight["adapters"][0].update({
+        "mode": "flight", "places": {"freiburg im breisgau": {"iata": "BSL"}},
+    })
+    flight["adapters"][0]["url_template"] += "&airport={iata}"
+    task = build(trip(city="Freiburg im Breisgau", country="DE"), registry(flight))
+    assert "Freiburg im Breisgau via BSL" in task["instructions"]
+    assert task["expected"]["city"] == "Freiburg im Breisgau"
+    assert "airport=BSL" in task["start_url"]

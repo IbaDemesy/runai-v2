@@ -15,7 +15,7 @@ from typing import Any
 from runai.agents.site_policy import select_adapter, trip_expected
 
 KIND = "hotel"
-MAX_STEPS = 80
+MAX_STEPS = 40
 STOP_BEFORE = [
     "guest details / personal data form", "login or account creation", "payment page",
     "booking confirmation", "terms or consent checkbox", "cookie consent acceptance",
@@ -49,25 +49,30 @@ def build_task(
         if budget is not None else "No budget supplied: pick the cheapest suitable rate."
     )
     instructions = (
-        f"Goal: show one available hotel room AND rate in {expected['city']}, "
-        f"{expected['country']} for check-in {arrival}, check-out {departure}, {adults} adults "
-        f"(traveling from {expected['origin_city']}), then stop before guest data.\n"
-        f"1. The start URL already encodes the city, dates and party. Allowed navigation hosts: "
-        f"{', '.join(hosts)}. If any page redirects to another host, STOP at once and report "
-        "BLOCKED unreviewed_redirect with that host; do not interact with it.\n"
-        f"2. DATE CHECK before anything else: the page must show check-in {arrival}, check-out "
-        f"{departure} and {adults} adults. If it shows other dates (e.g. today's), swapped dates "
-        "or another party, or they can only be changed by submitting a search form, STOP and "
-        "report BLOCKED date_mismatch with what was shown. Never change the dates yourself.\n"
-        "3. Cookie banners: reject or close only, never accept optional consent.\n"
-        f"4. {budget_hint} Open one available hotel and select one room and rate whose page shows "
-        f"the full stay {arrival} to {departure}, {adults} adults and a total price. Only use "
-        "public links/select buttons; never fill or submit any form.\n"
+        f"1. DATE CHECK first: {expected['city']}, {expected['country']}, check-in {arrival}, "
+        f"check-out {departure}, {adults} adults. For missing/wrong dates, city or party, "
+        "report BLOCKED date_mismatch. Never change the dates or submit search forms.\n"
+        f"2. Allowed hosts: {', '.join(hosts)}. STOP on any other host and report BLOCKED "
+        "unreviewed_redirect; do not interact with it. Cookie banners: reject or close only; "
+        "never accept optional consent.\n"
+        "3. Within your first ~10 steps, if the site shows its no-availability / not-on-sale / "
+        "sales-horizon message (see blocked evidence), report BLOCKED no_inventory immediately "
+        "— do not wander until the step limit. If the selected room/rate is sold out, "
+        "report BLOCKED sold_out.\n"
+        f"4. {budget_hint} Use public links only to select one room AND rate with the "
+        "full-stay total for the whole party. Never fill or submit any form. "
+        "Search results without a selected room and rate are NOT ready.\n"
         f"5. Site-specific success evidence: {adapter['success_evidence']}\n"
         f"6. Site-specific blocked evidence: {adapter['blocked_evidence']}\n"
-        "7. STOP at the first guest-details, login, account, consent, captcha or payment page. "
-        "Never type personal data, log in, create accounts, tick terms, solve captchas or pay.\n"
-        "Search results without a selected room and rate are NOT ready."
+        "7. Stop before opening guest details or payment. Never type personal data, log in, "
+        "create accounts, tick terms, solve captchas or pay. For login/account walls report "
+        "BLOCKED login_required; for captcha report BLOCKED captcha; for required consent "
+        "report BLOCKED consent_required. Safety rules override site evidence.\n"
+        "8. Finish within 40 steps; otherwise report BLOCKED step_limit. For missing site "
+        "coverage report BLOCKED no_site_coverage; denied policy report BLOCKED policy_denied; "
+        "session failure report BLOCKED session_failed; timeout report BLOCKED timeout; "
+        "site error report BLOCKED provider_error. Never invent success: report BLOCKED "
+        "unsafe_claim if selection evidence is incomplete. Include the last safe public URL."
     )
     return {
         "kind": KIND,
@@ -76,10 +81,11 @@ def build_task(
         "instructions": instructions,
         "stop_before": list(STOP_BEFORE),
         "success_signal": (
-            f"READY only when a selected room and rate show check-in {arrival}, check-out "
-            f"{departure}, {adults} adults and a total price, stopped before guest details; "
-            "report that URL. Otherwise BLOCKED (date_mismatch, no_inventory, login, captcha, "
-            "consent, unreviewed_redirect) with the reason and last URL."
+            f"READY only on the reviewed selection page where a selected room and rate show "
+            f"check-in {arrival}, check-out {departure}, {adults} adults and the full-stay "
+            "total for the whole party, before guest details, personal data or payment. "
+            "Report that safe public URL. For incomplete evidence report BLOCKED unsafe_claim; "
+            "for other stops use the exact BLOCKED reason from the instructions."
         ),
         "fallback_url": url,
         "max_steps": MAX_STEPS,

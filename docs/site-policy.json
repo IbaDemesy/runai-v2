@@ -3,6 +3,30 @@
   "comment": "Dated terms reviews gating every H agent navigation. Unknown, expired, prohibited or ambiguous scopes fail closed. robots.txt is never treated as authorization. See docs/evidence/site-policy.md.",
   "entries": [
     {
+      "id": "bahn-de",
+      "name": "Deutsche Bahn (terms unavailable)",
+      "purposes": ["transport"],
+      "scopes": [
+        {"host": "bahn.de", "path_prefix": "/"},
+        {"host": "www.bahn.de", "path_prefix": "/"},
+        {"host": "int.bahn.de", "path_prefix": "/"}
+      ],
+      "terms_urls": [
+        "https://www.bahn.de/agb",
+        "https://www.bahn.de/nutzungsbedingungen",
+        "https://int.bahn.de/en/terms-of-use"
+      ],
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Review attempted; legal pages unavailable (Access Denied)",
+      "justification": "Normal-browser review attempted 2026-11-09: all three legal URLs and the tested int.bahn.de round-trip search rendered Access Denied. The clauses could not be read, so absence of an automation prohibition cannot be established. Fail closed as ambiguous, with no executable adapter or screenshot permission. This is not a finding that DB expressly prohibits agents. See docs/evidence/transport.md.",
+      "automation": "ambiguous",
+      "screenshot_scope": "none",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": []
+    },
+    {
       "id": "nh-hotels-com",
       "name": "nh-hotels.com",
       "purposes": [
@@ -21,10 +45,10 @@
       "terms_urls": [
         "https://www.nh-hotels.com/en/legal-notice"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "User obligations; Intellectual Property",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: curl HTTP 403; browser fetched Minor Hotels/NH legal notice. Copying restriction found, no express automation clause found.",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "2. User Responsibilities; 3. Monitoring; 9. Intellectual Property",
+      "justification": "Browser reread 2026-11-09: no express robot, automated-agent or scraping prohibition found. Sections 2 and 9 restrict copying without written consent or legal permission; section 3 prohibits interference and disproportionate load. These remain materially ambiguous for agents. Retain the owner's 2026-11-08 read-only rule: no forms, accounts, consent or payment; screenshots in-session only, never published. Exact-date Lisbon rates rechecked for 1 and 2 adults; see docs/evidence/hotel.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -32,6 +56,7 @@
       "adapters": [
         {
           "kind": "hotel",
+          "mode": "hotel",
           "destination_countries": [
             "PT"
           ],
@@ -50,8 +75,59 @@
               "place_name": "Lisbon"
             }
           },
-          "success_evidence": "NH step1-rates page shows fini/fout dates DD/MM/YYYY equal to the stay, the party, then a selected room category AND rate with the total price for all nights (observed 2026-11-08: 6 room categories for NH Collection Lisboa Liberdade 13-15/03/2027).",
-          "blocked_evidence": "No rooms/rates listed for these dates (no_inventory), dates differ from the stay (date_mismatch), a login/NH Discovery account prompt, captcha, or the next step asks for guest details."
+          "success_evidence": "NH step1-rates shows the hotel's city, Jan 9-Jan 11 and 1 adulto / 1 habitación or 2 adultos / 1 habitación for the tested 2027-01-09..11 stay; six priced room categories at NH Collection Lisboa Liberdade were observed 2026-11-09. Open Ver tarifas only if it is not a form submission, then verify a selected room AND rate and full-stay total before guest data. A room list alone is not ready.",
+          "blocked_evidence": "Observed Spanish no-inventory text: Lo sentimos, no hay disponibilidad para estas fechas (tested at NH Collection Milano Touring with 9 adults). Also block on mismatched dates/party, login, captcha, consent acceptance, form submission or guest details."
+        }
+      ]
+    },
+    {
+      "id": "hotel-bb-com",
+      "name": "hotel-bb.com",
+      "purposes": [
+        "hotel"
+      ],
+      "scopes": [
+        {
+          "host": "hotel-bb.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.hotel-bb.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.hotel-bb.com/fr/conditions-utilisation"
+      ],
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "5. Accès; 7. Services; 15. Droits de propriété intellectuelle",
+      "justification": "Browser reread 2026-11-09: no express robots/agents/scraping prohibition found. Section 15 restricts copying, reproduction, code downloading and commercial exploitation without express permission. Retain the existing owner's 2026-11-08 read-only rule for this ambiguity: no forms, login, consent or payment; screenshots in-session only, never published. Freiburg-Nord exact-date public rates verified for one adult only; two-adult encoding remains unverified. See docs/evidence/hotel.md.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": [
+        {
+          "kind": "hotel",
+          "mode": "hotel",
+          "destination_countries": [
+            "DE"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.hotel-bb.com/en/hotel/freiburg-nord?arrival_date={arrival_mdy_slash}&departure_date={departure_mdy_slash}&rooms={travelers}&destination={place_name}",
+          "places": {
+            "freiburg": {
+              "place_name": "Freiburg-Nord"
+            },
+            "freiburg im breisgau": {
+              "place_name": "Freiburg-Nord"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: B&B HOTEL Freiburg-Nord, Tullastraße 87c, 79108 Freiburg, Germany; 1 room | 1 adult | From 09 Jan. 2027 to 11 Jan. 2027. Double and twin rooms list public SUPERSAVER and FLEX rates with date-by-date prices and Select controls. One adult only; rooms parameter is not verified for larger parties. Verify selected room, rate, party and full-stay total before guest data. Never submit the room-selection form or use member login rates.",
+          "blocked_evidence": "Observed on B&B search: No hotels match your search criteria. Freiburg has rates on the tested dates; no property-specific sold-out message was observed this round. Block empty rates, wrong city/dates/party, member login, consent, captcha, form submission or guest details."
         }
       ]
     },
@@ -74,15 +150,23 @@
       "terms_urls": [
         "https://www.ihg.com/content/gb/en/customer-care/tc.html"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "LIMITED LICENCE TO VIEW AND COPY; PROHIBITED CONDUCT",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: curl HTTP 403; browser fetched. Copying/personal-use restrictions found; no express automation clause found. Verbatim excerpts capped at 600 characters; full selected paragraphs retained in clause evidence.",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "LIMITED LICENCE TO VIEW AND COPY; PROHIBITED CONDUCT; INTELLECTUAL PROPERTY RIGHTS",
+      "justification": "Browser reread 2026-11-09: no express robot, automated-agent or scraping prohibition found. The limited licence remains for Authorised Users' non-commercial individual use; copying/transferring materials and use on another site or computer environment are restricted. Retain the owner's 2026-11-08 read-only rule for materially ambiguous terms: no forms, accounts, consent or payment; screenshots in-session only, never published. Generic destination searches verified in IT/PT/ES/CH/DE for 1 and 2 adults; nearby results are not proof of an in-city hotel. See docs/evidence/hotel.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
       "registration_observations": [],
       "adapters": [
+        {
+          "kind": "hotel",
+          "mode": "hotel",
+          "destination_countries": ["IT", "PT", "ES", "CH", "DE"],
+          "url_template": "https://www.ihg.com/hotels/gb/en/find-hotels/hotel/list?qDest={city_query}%2C%20{country}&qCiD={arrival_day}&qCiMy={arrival_monthyear0}&qCoD={departure_day}&qCoMy={departure_monthyear0}&qAdlt={travelers}&qChld=0&qRms=1",
+          "success_evidence": "IHG redirects to hotel-search on www.ihg.com. The rendered destination, DD/MM/YYYY dates and Rooms & Guests must match the confirmed trip (month-year URL values are zero-based). Observed 2026-11-09: priced hotel results for Milan, Lisbon, Valencia, Zurich and Geneva with 1 and 2 adults, 2027-01-09..11. Lausanne and Freiburg queries returned only distant hotels: verify the hotel's actual city, not just the search field; do not substitute Geneva or Ringsheim for the confirmed city. Results and From nightly prices alone are not ready: only a selected room AND rate showing the exact stay, party and stay total before guest data can qualify.",
+          "blocked_evidence": "Observed empty/error search text: 0 Hotel Found. An error has occurred. Please contact your nearest reservation office and a representative will be able to assist you. Treat as blocked, not proof of sold-out inventory. Also block on no hotel in the confirmed city, Your search results contain properties in neighboring countries/regions without a matching city hotel, mismatched dates/party, login, captcha, consent acceptance, form submission, unreviewed redirect or guest details."
+        },
         {
           "kind": "hotel",
           "destination_countries": [
@@ -127,45 +211,15 @@
       "terms_urls": [
         "https://www.melia.com/en/legal-notice"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Intellectual property; use of website content",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: curl HTTP 403; browser fetched. Personal/non-commercial and copying restrictions; no express robot/scraping prohibition found.",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "3. Website use; 5. Links; 6. Intellectual property",
+      "justification": "Browser reread 2026-11-09: no express robot, automated-agent or scraping prohibition found, but section 5 says No deep-links or IMG or image links, nor frames with website pages will be allowed without the express permission of Meliá. Remove the executable deep-link adapter: the owner's rule for ambiguous automation/copying terms does not supply that permission. The existing allowed_owner_rule is retained only for ordinary read-only navigation under the 2026-11-08 owner rule, not an executable booking deep link; no forms, accounts, consent or payment, screenshots in-session only. See docs/evidence/hotel.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
       "registration_observations": [],
-      "adapters": [
-        {
-          "kind": "hotel",
-          "destination_countries": [
-            "PT"
-          ],
-          "url_template": "https://www.melia.com/en/booking/destination-results?search=%7B%22type%22%3A%22booking%22%2C%22destination%22%3A%7B%22type%22%3A%22destination%22%2C%22location%22%3A%7B%22country%22%3A%7B%22name%22%3A%22{place_country}%22%7D%2C%22city%22%3A%7B%22name%22%3A%22{place_name}%22%7D%2C%22latitude%22%3Anull%2C%22longitude%22%3Anull%7D%2C%22name%22%3A%22{place_name}%22%2C%22hotelCodeList%22%3A%5B{place_extra}%5D%2C%22id%22%3A%22{place_id}%22%7D%2C%22dates%22%3A%7B%22checkIn%22%3A%22{arrival_date}%22%2C%22checkOut%22%3A%22{departure_date}%22%7D%2C%22occupation%22%3A%5B%7B%22adults%22%3A%7B%22total%22%3A{travelers}%7D%7D%5D%7D",
-          "places": {
-            "lisbon": {
-              "place_id": "e3e94277-aeee-4677-92d4-6746bc77fa08",
-              "place_name": "Lisbon",
-              "place_country": "Portugal",
-              "place_extra": "\"5692\",\"5689\",\"5827\""
-            },
-            "lisboa": {
-              "place_id": "e3e94277-aeee-4677-92d4-6746bc77fa08",
-              "place_name": "Lisbon",
-              "place_country": "Portugal",
-              "place_extra": "\"5692\",\"5689\",\"5827\""
-            },
-            "lisbonne": {
-              "place_id": "e3e94277-aeee-4677-92d4-6746bc77fa08",
-              "place_name": "Lisbon",
-              "place_country": "Portugal",
-              "place_extra": "\"5692\",\"5689\",\"5827\""
-            }
-          },
-          "success_evidence": "Meliá destination results show the exact check-in/check-out and adults; then one hotel opened and a room AND rate selected with the stay total (observed 2026-11-08: 3 Lisbon hotels listed for 13-15 March 2027; room/rate selection not yet observed).",
-          "blocked_evidence": "No hotels/rates for the dates, dates differ, MeliáRewards login required for the rate, captcha, or the next step is guest details."
-        }
-      ]
+      "adapters": []
     },
     {
       "id": "cp-pt",
@@ -484,35 +538,6 @@
       "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Official article contains region-specific versions; quoted platform rules appear in fetched terms. No inference that one locale is universally applicable. Verbatim excerpts capped at 600 characters; full selected paragraphs retained in clause evidence.",
       "automation": "prohibited",
       "screenshot_scope": "none",
-      "navigation_hosts": [],
-      "registration_observations": [],
-      "adapters": []
-    },
-    {
-      "id": "hotel-bb-com",
-      "name": "hotel-bb.com",
-      "purposes": [
-        "hotel"
-      ],
-      "scopes": [
-        {
-          "host": "hotel-bb.com",
-          "path_prefix": "/"
-        },
-        {
-          "host": "www.hotel-bb.com",
-          "path_prefix": "/"
-        }
-      ],
-      "terms_urls": [
-        "https://www.hotel-bb.com/fr/conditions-utilisation"
-      ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Propriété intellectuelle",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: B&B Hotels French website/application terms. Reproduction/commercial exploitation restricted; no express automation clause found.",
-      "automation": "allowed_owner_rule",
-      "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
       "registration_observations": [],
       "adapters": []
@@ -884,20 +909,212 @@
         {
           "host": "www.vueling.com",
           "path_prefix": "/"
+        },
+        {
+          "host": "tickets.vueling.com",
+          "path_prefix": "/"
         }
       ],
       "terms_urls": [
         "https://www.vueling.com/en/customer-services/website-conditions-of-use"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "02. User obligations; 07. Intellectual and industrial property",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Official browser HTML embeds accordion terms as JSON; decoded exact content. No express robot/scraping clause found.",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "01. Terms and conditions; 02. User obligations; 03-06. Information, content, browsing and technical aspects; 07. Intellectual and industrial property; 08-10. Suspension, duration and jurisdiction",
+      "justification": "Normal-browser reread 2026-11-09 of all ten legal accordions: no express robots, automated agents or scraping prohibition found. Sections 2 and 7 restrict commercial copying/exploitation and reserve content rights; section 1 describes the Website as pages served by www.vueling.com. The public tickets.vueling.com booking footer links to this same notice, but its scope wording is narrow: applicability remains materially ambiguous, not express authorization. Retain the existing owner's 2026-11-08 read-only rule, including that linked booking host: no forms, login, consent or payment; screenshots in-session only, never published. Add only the airport-pair combinations whose exact-date round-trip page rendered; no claim of inventory on every leg. See docs/evidence/transport.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
       "registration_observations": [],
-      "adapters": []
+      "adapters": [
+        {
+          "kind": "transport",
+          "mode": "flight",
+          "destination_countries": [
+            "IT",
+            "PT",
+            "ES",
+            "CH"
+          ],
+          "origin_countries": [
+            "FR",
+            "BE"
+          ],
+          "url_template": "https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd={arrival_date}&rd={departure_date}&adt={travelers}&chd=0&inf=0&c=en-GB&cur=EUR",
+          "places": {
+            "milan": {
+              "iata": "MXP"
+            },
+            "milano": {
+              "iata": "MXP"
+            },
+            "lisbon": {
+              "iata": "LIS"
+            },
+            "lisboa": {
+              "iata": "LIS"
+            },
+            "lisbonne": {
+              "iata": "LIS"
+            },
+            "valencia": {
+              "iata": "VLC"
+            },
+            "valència": {
+              "iata": "VLC"
+            },
+            "zurich": {
+              "iata": "ZRH"
+            },
+            "zürich": {
+              "iata": "ZRH"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_iata": "ORY"
+            },
+            "bruxelles": {
+              "origin_iata": "BRU"
+            },
+            "brussels": {
+              "origin_iata": "BRU"
+            },
+            "brussel": {
+              "origin_iata": "BRU"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping.",
+          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
+        },
+        {
+          "kind": "transport",
+          "mode": "flight",
+          "destination_countries": [
+            "IT",
+            "PT",
+            "CH"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "url_template": "https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd={arrival_date}&rd={departure_date}&adt={travelers}&chd=0&inf=0&c=en-GB&cur=EUR",
+          "places": {
+            "milan": {
+              "iata": "MXP"
+            },
+            "milano": {
+              "iata": "MXP"
+            },
+            "lisbon": {
+              "iata": "LIS"
+            },
+            "lisboa": {
+              "iata": "LIS"
+            },
+            "lisbonne": {
+              "iata": "LIS"
+            },
+            "zurich": {
+              "iata": "ZRH"
+            },
+            "zürich": {
+              "iata": "ZRH"
+            }
+          },
+          "origin_places": {
+            "lyon": {
+              "origin_iata": "LYS"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping. Lyon's January 11 return had no flights for all three destinations: report no_inventory, not ready.",
+          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
+        },
+        {
+          "kind": "transport",
+          "mode": "flight",
+          "destination_countries": [
+            "IT",
+            "PT"
+          ],
+          "origin_countries": [
+            "CH"
+          ],
+          "url_template": "https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd={arrival_date}&rd={departure_date}&adt={travelers}&chd=0&inf=0&c=en-GB&cur=EUR",
+          "places": {
+            "milan": {
+              "iata": "MXP"
+            },
+            "milano": {
+              "iata": "MXP"
+            },
+            "lisbon": {
+              "iata": "LIS"
+            },
+            "lisboa": {
+              "iata": "LIS"
+            },
+            "lisbonne": {
+              "iata": "LIS"
+            }
+          },
+          "origin_places": {
+            "genève": {
+              "origin_iata": "GVA"
+            },
+            "geneva": {
+              "origin_iata": "GVA"
+            },
+            "genf": {
+              "origin_iata": "GVA"
+            },
+            "ginevra": {
+              "origin_iata": "GVA"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping.",
+          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
+        },
+        {
+          "kind": "transport",
+          "mode": "flight",
+          "destination_countries": [
+            "CH",
+            "DE"
+          ],
+          "origin_countries": [
+            "BE"
+          ],
+          "url_template": "https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd={arrival_date}&rd={departure_date}&adt={travelers}&chd=0&inf=0&c=en-GB&cur=EUR",
+          "places": {
+            "basel": {
+              "iata": "BSL"
+            },
+            "bâle": {
+              "iata": "BSL"
+            },
+            "freiburg": {
+              "iata": "BSL"
+            },
+            "freiburg im breisgau": {
+              "iata": "BSL"
+            }
+          },
+          "origin_places": {
+            "bruxelles": {
+              "origin_iata": "BRU"
+            },
+            "brussels": {
+              "origin_iata": "BRU"
+            },
+            "brussel": {
+              "origin_iata": "BRU"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping. BSL is Basel EuroAirport, an explicitly reviewed airport-only fallback for Freiburg, not a flight to Freiburg city or an included onward ground transfer. Brussels-Basel January 9 had no outbound flights; January 11 listed return fares. Report no_inventory for that stay, not a prepared round trip.",
+          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
+        }
+      ]
     },
     {
       "id": "flytap-com",
