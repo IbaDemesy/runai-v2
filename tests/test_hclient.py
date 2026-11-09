@@ -22,6 +22,7 @@ from runai.agents.hclient import (
     _policy,
     _PolicyBlocked,
     _reviewed,
+    _verification_failures,
 )
 from runai.agents.scrub import scrub_text, scrub_url
 
@@ -493,6 +494,36 @@ def test_private_session_and_contact_paths_are_not_returned_as_public_urls(path)
 def test_trip_dates_survive_url_scrubbing():
     url = "https://hotel.example.org/stay?checkin=2027-04-04&checkout=2027-04-06&token=private"
     assert scrub_url(url) == "https://hotel.example.org/stay?checkin=2027-04-04&checkout=2027-04-06"
+
+
+@pytest.mark.parametrize("url,unsafe", [
+    ("https://secure.booking.com/book.html?checkin=2027-04-04&checkout=2027-04-06", False),
+    ("https://secure.booking.com/book.html?checkout=2027-04-06&checkin=2027-04-04", False),
+    ("https://x.com/checkout", True),
+    ("https://x.com/checkout/payment", True),
+    ("https://x.com/checkout=review", True),
+    ("https://x.com/review?next=checkout", True),
+    ("https://x.com/review", False),
+])
+def test_checkout_date_query_is_not_an_unsafe_handoff(url, unsafe):
+    expected = {"city": "Den Haag", "arrival_date": "2027-04-04",
+                "departure_date": "2027-04-06", "travelers": 1}
+    task = {"kind": "hotel", "expected": expected}
+    answer = {"verification": {**expected, "room": "Standard", "rate": "Flexible",
+                               "total": "240 EUR", "selected": True,
+                               "next_safe_boundary": "guest details"}}
+    reviews = [({"secure.booking.com", "x.com"}, ("/",))]
+    failures = _verification_failures(task, answer, url, url, url, reviews)
+    assert failures == (["unsafe_handoff"] if unsafe else [])
+
+
+@pytest.mark.parametrize("separator", ["?", "&", ";"])
+def test_checkout_exception_is_only_for_a_query_key(separator):
+    from runai.agents.hclient import _FORBIDDEN
+
+    assert not _FORBIDDEN.search(f"https://x.com/review{separator}checkout=2027-04-06")
+    assert _FORBIDDEN.search(f"https://x.com/review{separator}checkout")
+    assert _FORBIDDEN.search(f"https://x.com/review{separator}checkout/payment")
 
 
 @pytest.mark.parametrize("url", [

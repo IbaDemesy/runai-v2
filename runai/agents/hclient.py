@@ -56,7 +56,8 @@ _TERMINAL = {"completed", "failed", "timed_out", "interrupted"}
 POLICY_MODULE = "runai.agents.site_policy"
 _IMAGE_LIMIT = 5 * 1024 * 1024
 _FORBIDDEN = re.compile(
-    r"login|log-in|sign-in|signin|sign-up|signup|account|payment|checkout|captcha|"
+    r"login|log-in|sign-in|signin|sign-up|signup|account|payment|"
+    r"(?<![?&;])checkout|checkout(?!=)|captcha|"
     r"password|authenticated|card number|consent accepted|form submitted", re.IGNORECASE,
 )
 _OBSERVATION_FORBIDDEN = re.compile(
