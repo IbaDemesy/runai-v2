@@ -50,6 +50,9 @@ def test_public_njuko_event_ids_are_not_contact_details(url):
     "https://in.njuko.com/w/+33-6-12-34-56-78",
     "https://other.example.org/w/8a51dd786fba3d1be53c9a97",
     "https://in.njuko.com/private/8a51dd786fba3d1be53c9a97",
+    "https://in.njuko.com/runner-2027-0612345678901",
+    "https://in.njuko.com/runner-0612345678-2027-1782304695994",
+    "https://in.njuko.com/hai-sentinel-secret-2027-1782304695994",
 ])
 def test_njuko_exception_does_not_allow_contacts_or_arbitrary_opaque_paths(url):
     assert scrub_url(url) is None

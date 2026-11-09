@@ -43,7 +43,8 @@ def _njuko_public_id(host, segments, index):
     if host not in {"in.njuko.com", "www.njuko.net", "njuko.net", "njuko.com"}:
         return False
     segment = segments[index]
-    return bool(re.fullmatch(r"[a-z][a-z0-9-]*-20\d{2}-?\d{13}", segment, re.IGNORECASE) or (
+    event = re.fullmatch(r"([a-z][a-z0-9-]*)-20\d{2}-?([12]\d{12})", segment, re.IGNORECASE)
+    return bool((event and scrub_text(event[1]) == event[1]) or (
         index > 0 and segments[index - 1] == "w"
         and re.fullmatch(r"[a-f0-9]{24,64}", segment, re.IGNORECASE)
     ))
