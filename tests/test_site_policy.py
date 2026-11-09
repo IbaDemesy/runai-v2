@@ -850,8 +850,9 @@ def test_r4_coverage_known_unknown_expired():
         assert site_policy.coverage("hotel", city=city, today=TODAY)["covered"]
     assert not site_policy.coverage("transport", city="Unknown",
                                    origin_city="Paris", today=TODAY)["covered"]
-    assert not site_policy.coverage("transport", city="Barcelona", origin_city="Paris",
-                                   today=date(2030, 1, 1))["covered"]
+    assert not site_policy.coverage("transport", city="Milan", origin_city="Paris",
+                                   today=date(2030, 1, 1),
+                                   registry=registry(transport_entry()))["covered"]
 
 
 @pytest.mark.parametrize("value", [None, True, 123, "", "not-a-date", "2026-02-30",

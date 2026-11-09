@@ -93,7 +93,7 @@ _ORIGIN_FIELDS = frozenset({
 })
 _TEMPLATE_FIELDS = frozenset({
     "city", "country", "origin_city", "arrival_date", "departure_date", "travelers", "race_date",
-    "race_name",
+    "race_name", "adult_label",
     *(f"{d}_{v}" for d in ("arrival", "departure") for v in _DATE_VARIANTS),
 }) | _PLACE_FIELDS | _ORIGIN_FIELDS
 _PREFILL_FIELDS = frozenset({
@@ -794,6 +794,7 @@ def _candidates(
     values["origin_city"] = city_name(values["origin_city"])
     values["city_query"] = values["city"]
     values["origin_city_query"] = values["origin_city"]
+    values["adult_label"] = "adult" if expected.get("travelers") == 1 else "adults"
     try:
         values |= _date_values("arrival", _iso(expected.get("arrival_date"), "arrival_date"))
         values |= _date_values("departure", _iso(expected.get("departure_date"), "departure_date"))

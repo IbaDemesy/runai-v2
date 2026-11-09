@@ -33,74 +33,21 @@
           "kind": "transport",
           "mode": "rail",
           "destination_countries": [
-            "IT"
-          ],
-          "origin_countries": [
-            "FR"
-          ],
-          "traveler_counts": [
-            1,
-            2
-          ],
-          "url_template": "https://www.omio.com/links/626fa8a9-f982-43d0-ace9-9a13f6b14612?departurePosTerm={origin_place_code}&arrivalPosTerm={place_name}&departureDate={arrival_date}&returnDate={departure_date}&adults={travelers}",
-          "places": {
-            "milan": {
-              "place_name": "Milan"
-            }
-          },
-          "origin_places": {
-            "paris": {
-              "origin_place_code": "Paris"
-            }
-          },
-          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute Rotterdam for The Hague. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified.",
-          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
-          "checkpoint": {
-            "url_patterns": [
-              "^/app/search-frontend/journey/"
-            ],
-            "beyond_patterns": [
-              "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
-              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
-            ]
-          },
-          "h_render_verified_at": "2026-11-09",
-          "prefill": {
-            "fields": [
-              "given_name",
-              "family_name",
-              "email",
-              "phone"
-            ],
-            "scope": "passenger details",
-            "prefill_patterns": [
-              "^/app/search-frontend/booking/[^/]+/passenger-details(?:[/?]|$)"
-            ],
-            "url_patterns": [
-              "(?!)"
-            ],
-            "beyond_patterns": [
-              "payment|/pay|checkout|login|log[-_]?in|register|account|/book(?:ing)?/confirm|seats?|extras?|insurance|terms|consent"
-            ]
-          }
-        },
-        {
-          "kind": "transport",
-          "mode": "rail",
-          "destination_countries": [
+            "IT",
             "DE",
             "PT",
             "CH",
+            "NL",
             "ES"
           ],
           "origin_countries": [
             "FR"
           ],
-          "traveler_counts": [
-            1
-          ],
           "url_template": "https://www.omio.com/links/626fa8a9-f982-43d0-ace9-9a13f6b14612?departurePosTerm={origin_place_code}&arrivalPosTerm={place_name}&departureDate={arrival_date}&returnDate={departure_date}&adults={travelers}",
           "places": {
+            "milan": {
+              "place_name": "Milan"
+            },
             "berlin": {
               "place_name": "Berlin"
             },
@@ -112,6 +59,117 @@
             },
             "madrid": {
               "place_name": "Madrid"
+            },
+            "barcelona": {
+              "place_name": "Barcelona"
+            },
+            "den haag": {
+              "place_name": "Rotterdam",
+              "via": "Rotterdam"
+            },
+            "brunnen": {
+              "place_name": "Zurich",
+              "via": "Zurich"
+            },
+            "stoos": {
+              "place_name": "Zurich",
+              "via": "Zurich"
+            },
+            "lucerne": {
+              "place_name": "Zurich",
+              "via": "Zurich"
+            },
+            "amsterdam": {
+              "place_name": "Amsterdam"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_place_code": "Paris"
+            }
+          },
+          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute nearby endpoints: The Hague uses the explicitly disclosed Rotterdam gateway, onward transfer excluded. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified. R7-02 round 3 extends route-specific render observations (not selected-path evidence). Prefill probe required given/family name, email, phone, birth date and country/region of residence; final post-form page was not reached, so prefill success remains fail-closed.",
+          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY. For The Hague use only the explicitly reviewed Rotterdam gateway; onward transfer is excluded. Geneva flight results may suggest Lyon: never substitute an unreviewed origin airport.",
+          "checkpoint": {
+            "url_patterns": [
+              "^/app/search-frontend/journey/"
+            ],
+            "beyond_patterns": [
+              "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
+            ]
+          },
+          "prefill": {
+            "fields": [
+              "given_name",
+              "family_name",
+              "email",
+              "phone",
+              "birth_date",
+              "country"
+            ],
+            "scope": "passenger details",
+            "prefill_patterns": [
+              "^/app/search-frontend/booking/[^/]+/passenger-details(?:[/?]|$)"
+            ],
+            "url_patterns": [
+              "(?!)"
+            ],
+            "beyond_patterns": [
+              "payment|/pay|checkout|login|log[-_]?in|register|account|/book(?:ing)?/confirm|seats?|extras?|insurance|terms|consent"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09",
+          "traveler_counts": [
+            1,
+            2,
+            3,
+            4
+          ]
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "IT",
+            "DE",
+            "PT",
+            "CH",
+            "NL",
+            "ES"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "url_template": "https://www.omio.com/links/626fa8a9-f982-43d0-ace9-9a13f6b14612?departurePosTerm={origin_place_code}&arrivalPosTerm={place_name}&departureDate={arrival_date}&returnDate={departure_date}&adults={travelers}",
+          "places": {
+            "milan": {
+              "place_name": "Milan"
+            },
+            "berlin": {
+              "place_name": "Berlin"
+            },
+            "lisbon": {
+              "place_name": "Lisbon"
+            },
+            "zurich": {
+              "place_name": "Zurich"
+            },
+            "amsterdam": {
+              "place_name": "Amsterdam"
+            },
+            "madrid": {
+              "place_name": "Madrid"
+            },
+            "barcelona": {
+              "place_name": "Barcelona"
+            },
+            "valencia": {
+              "place_name": "Valencia"
+            },
+            "den haag": {
+              "place_name": "Rotterdam",
+              "via": "Rotterdam"
             },
             "brunnen": {
               "place_name": "Zurich",
@@ -127,12 +185,12 @@
             }
           },
           "origin_places": {
-            "paris": {
-              "origin_place_code": "Paris"
+            "lyon": {
+              "origin_place_code": "Lyon"
             }
           },
-          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute Rotterdam for The Hague. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified.",
-          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
+          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute nearby endpoints: The Hague uses the explicitly disclosed Rotterdam gateway, onward transfer excluded. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified. R7-02 round 3 extends route-specific render observations (not selected-path evidence). Prefill probe required given/family name, email, phone, birth date and country/region of residence; final post-form page was not reached, so prefill success remains fail-closed.",
+          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY. For The Hague use only the explicitly reviewed Rotterdam gateway; onward transfer is excluded. Geneva flight results may suggest Lyon: never substitute an unreviewed origin airport.",
           "checkpoint": {
             "url_patterns": [
               "^/app/search-frontend/journey/"
@@ -142,13 +200,14 @@
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
             ]
           },
-          "h_render_verified_at": "2026-11-09",
           "prefill": {
             "fields": [
               "given_name",
               "family_name",
               "email",
-              "phone"
+              "phone",
+              "birth_date",
+              "country"
             ],
             "scope": "passenger details",
             "prefill_patterns": [
@@ -160,78 +219,70 @@
             "beyond_patterns": [
               "payment|/pay|checkout|login|log[-_]?in|register|account|/book(?:ing)?/confirm|seats?|extras?|insurance|terms|consent"
             ]
-          }
+          },
+          "h_render_verified_at": "2026-11-09",
+          "traveler_counts": [
+            1,
+            2,
+            3,
+            4
+          ]
         },
         {
           "kind": "transport",
           "mode": "rail",
           "destination_countries": [
-            "IT"
+            "IT",
+            "DE",
+            "PT",
+            "CH",
+            "NL",
+            "ES"
           ],
           "origin_countries": [
-            "FR"
-          ],
-          "traveler_counts": [
-            1
+            "BE"
           ],
           "url_template": "https://www.omio.com/links/626fa8a9-f982-43d0-ace9-9a13f6b14612?departurePosTerm={origin_place_code}&arrivalPosTerm={place_name}&departureDate={arrival_date}&returnDate={departure_date}&adults={travelers}",
           "places": {
             "milan": {
               "place_name": "Milan"
-            }
-          },
-          "origin_places": {
-            "lyon": {
-              "origin_place_code": "Lyon"
-            }
-          },
-          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute Rotterdam for The Hague. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified.",
-          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
-          "checkpoint": {
-            "url_patterns": [
-              "^/app/search-frontend/journey/"
-            ],
-            "beyond_patterns": [
-              "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
-              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
-            ]
-          },
-          "h_render_verified_at": "2026-11-09",
-          "prefill": {
-            "fields": [
-              "given_name",
-              "family_name",
-              "email",
-              "phone"
-            ],
-            "scope": "passenger details",
-            "prefill_patterns": [
-              "^/app/search-frontend/booking/[^/]+/passenger-details(?:[/?]|$)"
-            ],
-            "url_patterns": [
-              "(?!)"
-            ],
-            "beyond_patterns": [
-              "payment|/pay|checkout|login|log[-_]?in|register|account|/book(?:ing)?/confirm|seats?|extras?|insurance|terms|consent"
-            ]
-          }
-        },
-        {
-          "kind": "transport",
-          "mode": "rail",
-          "destination_countries": [
-            "DE"
-          ],
-          "origin_countries": [
-            "BE"
-          ],
-          "traveler_counts": [
-            1
-          ],
-          "url_template": "https://www.omio.com/links/626fa8a9-f982-43d0-ace9-9a13f6b14612?departurePosTerm={origin_place_code}&arrivalPosTerm={place_name}&departureDate={arrival_date}&returnDate={departure_date}&adults={travelers}",
-          "places": {
+            },
             "berlin": {
               "place_name": "Berlin"
+            },
+            "lisbon": {
+              "place_name": "Lisbon"
+            },
+            "zurich": {
+              "place_name": "Zurich"
+            },
+            "amsterdam": {
+              "place_name": "Amsterdam"
+            },
+            "madrid": {
+              "place_name": "Madrid"
+            },
+            "barcelona": {
+              "place_name": "Barcelona"
+            },
+            "valencia": {
+              "place_name": "Valencia"
+            },
+            "den haag": {
+              "place_name": "Rotterdam",
+              "via": "Rotterdam"
+            },
+            "brunnen": {
+              "place_name": "Zurich",
+              "via": "Zurich"
+            },
+            "stoos": {
+              "place_name": "Zurich",
+              "via": "Zurich"
+            },
+            "lucerne": {
+              "place_name": "Zurich",
+              "via": "Zurich"
             }
           },
           "origin_places": {
@@ -239,8 +290,8 @@
               "origin_place_code": "Brussels"
             }
           },
-          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute Rotterdam for The Hague. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified.",
-          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
+          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute nearby endpoints: The Hague uses the explicitly disclosed Rotterdam gateway, onward transfer excluded. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified. R7-02 round 3 extends route-specific render observations (not selected-path evidence). Prefill probe required given/family name, email, phone, birth date and country/region of residence; final post-form page was not reached, so prefill success remains fail-closed.",
+          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY. For The Hague use only the explicitly reviewed Rotterdam gateway; onward transfer is excluded. Geneva flight results may suggest Lyon: never substitute an unreviewed origin airport.",
           "checkpoint": {
             "url_patterns": [
               "^/app/search-frontend/journey/"
@@ -250,13 +301,14 @@
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
             ]
           },
-          "h_render_verified_at": "2026-11-09",
           "prefill": {
             "fields": [
               "given_name",
               "family_name",
               "email",
-              "phone"
+              "phone",
+              "birth_date",
+              "country"
             ],
             "scope": "passenger details",
             "prefill_patterns": [
@@ -268,24 +320,70 @@
             "beyond_patterns": [
               "payment|/pay|checkout|login|log[-_]?in|register|account|/book(?:ing)?/confirm|seats?|extras?|insurance|terms|consent"
             ]
-          }
+          },
+          "h_render_verified_at": "2026-11-09",
+          "traveler_counts": [
+            1,
+            2,
+            3,
+            4
+          ]
         },
         {
           "kind": "transport",
           "mode": "rail",
           "destination_countries": [
+            "IT",
+            "DE",
+            "PT",
+            "CH",
+            "NL",
             "ES"
           ],
           "origin_countries": [
             "CH"
           ],
-          "traveler_counts": [
-            1
-          ],
           "url_template": "https://www.omio.com/links/626fa8a9-f982-43d0-ace9-9a13f6b14612?departurePosTerm={origin_place_code}&arrivalPosTerm={place_name}&departureDate={arrival_date}&returnDate={departure_date}&adults={travelers}",
           "places": {
+            "berlin": {
+              "place_name": "Berlin"
+            },
+            "lisbon": {
+              "place_name": "Lisbon"
+            },
+            "zurich": {
+              "place_name": "Zurich"
+            },
+            "amsterdam": {
+              "place_name": "Amsterdam"
+            },
+            "madrid": {
+              "place_name": "Madrid"
+            },
             "barcelona": {
               "place_name": "Barcelona"
+            },
+            "valencia": {
+              "place_name": "Valencia"
+            },
+            "den haag": {
+              "place_name": "Rotterdam",
+              "via": "Rotterdam"
+            },
+            "brunnen": {
+              "place_name": "Zurich",
+              "via": "Zurich"
+            },
+            "stoos": {
+              "place_name": "Zurich",
+              "via": "Zurich"
+            },
+            "lucerne": {
+              "place_name": "Zurich",
+              "via": "Zurich"
+            },
+            "milan": {
+              "place_name": "Milan"
             }
           },
           "origin_places": {
@@ -293,8 +391,8 @@
               "origin_place_code": "Geneva"
             }
           },
-          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute Rotterdam for The Hague. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified.",
-          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
+          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute nearby endpoints: The Hague uses the explicitly disclosed Rotterdam gateway, onward transfer excluded. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified. R7-02 round 3 extends route-specific render observations (not selected-path evidence). Prefill probe required given/family name, email, phone, birth date and country/region of residence; final post-form page was not reached, so prefill success remains fail-closed.",
+          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY. For The Hague use only the explicitly reviewed Rotterdam gateway; onward transfer is excluded. Geneva flight results may suggest Lyon: never substitute an unreviewed origin airport.",
           "checkpoint": {
             "url_patterns": [
               "^/app/search-frontend/journey/"
@@ -304,13 +402,14 @@
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
             ]
           },
-          "h_render_verified_at": "2026-11-09",
           "prefill": {
             "fields": [
               "given_name",
               "family_name",
               "email",
-              "phone"
+              "phone",
+              "birth_date",
+              "country"
             ],
             "scope": "passenger details",
             "prefill_patterns": [
@@ -322,7 +421,14 @@
             "beyond_patterns": [
               "payment|/pay|checkout|login|log[-_]?in|register|account|/book(?:ing)?/confirm|seats?|extras?|insurance|terms|consent"
             ]
-          }
+          },
+          "h_render_verified_at": "2026-11-09",
+          "traveler_counts": [
+            1,
+            2,
+            3,
+            4
+          ]
         },
         {
           "kind": "transport",
@@ -367,7 +473,8 @@
               "place_name": "Valencia"
             },
             "den haag": {
-              "place_name": "Den Haag Centraal"
+              "place_name": "Rotterdam",
+              "via": "Rotterdam"
             },
             "brunnen": {
               "place_name": "Zurich",
@@ -396,8 +503,8 @@
               "origin_place_code": "Geneva"
             }
           },
-          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute Rotterdam for The Hague. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified.",
-          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
+          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute nearby endpoints: The Hague uses the explicitly disclosed Rotterdam gateway, onward transfer excluded. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified. R7-02 round 3 extends route-specific render observations (not selected-path evidence). Prefill probe required given/family name, email, phone, birth date and country/region of residence; final post-form page was not reached, so prefill success remains fail-closed.",
+          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY. For The Hague use only the explicitly reviewed Rotterdam gateway; onward transfer is excluded. Geneva flight results may suggest Lyon: never substitute an unreviewed origin airport.",
           "checkpoint": {
             "url_patterns": [
               "^/app/search-frontend/journey/"
@@ -412,7 +519,9 @@
               "given_name",
               "family_name",
               "email",
-              "phone"
+              "phone",
+              "birth_date",
+              "country"
             ],
             "scope": "passenger details",
             "prefill_patterns": [
@@ -424,7 +533,13 @@
             "beyond_patterns": [
               "payment|/pay|checkout|login|log[-_]?in|register|account|/book(?:ing)?/confirm|seats?|extras?|insurance|terms|consent"
             ]
-          }
+          },
+          "traveler_counts": [
+            1,
+            2,
+            3,
+            4
+          ]
         }
       ]
     },
@@ -1025,9 +1140,12 @@
             "FR"
           ],
           "traveler_counts": [
-            1
+            1,
+            2,
+            3,
+            4
           ],
-          "url_template": "https://www.google.com/travel/flights?hl=en&q=Round%20trip%20flights%20from%20{origin_iata}%20to%20{iata}%20on%20{arrival_date}%20returning%20{departure_date}%20for%20{travelers}%20adult",
+          "url_template": "https://www.google.com/travel/flights?hl=en&q=Round%20trip%20flights%20from%20{origin_iata}%20to%20{iata}%20on%20{arrival_date}%20returning%20{departure_date}%20for%20{travelers}%20{adult_label}",
           "places": {
             "milan": {
               "iata": "MIL"
@@ -1070,9 +1188,12 @@
             "CH"
           ],
           "traveler_counts": [
-            1
+            1,
+            2,
+            3,
+            4
           ],
-          "url_template": "https://www.google.com/travel/flights?hl=en&q=Round%20trip%20flights%20from%20{origin_iata}%20to%20{iata}%20on%20{arrival_date}%20returning%20{departure_date}%20for%20{travelers}%20adult",
+          "url_template": "https://www.google.com/travel/flights?hl=en&q=Round%20trip%20flights%20from%20{origin_iata}%20to%20{iata}%20on%20{arrival_date}%20returning%20{departure_date}%20for%20{travelers}%20{adult_label}",
           "places": {
             "barcelona": {
               "iata": "BCN"
@@ -1112,7 +1233,7 @@
             "BE",
             "CH"
           ],
-          "url_template": "https://www.google.com/travel/flights?hl=en&q=Round%20trip%20flights%20from%20{origin_iata}%20to%20{iata}%20on%20{arrival_date}%20returning%20{departure_date}%20for%20{travelers}%20adult",
+          "url_template": "https://www.google.com/travel/flights?hl=en&q=Round%20trip%20flights%20from%20{origin_iata}%20to%20{iata}%20on%20{arrival_date}%20returning%20{departure_date}%20for%20{travelers}%20{adult_label}",
           "places": {
             "milan": {
               "iata": "MIL"
@@ -1179,7 +1300,13 @@
               "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
             ]
-          }
+          },
+          "traveler_counts": [
+            1,
+            2,
+            3,
+            4
+          ]
         }
       ]
     },

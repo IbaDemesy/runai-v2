@@ -1103,3 +1103,106 @@ path observations.
 
 Offline adapter construction does not establish product H READY or integrated
 live success. No product UI visual check or new H run was performed for code.
+
+## Round 3 — coverage closure and synthetic prefill probe (2026-11-09)
+
+Dates Jan29→Jan31 2027, 1 adult. **30 sequential H sessions**, quota before every
+creation (available3), DELETE HTTP204 after each; 29 render probes and one 23-step
+synthetic passenger probe. No screenshots downloaded/saved. All 29 render probes
+reported prices and matching dates/return/adult; these are priced result lists,
+NOT selected round-trip checkout evidence. H answer reports plus image-bearing
+event counts, not independently human-reviewed screenshots.
+
+Start URLs used the exact registry formatter `site_policy._candidates` that
+build_task uses (undated primary gaps initially cannot build_task). After dating,
+the same Omio start URLs are produced by build_task. Paris/Lyon initial Den Haag
+Centraal probes preceded the gateway change: Paris again priced Rotterdam only;
+Lyon showed Hague bus prices and nearby Amsterdam flights. Adopted explicit
+Rotterdam gateway uniformly and repeated Paris/Lyon against the exact Rotterdam
+start URL. Brussels/Geneva Hague probes already used that updated URL. The Hague
+race city stays unchanged; onward Rotterdam→The Hague transfer is excluded.
+
+Added Geneva→Zurich to establish the exact shared Zurich gateway URL. Also probed
+Paris→Amsterdam and Geneva→Milan on Omio so expanding adults1..4 does not rely
+on SBB/NS adapters that remain limited to one adult. Google fallback was not
+needed: every requested route had priced Omio results (Hague via disclosed gateway).
+
+| Route / run | Site | Priced results | Steps/images | Mode / examples |
+|---|---|---|---|---|
+| brussels-amsterdam | Omio | yes | 4/4 | Trains; €29/€62/€100 |
+| brussels-barcelona | Omio | yes | 4/4 | Buses; €41/€57/€26 |
+| brussels-lisbon | Omio | yes | 4/4 | Flights; €50/€99/€70 |
+| brussels-madrid | Omio | yes | 4/4 | Flights; €60/€74/€81 |
+| brussels-milan | Omio | yes | 6/6 | Flights; €56/€27/€37 |
+| brussels-the-hague | Omio | yes | 4/4 | Trains; €29/€90 |
+| brussels-valencia | Omio | yes | 5/5 | Flights; €75/€39/€78 |
+| brussels-zurich | Omio | yes | 4/4 | Trains; €156/€164 |
+| geneva-amsterdam | Omio | yes | 4/4 | Trains; €92/€85/€77 |
+| geneva-berlin | Omio | yes | 5/5 | Trains; €60/€51/€77 |
+| geneva-lisbon | Omio | yes | 4/4 | Flights; €64/€128/€67 |
+| geneva-madrid | Omio | yes | 5/5 | Flights; €39/€62/€46 |
+| geneva-milan | Omio | yes | 4/4 | Buses; €22/€29 |
+| geneva-the-hague | Omio | yes | 8/8 | Trains; €92/€77/€85 |
+| geneva-valencia | Omio | yes | 4/4 | Buses; €51/€62/€79 |
+| geneva-zurich | Omio | yes | 5/5 | Trains (initially), Flights (checked); €61/€119/€164 |
+| lyon-amsterdam | Omio | yes | 6/6 | Flights; selected EUR264 |
+| lyon-barcelona | Omio | yes | 4/4 | Trains; €65/€24/€42 |
+| lyon-berlin | Omio | yes | 6/6 | Flights; €49/€57/€167 |
+| lyon-lisbon | Omio | yes | 5/5 | Flights; €62/€63/€70 |
+| lyon-madrid | Omio | yes | 6/6 | Flights; €39/€63/€66 |
+| lyon-rotterdam | Omio | yes | 4/4 | Trains; €99/€107 |
+| lyon-the-hague | Omio | yes | 6/6 | Flights; €48/€54/€126 |
+| lyon-valencia | Omio | yes | 5/5 | Trains; €59/€67 |
+| lyon-zurich | Omio | yes | 5/5 | Buses; €36/€46/€87 |
+| paris-amsterdam | Omio | yes | 6/6 | Flights; €33/€37/€27 |
+| paris-barcelona | Omio | yes | 4/4 | Trains; €69/€31/€40 |
+| paris-rotterdam | Omio | yes | 4/4 | Trains; €33/€26/€86 |
+| paris-the-hague | Omio | yes | 6/6 | Trains; €33/€44/€37 |
+| prefill | Omio | yes | 23/23 | deep passenger flow; selected EUR264 |
+
+### Prefill path result: final sentinel retained
+
+Observed sequence, all www.omio.com, IDs scrubbed:
+1. `/app/search-frontend/results/{id}/train`
+2. `/app/search-frontend/results/{id}/train/{id}/inbound`
+3. `/app/search-frontend/journey/train/{id}/{id}/{id}/{id}`
+4. `/app/search-frontend/booking/{id}/passenger-details` — final observed page.
+
+Selected round-trip total EUR264. Required fields reported: given name, family
+name, email, phone, **birth date**, **country/region of residence**. Optional:
+loyalty-card type/number. H reported entering only the five authorized synthetic
+identity fields (names, email, phone, birth date); country was not supplied in
+the authorized identity. No real personal values, final submission or purchase
+was permitted. Do not retain synthetic values in evidence.
+
+**No post-passenger page observed.** H returned blocker=null but stopped on the
+passenger form after23 steps, rather than reaching extras/seats/insurance/payment/
+terms. This is an incomplete probe, NOT a successful final checkpoint or a
+confirmed login/captcha block. Country was reported required and not entered;
+whether that was the actual navigation blocker is unverified (no action audit
+retained). Do not infer any final path. Keep prefill url_patterns=`(?!)`, retain
+observed passenger prefill_patterns, add birth_date/country to authorized field
+names to reflect the reported required form. A future probe needs explicit
+authorization for a synthetic residence country before attempting continuation.
+
+### Safety and scope caveats
+
+H was instructed to reject cookies and never accept optional categories.
+Most reports say Deny All. Lyon→Berlin's cookie answer ambiguously calls
+performance/functional/analytics necessary while also claiming rejection; no
+action audit retained, so **that report does not independently establish safe
+cookie rejection**. Do not claim every cookie action was verified. Fare rendering
+itself was reported with actual numeric prices and matching dates.
+
+Geneva→Madrid flights suggested a cheaper **Lyon** departure as well as a genuine
+GVA→MAD EUR52 option; bus Geneva→Madrid EUR39 also rendered. Never substitute an
+unreviewed origin airport. Brussels flight results may include Charleroi/Bergamo;
+actual airports must be disclosed. No additional navigation hosts observed beyond
+www.omio.com. No captcha or login reported in these probes.
+
+Registry date covers only observed route sets, plus identical reviewed Zurich
+and Rotterdam gateway URLs. Omio verified for47/48 eval combinations; Paris→Valencia
+retains verified Google primary. No one-adult route gaps remain. All48 also build
+for adults1..4 after the explicitly requested expansion; this is NOT a claim that
+3/4 adults were independently live-probed. SBB/NS unchanged. Google plural query
+uses adult for1, adults for2..4. Unsupported counts remain blocked.
