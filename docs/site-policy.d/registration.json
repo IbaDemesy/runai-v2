@@ -4,12 +4,22 @@
   {
    "id": "mitjamarato-barcelona",
    "name": "Hyundai Mitja Marato Barcelona by Brooks organizer",
-   "purposes": ["registration"],
-   "scopes": [
-    {"host": "mitjamarato.barcelona", "path_prefix": "/"},
-    {"host": "www.mitjamarato.barcelona", "path_prefix": "/"}
+   "purposes": [
+    "registration"
    ],
-   "terms_urls": ["https://www.mitjamarato.barcelona/avis-legal/"],
+   "scopes": [
+    {
+     "host": "mitjamarato.barcelona",
+     "path_prefix": "/"
+    },
+    {
+     "host": "www.mitjamarato.barcelona",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.mitjamarato.barcelona/avis-legal/"
+   ],
    "reviewed_at": "2026-11-09",
    "expires_at": "2027-02-07",
    "reviewed_sections": "Avis Legal: identification, intellectual property, links, unauthorized use, liability, privacy, jurisdiction (full text)",
@@ -17,20 +27,34 @@
    "automation": "prohibited",
    "screenshot_scope": "none",
    "navigation_hosts": [],
-   "registration_observations": [{
-    "host": "www.mitjamarato.barcelona", "path_prefix": "/",
-    "account_required": null, "captcha": null,
-    "source": "https://www.mitjamarato.barcelona/", "observed_at": "2026-11-09",
-    "note": "14 February 2027; Dorsals esgotats. RockTheSport branded inscripciones.rpmsports.es event page also says Inscripciones agotadas. Registration denied by platform policy; no adapter."
-   }],
+   "registration_observations": [
+    {
+     "host": "www.mitjamarato.barcelona",
+     "path_prefix": "/",
+     "account_required": null,
+     "captcha": null,
+     "source": "https://www.mitjamarato.barcelona/",
+     "observed_at": "2026-11-09",
+     "note": "14 February 2027; Dorsals esgotats. RockTheSport branded inscripciones.rpmsports.es event page also says Inscripciones agotadas. Registration denied by platform policy; no adapter."
+    }
+   ],
    "adapters": []
   },
   {
    "id": "rpmsports-rockthesport-registration",
    "name": "RPM Sports RockTheSport registration service",
-   "purposes": ["registration"],
-   "scopes": [{"host": "inscripciones.rpmsports.es", "path_prefix": "/"}],
-   "terms_urls": ["https://web.rockthesport.com/es/documentation/legal-notice"],
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "inscripciones.rpmsports.es",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://web.rockthesport.com/es/documentation/legal-notice"
+   ],
    "reviewed_at": "2026-11-09",
    "expires_at": "2027-02-07",
    "reviewed_sections": "RockTheSport Aviso legal: intellectual property / prohibited extraction; RPM event landing page platform identity",
@@ -38,21 +62,40 @@
    "automation": "prohibited",
    "screenshot_scope": "none",
    "navigation_hosts": [],
-   "registration_observations": [{
-    "host": "inscripciones.rpmsports.es", "path_prefix": "/es/evento/hyundai-mitja-marato-barcelona-by-brooks-2027",
-    "account_required": null, "captcha": null,
-    "source": "https://inscripciones.rpmsports.es/es/evento/hyundai-mitja-marato-barcelona-by-brooks-2027",
-    "observed_at": "2026-11-09",
-    "note": "Anonymous GET: RockTheSport title, 14/02/2027 and Inscripciones agotadas. Hidden modal text also contains generic event-ended copy, not evidence the 2027 event occurred. No form interaction."
-   }],
+   "registration_observations": [
+    {
+     "host": "inscripciones.rpmsports.es",
+     "path_prefix": "/es/evento/hyundai-mitja-marato-barcelona-by-brooks-2027",
+     "account_required": null,
+     "captcha": null,
+     "source": "https://inscripciones.rpmsports.es/es/evento/hyundai-mitja-marato-barcelona-by-brooks-2027",
+     "observed_at": "2026-11-09",
+     "note": "Anonymous GET: RockTheSport title, 14/02/2027 and Inscripciones agotadas. Hidden modal text also contains generic event-ended copy, not evidence the 2027 event occurred. No form interaction."
+    }
+   ],
    "adapters": []
   },
   {
    "id": "irontrail-ch",
    "name": "Swiss Irontrail organizer (registration platform Datasport denied)",
-   "purposes": ["registration"],
-   "scopes": [{"host": "irontrail.ch", "path_prefix": "/"}, {"host": "www.irontrail.ch", "path_prefix": "/"}],
-   "terms_urls": ["https://www.irontrail.ch/", "https://www.irontrail.ch/rennen-info/anmeldung", "https://www.datasport.com/en/terms-and-conditions/"],
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "irontrail.ch",
+     "path_prefix": "/"
+    },
+    {
+     "host": "www.irontrail.ch",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.irontrail.ch/",
+    "https://www.irontrail.ch/rennen-info/anmeldung",
+    "https://www.datasport.com/en/terms-and-conditions/"
+   ],
    "reviewed_at": "2026-11-09",
    "expires_at": "2027-02-07",
    "reviewed_sections": "Embedded legal/privacy notice: Wichtige rechtliche Hinweise, Copyright und Markenrechte; Anmeldung; Datasport athlete terms automated-procedure clause",
@@ -60,33 +103,60 @@
    "automation": "prohibited",
    "screenshot_scope": "none",
    "navigation_hosts": [],
-   "registration_observations": [{
-    "host": "www.irontrail.ch", "path_prefix": "/rennen-info/anmeldung",
-    "account_required": null, "captcha": null,
-    "source": "https://www.irontrail.ch/rennen-info/anmeldung", "observed_at": "2026-11-09",
-    "note": "14-15 August 2027; organizer links https://onreg.datasport.com/de/swiss-irontrail-2027. Registration status unknown: platform denied, not traversed. No evidence for mikatiming. T78 78 km, T55 55 km, T22 21.6 km, T20 20.2 km; individual start dates not verified."
-   }],
+   "registration_observations": [
+    {
+     "host": "www.irontrail.ch",
+     "path_prefix": "/rennen-info/anmeldung",
+     "account_required": null,
+     "captcha": null,
+     "source": "https://www.irontrail.ch/rennen-info/anmeldung",
+     "observed_at": "2026-11-09",
+     "note": "14-15 August 2027; organizer links https://onreg.datasport.com/de/swiss-irontrail-2027. Registration status unknown: platform denied, not traversed. No evidence for mikatiming. T78 78 km, T55 55 km, T22 21.6 km, T20 20.2 km; individual start dates not verified."
+    }
+   ],
    "adapters": []
   },
   {
    "id": "nncpcloopdenhaag-nl",
    "name": "NN CPC Loop Den Haag organizer",
-   "purposes": ["registration"],
-   "scopes": [{"host": "nncpcloopdenhaag.nl", "path_prefix": "/"}, {"host": "www.nncpcloopdenhaag.nl", "path_prefix": "/"}],
-   "terms_urls": ["https://nncpcloopdenhaag.nl/wp-content/uploads/sites/50/2026/09/Algemene-voorwaarden-NN-CPC-Loop-den-Haag-2027-Individueel.pdf", "https://www.golazo.com/privacy-policies/golazo-the-netherlands/", "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566"],
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "nncpcloopdenhaag.nl",
+     "path_prefix": "/"
+    },
+    {
+     "host": "www.nncpcloopdenhaag.nl",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://nncpcloopdenhaag.nl/wp-content/uploads/sites/50/2026/09/Algemene-voorwaarden-NN-CPC-Loop-den-Haag-2027-Individueel.pdf",
+    "https://www.golazo.com/privacy-policies/golazo-the-netherlands/",
+    "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566"
+   ],
    "reviewed_at": "2026-11-09",
    "expires_at": "2027-02-07",
    "reviewed_sections": "2027 individual general terms all four pages, Articles 1-7; Golazo Netherlands privacy; organizer footer; Njuko event footer CGU",
    "justification": "No express bots, scraping or automated-extraction prohibition in individual terms or privacy text. Event Njuko footer CGU modal contains only '....', no additional substantive clause; shared Njuko platform is allowed by existing base review, not a new host authorization. Read-only by owner rule: no forms, accounts, consent or payment; screenshots in-session only. Unlike Rotterdam pre-registration, no automated-multiple-entry clause in this event's reviewed individual terms. Half marathon is sold out.",
    "automation": "allowed_owner_rule",
    "screenshot_scope": "in_session_only",
-   "navigation_hosts": ["in.njuko.com"],
-   "registration_observations": [{
-    "host": "in.njuko.com", "path_prefix": "/nn-cpc-loop-den-haag-20261784205635566",
-    "account_required": null, "captcha": false,
-    "source": "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566", "observed_at": "2026-11-09",
-    "note": "Chrome: event title 2027 and 14-03-2027 despite 2026 in slug; NN Halve Marathon EUR 49.50, uitverkocht; 10/5 km have INSCHRIJVEN buttons. Declined cookies (Nee), no login or captcha on selection page. Sold-out half prevents personal-data-page verification; no other race selected."
-   }],
+   "navigation_hosts": [
+    "in.njuko.com"
+   ],
+   "registration_observations": [
+    {
+     "host": "in.njuko.com",
+     "path_prefix": "/nn-cpc-loop-den-haag-20261784205635566",
+     "account_required": null,
+     "captcha": false,
+     "source": "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566",
+     "observed_at": "2026-11-09",
+     "note": "Chrome: event title 2027 and 14-03-2027 despite 2026 in slug; NN Halve Marathon EUR 49.50, uitverkocht; 10/5 km have INSCHRIJVEN buttons. Declined cookies (Nee), no login or captcha on selection page. Sold-out half prevents personal-data-page verification; no other race selected."
+    }
+   ],
    "adapters": [
     {
      "kind": "registration",
@@ -1526,8 +1596,7 @@
    "navigation_hosts": [],
    "registration_observations": [],
    "adapters": []
-  }
-,
+  },
   {
    "id": "movistar-madrid-half",
    "name": "Movistar Madrid Half Marathon — hosted Deporticket form",
@@ -1641,7 +1710,7 @@
    "reviewed_at": "2026-11-09",
    "expires_at": "2027-02-07",
    "reviewed_sections": "Organizer imprint/privacy, race rules §§5/14; my.raceresult Terms of Use §§1–6 and Race Result AGB §§1–9.",
-   "justification": "Anonymous GET review: Stoos race rules govern participant entry/fees and privacy; registration would automatically accept rules (§5), so never submit or register. my.raceresult Terms of Use §2 describe public event browsing and registration; §3.4 states that submitting registration makes a binding offer. No express bot/scraping prohibition found in the fetched platform or organizer terms. Allow only this event's public read-only entry preparation, no credentials, consent or submission. Embedded configuration identifies event 422182 and events1.raceresult.com. No distinct participant-page URL observed; checkpoint remains disabled pending validation.",
+   "justification": "Anonymous GET review: Stoos race rules govern participant entry/fees and privacy; registration would automatically accept rules (§5), so never submit or register. my.raceresult Terms of Use §2 describe public event browsing and registration; §3.4 states that submitting registration makes a binding offer. No express bot/scraping prohibition found in the fetched platform or organizer terms. Allow only this event's public read-only entry preparation, no credentials, consent or submission. Embedded configuration identifies event 422182 and events1.raceresult.com. 2026-11-09 normal-Chrome read-only observation: the public 'Register Now' button opens /422182/registration?regname=Einzel-Anmeldung, the untouched participant-data form; checkpoint enabled on that query, never on the bare registration shell.",
    "automation": "allowed_read_only",
    "screenshot_scope": "in_session_only",
    "navigation_hosts": [],
@@ -1661,26 +1730,106 @@
      "url_template": "https://my.raceresult.com/422182/registration",
      "checkpoint": {
       "url_patterns": [
-       "(?!)"
+       "(?i)^/422182/registration\\?(?:[^#]*&)?regname=[^&#]+"
       ],
       "beyond_patterns": [
        "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
       ]
      },
-     "checkpoint_note": "PROVISIONAL/DISABLED: public /422182/registration is a JS shell, and organizer embeds RRReg for Einzel-Anmeldung. No distinct first personal-data URL observed anonymously. (?!) cannot falsely certify the shell as a reached checkpoint. Live validation is required.",
-     "success_evidence": "Only the untouched participant-data page for Stoos Trail on 10 July 2027, never the public registration shell. Stop immediately without entering data.",
-     "blocked_evidence": "Stop at consent, registration submission, payment, captcha or account login; public shell alone is not success. Checkpoint URL not yet established.",
+     "checkpoint_note": "OBSERVED 2026-11-09 in normal Chrome (read-only; cookie banner hidden, nothing accepted or typed): clicking the public 'Register Now' button on /422182/registration changes the URL to /422182/registration?regname=Einzel-Anmeldung and shows steps Grunddaten > Überprüfung > Payment with empty Last Name, First Name, Year and Date of Birth fields. That regname page is the first personal-data page; the bare /422182/registration landing has an empty query and does not match.",
+     "success_evidence": "Stoos Trail 2027 (2027-07-10, Brunnen) Einzel-Anmeldung opened with the public 'Register Now' button; untouched Last Name/First Name form at /422182/registration?regname=Einzel-Anmeldung. STOP and answer immediately without typing.",
+     "blocked_evidence": "Stop at consent, registration submission, payment, captcha or account login; the bare /422182/registration contest list alone is not success.",
      "availability": {
-      "status": "unknown",
+      "status": "open",
       "distances_km": [
        11,
        25.6,
        46.6,
-       13
+       13,
+       10,
+       24,
+       46
       ],
       "observed_at": "2026-11-09",
       "source": "https://my.raceresult.com/422182/registration",
-      "note": "Anonymous GET: 'Stoos Trail 2027', date 2027-07-10; event metadata reports InStock and organizer embeds Einzel-Anmeldung, but JS shell does not display an active register control or explicit open status. Cannot certify open without rendering. Distances come from official organizer course pages, not the ST10/ST24 marketing labels."
+      "note": "Normal-Chrome render 2026-11-09: 'Stoos Trail 2027, 2027-07-10', Einzel-Anmeldung contest list ST46/ST24/ST10/Bärglauf with current fee window 10/15/2026-11/14/2026 (90/65/35/70 CHF) and an active 'Register Now' button that opens the participant form. Distances: official course lengths plus the contest labels ST10/ST24/ST46 shown on the registration page."
+     }
+    }
+   ]
+  },
+  {
+   "id": "frankfurt-marathon-de",
+   "name": "Mainova Frankfurt Marathon — Njuko white-label (motionevents-registrations.com)",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "www.frankfurt-marathon.com",
+     "path_prefix": "/"
+    },
+    {
+     "host": "frankfurt-marathon.com",
+     "path_prefix": "/"
+    },
+    {
+     "host": "in.motionevents-registrations.com",
+     "path_prefix": "/mainova-frankfurt-marathon-2027-1789303690969"
+    }
+   ],
+   "terms_urls": [
+    "https://www.frankfurt-marathon.com/teilnahmebedingungen-2/",
+    "https://www.frankfurt-marathon.com/impressum/",
+    "https://www.frankfurt-marathon.com/datenschutz/",
+    "https://njuko.com/fr/legal-notices.html"
+   ],
+   "reviewed_at": "2026-11-09",
+   "expires_at": "2027-02-07",
+   "reviewed_sections": "Frankfurt Marathon Teilnahmebedingungen §§1-2 (registration, start pass), Impressum, Datenschutz (server logs/cookies); registration footer TEILNAHMEBEDINGUNGEN/IMPRESSUM links on the Njuko white-label event app; Njuko legal notices.",
+   "justification": "Anonymous GET plus normal-Chrome read-only render 2026-11-09: the official organizer registration link leads to the Njuko white-label event in.motionevents-registrations.com/mainova-frankfurt-marathon-2027-1789303690969. No robot, scraping or automated-agent prohibition found in the organizer participation terms, imprint or privacy text, nor in Njuko legal notices. Allow only this event path read-only to the untouched personal-data form; no typing, account, consent, cart or payment. A waiting-room.njuko.com queue or any other host is unreviewed and must stop.",
+   "automation": "allowed_read_only",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "frankfurt.*marathon|marathon.*frankfurt"
+      ],
+      "countries": [
+       "DE"
+      ],
+      "distances_km": [
+       42.195,
+       42.2,
+       42
+      ]
+     },
+     "platform_hosts": [],
+     "url_template": "https://in.motionevents-registrations.com/mainova-frankfurt-marathon-2027-1789303690969?currentPage=select-competition",
+     "checkpoint": {
+      "url_patterns": [
+       "(?i)[?&#]currentPage=form(?:_individual(?:-form)?)?(?:[&#]|$)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
+     "checkpoint_note": "OBSERVED 2026-11-09 in normal Chrome (read-only, nothing typed): the public EINZELANMELDUNG button of the Marathon 2027 card changes currentPage=select-competition to currentPage=form_individual-form, which shows empty Vorname/Nachname/Geburtsdatum/E-Mail fields and a 15-minute timer. That is the first personal-data page; the select-competition landing does not match.",
+     "success_evidence": "MAINOVA FRANKFURT MARATHON 2027, DATUM 31.10.2027, Einzelanmeldung selected with the public button; untouched form at currentPage=form_individual-form. STOP and answer immediately without typing.",
+     "blocked_evidence": "Stop at WARENKORB/cart, TEILNEHMERBEREICH/login, consent, captcha, waiting room or payment; Staffel/Brezellauf/Kinderlauf or another date is not success.",
+     "availability": {
+      "status": "open",
+      "distances_km": [
+       42.195,
+       42.2,
+       42
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://in.motionevents-registrations.com/mainova-frankfurt-marathon-2027-1789303690969?currentPage=select-competition",
+      "note": "Normal-Chrome render 2026-11-09: 'MAINOVA FRANKFURT MARATHON 2027, DATUM 31.10.2027, ZEIT 10:00, Preis 136,00 €, EINZELANMELDUNG' active. Kids races are separately not yet open (Feb 2027); marathon only."
      }
     }
    ]
