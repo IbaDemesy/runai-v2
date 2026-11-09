@@ -25,6 +25,24 @@ def test_profile_normal_empty_and_delete():
         assert client.post(url + "/profile", json={}).status_code == 404
 
 
+def test_delete_mission_purges_only_its_frames():
+    with TestClient(create_app(guide=StubGuide())) as client:
+        urls = [ready(client), ready(client)]
+        frame_ids = []
+        for url in urls:
+            client.post(url + "/confirm", json={"confirmed": True})
+            mission = terminal(client, url)
+            ids = [event["frame_id"] for event in mission["events"] if event.get("frame_id")]
+            assert ids
+            assert all(client.get(f"/api/frames/{frame_id}").status_code == 200 for frame_id in ids)
+            frame_ids.append(ids)
+        assert client.delete(urls[0]).status_code == 204
+        assert all(client.get(f"/api/frames/{frame_id}").status_code == 404
+                   for frame_id in frame_ids[0])
+        assert all(client.get(f"/api/frames/{frame_id}").status_code == 200
+                   for frame_id in frame_ids[1])
+
+
 @pytest.mark.parametrize("profile", [
     {"email": "invalid"}, {"phone": "not a phone"}, {"birth_date": "1990-02-30"},
     {"birth_date": "19900101"}, {"nationality": "ZZ"}, {"nationality": "FRA"},

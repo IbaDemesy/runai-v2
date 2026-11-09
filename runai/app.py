@@ -205,7 +205,7 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
     states: dict[str, object] = {}
     guides: dict[str, object] = {}
     locks: dict[str, asyncio.Lock] = {}
-    frames: dict[str, tuple[bytes, str]] = {}
+    frames: dict[str, tuple[bytes, str, str]] = {}
     tasks: set[asyncio.Task] = set()
     generations: dict[str, int] = {}
     profiles: dict[str, dict] = {}
@@ -349,7 +349,7 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
                         emit(mission, "step_progress", "Frame exceeds size limit", kind)
                         return
                     frame_id = uuid4().hex
-                    frames[frame_id] = content, mime
+                    frames[frame_id] = content, mime, mission.id
                     while len(frames) > MAX_FRAMES or sum(
                         len(frame[0]) for frame in frames.values()
                     ) > MAX_FRAME_BYTES:
@@ -500,6 +500,9 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
     @app.delete("/api/missions/{mission_id}", status_code=204)
     async def delete_mission(mission_id: str):
         get(mission_id)
+        for frame_id, (_, _, owner) in list(frames.items()):
+            if owner == mission_id:
+                frames.pop(frame_id, None)
         profiles.pop(mission_id, None)
         missions.pop(mission_id, None)
         states.pop(mission_id, None)
@@ -543,7 +546,7 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
     def frame(frame_id: str):
         if frame_id not in frames:
             raise HTTPException(404, "Frame not found")
-        content, mime = frames[frame_id]
+        content, mime, _ = frames[frame_id]
         return Response(content, media_type=mime, headers={
             "Content-Security-Policy": "sandbox; default-src 'none'",
             "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store",
