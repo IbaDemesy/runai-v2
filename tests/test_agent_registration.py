@@ -568,6 +568,30 @@ def test_merged_den_haag_builds_on_reviewed_njuko_with_sold_out_first():
     assert _merged_coverage(DEN_HAAG)["status"] == "sold_out"
 
 
+@pytest.mark.parametrize("distance", [5, 10, 21, 21.0975, 21.1])
+def test_den_haag_availability_is_scoped_to_half_marathon(distance):
+    trip = _race_trip(*DEN_HAAG)
+    trip["race"]["distance_km"] = distance
+    trip["race"]["distance_label"] = f"{distance} km"
+    coverage = registration_coverage(trip["race"], today=MERGED_TODAY, registry=_merged())
+    half = distance in (21, 21.0975, 21.1)
+    assert coverage["covered"] is True
+    assert coverage["prohibited"] is False
+    assert coverage["status"] == ("sold_out" if half else "unknown")
+    assert coverage["observed_at"] == ("2026-11-09" if half else None)
+    task = build_task(trip, today=MERGED_TODAY, registry=_merged())
+    assert task["instructions"].startswith("AVAILABILITY FIRST") is half
+
+
+@pytest.mark.parametrize("distances", [None, [], "21.1", [True], [0], [-1], [float("inf")]])
+def test_malformed_availability_distance_scope_fails_closed(distances):
+    reg = _with_availability()
+    reg["entries"][0]["adapters"][0]["availability"]["distances_km"] = distances
+    assert _coverage(reg=reg)["covered"] is False
+    with pytest.raises(ValueError, match="registry unavailable or invalid"):
+        build(_trip(), reg)
+
+
 def test_merged_coverage_unknown_race():
     race = ("Unknown Hill Race", "2027-05-01", 10.0, "Bern", "Switzerland",
             "https://hill-race.example/")

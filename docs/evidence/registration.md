@@ -66,6 +66,20 @@ blocker notes below remain unchanged. No Hamburg/Munich/Eindhoven/Turin/Malaga r
 
 ### Scoped checks
 
+PR #30 safety follow-up: Barcelona half and Irontrail organizer entries are now
+prohibited for the registration purpose, not merely their platforms. No organizer-only
+start is permitted. Both sourced URLs are checked before choosing an adapter, so an
+allowed platform URL cannot override a denied official organizer. CPC availability now
+has an explicit `distances_km: [21, 21.0975, 21.1]` scope: half-marathon coverage remains
+sold_out, while 5/10 km remain covered with unknown status and no AVAILABILITY FIRST
+instruction. Missing scope retains existing behavior; malformed/empty scopes fail closed.
+
+```text
+$ uv run ruff check . && uv run pytest -q
+All checks passed!
+1166 passed, 1 warning in 7.01s
+```
+
 `uv run python -c "import json;json.load(open('docs/site-policy.d/registration.json'))" && uv run pytest -q tests/test_site_policy.py tests/test_agent_registration.py 2>&1 | tail -5`
 
 ```text

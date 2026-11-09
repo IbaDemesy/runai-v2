@@ -102,7 +102,7 @@ def _check_scopes(entries: list[Any]) -> None:
                 raise site_policy.PolicyError(f"conflicting policy decisions for {key}")
 
 
-def _availability(raw: Any, entry_id: Any) -> dict[str, str] | None:
+def _availability(raw: Any, entry_id: Any) -> dict[str, Any] | None:
     if raw is None:
         return None
     if not isinstance(raw, Mapping) or raw.get("status") not in AVAILABILITY_STATUSES:
@@ -120,14 +120,26 @@ def _availability(raw: Any, entry_id: Any) -> dict[str, str] | None:
         raise site_policy.PolicyError(f"{entry_id}: availability.source must be an https URL")
     if not isinstance(note, str):
         raise site_policy.PolicyError(f"{entry_id}: availability.note must be text")
-    return {"status": raw["status"], "observed_at": observed, "source": source,
-            "note": note.strip()}
+    result = {"status": raw["status"], "observed_at": observed, "source": source,
+              "note": note.strip()}
+    if "distances_km" in raw:
+        distances = raw["distances_km"]
+        if not isinstance(distances, list) or not distances or not all(
+            type(d) in (int, float) and 0 < d < float("inf") for d in distances
+        ):
+            raise site_policy.PolicyError(f"{entry_id}: availability.distances_km is invalid")
+        result["distances_km"] = distances
+    return result
 
 
-def _fresh_status(adapter: Mapping[str, Any] | None, today: date) -> tuple[str, str | None]:
+def _fresh_status(
+    adapter: Mapping[str, Any] | None, today: date, distance_km: Any,
+) -> tuple[str, str | None]:
     """Observed availability status, or 'unknown' when absent, stale or dated in the future."""
     availability = adapter.get("availability") if adapter else None
     if not availability:
+        return "unknown", None
+    if "distances_km" in availability and distance_km not in availability["distances_km"]:
         return "unknown", None
     age = (today - date.fromisoformat(availability["observed_at"])).days
     if not 0 <= age <= AVAILABILITY_MAX_AGE_DAYS:
@@ -322,7 +334,7 @@ def _plan(
         f"{adapter['success_evidence']} BLOCKED looks like: {adapter['blocked_evidence']}\n"
         if adapter else ""
     )
-    status, observed_at = _fresh_status(adapter, today)
+    status, observed_at = _fresh_status(adapter, today, distance_km)
     availability_first = ""
     if adapter and status in ("sold_out", "closed"):
         code = "sold_out" if status == "sold_out" else "registration_closed"
@@ -432,7 +444,7 @@ def registration_coverage(
             if policy_id:
                 result.update(prohibited=True, policy_id=policy_id)
             return result
-        status, observed_at = _fresh_status(adapter, today)
+        status, observed_at = _fresh_status(adapter, today, race.get("distance_km"))
         decision = evaluate_url(task["start_url"], KIND, today=today,
                                 registry=policy_view(registry)[0])
         result.update(covered=True, status=status, observed_at=observed_at,

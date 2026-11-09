@@ -94,7 +94,7 @@
     "success_evidence": "NN CPC Loop Den Haag 2027, 14 March 2027: select only the confirmed race distance if publicly available, stop untouched at the first participant information page. Do not interpret 5/10 km inventory as half-marathon availability.",
     "blocked_evidence": "Half marathon observed uitverkocht (sold_out). Also block on closed, not open, waiting list, login, captcha, mandatory consent, unreviewed redirect, or date/distance mismatch. The URL slug contains 2026; visible edition and date must both match 2027.",
     "platform_hosts": ["in.njuko.com"],
-    "availability": {"status": "sold_out", "observed_at": "2026-11-09", "source": "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566", "note": "NN Halve Marathon, 14-03-2027, EUR 49.50: uitverkocht. Applies to half marathon only, not shorter races."}
+    "availability": {"status": "sold_out", "distances_km": [21, 21.0975, 21.1], "observed_at": "2026-11-09", "source": "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566", "note": "NN Halve Marathon, 14-03-2027, EUR 49.50: uitverkocht. Applies to half marathon only, not shorter races."}
    }]
   },
   {
