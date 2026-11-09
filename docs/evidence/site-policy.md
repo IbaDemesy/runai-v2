@@ -1,4 +1,21 @@
-# Checkout safety correction — 2026-11-09
+# Guest-query compatibility correction — 2026-11-09
+
+Bare guest matched the benign guests=1 query key, incorrectly cancelling an IHG
+checkpoint and suppressing its ready match. Reproduced with the actual runtime
+matcher. The retained Amsterdam READY evidence contains only host/path, not its
+exact query, so this does not establish that the live run had that parameter.
+Its observed select-enhance-stay path and documented qAdlt/qRms query shape
+remain safe; guests/rooms and numberOfGuests queries now have explicit regressions.
+
+Every adapter and legacy fallback now uses a path-specific guest expression:
+```regex
+/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)
+```
+It retains guest details/info/forms (including /enter-guest-info), without matching
+guest-count query keys. Checkout, confirmation and other forbidden tokens remain
+unchanged. Ready exclusions use the identical narrowed guest expression.
+
+# Checkout safety correction — 2026-11-09 (superseded guest token)
 
 Every hotel/transport adapter's shared beyond expression and ready-pattern
 exclusion now use:

@@ -19,7 +19,7 @@ TODAY = date(2026, 11, 9)
 UNSAFE_PATHS = (
     "/pay", "/payments", "/payment", "/guest-details", "/passenger", "/pax", "/guest-info",
     "/checkout/", "/CHECKOUT/", "/book/confirm", "/booking/confirm", "/booking/confirmation",
-    "/guest", "/guest-form", "/guest/forms", "/guestdetails",
+    "/guest", "/guest-form", "/guest/forms", "/guestdetails", "/guests", "/enter-guest-info",
 )
 
 
@@ -223,6 +223,35 @@ def test_ihg_checkpoint_matches_unquoted_path_query_not_host():
                                       "%73elect-enhance-stay?qAdlt=1")
     assert not hclient._checkpoint_matches(checkpoint, "url_patterns",
                                           "https://select-enhance-stay.example/search")
+
+
+@pytest.mark.parametrize("query", [
+    "", "qAdlt=1&qChld=0&qRms=1", "guests=1&rooms=1",
+    "qAdlt=1&guests=1&rooms=1", "numberOfGuests=1&numberOfRooms=1",
+    "qDest=Guesthouse&guestCount=1",
+])
+def test_ihg_ready_and_start_allow_benign_party_queries(query):
+    item = next(e for e in load_registry() if e["id"] == "ihg-com")
+    base = "https://www.ihg.com/hotels/gb/en/find-hotels/"
+    for adapter in item["adapters"]:
+        checkpoint = hclient._checkpoint({"checkpoint": adapter["checkpoint"]})
+        for path, ready in (("select-enhance-stay", True), ("hotel/list", False)):
+            url = base + path + "?" + query
+            assert hclient._checkpoint_matches(checkpoint, "url_patterns", url) is ready
+            assert not hclient._checkpoint_matches(checkpoint, "beyond_patterns", url)
+
+
+@pytest.mark.parametrize("adapter", [
+    adapter for item in load_registry() for adapter in item["adapters"]
+    if adapter["kind"] in ("hotel", "transport")
+] + [{}])
+def test_guest_query_keys_are_not_guest_form_paths(adapter):
+    checkpoint = hclient._checkpoint({"checkpoint": site_policy.task_checkpoint(adapter)})
+    url = "https://example.test/search?qAdlt=1&guests=1&rooms=1&numberOfGuests=1"
+    assert not hclient._checkpoint_matches(checkpoint, "beyond_patterns", url)
+    for path in ("/guest", "/guests", "/guest-form", "/guest/details", "/enter-guest-info"):
+        assert hclient._checkpoint_matches(checkpoint, "beyond_patterns",
+                                           "https://example.test" + path + "?guests=1")
 
 
 CITY_ALIAS_CASES = [

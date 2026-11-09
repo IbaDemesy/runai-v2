@@ -1,3 +1,13 @@
+# Guest-query compatibility — 2026-11-09
+
+Amsterdam's retained READY host/path still matches the IHG checkpoint. The exact
+live query was intentionally not retained. Offline runtime-matcher reproduction
+showed bare guest rejects benign guests=1; it does not reject qAdlt/qRms alone.
+Guest detection is now path-specific across all adapters, with regression cases
+for both IHG adapters' start/review paths and qAdlt, guests, rooms, numberOfGuests.
+Guest forms, /enter-guest-info, checkout and confirmations remain forbidden.
+No new live run or retroactive claim about the Amsterdam query was made.
+
 # Safety correction — 2026-11-09
 
 The Milan B&B run below reached /checkout/ without URL-boundary cancellation.
