@@ -10,11 +10,21 @@ from collections.abc import Mapping
 from datetime import date
 from math import isfinite
 from typing import Any
+from urllib.parse import urlsplit
 
-from runai.agents.site_policy import city_country, country_code, select_adapters, trip_expected
+from runai.agents.scrub import scrub_text, scrub_url
+from runai.agents.site_policy import (
+    city_country,
+    city_key,
+    country_code,
+    gateway_city,
+    select_adapters,
+    task_checkpoint,
+    trip_expected,
+)
 
 KIND = "transport"
-MAX_STEPS = 40
+MAX_STEPS = 60
 STOP_BEFORE = [
     "passenger details / personal data form", "login or account creation", "payment page",
     "booking confirmation", "terms or consent checkbox", "cookie consent acceptance",
@@ -59,7 +69,14 @@ def build_task(
 def _candidate_task(expected, budget, adapter, url, decision):
     origin, city = expected["origin_city"], expected["city"]
     mode = {"rail": "train", "flight": "flight"}.get(adapter.get("mode"), "transport")
-    place = adapter["places"].get(city.strip().casefold(), {})
+    checkpoint = task_checkpoint(adapter)
+    checkpoint_stop = (
+        "When matched, STOP and answer immediately: READY if evidence is complete else "
+        "BLOCKED unsafe_claim. "
+    )
+    place = adapter["places"].get(city_key(city), {})
+    if place.get("via"):
+        expected["gateway_city"] = gateway_city(place["via"])
     destination = place.get("via") or ", ".join(dict.fromkeys(
         place[key] for key in ("station_name", "station_code", "iata") if place.get(key)
     ))
@@ -97,18 +114,23 @@ def _candidate_task(expected, budget, adapter, url, decision):
         f"6. Site-specific blocked evidence: {adapter['blocked_evidence']}\n"
         "7. STOP on the reviewed fare-selection page and report READY immediately when both "
         "outbound and return fares, dates, party and full round-trip total are selected and visible. "
+        f"Checkpoint URL patterns: {checkpoint['url_patterns']}. Match with case-insensitive "
+        "re.search against the unquoted current URL path + '?' + query, not host or fragment. "
+        f"{checkpoint_stop}"
+        f"Never navigate to a URL matching beyond patterns: {checkpoint['beyond_patterns']}. "
         "Stop before opening passenger details or payment. Never type personal data, log in, "
         "create accounts, tick terms, solve captchas or pay. For login/account walls report "
         "BLOCKED login_required; for captcha report BLOCKED captcha; for required consent "
         "report BLOCKED consent_required. Safety rules override site evidence.\n"
-        "8. Finish within 40 steps; otherwise report BLOCKED step_limit. For missing site "
+        f"8. Finish within {MAX_STEPS} steps; otherwise report BLOCKED step_limit. For missing site "
         "coverage report BLOCKED no_site_coverage; denied policy report BLOCKED policy_denied; "
         "session failure report BLOCKED session_failed; timeout report BLOCKED timeout; "
         "site error report BLOCKED provider_error. Never invent success: report BLOCKED "
         "unsafe_claim if selection evidence is incomplete. Include the last safe public URL."
     )
-    return {
+    task = {
         "kind": KIND,
+        "checkpoint": checkpoint,
         "site_name": decision["policy_id"],
         "start_url": url,
         "instructions": instructions,
@@ -125,3 +147,10 @@ def _candidate_task(expected, budget, adapter, url, decision):
         "expected": expected,
         "allowed_hosts": hosts,
     }
+    parts = urlsplit(url)
+    fragment_url = "https://fragment.example/" + parts.fragment.lstrip("/")
+    if (parts.fragment and scrub_url(fragment_url) == fragment_url
+            and scrub_text(parts.fragment) == parts.fragment
+            and scrub_url(url) == parts._replace(fragment="").geturl()):
+        task["keep_fragment"] = True
+    return task

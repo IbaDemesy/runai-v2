@@ -1,3 +1,174 @@
+# Guest-query compatibility — 2026-11-09
+
+Amsterdam's retained READY host/path still matches the IHG checkpoint. The exact
+live query was intentionally not retained. Offline runtime-matcher reproduction
+showed bare guest rejects benign guests=1; it does not reject qAdlt/qRms alone.
+Guest detection is now path-specific across all adapters, with regression cases
+for both IHG adapters' start/review paths and qAdlt, guests, rooms, numberOfGuests.
+Guest forms, /enter-guest-info, checkout and confirmations remain forbidden.
+No new live run or retroactive claim about the Amsterdam query was made.
+
+# Safety correction — 2026-11-09
+
+The Milan B&B run below reached /checkout/ without URL-boundary cancellation.
+**Checkout is beyond, never a checkpoint.** Every hotel/transport adapter and
+legacy task fallback now blocks checkout, /book(?:ing)?/confirm and guest forms,
+in addition to payment/passenger paths. Ready-pattern negative lookaheads use
+the same expression, including query matches. Existing start URLs remain outside
+both lists. Tests cover every committed adapter and every tested task/alternative,
+encoded checkout and unsafe queries appended to otherwise-ready paths.
+The historical run still returned blocked/provider_error, not policy_denied;
+this offline correction does not rewrite that observation or claim a live retest.
+
+# R5-02 step 5 live hotel smokes — 2026-11-09
+
+Real merged HAgentRunner.run with branch build_task output; only alternatives
+removed to keep each invocation single-task. Stay March 20–22 2027, race March21,
+one adult, EUR600 budget. External launcher: /home/ubuntu/scratch/r5_smokes.py;
+scrubbed summaries only: /home/ubuntu/scratch/r5-smokes.jsonl. H key bound through
+exec environment, never logged. No private URLs, queries, session IDs or image
+payloads persisted locally. Frame counts are actual emitted live_frame events (deduped
+by hclient), not simulated footage. Tasks retain all normal safety guardrails.
+
+| Task | Adapter/policy | Frames | Final observed host/path | Checkpoint | hclient status | reason_code |
+|---|---|---:|---|---|---|---|
+| Hotel Milan | hotel-bb-com | 7 | www.hotel-bb.com/checkout/ (beyond, not checkpoint) | no | blocked | provider_error |
+| Hotel Amsterdam | ihg-com | 9 | www.ihg.com/hotels/gb/en/find-hotels/select-enhance-stay | yes | ready_for_payment | null |
+
+Both runs were strictly sequential. GET /api/v2/sessions/quota returned available=3
+before each; exactly one session was created for each, and explicit cleanup
+returned HTTP204 before the next run. Elapsed: Milan 290.5s; Amsterdam 72.2s.
+
+Amsterdam: this is a genuine hclient ready_for_payment return at the configured
+IHG checkpoint, not merely a page visit or synthetic status. Runtime handoff
+matched the same public checkpoint host/path; no booking/payment is claimed.
+
+Milan: /checkout/ is a new distinct observed path, but the run did not return
+READY or match the configured extras/review pattern. The generic provider_error
+does not establish whether guest details, a site error or incomplete evidence
+caused the stop. Ordinary Chrome GET of /checkout/ without H's selection state
+redirected to /en, so it could not verify a post-selection/pre-personal-data
+boundary. **Do not promote /checkout/ to a checkpoint on this evidence.** No
+pattern had changed at that time and no extra H reproduction was run. The safety
+correction above now forbids checkout explicitly. A stateful boundary review
+is still required; task guardrails prohibit personal data, consent and forms,
+but these summary-only measurements are not an audit of every hosted action.
+
+# R5-02 step 4 hotel retry — 2026-11-09
+
+No second NL/CH provider added in this bounded retry. Scandic website terms
+permit printing individual pages but otherwise require written permission
+for copying/reproduction; `/en/hotels` redirected to the destinations index, not
+a dated NL/CH result. H10 legal notice reserves protected elements/reproduction;
+the captured hotel catalogue lists European cities but no NL/CH destination was
+established. An attempted hotel index returned its not-found page, not rates.
+
+Novum legal notice requires prior consent for reproduction/distribution and
+processing of protected content. Its hotel list loaded; many Book links go to IHG,
+others to onepagebooking.com. This does not establish a distinct reviewed Novum
+checkout, nor extend Novum's terms to the third-party engine. No adapter added.
+
+Leonardo's reviewed 2026 disclaimer PDF again produced no readable browser text.
+A March20–22/one-adult Rembrandtpark property URL
+rendered **9 Nov–10 Nov, 1 Room, 2 Guests**, ignoring requested query values. This
+is a date/party mismatch, not an executable dated link. No review renewal or adapter.
+
+B&B `/en/terms-of-use` intellectual-property clauses were reread, retaining the
+existing private in-session owner rule without claiming an automation license.
+The actual Netherlands index `/en/netherlands/hotels-netherlands` lists one hotel,
+Amsterdam-Zaandam, described as outside Amsterdam (about 30 minutes by bus).
+Zaandam is neither the confirmed race city nor the currently reviewed Amsterdam
+hotel gateway; no silent nearby-city substitution was added. The Swiss country
+index loaded, but B&B is already an existing Swiss provider, not a distinct new
+second site. No new dated selected room/rate checkpoint was established.
+
+# R5-02 step 3 hotel research — 2026-11-09
+
+**Not completed:** no second executable reviewed hotel provider was added for
+NL or CH. Existing IHG coverage for Amsterdam/Den Haag and existing Swiss
+B&B/IHG regional coverage remain unchanged; this is not a two-provider claim.
+
+- Meininger `/en/imprint/`, including public collapsed copyright sections, was
+  reread. It prohibits reproduction/utilisation in other publications without
+  express agreement, not an affirmative automation license. Existing owner-rule
+  status is unchanged. Its dated Amsterdam booking target on
+  `mmb.meininger-hotels.com` returned ERR_TOO_MANY_REDIRECTS. No adapter or
+  extension to that host added; do not work around the redirect failure.
+- Radisson `/en-us/terms-and-conditions` reread: personal/non-commercial viewing
+  and downloading are distinguished from copying/reproduction requiring
+  permission. Scope remains materially ambiguous. A dated one-adult Amsterdam
+  room-display attempt showed no rendered results, not proof of availability.
+  No adapter or policy upgrade.
+- NH Amsterdam March 20–22 2027 one-adult attempt returned Spanish no-availability
+  text plus a required consent overlay with only Yes, I accept visible. No
+  consent accepted and no NL adapter added. Existing NH paths still require
+  BLOCKED consent_required at that overlay. NH was not globally demoted in the
+  registry; whether to prioritize IHG over it remains a follow-up decision.
+- Novum, Scandic and H10 were not fully reverified this handoff; Melia's existing
+  deep-link restriction and Motel One/Hilton prohibitions are unchanged.
+
+# R5-02 step 2 browser observations — 2026-11-09
+
+**IHG Amsterdam, 20–22 March 2027, one adult:** selected Kimpton De Witt via
+public Select Hotel → first room View Prices → Flexible Saver Select. The selected
+room was 1 Double City Single. Observed www.ihg.com host/path progression:
+
+1. `/hotels/gb/en/find-hotels/hotel-search`
+2. `/hotels/gb/en/find-hotels/select-roomrate`
+3. `/hotels/gb/en/find-hotels/select-enhance-stay` (**Add Extras**)
+
+The last path confirms the existing IHG checkpoint expression. Stopped there;
+did not add extras, click No thanks/skip, open guest details or accept the cookie
+banner. The Add Extras page did not display a complete selected-room/date/party/
+full-stay-total summary in the visible content, so this is path verification,
+NOT complete READY evidence. Screenshot (in-session only):
+`/home/ubuntu/scratch/r5-ihg-rate-selection.png` (captured at Add Extras).
+
+**NH Lisbon, 20–22 March 2027, one adult:**
+www.nh-hotels.com `/es/booking/step1-rates` rendered six room categories for NH
+Collection Lisboa Liberdade. A blocking Cookie consent overlay had only **Yes,
+I accept** and Configuration. Configuration opened cookie categories with another
+Yes, I accept control and no visible reject/necessary-only/close control. Stopped
+without selecting room/rate or accepting consent. The guessed step2 extras/services
+checkpoint remains **unverified**. Screenshots (in-session only):
+`/home/ubuntu/scratch/r5-nh-rates.png`,
+`/home/ubuntu/scratch/r5-nh-consent-blocked.png`.
+
+**B&B Milan, 20–22 March 2027, one adult:** rejected optional cookies; selected
+the first Single Room FLEX public rate. The selection summary showed Single Room,
+one adult, FLEX, 2 nights, exact stay dates and full total EUR238.00. Stopped at
+the Book now boundary; did not click it or submit any form. Host/path remained
+www.hotel-bb.com `/en/hotel/milano-sant-ambrogio` before AND after selection, with
+no fragment change. The guessed `/booking/extras|review` path was not observed.
+Screenshot (in-session only): `/home/ubuntu/scratch/r5-bb-selected.png`.
+
+As with Vueling/NS, the B&B selected checkpoint is a state on the same URL as
+the initial unselected page. After integrating R5-01, matching that hotel page
+would force an answer prematurely. No separate safe path/query was observed;
+Book now is the next boundary and was not clicked. The distinct extras/review
+pattern is retained as **unverified**, not as selected-stop coverage. The earlier
+requires_selection field was removed; P11 does not support it.
+No account, personal data, consent acceptance, booking or payment occurred.
+
+# R5-02 offline checkpoint additions (2026-11-09)
+
+Every hotel adapter now carries checkpoint patterns. All are case-insensitive
+unquoted path/query searches, prefixed with a negative lookahead excluding the shared unsafe
+expression documented in site-policy.md, and end with `(?:[/?#]|$)`.
+
+| Adapter | Checkpoint path expression | Evidence status |
+| --- | --- | --- |
+| IHG (both adapters) | `/select-enhance-stay` | Observed URL in prior R3/R4 navigation below; complete READY evidence still unverified. |
+| NH | `/booking/step2-(?:extras|services)` | **Guessed, unverified.** Only step1-rates is documented below. This is a prospective post-room/rate checkpoint, not an observed route. |
+| B&B (all fixed properties) | `/booking/(?:extras|review)` | **Guessed, unverified.** Selected room/rate state was observed on the unchanged property page; no distinct review URL verified. |
+
+No live runs in R5-02 step 1. Guessed routes do not authorize navigation or prove
+that these pages exist. Earlier guest/consent/form boundaries still block.
+Hotel tasks use 60 steps and require an immediate terminal answer on checkpoint,
+READY only with complete selected evidence, otherwise BLOCKED unsafe_claim.
+Swiss regional hotel gateway mappings and geographic limitations are documented
+in site-policy.md. They have no live inventory verification.
+
 # Hotel site evidence: R2-02 (supersedes R1-06)
 
 The R1 "assumed" rows (Accor default, Hilton homepage) are **withdrawn**. Accor is explicitly

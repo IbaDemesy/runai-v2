@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime, timedelta
 from functools import lru_cache
@@ -123,7 +124,7 @@ def _places(raw: Any, entry_id: str, fields: frozenset[str]) -> dict[str, dict[s
             or not all(isinstance(v, str) and v.strip() for v in ids.values())
         ):
             raise PolicyError(f"{entry_id}: invalid adapter place {city!r}")
-        places[city.strip().casefold()] = {k: v.strip() for k, v in ids.items()}
+        places[city_key(city)] = {k: v.strip() for k, v in ids.items()}
     return places
 
 
@@ -138,10 +139,31 @@ def _codes(value: Any, field: str) -> frozenset[str] | None:
 
 
 def _adapter(raw: Any, entry_id: str, scope_hosts: set[str]) -> dict[str, Any]:
-    """A reviewed public deep link: values are filled only into the query or fragment."""
+    """Validate deep links and checkpoints.
+
+    Checkpoint patterns use re.search against unquoted path + '?' + query,
+    case-insensitively, matching P11 (no host or fragment).
+    Beyond patterns are forbidden navigation boundaries, not success evidence.
+    """
     if not isinstance(raw, Mapping) or raw.get("kind") not in KINDS:
         raise PolicyError(f"{entry_id}: invalid adapter kind")
     mode = raw.get("mode")
+    checkpoint = raw.get("checkpoint")
+    if "checkpoint" in raw:
+        if not isinstance(checkpoint, Mapping):
+            raise PolicyError(f"{entry_id}: checkpoint must be an object")
+        for field in ("url_patterns", "beyond_patterns"):
+            patterns = checkpoint.get(field)
+            if not isinstance(patterns, list) or not patterns or not all(
+                isinstance(p, str) and p.strip() for p in patterns
+            ):
+                raise PolicyError(f"{entry_id}: invalid checkpoint {field}")
+            try:
+                for pattern in patterns:
+                    re.compile(pattern, re.IGNORECASE)
+            except re.error as exc:
+                raise PolicyError(f"{entry_id}: invalid checkpoint regex") from exc
+        checkpoint = {key: list(checkpoint[key]) for key in ("url_patterns", "beyond_patterns")}
     traveler_counts = raw.get("traveler_counts")
     if traveler_counts is not None and (
         not isinstance(traveler_counts, list) or not traveler_counts
@@ -203,6 +225,7 @@ def _adapter(raw: Any, entry_id: str, scope_hosts: set[str]) -> dict[str, Any]:
                       "countries": _codes(race_match.get("countries"), "race_match.countries")}
     return {
         "kind": raw["kind"],
+        "checkpoint": checkpoint,
         "mode": mode,
         "traveler_counts": traveler_counts,
         "race_match": race_match,
@@ -492,6 +515,7 @@ _CITY_COUNTRIES = {
     "dublin": "IE", "athens": "GR",
     "den haag": "NL", "savognin": "CH", "grindelwald": "CH", "sierre": "CH",
     "birmingham": "GB",
+    "stoos": "CH", "morschach": "CH", "brunnen": "CH", "chur": "CH",
 }
 
 
@@ -505,8 +529,73 @@ def country_code(value: Any) -> str | None:
     return _COUNTRY_CODES.get(text.casefold())
 
 
+def _fold(value: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFKD", value.strip().casefold())
+                   if not unicodedata.combining(c))
+
+
+_CITY_ALIASES = {
+    _fold(alias): canonical
+    for canonical, aliases in {
+        "Amsterdam": ("Amsterdam", "Amsterdam-Zuidoost", "Bijlmer"),
+        "Den Haag": ("Den Haag", "The Hague", "'s-Gravenhage"),
+        "Geneva": ("Geneva", "Genève", "Genf", "Ginevra"),
+        "Lisbon": ("Lisbon", "Lisboa", "Lisbonne"),
+        "Milan": ("Milan", "Milano"), "Seville": ("Seville", "Sevilla"),
+        "Valencia": ("Valencia", "València"), "Zurich": ("Zurich", "Zürich"),
+        "Brussels": ("Brussels", "Bruxelles", "Brussel"),
+        "Turin": ("Turin", "Torino"), "Barcelona": ("Barcelona", "Barcelone"),
+    }.items() for alias in aliases
+}
+
+
+def city_name(value: str) -> str:
+    """Canonical lookup/search city; never rewrites expected.city."""
+    return _CITY_ALIASES.get(_fold(value), value.strip())
+
+
+def city_key(value: str) -> str:
+    return _fold(city_name(value))
+
+
+def gateway_city(via: str) -> str:
+    """Extract a city from a reviewed via label, including station/transfer notes."""
+    for city in sorted(_CITY_COUNTRIES, key=len, reverse=True):
+        if _fold(via) == _fold(city) or _fold(via).startswith(_fold(city) + " "):
+            return city_name(city).title() if city_name(city).islower() else city_name(city)
+    return via
+
+
 def city_country(value: Any) -> str | None:
-    return _CITY_COUNTRIES.get(value.strip().casefold()) if isinstance(value, str) else None
+    if not isinstance(value, str):
+        return None
+    return {city_key(k): v for k, v in _CITY_COUNTRIES.items()}.get(city_key(value))
+
+
+_HOTEL_GATEWAYS = {
+    "stoos": "Lucerne", "morschach": "Lucerne", "savognin": "Chur",
+    "grindelwald": "Interlaken",
+}
+
+
+def hotel_search_city(expected: Mapping[str, Any]) -> str:
+    """Reviewed regional bases, not promises of inventory or an included local transfer."""
+    city = city_name(str(expected.get("city") or ""))
+    if country_code(expected.get("country")) == "CH":
+        return _HOTEL_GATEWAYS.get(city_key(city), city)
+    return city
+
+
+def task_checkpoint(adapter: Mapping[str, Any]) -> dict[str, list[str]]:
+    """Legacy adapters without checkpoints cannot claim a URL-based ready boundary."""
+    checkpoint = adapter.get("checkpoint") or {
+        "url_patterns": [r"(?!)"],
+        "beyond_patterns": [
+            (r"/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
+             r"|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"),
+        ],
+    }
+    return {key: list(checkpoint[key]) for key in ("url_patterns", "beyond_patterns")}
 
 
 def _iso(value: Any, field: str) -> date:
@@ -568,6 +657,9 @@ def trip_expected(
         "arrival_date": arrival.isoformat(), "departure_date": departure.isoformat(),
         "travelers": travelers,
     }
+    canonical_city = city_name(city)
+    if kind in {"hotel", "transport"} and canonical_city != city:
+        expected["gateway_city"] = canonical_city
     if require_origin:
         expected["origin_city"] = _required_text(trip, "origin_city")
     elif isinstance(trip.get("origin_city"), str) and trip["origin_city"].strip():
@@ -625,6 +717,8 @@ def _candidates(
     values = {
         k: str(expected.get(k) or "") for k in _TEMPLATE_FIELDS
     }
+    values["city"] = hotel_search_city(expected) if kind == "hotel" else city_name(values["city"])
+    values["origin_city"] = city_name(values["origin_city"])
     values["city_query"] = values["city"]
     values["origin_city_query"] = values["origin_city"]
     try:
@@ -632,8 +726,8 @@ def _candidates(
         values |= _date_values("departure", _iso(expected.get("departure_date"), "departure_date"))
     except ValueError:
         pass
-    city = str(expected.get("city") or "").strip().casefold()
-    origin = str(expected.get("origin_city") or "").strip().casefold()
+    city = city_key(values["city"])
+    origin = city_key(values["origin_city"])
     candidates = [(e, a) for e in entries for a in e["adapters"]]
     if modes is not None:
         candidates = [(e, a) for mode in [*dict.fromkeys(modes), None]
