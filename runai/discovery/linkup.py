@@ -327,9 +327,11 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
         if not source_urls:
             continue
         source_hosts = {_host(url) for url in source_urls}
-        official_url = next((_url(item.official_url) for item in group
+        official_urls = list(dict.fromkeys(_url(item.official_url) for item in group
                              if _url(item.official_url)
-                             and _host(_url(item.official_url)) in source_hosts), None)
+                             and _host(_url(item.official_url)) in source_hosts))
+        official_url = next(iter(official_urls), None)
+        official_hosts = {_host(url) for url in official_urls}
         official_host = _host(official_url)
         registration_url = next((
             _url(item.registration_url) for item in group
@@ -345,7 +347,7 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
         dates = {day for source in sources if (day := _day(source.race_date))}
         official_dates = {
             day for source in sources if (day := _day(source.race_date))
-            and (official_host is not None and _host(source.url) == official_host
+            and (_host(source.url) in official_hosts
                  or registration_url is not None and source.url == registration_url)
         }
         if len(official_dates) == 1:

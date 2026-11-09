@@ -221,6 +221,19 @@ def test_official_date_wins_across_duplicate_candidates():
     assert len(results[0]["source_urls"]) == 2
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("conflicting", [False, True])
+def test_review_all_organizer_hosts_participate_in_date_conflicts(reverse, conflicting):
+    other_day = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
+    rows = [race(), race(official_url="https://second-organizer.example/", sources=[{
+        "url": "https://second-organizer.example/edition",
+        "race_date": other_day if conflicting else DAY}])]
+    result = search(list(reversed(rows)) if reverse else rows)
+    assert len(result) == 1
+    assert result[0]["date_status"] == ("conflicting" if conflicting else "official")
+    assert result[0]["race_date"] == (None if conflicting else DAY)
+
+
 def test_conflicting_official_dates_remain_unconfirmed():
     other = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
     results = search([race(), race(name=f"EXAMPLE-Marathon {YEAR}", sources=[
