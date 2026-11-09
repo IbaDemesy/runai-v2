@@ -447,9 +447,7 @@ def _plan(
         if adapter else ""
     )
     status, observed_at = _fresh_status(adapter, today, distance_km, expected["race_date"])
-    early_stop = adapter.get("early_stop_reason") if adapter and observed_at and (
-        0 <= (today - date.fromisoformat(observed_at)).days <= AVAILABILITY_MAX_AGE_DAYS
-    ) else None
+    early_stop = adapter.get("early_stop_reason") if adapter else None
     seen = f"on {observed_at} ({adapter['availability']['source']})" if adapter and (
         adapter["availability"]) else ""
     evidence = availability_from_evidence(url=start_url)
@@ -466,8 +464,11 @@ def _plan(
         )
         early_stop = code
     if early_stop and not availability_first:
+        boundary_hint = (adapter.get("availability") or {}).get("note") or (
+            "Reviewed registration entry requires a bounded handoff."
+        )
         availability_first = (
-            f"AVAILABILITY FIRST: {adapter['availability']['note']} Within your first 5 steps, "
+            f"AVAILABILITY FIRST: {boundary_hint} Within your first 5 steps, "
             f"STOP and report BLOCKED {early_stop} at the account/login, ballot or unavailable "
             "entry boundary. Never log in, enter a ballot, join a waiting list or type data.\n"
         )

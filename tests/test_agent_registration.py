@@ -981,6 +981,44 @@ def test_valencia_next_edition_is_unknown_not_inherited_sold_out():
     assert registration_coverage(trip["race"], today=MERGED_TODAY)["status"] == "unknown"
 
 
+@pytest.mark.parametrize("age_days", [0, 22])
+@pytest.mark.parametrize(("race", "reason"), [
+    (BERLIN, "login_required"), (LISBON_MARATHON, "no_inventory"),
+    (VALENCIA_MARATHON, "sold_out"),
+    ((VALENCIA_MARATHON[0], "2027-12-05", *VALENCIA_MARATHON[2:5],
+      "https://www.valenciaciudaddelrunning.com/en/marathon/"), "no_inventory"),
+])
+def test_adapter_early_stop_outlives_availability_observation(race, reason, age_days):
+    today = MERGED_TODAY + timedelta(days=age_days)
+    trip = _race_trip(*race, edition=race[1][:4])
+    trip["runner_profile"] = {"full_name": "Test Runner"}
+    task = build_task(trip, today=today)
+    for candidate in [task, *task["alternatives"]]:
+        assert candidate["max_steps"] == 12
+        assert candidate["instructions"].startswith("AVAILABILITY FIRST")
+        assert "first 5 steps" in candidate["instructions"].splitlines()[0]
+        assert f"BLOCKED {reason}" in candidate["instructions"].splitlines()[0]
+        assert candidate["success_signal"].startswith(f"BLOCKED {reason}")
+        assert candidate["checkpoint"]["url_patterns"] == ["(?!)"]
+        assert "prefill_fields" not in candidate
+    assert task["fallback_url"] == task["start_url"]
+    if age_days > 21:
+        coverage = registration_coverage(trip["race"], today=today)
+        assert coverage["status"] == "unknown"
+        assert coverage["preparable_open"] is False
+
+
+def test_adapter_early_stop_without_availability_observation():
+    reg = _with_availability()
+    adapter = reg["entries"][0]["adapters"][0]
+    adapter.pop("availability")
+    adapter["early_stop_reason"] = "login_required"
+    task = build(_trip(), reg)
+    assert task["max_steps"] == 12
+    assert "BLOCKED login_required" in task["instructions"].splitlines()[0]
+    assert task["checkpoint"]["url_patterns"] == ["(?!)"]
+
+
 @pytest.mark.parametrize("race", [MILAN, STOOS, FRANKFURT])
 def test_registration_prefill_field_names_only(race):
     trip = _race_trip(*race)
