@@ -590,13 +590,6 @@ class GuideEngine:
                 race = RaceOption.model_validate(row)
             except ValidationError:
                 continue
-            if hints.get("verification_only"):
-                target = import_module("runai.discovery.linkup").official_search_hint(hints.get("race_name", ""))
-                target_name = " ".join(re.findall(r"\w+", normalize(target.get("race_name", hints.get("race_name", "")))))
-                if (self._race_identity(race) != target_name
-                        or race.country and hints.get("country")
-                        and normalize(country_name(race.country) or race.country) != normalize(hints["country"])):
-                    continue
             hosts = set()
             urls = []
             for source in race.source_urls:
@@ -913,7 +906,7 @@ class GuideEngine:
                                                 self._preparation_rank(state, race)))
         if (len(state.candidates) == 1 and self._matches_distance(state, state.candidates[0])
                 and state.candidates[0].id not in alternative_ids
-                and state.hints.get("named") and not broadened) and not (
+                and state.hints.get("named") and not hints.get("verification_only") and not broadened) and not (
             state.candidates[0].registration_access and (
                 state.candidates[0].registration_access.account_required is True
                 or state.candidates[0].registration_access.captcha is True
@@ -1206,11 +1199,26 @@ class GuideEngine:
                         state.hints["prefer_requested_country"] = True
                         state, turn = await self._discover(state)
                         selected = next((r for r in state.candidates
-                                         if self._race_identity(r) == self._race_identity(race)), None)
+                                         if self._race_identity(r) == self._race_identity(race)
+                                         and (self._dedupe_distance(race) is None
+                                              or self._dedupe_distance(r) == self._dedupe_distance(race))), None)
+                        returned = state.candidates
                         state.draft.race = selected or race
                         state.draft.race.id = race.id
                         state.candidates = [state.draft.race if r.id == race.id else r
                                             for r in original_candidates]
+                        for alternative in returned:
+                            if any(self._race_identity(r) == self._race_identity(alternative)
+                                   and r.race_date == alternative.race_date
+                                   and self._dedupe_distance(r) == self._dedupe_distance(alternative)
+                                   for r in state.candidates):
+                                continue
+                            used_ids = {r.id for r in state.candidates}
+                            base_id, suffix = alternative.id, 2
+                            while alternative.id in used_ids:
+                                alternative.id = f"{base_id}:{suffix}"
+                                suffix += 1
+                            state.candidates.append(alternative)
                         self._advance(state)
                         return self._turn(state, turn.message, turn.error)
                     return self._turn(state, self._say(

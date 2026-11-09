@@ -1173,6 +1173,34 @@ def test_recovery_prefers_requested_country_after_foreign_chip_failures(monkeypa
     assert all(r.country == "Germany" for r in turn.candidates)
 
 
+@pytest.mark.parametrize("name,country", [("Geneva Marathon", "Switzerland"), ("Rome Marathon", "Italy")])
+def test_verification_of_selected_race_only_offers_different_official_race(name, country):
+    calls = []
+    chosen = {"id": "chosen", "name": "Unlisted Marathon", "country": "Italy", "distance_km": 42.195,
+              "date_status": "unverified", "race_date": "2027-04-11",
+              "source_urls": ["https://directory.example/chosen"]}
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        if hints.get("verification_only"):
+            return [dict(chosen, id="other", name=name, country=country, date_status="official",
+                         source_urls=["https://race.example/official"])]
+        return [chosen.copy()]
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon in Italy"))
+    choice = next(s for s in turn.suggestions if s.value == "chosen")
+    state, turn = run(e.step(state, {"suggestion_id": choice.id}))
+    assert len([h for h in calls if h.get("verification_only")]) == 1
+    assert state.draft.race.id == "chosen" and state.draft.race.date_status == "unverified"
+    assert state.stage == "choose_race" and not turn.ready_to_confirm
+    assert "cannot be confirmed" in turn.message
+    other = next(s for s in turn.suggestions if s.value == "other")
+    assert other.kind == "choose_race"
+    state, turn = run(e.step(state, {"suggestion_id": other.id}))
+    assert state.draft.race.name == name and state.draft.race.date_status == "official"
+
+
 @pytest.mark.parametrize("outcome", ["normal", "empty", "error"])
 def test_mission_verification_survives_queries(outcome):
     calls = 0
