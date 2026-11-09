@@ -147,6 +147,13 @@ def _adapter(raw: Any, entry_id: str, scope_hosts: set[str]) -> dict[str, Any]:
     """
     if not isinstance(raw, Mapping) or raw.get("kind") not in KINDS:
         raise PolicyError(f"{entry_id}: invalid adapter kind")
+    render_date = None
+    if "h_render_verified_at" in raw:
+        value = raw["h_render_verified_at"]
+        render_date = _date(value, "h_render_verified_at")
+        if (raw["kind"] != "transport" or render_date.isoformat() != value
+                or render_date > datetime.now(UTC).date()):
+            raise PolicyError(f"{entry_id}: invalid h_render_verified_at")
     mode = raw.get("mode")
     checkpoint = raw.get("checkpoint")
     if "checkpoint" in raw:
@@ -225,6 +232,7 @@ def _adapter(raw: Any, entry_id: str, scope_hosts: set[str]) -> dict[str, Any]:
                       "countries": _codes(race_match.get("countries"), "race_match.countries")}
     return {
         "kind": raw["kind"],
+        "h_render_verified_at": render_date.isoformat() if render_date else None,
         "checkpoint": checkpoint,
         "mode": mode,
         "traveler_counts": traveler_counts,
@@ -697,6 +705,9 @@ def select_adapters(
         kind, expected, entries, origin_country=origin_country, today=today,
         registry=registry, modes=modes, reasons=reasons,
     ):
+        if kind == "transport" and not selected and not adapter["h_render_verified_at"]:
+            reasons.append("no H-render-verified primary covers this route")
+            continue
         if decision["policy_id"] not in policies:
             selected.append((adapter, url, decision))
             policies.add(decision["policy_id"])
@@ -732,6 +743,8 @@ def _candidates(
     if modes is not None:
         candidates = [(e, a) for mode in [*dict.fromkeys(modes), None]
                       for e, a in candidates if a["mode"] == mode]
+    if kind == "transport":
+        candidates.sort(key=lambda candidate: not candidate[1]["h_render_verified_at"])
     for entry, adapter in candidates:
         if adapter["kind"] != kind:
             continue
@@ -816,11 +829,15 @@ def coverage(
             "arrival_date": (today + timedelta(days=30)).isoformat(),
             "departure_date": (today + timedelta(days=32)).isoformat(), "travelers": 1,
         }
-        ids = {e["id"] for e, _, _, _ in _candidates(
+        candidates = list(_candidates(
             kind, expected, entries, origin_country=city_country(origin_city), today=today,
             registry=registry, partial=True,
-        )}
-        policy_ids = [e["id"] for e in entries if e["id"] in ids]
+        ))
+        if kind == "transport" and (
+            not candidates or not candidates[0][1]["h_render_verified_at"]
+        ):
+            return empty
+        policy_ids = list(dict.fromkeys(e["id"] for e, _, _, _ in candidates))
         return {"covered": bool(policy_ids), "policy_ids": policy_ids}
     except Exception:  # noqa: BLE001
         return empty

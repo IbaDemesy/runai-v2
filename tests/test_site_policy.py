@@ -52,7 +52,8 @@ def transport_entry(**changes):
         "scopes": [{"host": "tickets.rail.example", "path_prefix": "/"}],
         "navigation_hosts": [],
         "adapters": [{
-            "kind": "transport", "destination_countries": ["IT", "PT", "DE", "CH"],
+            "kind": "transport", "h_render_verified_at": "2026-11-09",
+            "destination_countries": ["IT", "PT", "DE", "CH"],
             "origin_countries": ["FR", "IT", "PT", "DE", "CH"],
             "url_template": "https://tickets.rail.example/results?from={origin_city}"
                             "&to={city}&out={arrival_date}&ret={departure_date}&pax={travelers}",
@@ -829,8 +830,7 @@ def test_via_requires_reviewed_nonempty_text(via):
 
 
 def test_r4_coverage_known_unknown_expired():
-    for city in ("Milan", "Barcelona", "Lisbon", "Valencia", "Seville", "Zurich",
-                 "Geneva", "Amsterdam", "Den Haag", "Rome"):
+    for city in ("Milan", "Amsterdam"):
         assert site_policy.coverage("transport", city=city, origin_city="Paris",
                                     today=TODAY)["covered"]
     for city in ("Savognin", "Grindelwald", "Sierre", "Den Haag"):
@@ -839,3 +839,94 @@ def test_r4_coverage_known_unknown_expired():
                                    origin_city="Paris", today=TODAY)["covered"]
     assert not site_policy.coverage("transport", city="Barcelona", origin_city="Paris",
                                    today=date(2030, 1, 1))["covered"]
+
+
+@pytest.mark.parametrize("value", [None, True, 123, "", "not-a-date", "2026-02-30",
+                                  "20261109", "2026-11-09T00:00:00", "9999-12-31"])
+def test_transport_render_date_malformed_or_future_fails_closed(value):
+    item = transport_entry()
+    item["adapters"][0]["h_render_verified_at"] = value
+    reg = registry(item)
+    with pytest.raises(PolicyError, match="h_render_verified_at"):
+        parse_registry(reg)
+    assert not evaluate_url("https://tickets.rail.example/results", "transport",
+                            today=TODAY, registry=reg)["allowed"]
+    assert site_policy.coverage("transport", city="Milan", origin_city="Paris",
+                                today=TODAY, registry=reg) == {
+                                    "covered": False, "policy_ids": [],
+                                }
+
+
+def test_render_date_is_optional_and_transport_only():
+    item = transport_entry()
+    del item["adapters"][0]["h_render_verified_at"]
+    assert parse_registry(registry(item))[0]["adapters"][0]["h_render_verified_at"] is None
+    hotel = entry()
+    hotel["adapters"][0]["h_render_verified_at"] = TODAY.isoformat()
+    with pytest.raises(PolicyError, match="h_render_verified_at"):
+        parse_registry(registry(hotel))
+
+
+@pytest.mark.parametrize("verified", [False, True])
+def test_transport_verified_primary_and_stable_alternatives(verified):
+    items = [distinct_entry(n, "transport") for n in range(4)]
+    for item in items:
+        item["adapters"][0].pop("h_render_verified_at")
+    if verified:
+        for index in (1, 3):
+            items[index]["adapters"][0]["h_render_verified_at"] = TODAY.isoformat()
+    reg = registry(*items)
+    before = copy.deepcopy(reg)
+    expected = {**EXPECTED, "country": "IT", "origin_city": "Paris"}
+    if verified:
+        selected = site_policy.select_adapters("transport", expected, origin_country="FR",
+                                                today=TODAY, registry=reg)
+        assert [d["policy_id"] for _, _, d in selected] == ["site1", "site3", "site0"]
+        assert [a["h_render_verified_at"] for a, _, _ in selected] == [
+            TODAY.isoformat(), TODAY.isoformat(), None,
+        ]
+        assert site_policy.coverage("transport", city="Milan", origin_city="Paris",
+                                    today=TODAY, registry=reg)["policy_ids"] == [
+                                        "site1", "site3", "site0", "site2",
+                                    ]
+    else:
+        with pytest.raises(ValueError, match="no policy-reviewed"):
+            site_policy.select_adapters("transport", expected, origin_country="FR",
+                                        today=TODAY, registry=reg)
+        assert not site_policy.coverage("transport", city="Milan", origin_city="Paris",
+                                        today=TODAY, registry=reg)["covered"]
+    assert reg == before
+
+
+@pytest.mark.parametrize("host,kind", [
+    ("www.sncf-connect.com", "transport"), ("www.thetrainline.com", "transport"),
+    ("www.eurostar.com", "transport"), ("www.easyjet.com", "transport"),
+    ("www.transavia.com", "transport"), ("www.flixbus.com", "transport"),
+    ("all.accor.com", "hotel"), ("unknown-provider.example", "transport"),
+])
+def test_render_ranking_never_relaxes_provider_policy(host, kind):
+    assert not evaluate_url(f"https://{host}/", kind, today=TODAY)["allowed"]
+
+
+def test_expired_verified_primary_cannot_promote_unverified_fallback():
+    verified, fallback = distinct_entry(0, "transport"), distinct_entry(1, "transport")
+    verified["expires_at"] = "2026-11-08"
+    fallback["adapters"][0].pop("h_render_verified_at")
+    reg = registry(verified, fallback)
+    assert not site_policy.coverage("transport", city="Milan", origin_city="Paris",
+                                    today=TODAY, registry=reg)["covered"]
+    with pytest.raises(ValueError, match="no policy-reviewed"):
+        site_policy.select_adapters("transport", {**EXPECTED, "country": "IT"},
+                                    origin_country="FR", today=TODAY, registry=reg)
+
+
+def test_sbb_same_operator_shop_review_is_exact_host_and_still_expires():
+    url = "https://shop.sbb.ch/customer/en/alw/onboarding?su=redacted&cu=redacted"
+    decision = evaluate_url(url, "transport", today=TODAY)
+    assert decision["allowed"] and decision["policy_id"] == "sbb-ch"
+    assert set(decision["allowed_hosts"]) == {"sbb.ch", "www.sbb.ch", "shop.sbb.ch"}
+    assert not evaluate_url("https://other.sbb.ch/en/offer", "transport", today=TODAY)["allowed"]
+    assert not evaluate_url("https://shop.sbb.ch.other.example/en/offer", "transport",
+                            today=TODAY)["allowed"]
+    assert not evaluate_url(url, "hotel", today=TODAY)["allowed"]
+    assert not evaluate_url(url, "transport", today=date(2027, 2, 7))["allowed"]

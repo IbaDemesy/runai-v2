@@ -1,3 +1,55 @@
+# R6-02 step 6 same-operator SBB ticket-shop review — 2026-11-09
+
+Owner explicitly confirmed shop.sbb.ch is SBB's own ticket shop under the same
+operator/legal terms already reviewed for sbb-ch. Added **only shop.sbb.ch** to
+that entry's reviewed scopes and navigation hosts. Existing allowed_owner_rule,
+in_session_only screenshots and expiry 2027-02-07 remain unchanged. This is not
+permission for accounts, consent acceptance, personal data, submissions,
+bookings or payments, and does not grant any other subdomain/host.
+
+Step 5 Paris–Milan and Lyon–Milan ticket selection observed only
+`shop.sbb.ch/customer/en/alw/onboarding?su=[redacted]&cu=[redacted]` before the
+then-unreviewed-host gate blocked it. Opaque values are not retained here.
+No distinct shop offer/fare-summary path was observed, so onboarding is **not**
+a checkpoint; /en/offer remains the SBB checkpoint pending new live evidence.
+Path-based passenger/login/payment boundaries remain in force on the shop.
+
+Step 6 Paris–Milan then visually identified this onboarding page as **SwissPass
+login / Purchase as a guest**, not a fare summary. No subsequent login or
+passenger-detail URL was observed. Added exact
+`^/customer/en/alw/onboarding(?:[?;]|$)` to every SBB beyond_patterns after the
+smokes. This new guard is offline-tested, not live-rerun. /en/offer is unchanged;
+no shop path has been promoted to a fare checkpoint.
+
+The NS entry moved unchanged from the base registry to the transport fragment
+after SBB, so verified domestic SBB precedes NS via registry order, not a
+provider-specific selection-code exception. Paris–Amsterdam remains NS-only.
+No render dates were broadened and no unknown/expired/prohibited policy relaxed.
+
+# R6-02 transport render evidence gate — 2026-11-09
+
+SBB's existing `sbb-ch` entry is now in `docs/site-policy.d/transport.json`, with
+the same reviewed hosts, owner-rule status, review 2026-11-09 and expiry
+2027-02-07. This move is not a terms-review renewal or new authorization.
+No booking subdomains or prohibited providers were added. NS retains its
+review/expiry; CP and Vueling remain allowed by policy but lack verified primary
+render evidence. Owner rules remain materially different from affirmative
+provider permission; copying/public/commercial reuse restrictions still apply.
+
+Optional transport-adapter `h_render_verified_at` dates are validated and scoped
+to observed route/place sets. Only dated outbound fare visibility is asserted,
+not full-adult round-trip quotes or READY. A transport route without a verified
+candidate is uncovered; unverified candidates are alternatives only. SBB's
+default Half Fare display must be safely corrected to one adult without
+reduction, and a return safely selected, before any preparation claim. No
+personal data, forms, consent acceptance, login, booking or payment is allowed.
+
+See the new R6-02 section in `transport.md` for the dated per-candidate render
+matrix, instrumentation caveats, public templates and unverified P11 guesses.
+No live sessions were run during step 4, and no screenshots/private H URLs/IDs
+are committed. SBB `trip=` is preview only; NS selected review shares its result
+path. The guessed ticket-offer/overview checkpoints are not live acceptance.
+
 # Guest-query compatibility correction — 2026-11-09
 
 Bare guest matched the benign guests=1 query key, incorrectly cancelling an IHG

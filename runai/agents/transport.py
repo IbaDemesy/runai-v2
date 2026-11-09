@@ -1,6 +1,6 @@
 """Transport task: a policy-reviewed public deep link for the confirmed round trip.
 
-Adapters come only from docs/site-policy.json; a route no reviewed adapter covers raises
+Adapters come only from the policy registry; a route no H-render-verified adapter covers raises
 ValueError (blocked) instead of falling back to a generic search or homepage.
 """
 
@@ -90,10 +90,21 @@ def _candidate_task(expected, budget, adapter, url, decision):
         "If no fare fits, report BLOCKED over_budget with the cheapest full total seen."
         if budget is not None else "No budget given: choose the cheapest suitable full total."
     )
+    sbb_hint = (
+        "SBB start link has no return-date or party URL parameters. "
+        "Reject cookies or choose necessary-only; never accept consent. "
+        "If the UI defaults to Half-Fare or another reduction, set the "
+        "traveller to 1 adult without reduction/Half-Fare, without personal data or form submission. "
+        f"Choose outbound then add the return departing on {departure} using safe selection "
+        "controls only; never submit a search form. Stop at the fare/ticket selection summary "
+        "before passenger details, login or payment. If these safe controls are unavailable, "
+        "report BLOCKED date_mismatch rather than use a reduced or one-way quote. "
+        if decision["policy_id"] == "sbb-ch" else ""
+    )
     instructions = (
         f"1. DATE CHECK first: round-trip {mode}, {origin} -> {route_city}, "
         f"{expected['country']}; outbound {arrival}, return {departure}, {adults} adults. "
-        "For missing/wrong dates, route or party, or a one-way trip, report BLOCKED "
+        f"{sbb_hint}For missing/wrong dates, route or party, or a one-way trip, report BLOCKED "
         "date_mismatch. Never change the dates or submit search forms.\n"
         f"2. Allowed hosts: {', '.join(hosts)}. STOP on any other host (including a carrier or "
         "reseller) and report BLOCKED unreviewed_redirect; do not interact with it. "

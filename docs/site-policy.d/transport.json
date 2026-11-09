@@ -1,0 +1,549 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "id": "sbb-ch",
+      "name": "sbb.ch",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "sbb.ch",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.sbb.ch",
+          "path_prefix": "/"
+        },
+        {
+          "host": "shop.sbb.ch",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.sbb.ch/en/meta/legallines/legal-information.html"
+      ],
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Restrictions on access; Use of SBB Websites",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Official footer legal-information page fetched. No explicit automation clause found here; copying/public/commercial use restricted. R4-02 normal-browser check 2026-11-09: Individual pages may be saved; public/commercial reuse requires consent. No express robot prohibition found. Tested link did not show a round-trip fare list with party. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md. R6-02 2026-11-09 H showed dated outbound numeric fares for Paris-Milan, Lyon-Milan, Geneva-Milan and Geneva-Zurich under the default Half Fare display. Not proof of full-adult/round-trip preparation. Paris-Zurich had no numeric prices; Geneva-Lucerne retained a loading skeleton/consent banner. R6-02 step 5 observed the Geneva-Zurich fare/ticket selection surface at /en/offer; full selected round-trip evidence and runtime verification are still required. International ticket selection redirected to unreviewed shop.sbb.ch and was blocked; no scope expansion. R6-02 step 6 same-operator scope review 2026-11-09, explicitly approved by owner: shop.sbb.ch is SBB's own ticket shop under the same SBB operator/legal terms already reviewed. Paris-Milan and Lyon-Milan step 5 ticket selection reached /customer/en/alw/onboarding with opaque su/cu query values, blocked only because this host was missing from reviewed scopes. Add only shop.sbb.ch to scopes/navigation; no other hosts, no permission to enter personal data, submit forms, log in, accept consent, book or pay. Onboarding is not a fare checkpoint; retain /en/offer until a distinct shop fare-summary path is observed. Existing review expiry unchanged. Step 6 Paris-Milan live frame identifies /customer/en/alw/onboarding as SwissPass login / purchase-as-guest choice, not a fare offer. Added that exact path as beyond-boundary protection after the smokes; this guard is offline-tested, not live-rerun. PR44 review correction 2026-11-09: /en/offer and its retDay/retMoment/retTime/retTrip query state were already observed with outbound fare only and Select return ticket still pending. No observed URL distinguishes completed return-fare selection. Disable SBB URL force-answer with the existing never-match (?!) sentinel (nonempty lists required by pinned registry/runner validation), preserving all beyond boundaries. Agent answers remain subject to full evidence checks; no URL-based READY claim or live acceptance of this correction.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [
+        "shop.sbb.ch"
+      ],
+      "registration_observations": [],
+      "adapters": [
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "traveler_counts": [
+            1
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "destination_countries": [
+            "IT"
+          ],
+          "url_template": "https://www.sbb.ch/en?stops={origin_station_name}_I{origin_station_code}~{station_name}_I{station_code}&day={arrival_date}&time=08_00&moment=dep",
+          "origin_places": {
+            "paris": {
+              "origin_station_name": "Paris Gare de Lyon",
+              "origin_station_code": "8768600"
+            }
+          },
+          "places": {
+            "milan": {
+              "station_name": "Milano Centrale",
+              "station_code": "8301700"
+            }
+          },
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "checkpoint": {
+            "url_patterns": [
+              "(?!)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)",
+              "^/customer/en/alw/onboarding(?:[?;]|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09"
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "traveler_counts": [
+            1
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "destination_countries": [
+            "IT"
+          ],
+          "url_template": "https://www.sbb.ch/en?stops={origin_station_name}_I{origin_station_code}~{station_name}_I{station_code}&day={arrival_date}&time=08_00&moment=dep",
+          "origin_places": {
+            "lyon": {
+              "origin_station_name": "Lyon Part Dieu",
+              "origin_station_code": "8772319"
+            }
+          },
+          "places": {
+            "milan": {
+              "station_name": "Milano Centrale",
+              "station_code": "8301700"
+            }
+          },
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "checkpoint": {
+            "url_patterns": [
+              "(?!)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)",
+              "^/customer/en/alw/onboarding(?:[?;]|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09"
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "traveler_counts": [
+            1
+          ],
+          "origin_countries": [
+            "CH"
+          ],
+          "destination_countries": [
+            "IT"
+          ],
+          "url_template": "https://www.sbb.ch/en?stops={origin_station_name}_I{origin_station_code}~{station_name}_I{station_code}&day={arrival_date}&time=08_00&moment=dep",
+          "origin_places": {
+            "geneva": {
+              "origin_station_name": "Genève",
+              "origin_station_code": "8501008"
+            }
+          },
+          "places": {
+            "milan": {
+              "station_name": "Milano Centrale",
+              "station_code": "8301700"
+            }
+          },
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "checkpoint": {
+            "url_patterns": [
+              "(?!)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)",
+              "^/customer/en/alw/onboarding(?:[?;]|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09"
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "traveler_counts": [
+            1
+          ],
+          "origin_countries": [
+            "CH"
+          ],
+          "destination_countries": [
+            "CH"
+          ],
+          "url_template": "https://www.sbb.ch/en?stops={origin_station_name}_I{origin_station_code}~{station_name}_I{station_code}&day={arrival_date}&time=08_00&moment=dep",
+          "origin_places": {
+            "geneva": {
+              "origin_station_name": "Genève",
+              "origin_station_code": "8501008"
+            }
+          },
+          "places": {
+            "zurich": {
+              "station_name": "Zürich HB",
+              "station_code": "8503000"
+            }
+          },
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "checkpoint": {
+            "url_patterns": [
+              "(?!)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)",
+              "^/customer/en/alw/onboarding(?:[?;]|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09"
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "traveler_counts": [
+            1
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "destination_countries": [
+            "CH"
+          ],
+          "url_template": "https://www.sbb.ch/en?stops={origin_station_name}_I{origin_station_code}~{station_name}_I{station_code}&day={arrival_date}&time=08_00&moment=dep",
+          "origin_places": {
+            "paris": {
+              "origin_station_name": "Paris Gare de Lyon",
+              "origin_station_code": "8768600"
+            }
+          },
+          "places": {
+            "zurich": {
+              "station_name": "Zürich HB",
+              "station_code": "8503000"
+            }
+          },
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "checkpoint": {
+            "url_patterns": [
+              "(?!)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)",
+              "^/customer/en/alw/onboarding(?:[?;]|$)"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "traveler_counts": [
+            1
+          ],
+          "origin_countries": [
+            "CH"
+          ],
+          "destination_countries": [
+            "CH"
+          ],
+          "url_template": "https://www.sbb.ch/en?stops={origin_station_name}_I{origin_station_code}~{station_name}_I{station_code}&day={arrival_date}&time=08_00&moment=dep",
+          "origin_places": {
+            "geneva": {
+              "origin_station_name": "Genève",
+              "origin_station_code": "8501008"
+            }
+          },
+          "places": {
+            "lucerne": {
+              "station_name": "Luzern",
+              "station_code": "8505000"
+            }
+          },
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "checkpoint": {
+            "url_patterns": [
+              "(?!)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)",
+              "^/customer/en/alw/onboarding(?:[?;]|$)"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "ns-international",
+      "name": "NS International",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "nsinternational.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.nsinternational.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.nsinternational.com/en/disclaimer-ns"
+      ],
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Disclaimer: information, availability, copyright, links and transport conditions",
+      "justification": "Normal Chrome reread 2026-11-09: the public disclaimer reserves copyright, disclaims accuracy/availability and references transport conditions; no express robot/automation prohibition found in that page. This is not express contractual authorization. Retain the existing owner's read-only rule, no forms/accounts/consent/payment; screenshots in-session only. January 9-11 2027 one-adult public fares verified for Paris Nord-Amsterdam/Berlin, Paris Lyon-Lyon Part Dieu/Barcelona/Geneva, Brussels Midi-Amsterdam and Geneva-Zurich HB. March 20-22 Paris-Amsterdam final selected Check your trip pane also observed. Den Haag uses the reviewed Amsterdam gateway only, no onward transfer included. Timetable-only Zurich/Lyon-Barcelona and invalid guessed station codes were not added. P12 retains safe start fragments and accepts reviewed gateway cities; deterministic NS checkpoint remains an explicitly unverified distinct overview/review path, never the shared results URL. See docs/evidence/transport.md. R6-02 H render evidence 2026-11-09 is scoped to Paris-Amsterdam and Geneva-Zurich only; other routes/gateways remain unverified alternatives, never primary without a verified candidate.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": [
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "NL"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.nsinternational.com/en/traintickets-v3/#/search/{origin_station_code}/{station_code}/{arrival_ymd}?pax=A&inboundDate={departure_ymd}",
+          "places": {
+            "amsterdam": {
+              "station_code": "NLASC",
+              "station_name": "Amsterdam Centraal"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_station_code": "FRPNO",
+              "origin_station_name": "Paris Gare du Nord"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: Paris Gare du Nord to Amsterdam Central, Jan 9-11 2027, one Adult (26-59 years), public outbound times and EUR fares. March 20-22 final Check your trip pane showed both selected trips and EUR90 total on the unchanged results URL. Only one adult in this default age category is reviewed. Den Haag uses Amsterdam Centraal as gateway: mention onward transfer is out of scope, never claim it included, invent Den Haag page evidence or replace expected.city. P12 verifies either race city or reviewed gateway with all other evidence unchanged. STOP after selecting BOTH legs and fares with exact dates, party and full round-trip total, before Enter your details. No distinct post-selection path/query was observed, so the overview/review URL checkpoint remains unverified. Shared result lists and EUR0.00 are not READY.",
+          "blocked_evidence": "At the first loaded NS booking page, if the reviewed route, both dates or party are absent/reset, STOP BLOCKED date_mismatch immediately. Never submit search forms or reconstruct a lost route. Block reset/stale search, wrong dates/party, no connections/fares, sales horizon, unmatched age category, non-reviewed gateway, login, captcha, required consent or form submission. R4-02's fragment-loss startup limitation is fixed by merged P12 plus task keep_fragment=true, not live-retested here. The remaining distinct checkpoint URL is unverified: never open passenger details to find it. Never follow a prohibited carrier-host redirect even when that carrier is named on an NS fare.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:login|log[-_]in|sign[-_]?in|account|travell?er|personal[-_]details|(?:enter[-_](?:your[-_])?)details|/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09"
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "NL"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.nsinternational.com/en/traintickets-v3/#/search/{origin_station_code}/{station_code}/{arrival_ymd}?pax=A&inboundDate={departure_ymd}",
+          "places": {
+            "den haag": {
+              "station_code": "NLASC",
+              "via": "Amsterdam Centraal (onward Den Haag transfer not included)"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_station_code": "FRPNO",
+              "origin_station_name": "Paris Gare du Nord"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: Paris Gare du Nord to Amsterdam Central, Jan 9-11 2027, one Adult (26-59 years), public outbound times and EUR fares. March 20-22 final Check your trip pane showed both selected trips and EUR90 total on the unchanged results URL. Only one adult in this default age category is reviewed. Den Haag uses Amsterdam Centraal as gateway: mention onward transfer is out of scope, never claim it included, invent Den Haag page evidence or replace expected.city. P12 verifies either race city or reviewed gateway with all other evidence unchanged. STOP after selecting BOTH legs and fares with exact dates, party and full round-trip total, before Enter your details. No distinct post-selection path/query was observed, so the overview/review URL checkpoint remains unverified. Shared result lists and EUR0.00 are not READY.",
+          "blocked_evidence": "At the first loaded NS booking page, if the reviewed route, both dates or party are absent/reset, STOP BLOCKED date_mismatch immediately. Never submit search forms or reconstruct a lost route. Block reset/stale search, wrong dates/party, no connections/fares, sales horizon, unmatched age category, non-reviewed gateway, login, captcha, required consent or form submission. R4-02's fragment-loss startup limitation is fixed by merged P12 plus task keep_fragment=true, not live-retested here. The remaining distinct checkpoint URL is unverified: never open passenger details to find it. Never follow a prohibited carrier-host redirect even when that carrier is named on an NS fare.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:login|log[-_]in|sign[-_]?in|account|travell?er|personal[-_]details|(?:enter[-_](?:your[-_])?)details|/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "FR",
+            "ES",
+            "CH"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.nsinternational.com/en/traintickets-v3/#/search/{origin_station_code}/{station_code}/{arrival_ymd}?pax=A&inboundDate={departure_ymd}",
+          "places": {
+            "lyon": {
+              "station_code": "FRLPD",
+              "station_name": "Lyon Part Dieu"
+            },
+            "barcelona": {
+              "station_code": "ESBST",
+              "station_name": "Barcelona Sants"
+            },
+            "geneva": {
+              "station_code": "CHGVA",
+              "station_name": "Genève"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_station_code": "FRPLY",
+              "origin_station_name": "Paris Gare de Lyon"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09 in normal Chrome: exact round-trip dates 9-11 January 2027, one Adult (26-59 years), matching stations, departure/arrival times and public outbound EUR fares. See docs/evidence/transport.md for route-specific observations. Only one adult in the default age category is verified. Results are not READY: select both legs and fares, verify exact dates, party and full round-trip total before Enter your details. Answer immediately at this safe boundary even if no distinct URL checkpoint exists. The post-selection overview/review URL pattern remains unverified; never open passenger details or invent a checkpoint.",
+          "blocked_evidence": "Block blank/reset route or dates, wrong party/age category, timetable-only journeys without fares, no connections, sold out or sales horizon, login, captcha, required consent, form submission, passenger details or a non-reviewed carrier redirect. Never change dates. Fragment must be retained by P12; do not reconstruct a missing route by submitting a search.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:login|log[-_]in|sign[-_]?in|account|travell?er|personal[-_]details|(?:enter[-_](?:your[-_])?)details|/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "DE"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.nsinternational.com/en/traintickets-v3/#/search/{origin_station_code}/{station_code}/{arrival_ymd}?pax=A&inboundDate={departure_ymd}",
+          "places": {
+            "berlin": {
+              "station_code": "DEBHF",
+              "station_name": "Berlin Hbf"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_station_code": "FRPNO",
+              "origin_station_name": "Paris Gare du Nord"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09 in normal Chrome: exact round-trip dates 9-11 January 2027, one Adult (26-59 years), matching stations, departure/arrival times and public outbound EUR fares. See docs/evidence/transport.md for route-specific observations. Only one adult in the default age category is verified. Results are not READY: select both legs and fares, verify exact dates, party and full round-trip total before Enter your details. Answer immediately at this safe boundary even if no distinct URL checkpoint exists. The post-selection overview/review URL pattern remains unverified; never open passenger details or invent a checkpoint.",
+          "blocked_evidence": "Block blank/reset route or dates, wrong party/age category, timetable-only journeys without fares, no connections, sold out or sales horizon, login, captcha, required consent, form submission, passenger details or a non-reviewed carrier redirect. Never change dates. Fragment must be retained by P12; do not reconstruct a missing route by submitting a search.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:login|log[-_]in|sign[-_]?in|account|travell?er|personal[-_]details|(?:enter[-_](?:your[-_])?)details|/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "NL"
+          ],
+          "origin_countries": [
+            "BE"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.nsinternational.com/en/traintickets-v3/#/search/{origin_station_code}/{station_code}/{arrival_ymd}?pax=A&inboundDate={departure_ymd}",
+          "places": {
+            "amsterdam": {
+              "station_code": "NLASC",
+              "station_name": "Amsterdam Centraal"
+            }
+          },
+          "origin_places": {
+            "brussels": {
+              "origin_station_code": "BEBMI",
+              "origin_station_name": "Brussel Zuid - Midi"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09 in normal Chrome: exact round-trip dates 9-11 January 2027, one Adult (26-59 years), matching stations, departure/arrival times and public outbound EUR fares. See docs/evidence/transport.md for route-specific observations. Only one adult in the default age category is verified. Results are not READY: select both legs and fares, verify exact dates, party and full round-trip total before Enter your details. Answer immediately at this safe boundary even if no distinct URL checkpoint exists. The post-selection overview/review URL pattern remains unverified; never open passenger details or invent a checkpoint.",
+          "blocked_evidence": "Block blank/reset route or dates, wrong party/age category, timetable-only journeys without fares, no connections, sold out or sales horizon, login, captcha, required consent, form submission, passenger details or a non-reviewed carrier redirect. Never change dates. Fragment must be retained by P12; do not reconstruct a missing route by submitting a search.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:login|log[-_]in|sign[-_]?in|account|travell?er|personal[-_]details|(?:enter[-_](?:your[-_])?)details|/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "CH"
+          ],
+          "origin_countries": [
+            "CH"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.nsinternational.com/en/traintickets-v3/#/search/{origin_station_code}/{station_code}/{arrival_ymd}?pax=A&inboundDate={departure_ymd}",
+          "places": {
+            "zurich": {
+              "station_code": "CHAJD",
+              "station_name": "Zürich HB"
+            }
+          },
+          "origin_places": {
+            "geneva": {
+              "origin_station_code": "CHGVA",
+              "origin_station_name": "Genève"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09 in normal Chrome: exact round-trip dates 9-11 January 2027, one Adult (26-59 years), matching stations, departure/arrival times and public outbound EUR fares. See docs/evidence/transport.md for route-specific observations. Only one adult in the default age category is verified. Results are not READY: select both legs and fares, verify exact dates, party and full round-trip total before Enter your details. Answer immediately at this safe boundary even if no distinct URL checkpoint exists. The post-selection overview/review URL pattern remains unverified; never open passenger details or invent a checkpoint.",
+          "blocked_evidence": "Block blank/reset route or dates, wrong party/age category, timetable-only journeys without fares, no connections, sold out or sales horizon, login, captcha, required consent, form submission, passenger details or a non-reviewed carrier redirect. Never change dates. Fragment must be retained by P12; do not reconstruct a missing route by submitting a search.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:login|log[-_]in|sign[-_]?in|account|travell?er|personal[-_]details|(?:enter[-_](?:your[-_])?)details|/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09"
+        }
+      ]
+    }
+  ]
+}
