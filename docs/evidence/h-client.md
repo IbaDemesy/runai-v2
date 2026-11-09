@@ -1,5 +1,84 @@
 # H client: private screenshot transport and evidence boundary
 
+## R6-01 live runtime verification — 2026-11-09
+
+Real H API smokes at runtime commit `84e301e`; see `hotel.md` for the three
+official-date race proposals, hotel conditions and outcomes. Seven sessions
+were strictly sequential, with positive GET /api/v2/sessions/quota available
+before each and HTTP204 explicit cleanup after each. Credentials were bound
+only through the execution environment. Private H IDs/URLs, queries, provider
+answers, screenshot payloads and personal data were not logged or committed.
+
+### Observed H metric interval distribution
+
+Internal h_step_duration records measure monotonic time between increases in
+H metrics.steps, including polling/network overhead and the initial active
+startup interval. These are not exact provider action-execution durations.
+Queued startup time is excluded by the runtime clock reset. Every captured
+increase in these hotel runs was one step; no batch was divided into invented
+per-step samples. Final answer/cancellation time is not a metrics interval.
+Times below are seconds; p90 is the nearest-rank sample, not interpolation.
+
+| Run | Intervals n | Min | Median | p90 | Max |
+|---|---:|---:|---:|---:|---:|
+| IHG Milan | 14 | 4.607 | 5.514 | 8.063 | 9.013 |
+| IHG Lisbon first (blocked/P13) | 9 | 3.290 | 4.775 | 9.173 | 9.173 |
+| IHG Zurich | 10 | 4.998 | 5.588 | 7.519 | 10.586 |
+| IHG Lisbon diagnostic retry | 8 | 3.999 | 4.641 | 8.600 | 8.600 |
+| Hotels pooled | 41 | 3.290 | 5.336 | 8.063 | 10.586 |
+| Vueling deep link | 1 | 3.693 | 3.693 | 3.693 | 3.693 |
+| Vueling plain homepage | 1 | 3.508 | 3.508 | 3.508 | 3.508 |
+| Vueling error-shape confirmation | 0 | — | — | — | — |
+
+The final Vueling confirmation saw no metrics increase before cancellation;
+zero samples does not mean a zero-second H step. No live heartbeat was emitted
+in the measured Lisbon/Zurich/Vueling runs. The offline fake-clock regression
+proves heartbeats at 21/41/61 seconds, monotonic metrics labels, no fabricated
+frames, and no heartbeat for queued/terminal sessions.
+
+### Vueling finding: deep link and plain homepage both fail inside H
+
+The existing vueling-com policy review was checked: reviewed 2026-11-09, expires
+2027-02-07, allowed_owner_rule, in-session screenshots only. Its reviewed website
+terms scope is materially ambiguous; owner read/prepare-only authorization
+applies. The real transport builder's Paris–Milan round-trip task used the
+Milano Marathon April 4 proposal, outbound April 3 and return April 5, one adult.
+No adapter/provider ordering or policy changed.
+
+| Run (chronological among Vueling checks) | Start host/path only | Quota available | Status/reason | site_unreachable_in_h | Metrics steps | Elapsed | Frames |
+|---|---|---:|---|---|---:|---:|---:|
+| Existing dated deep link | tickets.vueling.com/booking/flightSearch | 2 | blocked/provider_error | yes | 1 | 10.4s | 0 |
+| Plain homepage diagnostic retry | www.vueling.com/ | 1 | blocked/provider_error | yes | 1 | 10.5s | 0 |
+| Error-shape confirmation, existing deep link | tickets.vueling.com/booking/flightSearch | 2 | blocked/provider_error | yes | 0 | 10.1s | 0 |
+
+All had one session, no framed reviewed checkpoint, no handoff, no verify_failed
+gates, and HTTP204 cleanup. The first two logged only a browser-internal-error
+category, not its exact browser URL. The dedicated third check confirmed an
+initial blank/internal observation followed by **chromewebdata**, with the new
+site_unreachable_in_h path terminating in 10.1s. Thus chromewebdata is still
+reachable live; the plain homepage retry also did not load a reviewed page in H.
+The plain-homepage diagnostic explicitly forbade interactions/search and could
+not claim READY. This evidence does not establish whether the underlying cause
+is H egress, browser configuration or site-side rejection; no bypass was attempted.
+
+### Checks
+
+The runtime code used for all these runs is unchanged from the combined offline
+check subsequently committed as `84e301e`; only evidence/handoff documentation
+changed after it. Reusing that check rather than rerunning unchanged inputs:
+
+```text
+All checks passed!
+.........................                                                [100%]
+1969 passed, 1 warning in 36.70s
+```
+
+Command: `uv run ruff check . && uv run pytest -q`. Warning: the previously
+diagnosed installed Starlette/httpx TestClient deprecation. These are backend
+live smokes, not visual verification of the application or final three-agent
+integrated acceptance. The initial Lisbon mismatch remains honestly unresolved;
+the retry's READY result does not rewrite it.
+
 ## R5-01 runtime integration — 2026-11-09
 
 - Queue-aware startup reads nested create status and changes status. Pending/
