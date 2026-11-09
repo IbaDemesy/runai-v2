@@ -1,3 +1,31 @@
+# R5-02 step 4 hotel retry — 2026-11-09
+
+No second NL/CH provider added in this bounded retry. Scandic website terms
+§2.1–2.2 permit printing individual pages but otherwise require written permission
+for copying/reproduction; `/en/hotels` redirected to the destinations index, not
+a dated NL/CH result. H10 legal notice reserves protected elements/reproduction;
+the captured hotel catalogue lists European cities but no NL/CH destination was
+established. The attempted `/en/hotels` returned its not-found page, not rates.
+
+Novum legal notice permits private non-commercial unprocessed use on one
+workstation. Its actual `/en/hotels` list loaded; many Book links now go to IHG,
+others to onepagebooking.com. This does not establish a distinct reviewed Novum
+checkout, nor extend Novum's terms to the third-party engine. No adapter added.
+
+Leonardo's reviewed 2026 disclaimer PDF again produced no readable browser text;
+`/legal-notice` returned /404. A March20–22/one-adult Rembrandtpark property URL
+rendered **9 Nov–10 Nov, 1 Room, 2 Guests**, ignoring requested query values. This
+is a date/party mismatch, not an executable dated link. No review renewal or adapter.
+
+B&B `/en/terms-of-use` intellectual-property clauses were reread, retaining the
+existing private in-session owner rule without claiming an automation license.
+The actual Netherlands index `/en/netherlands/hotels-netherlands` lists one hotel,
+Amsterdam-Zaandam, described as outside Amsterdam (about 30 minutes by bus).
+Zaandam is neither the confirmed race city nor the currently reviewed Amsterdam
+hotel gateway; no silent nearby-city substitution was added. The Swiss country
+index loaded, but B&B is already an existing Swiss provider, not a distinct new
+second site. No new dated selected room/rate checkpoint was established.
+
 # R5-02 step 3 hotel research — 2026-11-09
 
 **Not completed:** no second executable reviewed hotel provider was added for

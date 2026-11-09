@@ -1,3 +1,57 @@
+# R5-02 step 4 second-provider research — 2026-11-09
+
+No new adapter met the full dated round-trip + party + safe checkpoint standard
+in this additional bounded pass. The 21-row matrix below is unchanged: 20 covered,
+Geneva–Lucerne still a gap; second sites only for Paris–Barcelona/Geneva. Existing
+matrix tests continue to describe this state, rather than asserting invented
+coverage. No policy was upgraded and no new host scope was added.
+
+Terms reread before considering each candidate:
+- SBB `/en/meta/legallines/legal-information.html`: individual pages may be saved
+  with copyright notices retained; public/commercial use needs written consent.
+  Existing owner-rule read/prepare-only status is not affirmative authorization.
+- Trenitalia Italian site-use terms reached; French official portal now redirects
+  to trenitalia.fr. Its `/les-mentions-legales/` was read separately: private use
+  of protected elements only, other reproduction requires agreement. No scope
+  extension from the Italian review was assumed.
+- TAP user-conduct clauses explicitly prohibit manual/automatic scripts, robots,
+  scraping/crawling and automatic interaction/collection. **Still prohibited**;
+  no booking attempt or adapter, despite Paris–Lisbon/Porto candidate priority.
+- SWISS copyright page retains written-consent restrictions. Iberia legal notice
+  allows private/non-commercial download, not public/commercial exploitation.
+  Volotea terms reserve content rights and require prior written consent for
+  use/reproduction; membership fare trials may create accounts/renewal charges.
+  No memberships, consent or account flow touched. Existing owner rules unchanged.
+- Renfe public legal paragraphs were reread, including reproduction/use limits
+  and contracted-service exception. OUIGO España explicitly restricts copying and
+  third-party profit-making use. Neither review supplies a verified Lyon–Barcelona
+  result link. Spanish-only destination pages do not establish a Paris cross-border
+  route; no route was inferred from destination-country coverage alone.
+
+**SBB additional finding:** public GET timetable with `suche=true`, `von=Genève`,
+`nach=Luzern`, `datum=20.03.2027`, `zeit=08:00`, `an=false` rendered March 20
+departures. After loading, ticket buttons showed CHF39.00/30.60/32.20 and other
+one-way offers. These are NOT a verified round-trip party total. The page also
+states timetable information valid only to 12.12.2026 and carries a reCAPTCHA
+notice; no challenge was handled. Inspection of the first public ticket control
+showed type=button inside shopForm, invoking leistungOfferierenRC0. That function
+calls PrimeFaces.ab with f=shopForm (AJAX form submission). **It was not clicked.**
+This is a verified next-action form boundary, not proof that no alternative public
+GET ticket link exists. Geneva–Zurich and Paris–Zurich/Lucerne dated timetable
+GETs rendered the timetable shell; no complete round-trip/one-adult fare and safe
+distinct checkpoint were established. SBB remains unwired, Geneva–Lucerne open.
+
+Trenitalia `www.lefrecce.it/Channels.Website.WEB/` dated Paris Gare de Lyon–Milano
+Centrale round-trip candidate returned “We are sorry. An error has occurred.”
+The official French `/reservation/` path is an assistance/group-reservation page,
+not a dated fare result, even with date/party query parameters. No search submitted.
+SWISS `/booking/flight-search` and `/booking/flight-selection` dated candidates
+returned requested-page-not-found; homepage loaded but does not count as coverage.
+Iberia `/gb/booking/flight-search/` dated candidate returned Not Found. Volotea
+`/en/booking/select-flight/` dated candidate returned its 404 page. These failed
+candidate URL shapes do not prove the carriers lack working booking flows; no
+safe dated deep link was established within this pass, so no adapters were added.
+
 # R5-02 step 3 coverage — 2026-11-09
 
 The table is adapter-level coverage for **one adult**, not proof of selected
