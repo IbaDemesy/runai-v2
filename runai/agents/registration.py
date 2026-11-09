@@ -1,21 +1,40 @@
 """Registration task: the sourced race edition/distance on a policy-reviewed registration page.
 
-The organizer and registration platform pages must each be covered by a dated site-policy
-review for this race (host + path); unknown pages raise ValueError (blocked). Registration
-access observations are hints only, never permission.
+Start URL priority: a reviewed registration adapter matching the race name/country, then the
+sourced ``registration_url``, then ``official_url``; each must be allowed by a dated site-policy
+review (host + path). Unknown, prohibited or expired pages raise ValueError (blocked). Allowed
+hosts add the organizer's reviewed registration platforms (organizer -> njuko/raceresult/endu).
+Registration access observations are hints only, never permission.
 """
 
 from __future__ import annotations
 
+import copy
+import json
+import re
 from collections.abc import Mapping
 from datetime import date
+from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
-from runai.agents.site_policy import evaluate_url, registration_info, trip_expected
+from runai.agents import site_policy
+from runai.agents.site_policy import (
+    country_code,
+    evaluate_url,
+    parse_registry,
+    registration_info,
+    trip_expected,
+)
 
 KIND = "registration"
-DEFAULT_MAX_STEPS = 80
+DEFAULT_MAX_STEPS = 40
+FRAGMENT_DIR = Path(site_policy.REGISTRY_PATH).parent / "site-policy.d"
+_TEMPLATE_FIELDS = ("race_date", "edition")
+REASON_CODES = (
+    "registration_closed", "sold_out", "login_required", "captcha", "consent_required",
+    "unreviewed_redirect", "date_mismatch",
+)
 
 STOP_BEFORE = [
     "personal data form (name, email, phone, birth date, address, ID)",
@@ -46,6 +65,128 @@ def _text(race: Mapping[str, Any], key: str) -> str:
     return str(value).strip() if value not in (None, "") else ""
 
 
+def _read(path: Path) -> list[Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, Mapping) or data.get("schema_version") != 1 or not isinstance(
+        data.get("entries"), list
+    ):
+        raise site_policy.PolicyError(f"{path.name}: invalid registry document")
+    return list(data["entries"])
+
+
+def default_registry() -> dict[str, Any]:
+    """docs/site-policy.json merged with docs/site-policy.d/*.json (sorted), as raw entries."""
+    entries = _read(Path(site_policy.REGISTRY_PATH))
+    if FRAGMENT_DIR.is_dir():
+        for path in sorted(FRAGMENT_DIR.glob("*.json")):
+            entries += _read(path)
+    return {"schema_version": 1, "entries": entries}
+
+
+def _check_scopes(entries: list[Any]) -> None:
+    decisions: dict[tuple[str, str], str] = {}
+    for raw in entries:
+        if not isinstance(raw, Mapping) or not isinstance(raw.get("scopes") or [], list):
+            raise site_policy.PolicyError("registry entries and scopes must be objects/lists")
+        for scope in raw.get("scopes") or []:
+            if not isinstance(scope, Mapping):
+                raise site_policy.PolicyError("registry scopes must be objects")
+            key = (scope.get("host"), scope.get("path_prefix", "/"))
+            if decisions.setdefault(key, raw.get("automation")) != raw.get("automation"):
+                raise site_policy.PolicyError(f"conflicting policy decisions for {key}")
+
+
+def _registration_adapter(raw: Any, entry: Mapping[str, Any]) -> dict[str, Any]:
+    entry_id = entry.get("id")
+    if not isinstance(raw, Mapping):
+        raise site_policy.PolicyError(f"{entry_id}: registration adapter must be an object")
+    match = raw.get("race_match")
+    patterns = match.get("name_patterns") if isinstance(match, Mapping) else None
+    if not isinstance(patterns, list) or not patterns or not all(
+        isinstance(p, str) and p.strip() for p in patterns
+    ):
+        raise site_policy.PolicyError(f"{entry_id}: race_match.name_patterns is required")
+    try:
+        compiled = [re.compile(p, re.IGNORECASE) for p in patterns]
+    except re.error as exc:
+        raise site_policy.PolicyError(f"{entry_id}: invalid name pattern") from exc
+    countries = match.get("countries")
+    if countries is not None and (not isinstance(countries, list) or not all(
+        isinstance(c, str) and len(c) == 2 and c.isupper() for c in countries
+    )):
+        raise site_policy.PolicyError(f"{entry_id}: race_match.countries must be ISO codes")
+    platforms = raw.get("platform_hosts", [])
+    if not isinstance(platforms, list):
+        raise site_policy.PolicyError(f"{entry_id}: platform_hosts must be a list")
+    platforms = [site_policy._host(h) for h in platforms]
+    template = raw.get("url_template")
+    if not isinstance(template, str):
+        raise site_policy.PolicyError(f"{entry_id}: adapter url_template is required")
+    try:
+        sample = template.format(**dict.fromkeys(_TEMPLATE_FIELDS, "X"))
+    except (KeyError, IndexError, ValueError) as exc:
+        raise site_policy.PolicyError(f"{entry_id}: unknown url_template placeholder") from exc
+    before, after = urlsplit(template), urlsplit(sample)
+    scopes = [s for s in entry.get("scopes") or [] if isinstance(s, Mapping)]
+    scope_hosts = {s.get("host") for s in scopes}
+    if (
+        before.scheme != "https" or before.hostname not in scope_hosts | set(platforms)
+        or (before.netloc, before.path) != (after.netloc, after.path)
+    ):
+        raise site_policy.PolicyError(f"{entry_id}: url_template must be https on a reviewed "
+                                      "host, with placeholders only in the query or fragment")
+    for key in ("success_evidence", "blocked_evidence"):
+        if not isinstance(raw.get(key), str) or not raw[key].strip():
+            raise site_policy.PolicyError(f"{entry_id}: adapter {key} is required")
+    return {
+        "policy_id": entry_id, "patterns": compiled,
+        "countries": frozenset(countries) if countries else None,
+        "url_template": template, "platform_hosts": platforms,
+        "organizer_url": (
+            f"https://{scopes[0]['host']}{scopes[0].get('path_prefix', '/')}" if scopes else None
+        ),
+        "success_evidence": raw["success_evidence"].strip(),
+        "blocked_evidence": raw["blocked_evidence"].strip(),
+    }
+
+
+def policy_view(registry: Any = None) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Split registration adapters from ``registry`` (raw document; default: merged files).
+
+    Returns the registry without registration adapters (parsed by site_policy) and the
+    validated registration adapters. Any malformed part raises PolicyError (fail closed).
+    """
+    raw = default_registry() if registry is None else registry
+    if not isinstance(raw, Mapping) or not isinstance(raw.get("entries"), list):
+        raise site_policy.PolicyError("registry must be an object with entries")
+    view = copy.deepcopy(dict(raw))
+    adapters = []
+    for entry in view["entries"]:
+        if isinstance(entry, dict) and isinstance(entry.get("adapters"), list):
+            mine = [a for a in entry["adapters"] if isinstance(a, Mapping)
+                    and a.get("kind") == KIND]
+            entry["adapters"] = [a for a in entry["adapters"] if a not in mine]
+            adapters += [_registration_adapter(a, entry) for a in mine]
+    _check_scopes(view["entries"])
+    parse_registry(view)
+    return view, adapters
+
+
+def _host_allowed(host: str, *, today: date | None, registry: Any) -> bool:
+    return evaluate_url(f"https://{host}/", KIND, today=today, registry=registry)["allowed"]
+
+
+def _matching(adapters, race: Mapping[str, Any]) -> list[dict[str, Any]]:
+    year = (_text(race, "race_date") or "")[:4]
+    name = " ".join(p for p in (_text(race, "name"), _text(race, "edition"), year) if p)
+    code = country_code(race.get("country"))
+    return [
+        a for a in adapters
+        if name and any(p.search(name) for p in a["patterns"])
+        and (a["countries"] is None or code in a["countries"])
+    ]
+
+
 def build_task(
     trip: Mapping[str, Any], *, today: date | None = None, registry: Any = None,
 ) -> dict[str, Any]:
@@ -60,29 +201,65 @@ def build_task(
     if type(distance_km) not in (int, float) or not 0 < distance_km < float("inf"):
         raise ValueError("race distance_km is required to verify the selected distance")
     distance = _text(race, "distance_label") or f"{distance_km} km"
+    try:
+        view, adapters = policy_view(registry)
+    except (OSError, ValueError, TypeError) as exc:
+        raise ValueError("site-policy registry unavailable or invalid") from exc
 
-    decision = start_url = None
-    reasons = []
-    for url in (registration_url, official_url):
-        if not url:
+    values = {"race_date": expected["race_date"], "edition": _text(race, "edition")}
+    candidates: list[tuple[str, dict[str, Any] | None]] = []
+    for adapter in _matching(adapters, race):
+        if adapter["organizer_url"] and not evaluate_url(
+            adapter["organizer_url"], KIND, today=today, registry=view)["allowed"]:
             continue
-        decision = evaluate_url(url, KIND, today=today, registry=registry)
+        if not all(_host_allowed(h, today=today, registry=view)
+                   for h in adapter["platform_hosts"]):
+            continue
+        filled = adapter["url_template"].format(
+            **{k: quote(v, safe="") for k, v in values.items()})
+        candidates.append((filled, adapter))
+    candidates += [(url, None) for url in (registration_url, official_url) if url]
+
+    decision = start_url = adapter = None
+    reasons = []
+    for url, candidate in candidates:
+        decision = evaluate_url(url, KIND, today=today, registry=view)
         if decision["allowed"]:
-            start_url = url
+            start_url, adapter = url, candidate
             break
         reasons.append(decision["reason"])
     if start_url is None or decision is None:
         raise ValueError(f"registration site not policy-reviewed ({'; '.join(reasons)})")
-    hosts = decision["allowed_hosts"]
+
+    fallback_url = next(
+        (u for u in (registration_url, official_url)
+         if u and evaluate_url(u, KIND, today=today, registry=view)["allowed"]), start_url)
+    start_host = urlsplit(start_url).hostname
+    scope_hosts = {
+        s["host"] for e in parse_registry(view) if e["id"] == decision["policy_id"]
+        for s in e["scopes"]
+    }
+    platforms = set(adapter["platform_hosts"]) if adapter else set()
+    hosts = sorted(
+        {start_host} | (scope_hosts & set(decision["allowed_hosts"])) | {
+            h for h in (set(decision["allowed_hosts"]) - scope_hosts) | platforms
+            if _host_allowed(h, today=today, registry=view)
+        }
+    )
 
     name = expected["race_name"] or "the selected race"
     edition = _text(race, "edition")
     label = " ".join(p for p in (name, edition) if p)
-    observation = registration_info(start_url, registry=registry)
+    observation = registration_info(start_url, registry=view)
     access_hint = (
         f"Recorded access observation ({observation['observed_at']}): account_required="
         f"{observation['account_required']}, captcha={observation['captcha']}. It is a hint, "
         "not permission; verify on the page.\n" if observation else ""
+    )
+    adapter_hint = (
+        f"Reviewed registration entry (policy {adapter['policy_id']}): READY looks like: "
+        f"{adapter['success_evidence']} BLOCKED looks like: {adapter['blocked_evidence']}\n"
+        if adapter else ""
     )
     stop_lines = "\n".join(f"- {item}" for item in STOP_BEFORE)
     success = (
@@ -91,25 +268,35 @@ def build_task(
         "certificate, consent or payment, left untouched; report its https URL. "
         "BLOCKED: registration closed, sold out, not yet open, lottery/ballot only, another "
         "edition/date/distance only, account login/creation, captcha or consent required "
-        "earlier, or an unreviewed redirect; report the reason and the last URL."
+        "earlier, or an unreviewed redirect; report the reason code and the last URL. "
+        "Always end with: no payment, booking or submission was made."
     )
     instructions = (
         f"Goal: open the official registration for {label} ({distance}; race date "
         f"{expected['race_date']}; {expected['city']}, {expected['country']}) and stop at its "
-        "first personal-data page without touching it.\n"
+        "first personal-data page without touching it. Be step-efficient: finish in under "
+        f"{DEFAULT_MAX_STEPS} steps.\n"
         f"1. Start at {start_url}. Allowed navigation hosts (reviewed policy "
         f"{decision['policy_id']}): {', '.join(hosts)}. Stay on pages for this race only. If a "
         "link or redirect leaves these hosts, STOP and report BLOCKED unreviewed_redirect.\n"
-        f"2. DATE/EDITION CHECK: the page must show the {edition or expected['race_date'][:4]} "
+        "2. If this is the organizer site, open its registration link (Register, Sign up, "
+        "Inscriptions, Iscriviti, Iscrizioni, Inscrições, Inscripciones, Anmeldung) directly; "
+        "do not browse news or other pages.\n"
+        f"3. DATE/EDITION CHECK: the page must show the {edition or expected['race_date'][:4]} "
         f"edition on {expected['race_date']}. If it shows another date or edition, report "
         "BLOCKED date_mismatch; never pick another edition.\n"
-        f"3. Select the distance {distance} and a ticket category with public buttons only, "
+        f"4. Select the distance {distance} and a ticket category with public buttons only, "
         "if this needs no personal data.\n"
-        "4. Cookie banners: reject or close only, never accept optional consent.\n"
-        f"{access_hint}"
-        f"5. STOP at the first page that asks for any of:\n{stop_lines}\n"
-        "6. Never type personal data, log in, create an account, tick consent or terms, upload "
+        "5. Cookie banners: reject or close only, never accept optional consent.\n"
+        f"{access_hint}{adapter_hint}"
+        f"6. STOP at the first page that asks for any of:\n{stop_lines}\n"
+        "7. Never type personal data, log in, create an account, tick consent or terms, upload "
         "documents, submit a form, pay or bypass a captcha.\n"
+        "8. Reaching a page whose URL path contains /book, /checkout or /register is NOT a "
+        "booking or registration: it is only a form you leave untouched. Do not claim anything "
+        "was booked, registered, submitted or paid; your answer must state 'no payment, "
+        "booking or submission was made'.\n"
+        f"9. Blocked reason codes: {', '.join(REASON_CODES)}.\n"
         f"Report: {success}"
     )
     return {
@@ -119,7 +306,7 @@ def build_task(
         "instructions": instructions,
         "stop_before": list(STOP_BEFORE),
         "success_signal": success,
-        "fallback_url": start_url,
+        "fallback_url": fallback_url,
         "max_steps": DEFAULT_MAX_STEPS,
         "expected": expected,
         "allowed_hosts": hosts,
