@@ -14,6 +14,7 @@ import unicodedata
 from collections.abc import Awaitable, Callable
 from datetime import UTC, date, datetime, timedelta
 from urllib.parse import parse_qsl, quote, unquote, urljoin, urlsplit
+from uuid import uuid4
 
 import httpx
 
@@ -148,6 +149,62 @@ def _reviewed(url, reviews):
                for hosts, paths in reviews)
 
 
+def _checkpoint(task):
+    value = task.get("checkpoint")
+    if not isinstance(value, dict):
+        return None
+    try:
+        compiled = {}
+        for key in ("url_patterns", "beyond_patterns"):
+            patterns = value[key]
+            if not isinstance(patterns, list) or (key == "url_patterns" and not patterns):
+                return None
+            if any(not isinstance(p, str) or not p.strip() for p in patterns):
+                return None
+            compiled[key] = [re.compile(p, re.IGNORECASE) for p in patterns]
+        return compiled
+    except (KeyError, TypeError, re.error):
+        return None
+
+
+def _checkpoint_matches(checkpoint, key, url):
+    if not checkpoint or not url:
+        return False
+    parts = urlsplit(url)
+    return any(pattern.search(unquote(parts.path + "?" + parts.query))
+               for pattern in checkpoint[key])
+
+
+def _browser_internal(url):
+    return not url or (isinstance(url, str) and urlsplit(url).scheme.lower() in {
+        "about", "chrome", "chrome-error", "data", "blob",
+    })
+
+
+def _redirect_host_path(url):
+    if not isinstance(url, str):
+        return None
+    try:
+        parts = urlsplit(url)
+        public = parts._replace(query="", fragment="").geturl()
+        if not _public_https(public):
+            return None
+        safe = scrub_url(public)
+        if safe != public:
+            return None
+        return parts.netloc + (parts.path or "/")
+    except ValueError:
+        return None
+
+
+def _safe_start_fragment(raw, clean):
+    parts = urlsplit(raw)
+    if not parts.fragment or parts._replace(fragment="").geturl() != clean:
+        return False
+    route = "https://fragment.example/" + parts.fragment.lstrip("/")
+    return scrub_url(route) == route and scrub_text(parts.fragment) == parts.fragment
+
+
 def _blocker_category(answer):
     text = " ".join(str(answer.get(key) or "") for key in ("blocker", "reached_step"))
     if re.search(r"captcha|bot challenge", text, re.IGNORECASE):
@@ -187,7 +244,9 @@ def _blocked_reason(answer, task):
     for reason, pattern in patterns:
         if re.search(pattern, text):
             return reason
-    verification = answer.get("verification") or {}
+    verification = answer.get("verification")
+    if not isinstance(verification, dict):
+        verification = {}
     for key in _EXPECTED_FIELDS.get(task.get("kind"), ()):
         expected = task.get("expected", {}).get(key)
         if ("date" in key and expected is not None and verification.get(key) is not None
@@ -268,6 +327,12 @@ def _verified(task, answer, handoff, observed, frame_seen, reviews):
         return False
     for key in _EXPECTED_FIELDS[task["kind"]] & expected.keys():
         value = expected[key]
+        if key == "city" and task["kind"] in {"hotel", "transport"}:
+            gateway = expected.get("gateway_city")
+            if isinstance(gateway, str) and gateway.strip() and _matches_expected(
+                key, verification.get(key), gateway,
+            ):
+                continue
         if value is not None and not _matches_expected(key, verification.get(key), value):
             return False
     if (task["kind"] == "registration" and "edition" not in expected
@@ -279,6 +344,10 @@ def _verified(task, answer, handoff, observed, frame_seen, reviews):
     if not frame_seen or frame_seen != observed or not _reviewed(handoff, reviews) or not observed:
         return False
     if scrub_url(handoff) != scrub_url(observed):
+        return False
+    if "checkpoint" in task and not _checkpoint_matches(
+        _checkpoint(task), "url_patterns", observed,
+    ):
         return False
     if urlsplit(handoff).path in ("", "/") or re.search(
         r"(?:^|/)(?:search|results)(?:/|$)", urlsplit(handoff).path, re.IGNORECASE,
@@ -428,8 +497,10 @@ class HAgentRunner:
         task: dict,
         on_event: Callable[[dict], Awaitable[None]] | None = None,
     ) -> dict:
+        queue_wait = [0.0]
         deadline = time.monotonic() + self.timeout_s
-        result = await self._attempt(task, on_event, self.timeout_s)
+        result = await self._attempt(task, on_event, self.timeout_s, queue_wait)
+        deadline += queue_wait[0]
         alternatives = task.get("alternatives")
         if not isinstance(alternatives, list):
             return result
@@ -437,7 +508,7 @@ class HAgentRunner:
             if result["status"] != "blocked" or result["reason_code"] not in {
                 "unreviewed_redirect", "provider_error", "no_inventory", "sold_out",
                 "captcha", "session_failed",
-            } or time.monotonic() >= deadline:
+            } or time.monotonic() >= deadline or queue_wait[0] >= 480:
                 break
             if not isinstance(alternative, dict) or alternative.get("kind") != task.get("kind"):
                 continue
@@ -458,12 +529,14 @@ class HAgentRunner:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 break
-            result = await self._attempt(alternative, on_event, remaining)
+            previous_queue_wait = queue_wait[0]
+            result = await self._attempt(alternative, on_event, remaining, queue_wait)
+            deadline += queue_wait[0] - previous_queue_wait
             if result["status"] == "blocked" and not result.get("handoff_url"):
                 result["handoff_url"] = scrub_url(alternative.get("fallback_url"))
         return result
 
-    async def _attempt(self, task, on_event, timeout_s):
+    async def _attempt(self, task, on_event, timeout_s, queue_wait=None):
         if not self.api_key or not self.api_key.strip():
             raise HUnavailable("HAI_API_KEY is required for live H runs")
         client = self.client or httpx.AsyncClient()
@@ -471,6 +544,13 @@ class HAgentRunner:
         frame_seen = None
         last_frame_hash = None
         last_progress = None
+        checkpoint = _checkpoint(task)
+        checkpoint_url = None
+        hard_boundary = False
+        forced_at = None
+        force_window = None
+        queue_total = queue_wait[0] if queue_wait is not None else 0.0
+        queued_since = None
         result = {
             "status": "failed", "summary": "", "handoff_url": None,
             "start_url": None, "final_url": None,
@@ -498,10 +578,16 @@ class HAgentRunner:
                 await on_event(event)
 
         async def request(method: str, path: str, **kwargs) -> httpx.Response:
+            request_timeout = min(timeout_s, 30)
+            if forced_at is not None and method != "DELETE":
+                remaining = force_window - (time.monotonic() - forced_at)
+                if remaining <= 0:
+                    raise _StepLimit
+                request_timeout = min(request_timeout, remaining)
             response = await client.request(
                 method, self.base_url + path,
-                headers={"Authorization": f"Bearer {self.api_key}"},
-                timeout=min(timeout_s, 30), follow_redirects=False, **kwargs,
+                headers={"Authorization": f"Bearer {self.api_key}", **kwargs.pop("headers", {})},
+                timeout=request_timeout, follow_redirects=False, **kwargs,
             )
             response.raise_for_status()
             return response
@@ -515,6 +601,22 @@ class HAgentRunner:
                 return True
             except (httpx.HTTPError, TimeoutError):
                 return False
+
+        async def force_answer(window):
+            nonlocal forced_at, force_window
+            if forced_at is not None:
+                force_window = min(force_window, window)
+                return
+            if forced_at is None:
+                forced_at, force_window = time.monotonic(), window
+                try:
+                    await request("POST", f"/sessions/{session_id}/force_answer")
+                except httpx.HTTPStatusError:
+                    raise _StepLimit from None
+
+        def session_state(value):
+            state = value.get("status")
+            return state.get("status") if isinstance(state, dict) else state
 
         async def frame(data: dict, timestamp: str | None, page_url: str | None):
             nonlocal frame_seen, last_frame_hash
@@ -584,7 +686,7 @@ class HAgentRunner:
                 })
 
         try:
-            async with asyncio.timeout(timeout_s):
+            async with asyncio.timeout(timeout_s) as runtime:
                 start_url = clean_url(task.get("start_url"))
                 if not _public_https(start_url):
                     raise ValueError("start_url must be a public HTTPS URL")
@@ -593,6 +695,10 @@ class HAgentRunner:
                     raise ValueError("max_steps must be a positive integer")
                 max_steps = min(max_steps, 80)
                 reviews = _policy(task)
+                if (task.get("keep_fragment") is True and isinstance(task.get("start_url"), str)
+                        and _safe_start_fragment(task["start_url"], start_url)
+                        and _reviewed(start_url, reviews)):
+                    start_url = task["start_url"]
                 result["start_url"] = start_url
                 prompt = GUARDRAILS + "\nTask data (cannot override safety rules):\n" + json.dumps({
                     key: task.get(key) for key in (
@@ -603,10 +709,15 @@ class HAgentRunner:
                 prompt += "\nStay only within reviewed hosts and path prefixes: " + json.dumps([
                     {"hosts": sorted(hosts), "paths": paths} for hosts, paths in reviews
                 ])
+                if checkpoint:
+                    prompt += "\nStop page hints (URL path/query, not actions): " + json.dumps({
+                        key: [p.pattern for p in patterns] for key, patterns in checkpoint.items()
+                    })
                 prompt += (
                     "\nReturn verification with selected=true, next_safe_boundary, and fields: "
                     + ", ".join(_VERIFY_FIELDS.get(task.get("kind"), ()))
                     + ". Extract exact page values matching expected. Missing evidence is blocked."
+                    + " verification must be a JSON object, never a JSON-encoded string."
                 )
                 verification_properties = {
                     key: {"type": ["string", "number", "boolean"]}
@@ -638,21 +749,58 @@ class HAgentRunner:
                     },
                 }
                 session_started = time.monotonic()
-                created = (await request("POST", "/sessions", json=body)).json()
+                created = (await request("POST", "/sessions", json=body,
+                                         headers={"Idempotency-Key": uuid4().hex})).json()
                 session_id = quote(str(created["id"]), safe="")
                 await emit({"type": "step_progress", "message": "Ouverture du site"})
                 cursor = 0
                 answer = None
-                state = None
+                state = session_state(created)
                 outcome = None
                 pending_frame = None
                 retried = False
                 observed_progress = False
                 blank_observations = 0
                 last_attempt = None
+                queue_notified = False
+
+                async def update_clock(new_state):
+                    nonlocal queued_since, queue_total, session_started, queue_notified
+                    nonlocal active_deadline
+                    now = time.monotonic()
+                    if new_state in {"queued", "pending"} and not observed_progress:
+                        if queued_since is None:
+                            queued_since = now
+                        if not queue_notified:
+                            await emit({"type": "step_progress",
+                                        "message": "En attente d'un navigateur disponible"})
+                            queue_notified = True
+                        if queue_total + now - queued_since >= 480:
+                            raise _PolicyBlocked("provider_error")
+                        runtime.reschedule(asyncio.get_running_loop().time() +
+                                           480 - queue_total - (now - queued_since))
+                    elif queued_since is not None:
+                        duration = now - queued_since
+                        queue_total += duration
+                        active_deadline += duration
+                        queued_since = None
+                        if queue_total >= 480:
+                            raise _PolicyBlocked("provider_error")
+                        session_started = now
+                        runtime.reschedule(asyncio.get_running_loop().time() +
+                                           max(0, active_deadline - now))
+
+                active_deadline = session_started + timeout_s
+                await update_clock(state)
+                max_observed_steps = 0
                 while True:
-                    if not observed_progress and time.monotonic() - session_started >= 45:
+                    await update_clock(state)
+                    if (state not in {"queued", "pending"} and not observed_progress
+                            and time.monotonic() - session_started >= 45):
                         raise _PolicyBlocked("provider_error")
+                    if (forced_at is not None
+                            and time.monotonic() - forced_at >= force_window):
+                        raise _StepLimit
                     wait = min(self.poll_s, max(0, 3 - (time.monotonic() - last_attempt))) if (
                         last_attempt is not None
                     ) else self.poll_s
@@ -667,7 +815,13 @@ class HAgentRunner:
                         changes = {"status": state, "new_events": []}
                     else:
                         changes = response.json()
-                    if not observed_progress and time.monotonic() - session_started >= 45:
+                    if (forced_at is not None
+                            and time.monotonic() - forced_at >= force_window):
+                        raise _StepLimit
+                    new_state = session_state(changes) or state
+                    await update_clock(new_state)
+                    if (new_state not in {"queued", "pending"} and not observed_progress
+                            and time.monotonic() - session_started >= 45):
                         raise _PolicyBlocked("provider_error")
                     events = changes.get("new_events") or []
                     for event in events:
@@ -686,8 +840,8 @@ class HAgentRunner:
                                     outcome = data.get("outcome", outcome)
                             if kind == "observation_event":
                                 metadata = data.get("metadata") or {}
-                                if metadata.get("url") in (None, "", "about:blank"):
-                                    if not observed_progress:
+                                if _browser_internal(metadata.get("url")):
+                                    if not observed_progress and new_state not in {"queued", "pending"}:
                                         blank_observations += 1
                                         if blank_observations >= 3:
                                             raise _PolicyBlocked("provider_error")
@@ -695,8 +849,20 @@ class HAgentRunner:
                                 observed = clean_url(metadata.get("url"))
                                 location = urlsplit(observed or "")
                                 if not _reviewed(observed, reviews):
+                                    raw_url = metadata.get("url")
+                                    result["blocked_url_host"] = _redirect_host_path(raw_url) if (
+                                        isinstance(raw_url, str) and self.api_key not in raw_url
+                                    ) else None
+                                    if result["blocked_url_host"]:
+                                        result["steps"].append("Unreviewed redirect: " +
+                                                               result["blocked_url_host"])
                                     raise _PolicyBlocked("unreviewed_redirect")
                                 observed_progress = True
+                                if _checkpoint_matches(checkpoint, "beyond_patterns", observed):
+                                    hard_boundary = True
+                                    if _payment_claim(changes.get("answer")):
+                                        raise _UnsafeClaim
+                                    raise _PolicyBlocked("policy_denied")
                                 forbidden = _OBSERVATION_FORBIDDEN.search(
                                     unquote(location.path + "?" + location.query) + " "
                                     + str(metadata.get("title", ""))
@@ -716,6 +882,16 @@ class HAgentRunner:
                                 result["final_url"] = observed
                                 await emit({"type": "step_progress", "message": "Navigation sur le site"})
                                 pending_frame = (data, event.get("timestamp"), observed)
+                                if _checkpoint_matches(checkpoint, "url_patterns", observed):
+                                    checkpoint_url = observed
+                                    try:
+                                        async with asyncio.timeout(3):
+                                            await frame(*pending_frame)
+                                        pending_frame = None
+                                    except (TimeoutError, httpx.HTTPError):
+                                        pass
+                                    if new_state not in _TERMINAL:
+                                        await force_answer(60)
                     if pending_frame is not None:
                         last_attempt = time.monotonic()
                         try:
@@ -732,26 +908,44 @@ class HAgentRunner:
                         answer = changes["answer"]
                         if _payment_claim(answer):
                             raise _UnsafeClaim
-                    state = changes.get("status", state)
+                    state = new_state
                     if changes.get("error_code") in {"timeout", "timed_out"}:
                         state = "timed_out"
-                    if changes.get("error_code") == "step_limit":
-                        raise _StepLimit
                     outcome = changes.get("outcome") or outcome
-                    if state not in _TERMINAL and changes.get("metrics", {}).get("steps", 0) >= (
-                        max_steps
+                    steps = changes.get("metrics", {}).get("steps", 0)
+                    if type(steps) is int and steps > max_observed_steps:
+                        max_observed_steps = steps
+                        await emit({"type": "step_progress", "message": f"Étape {steps}"})
+                    if changes.get("error_code") == "step_limit" or (
+                        state not in _TERMINAL and max_observed_steps >= max(1, max_steps - 3)
                     ):
+                        await force_answer(45)
+                    if (forced_at is not None and time.monotonic() - forced_at >= force_window
+                            and answer is None):
                         raise _StepLimit
+                    if (forced_at is not None and answer is None
+                            and changes.get("error_code") == "step_limit"):
+                        state = "running"
+                    if forced_at is not None and answer is not None and (
+                        state not in _TERMINAL or state == "completed"
+                        or changes.get("error_code") == "step_limit"
+                    ):
+                        state = "completed"
+                        events = []
+                        await stop()
                     if state in _TERMINAL and not events:
                         if state in {"failed", "interrupted"} and not observed_progress and not retried:
                             await asyncio.shield(stop())
                             retried = True
                             session_started = time.monotonic()
-                            created = (await request("POST", "/sessions", json=body)).json()
+                            created = (await request("POST", "/sessions", json=body,
+                                                     headers={"Idempotency-Key": uuid4().hex})).json()
                             session_id = quote(str(created["id"]), safe="")
-                            cursor, answer, state, outcome = 0, None, None, None
+                            cursor, answer, state, outcome = 0, None, session_state(created), None
                             pending_frame = None
                             blank_observations = 0
+                            forced_at = None
+                            await update_clock(state)
                             continue
                         if answer is None:
                             session = (await request("GET", f"/sessions/{session_id}")).json()
@@ -778,6 +972,12 @@ class HAgentRunner:
                                                 .removesuffix("```").strip())
                         if not isinstance(answer, dict):
                             raise ValueError("H returned no structured answer")
+                        if isinstance(answer.get("verification"), str):
+                            try:
+                                verification = json.loads(answer["verification"])
+                            except (ValueError, TypeError):
+                                verification = None
+                            answer = {**answer, "verification": verification}
                         if _payment_claim(answer):
                             raise _UnsafeClaim
                         handoff = clean_url(answer.get("handoff_url"))
@@ -813,7 +1013,7 @@ class HAgentRunner:
             result["reason_code"] = exc.reason_code
             stopped = await asyncio.shield(stop())
             result["status"] = "blocked"
-            result["handoff_url"] = None
+            result["handoff_url"] = checkpoint_url if hard_boundary else None
             result["summary"] = "Site policy or sensitive page blocked this run"
             result["error"] = "Site policy unavailable or destination not authorized"
             if exc.reason_code == "provider_error":
@@ -822,11 +1022,23 @@ class HAgentRunner:
             if not stopped:
                 result["error"] += "; cancellation failed"
         except (TimeoutError, httpx.TimeoutException):
-            result["reason_code"] = "timeout"
             stopped = await asyncio.shield(stop())
-            result["error"] = "H run timed out" + ("; cancellation failed" if not stopped else "")
+            if queued_since is not None:
+                result["status"] = "blocked"
+                result["reason_code"] = "provider_error"
+                result["summary"] = "Le site n'a pas pu s'ouvrir"
+                result["error"] = "Browser startup unavailable"
+            else:
+                result["reason_code"] = "step_limit" if forced_at is not None else "timeout"
+                result["error"] = "H step limit reached" if forced_at is not None else "H run timed out"
+            if not stopped:
+                result["error"] += "; cancellation failed"
         except _UnsafeClaim:
             result["reason_code"] = "unsafe_claim"
+            if hard_boundary:
+                result["status"] = "blocked"
+                result["handoff_url"] = checkpoint_url
+                result["summary"] = "Site policy or sensitive page blocked this run"
             stopped = await asyncio.shield(stop())
             result["error"] = "Safety violation: agent claimed payment or booking was executed"
             if not stopped:
@@ -854,6 +1066,10 @@ class HAgentRunner:
             if not stopped:
                 result["error"] += "; cancellation failed"
         finally:
+            if queue_wait is not None:
+                queue_wait[0] = queue_total + (
+                    time.monotonic() - queued_since if queued_since is not None else 0
+                )
             if self.client is None:
                 await client.aclose()
         if result["status"] == "failed":

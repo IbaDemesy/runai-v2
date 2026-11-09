@@ -39,6 +39,17 @@ _OPAQUE_PATH = re.compile(r"(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9_-]{24,}|[a-fA-F0-9]
 _PUBLIC_SLUG = re.compile(r"[A-Za-z]{1,23}(?:[-_](?:[A-Za-z]{1,23}|\d{1,20})){2,}")
 
 
+def _njuko_public_id(host, segments, index):
+    if host not in {"in.njuko.com", "www.njuko.net", "njuko.net", "njuko.com"}:
+        return False
+    segment = segments[index]
+    event = re.fullmatch(r"([a-z][a-z0-9-]*)-20\d{2}-?([12]\d{12})", segment, re.IGNORECASE)
+    return bool((event and scrub_text(event[1]) == event[1]) or (
+        index > 0 and segments[index - 1] == "w"
+        and re.fullmatch(r"[a-f0-9]{24,64}", segment, re.IGNORECASE)
+    ))
+
+
 def scrub_url(url: str | None) -> str | None:
     """Return a public HTTP(S) URL without credentials or session parameters."""
     if not isinstance(url, str) or not url.strip():
@@ -55,7 +66,10 @@ def scrub_url(url: str | None) -> str | None:
         netloc = host + (f":{parts.port}" if parts.port else "")
         path = re.sub(r";jsessionid=[^/;?]*", "", parts.path, flags=re.IGNORECASE)
         if host not in {"agp.eu.hcompany.ai", "agp.hcompany.ai"}:
-            for segment in unquote(path).split("/"):
+            segments = unquote(path).split("/")
+            for index, segment in enumerate(segments):
+                if _njuko_public_id(host, segments, index):
+                    continue
                 if _PRIVATE_PATH.fullmatch(segment) or (
                     _OPAQUE_PATH.fullmatch(segment) and not _PUBLIC_SLUG.fullmatch(segment)
                 ) or (

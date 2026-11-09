@@ -1,0 +1,13 @@
+{
+  "synthetic": true,
+  "description": "Offline checkpoint paths only; no H sessions, screenshots or live evidence.",
+  "checkpoint": {
+    "url_patterns": ["currentPage=form_individual-form"],
+    "beyond_patterns": ["/pay(?:/|[?]|$)"]
+  },
+  "observations": [
+    {"url": "https://race.example.org/entry?currentPage=FORM_individual%2Dform", "stop": true, "beyond": false},
+    {"url": "https://race.example.org/pay/payments", "stop": false, "beyond": true},
+    {"url": "https://race.example.org/entry?currentPage=competition", "stop": false, "beyond": false}
+  ]
+}

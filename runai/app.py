@@ -95,6 +95,8 @@ def sanitize(value, key=""):
         return [item for item in items if item is not None] if key == "source_urls" else items
     if not isinstance(value, str):
         return value
+    if key == "blocked_url_host":
+        return StepResult.public_redirect_diagnostic(value)
     safe_id = (key in {"id", "value", "path_segment"} or key.endswith("_id")) and re.fullmatch(
         r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}", value,
     )
@@ -107,7 +109,14 @@ def sanitize(value, key=""):
         parsed = urlsplit(url)
         segments = [unquote(segment) for segment in parsed.path.split("/")]
         queries = [item for _, item in parse_qsl(parsed.query, keep_blank_values=True)]
-        safe = all(sanitize(item, "path_segment") == item for item in segments)
+        try:
+            from runai.agents.scrub import _njuko_public_id
+
+            safe = all(_njuko_public_id(parsed.hostname, segments, index) or
+                       sanitize(item, "path_segment") == item
+                       for index, item in enumerate(segments))
+        except ImportError:
+            safe = all(sanitize(item, "path_segment") == item for item in segments)
         return url if safe and all(sanitize(item) == item for item in queries) else None
     parts = re.split(r"(\b\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)?\b)", value)
     if len(parts) > 1:
