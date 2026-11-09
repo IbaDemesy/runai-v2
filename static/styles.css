@@ -1,3 +1,20 @@
+/* Activity recap */
+.bilan { padding: 18px 0 8px; border-top: 1px solid var(--line); margin-top: 16px; }
+.bilan-title { font-family: var(--display); font-size: 24px; letter-spacing: -.6px; }
+.bilan .milestones { display: grid; grid-template-columns: 1fr; gap: 9px; padding: 0; margin: 16px 0; list-style: none; }
+.bilan .milestones li { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; }
+.bilan .milestones li::before { content: '○'; color: var(--muted); position: static; height: auto; background: none; }
+.bilan .milestones li[data-done='true'] { color: var(--ink); font-weight: 700; }
+.bilan .milestones li[data-done='true']::before { content: '●'; color: var(--orange); background: none; }
+.bilan .milestones li:last-child[data-done='false'] { color: var(--muted); }
+.bilan .milestones li:last-child[data-done='false']::before { background: none; }
+.resume-step { font-size: 13px; font-weight: 700; color: var(--muted); }
+.preflight-icon { display: inline-grid; place-items: center; width: 36px; height: 36px; background: var(--surface); border-radius: 50%; color: var(--muted); font-size: 24px; }
+.agent[data-tone='calm'] { border-color: var(--line); }
+.agent[data-tone='calm'] .reason-title, .agent[data-tone='calm'] .status { color: var(--muted); background: var(--surface); }
+.agent { animation: card-arrive .4s ease-out; transition: border-color .25s, box-shadow .25s; }
+@keyframes card-arrive { from { opacity: .65; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .agent { animation: none; transition: none; } }
 :root {
   color-scheme: light;
   --bg: #f5f5f7;
@@ -242,7 +259,7 @@ dd { margin: 0; font-family: var(--display); font-size: 24px; line-height: 1.1; 
 .summary-link:hover { background: var(--orange-strong); transform: translateY(-1px); }
 .summary-list li[data-status='ready'] .summary-link { background: var(--orange-strong); }
 .summary-none { font-size: 13px; color: var(--muted); }
-#agents[data-finished='true'] .agent:not([data-status='ready_for_payment']) .handoff, #agents[data-finished='true'] .agent:not([data-status='ready_for_payment']) .reason-next { display: none; }
+#agents[data-finished='true'] .agent:not([data-status='ready_for_payment']) .reason-next { display: none; }
 .agent-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
 .agent { position: relative; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); overflow: hidden; min-width: 0; box-shadow: var(--shadow); transition: border-color .3s, box-shadow .3s, transform .3s var(--ease); }
 .agent[data-phase='working'] { border-color: #ffc4a8; box-shadow: 0 0 0 3px #fc4c0214, var(--shadow); }

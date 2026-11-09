@@ -64,6 +64,7 @@
   }
   const clean = value => String(value ?? '').replace(/\s*[—–-]?\s*(?:accès inconnu|access unknown)/gi, '').replace(/\[\s*synth[ée]tique\s*\/\s*synthetic\s*\]\s*/gi, '');
   const reasons = {
+    not_yet_bookable: ['Billets pas encore en vente · réessaie plus près de la date', 'Consultez les horaires en attendant.', 'Tickets not on sale yet · try again closer to the date', 'Check the timetable in the meantime.'],
     no_site_coverage: ['Aucun site vérifié ne couvre encore cette étape.', 'Essayez une autre ville ou continuez sur le site officiel.', 'No reviewed site covers this step yet.', 'Try another city or continue on the official site.'],
     policy_denied: ['Ce site n’autorise pas les agents automatiques.', 'Continuez vous-même sur le site, en toute sécurité.', 'This site does not allow automated agents.', 'Continue on the site yourself, safely.'],
     date_mismatch: ['Les dates proposées ne correspondent pas à votre séjour.', 'Vérifiez les dates sur le site avant de réserver.', 'The dates offered do not match your trip.', 'Check the dates on the site before booking.'],
@@ -237,7 +238,10 @@
     try {
       const response = await fetch(path, {signal: controller.signal, ...(body === undefined ? {} : {
         method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})});
-      if (!response.ok) throw Object.assign(new Error('Request failed'), {status: response.status});
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw Object.assign(new Error('Request failed'), {status: response.status, detail: data.detail});
+      }
       return await response.json();
     } finally { clearTimeout(timeout); }
   }
@@ -372,8 +376,8 @@
     return note;
   }
   const profileFields = () => [['full_name', 'Nom complet', 'text', 'name', true], ['email', 'E-mail', 'email', 'email', true], ['phone', 'Téléphone', 'tel', 'tel', true],
-    ['birth_date', 'Date de naissance', 'date', 'bday', true], ['gender', 'Genre', 'select', 'sex', true], ['nationality', 'Nationalité', 'text', 'country', true], ['address', 'Adresse (optionnelle)', 'text', 'street-address', false]];
-  const testProfile = {full_name: 'Test Runner', email: 'test.runner@example.com', phone: '+33 6 00 00 00 00', birth_date: '1990-01-01', gender: 'F', nationality: 'FR', address: '1 rue de Test, 75001 Paris'};
+    ['birth_date', 'Date de naissance', 'date', 'bday', true], ['gender', 'Genre', 'select', 'sex', true], ['nationality', 'Nationalité', 'text', 'country', true], ['address_line', 'Adresse (optionnelle)', 'text', 'street-address', false]];
+  const testProfile = {full_name: 'Test Runner', email: 'test.runner@example.com', phone: '+33 6 00 00 00 00', birth_date: '1990-01-01', gender: 'F', nationality: 'FR', address_line: '1 rue de Test, 75001 Paris'};
   let profile = {mission: null, state: 'open'};
   function profileStatusFields(result) {
     const raw = result?.profile_status ?? result?.mission?.profile_status, known = profileFields().map(([key]) => key);
@@ -396,7 +400,7 @@
     title.append(node('p', 'eyebrow', 'PROFIL COUREUR · UNE SEULE FOIS'), node('h3', '', 'Vos infos, saisies pour vous'));
     head.append(node('span', 'profile-icon', '◎'), title);
     for (const [key, label, type, autocomplete, required] of profileFields()) {
-      const field = node('label', `profile-field${key === 'address' ? ' wide' : ''}`), input = document.createElement(type === 'select' ? 'select' : 'input');
+      const field = node('label', `profile-field${key === 'address_line' ? ' wide' : ''}`), input = document.createElement(type === 'select' ? 'select' : 'input');
       input.className = 'profile-input'; input.dataset.field = key; input.setAttribute('autocomplete', autocomplete); input.setAttribute('spellcheck', 'false');
       if (type === 'select') for (const [value, text] of [['', 'Choisir'], ['F', 'Femme'], ['M', 'Homme'], ['X', 'Non précisé']]) { const option = node('option', '', text); option.value = value; input.append(option); }
       else input.type = type;
@@ -428,7 +432,13 @@
         profile.state = 'done'; profileDone(card, profileStatusFields(result));
       } catch (err) {
         if ([404, 501].includes(err?.status)) { for (const input of Object.values(inputs)) input.value = ''; profile.state = 'unavailable'; card.remove(); return; }
-        save.disabled = false; status.dataset.tone = 'error'; status.textContent = t('Profil non transmis. Réessayez ou continuez sans profil.', 'Profile not sent. Try again or continue without a profile.');
+        save.disabled = false; status.dataset.tone = 'error';
+        if (err?.status === 422) {
+          const fields = Array.isArray(err.detail) ? err.detail : [];
+          const labels = profileFields().filter(([key]) => fields.some(item => item.loc?.includes(key)));
+          for (const [key] of labels) inputs[key].setAttribute('aria-invalid', 'true');
+          status.textContent = labels.length ? labels.map(([, label]) => `${translate(label)} : ${t('vérifiez ce champ.', 'please check this field.')}`).join(' ') : t('Vérifiez les champs du profil, puis réessayez.', 'Check the profile fields, then try again.');
+        } else status.textContent = t('Profil non transmis. Réessayez ou continuez sans profil.', 'Profile not sent. Try again or continue without a profile.');
       }
     };
     actions.append(fill, skip, save);
@@ -495,7 +505,11 @@
     for (const suggestion of turn.suggestions) {
       if (!suggestion.id || !suggestion.label || suggestion.kind === 'confirm') continue;
       const race = suggestion.kind === 'choose_race' ? turn.candidates.find(r => r.id === suggestion.value || suggestion.id === `choose_race:${r.id}`) : null;
-      const item = node('div', 'suggestion'), button = node('button', 'chip', `${race?.name || suggestion.label} ↗`);
+      const monthLabel = String(suggestion.label).replace(/\b(\d{4})-(0[1-9]|1[0-2])\b/g, (_, year, month) => {
+        const label = new Intl.DateTimeFormat(locale(), {month: 'long', year: 'numeric', timeZone: 'UTC'}).format(new Date(`${year}-${month}-01T00:00:00Z`));
+        return label[0].toUpperCase() + label.slice(1);
+      });
+      const item = node('div', 'suggestion'), button = node('button', 'chip', `${race?.name || monthLabel} ↗`);
       button.type = 'button'; button.onclick = () => send({suggestion_id: suggestion.id}, suggestion.label);
       if (race && missionSynthetic()) item.append(node('span', 'synthetic-badge', 'Synthétique'));
       const metadata = race ? `${distance(race)} · ${date(race.race_date)}` : {source: 'Course sourcée', synthetic: 'Exemple synthétique', suggested_default: 'Suggestion · modifiable'}[suggestion.provenance] || 'Choisir cette réponse';
@@ -611,6 +625,7 @@
     : t(`image il y a ${Math.floor(age / 60)} min`, `frame ${Math.floor(age / 60)} min ago`);
   function activityLine(kind) {
     const state = agentState[kind], a = state.activity || {};
+    if (!terminal.has(state.status) && (state.stale || state.staleFrame || (state.image && (frameAge(state) === null || frameAge(state) >= 60)))) return t('L’agent réfléchit…', 'The agent is thinking…');
     if (terminal.has(state.status)) return state.status === 'ready_for_payment' ? readyTitle(state) : reason(state.reason, state.status, kind, state.active);
     if (state.uncovered && !state.active) return t('Pas de site couvert · à préparer vous-même', 'No covered site · prepare it yourself');
     if (state.queued) return t('En attente d’un navigateur disponible', 'Waiting for a free browser');
@@ -631,15 +646,16 @@
   function frameMeta(kind) {
     const state = agentState[kind], card = cardFor(kind); if (!state) return;
     const done = terminal.has(state.status), mode = $('mode').value, age = frameAge(state);
-    const stale = state.image && !done && (state.stale || age === null || age * 1000 >= FRESH_MS);
+    const stale = state.image && (state.stale || state.staleFrame || age === null || age >= 60);
     const interrupted = state.pollFailed || ['failed', 'cancelled'].includes(state.status);
     const synthetic = mode !== 'live';
     const status = !state.image ? '' : interrupted ? t('Image conservée · suivi interrompu', 'Image retained · tracking interrupted')
+      : stale ? t(`IMAGE FIGÉE · il y a ${Math.floor((age || 0) / 60)} min`, `FROZEN FRAME · ${Math.floor((age || 0) / 60)} min ago`)
       : done ? t('Dernière capture · agent arrêté', 'Last screenshot · agent stopped')
-      : stale ? (synthetic ? t('SYNTHÉTIQUE · AGENT AU TRAVAIL', 'SYNTHETIC · AGENT WORKING') : t('AGENT AU TRAVAIL', 'AGENT WORKING'))
+      : age * 1000 >= FRESH_MS ? t('IMAGE RÉCENTE', 'RECENT FRAME')
       : synthetic ? t(`SYNTHÉTIQUE · ${mode === 'replay' ? 'replay' : 'démo'}`, `SYNTHETIC · ${mode === 'replay' ? 'replay' : 'demo'}`) : t('EN DIRECT', 'LIVE');
     const badge = card.querySelector('.live-badge');
-    if (badge) { badge.textContent = status; badge.hidden = !status; badge.dataset.tone = interrupted || done ? 'stopped' : stale ? 'working' : synthetic ? 'synthetic' : 'live'; }
+    if (badge) { badge.textContent = status; badge.hidden = !status; badge.dataset.tone = interrupted || done || stale || age >= 15 ? 'stopped' : synthetic ? 'synthetic' : 'live'; }
     card.dataset.phase = phase(state);
     const preview = card.querySelector('.preview');
     const parked = !done && !state.image && state.uncovered && !state.active;
@@ -683,7 +699,8 @@
     const observed = Date.parse(state.observed);
     state.observedTime = Number.isFinite(observed) && observed <= Date.now() ? observed : null;
     const remaining = FRESH_MS - (Date.now() - frameTime(state));
-    if (remaining > 0 && !terminal.has(state.status)) state.freshTimer = setTimeout(() => { if (agentState[kind] === state) frameMeta(kind); }, remaining);
+    const ageTick = () => { if (agentState[kind] !== state || terminal.has(state.status)) return; frameMeta(kind); state.freshTimer = setTimeout(ageTick, 15000); };
+    if (!terminal.has(state.status)) state.freshTimer = setTimeout(ageTick, Math.max(1, remaining));
     img.className = previous ? 'frame' : 'frame first-frame';
     preview.replaceChildren(img);
     if (previous && previous !== img) {
@@ -727,21 +744,31 @@
     box.dataset.prefilled = String(Boolean(state.prefilled)); box.append(head);
     if (state.stopLabel) box.append(node('p', 'success-stop', state.stopLabel));
     if (facts.length) box.append(node('p', 'success-facts', facts.join(' · ')));
-    if (state.prefilled) {
-      const milestones = node('ol', 'milestones'); milestones.setAttribute('aria-label', t('Jusqu’où l’agent est allé', 'How far the agent got'));
-      for (const [label, ok] of [[t('Site', 'Site'), true], [t('Sélection', 'Selection'), true], [t('Coordonnées', 'Details'), true], [t('Paiement · vous', 'Payment · you'), false]]) {
-        const step = node('li', '', label); step.dataset.done = String(ok); milestones.append(step);
-      }
-      box.append(milestones);
-    }
-    const cta = link(state.handoff, state.prefilled ? t(`Continuer sur ${domain} ↗`, `Continue on ${domain} ↗`) : t(`Prêt — à vous de payer sur ${domain} ↗`, `Ready — pay yourself on ${domain} ↗`), 'handoff-link cta');
+    box.append(bilan(state));
+    const cta = link(state.handoff, t(`Prêt à payer · Continuer sur ${domain} ↗`, `Ready to pay · Continue on ${domain} ↗`), 'handoff-link cta');
     if (cta) box.append(cta);
     if ($('mode').value !== 'live') box.append(node('p', 'success-note', t('Démo synthétique : page d’accueil publique, aucun panier réel.', 'Synthetic demo: public homepage, no real checkout.')));
+    return box;
+  }
+  function bilan(state) {
+    const box = node('section', 'bilan'), list = node('ol', 'milestones');
+    const ready = state.status === 'ready_for_payment';
+    const reached = ready ? 4 : state.prefilled ? 3 : state.checkpoint === 'selection' ? 2 : state.checkpoint === 'dates' ? 1 : state.active || state.image ? 0 : -1;
+    const names = [t('Site ouvert', 'Site opened'), t('Dates', 'Dates'), t('Sélection', 'Selection'), t('Formulaire pré-rempli', 'Form prefilled'), t('Page de paiement', 'Payment page')];
+    box.append(node('strong', 'bilan-title', t('Bilan', 'Activity summary')));
+    for (const [index, label] of names.entries()) {
+      const step = node('li', '', label);
+      step.dataset.done = String(index <= reached && (index !== 3 || Boolean(state.prefilled)));
+      list.append(step);
+    }
+    box.append(list);
+    if (!ready) box.append(node('p', 'resume-step', `${t('À reprendre ici', 'Resume here')} · ${names[reached] || t('Avant ouverture du site', 'Before opening the site')}`));
     return box;
   }
   function render(kind) {
     const state = agentState[kind], card = cardFor(kind); if (!state || !card) return;
     card.dataset.status = state.status; card.dataset.phase = phase(state);
+    card.dataset.tone = ['not_yet_bookable', 'registration_closed', 'sold_out', 'no_site_coverage'].includes(state.reason) ? 'calm' : '';
     const pill = card.querySelector('.status'), key = state.queued && !terminal.has(state.status) ? 'queued' : state.status;
     pill.dataset.status = key; pill.textContent = translate(labels[key] || labels.pending);
     const heading = card.querySelector('h3'); if (heading) heading.textContent = agentNames()[kind];
@@ -758,9 +785,15 @@
     if (state.status === 'ready_for_payment') handoff.replaceChildren(successBox(kind, state));
     else {
       handoff.replaceChildren();
-      const domain = domainOf(state.handoff), next = link(state.handoff, t(`Continuer sur ${domain} ↗`, `Continue on ${domain} ↗`), 'handoff-link');
-      if (next) handoff.replaceChildren(next);
-      else if (terminal.has(state.status)) handoff.replaceChildren(node('p', 'no-site', t('Pas de site vérifié pour cette étape', 'No verified site for this step')));
+      const domain = domainOf(state.handoff), next = link(state.handoff, state.reason === 'not_yet_bookable' ? t(`Voir les horaires sur ${domain} ↗`, `View timetable on ${domain} ↗`) : t(`Continuer sur ${domain} ↗`, `Continue on ${domain} ↗`), 'handoff-link');
+      if (terminal.has(state.status)) {
+        const icons = {not_yet_bookable: '◷', registration_closed: '◌', sold_out: '◇', no_site_coverage: '⌁'};
+        if (icons[state.reason]) handoff.append(node('span', 'preflight-icon', icons[state.reason]));
+        handoff.append(bilan(state));
+      }
+      if (next) handoff.append(next);
+      else if (state.site || state.started || state.active) handoff.append(node('p', 'site-footer', state.site || t('Site en cours d’ouverture', 'Opening the site')));
+      else if (terminal.has(state.status)) handoff.append(node('p', 'no-site', t('Pas de site vérifié pour cette étape', 'No verified site for this step')));
     }
     frameMeta(kind);
   }
@@ -787,7 +820,8 @@
     for (const kind of kinds) {
       const state = agentState[kind], ok = state.status === 'ready_for_payment', item = node('li'), body = node('div', 'summary-body');
       const [title, next] = ok ? [readyTitle(state), t('Il ne reste que vos informations et le paiement, par vous.', 'Only your details and the payment are left, for you.')] : reasonCopy(state.reason, state.status, kind, state.active);
-      item.dataset.status = ok ? 'ready' : 'stopped';
+      const preflight = !state.active && !state.frames && ['not_yet_bookable', 'registration_closed', 'sold_out', 'no_site_coverage'].includes(state.reason);
+      item.dataset.status = ok ? 'ready' : preflight ? 'preflight' : 'stopped';
       body.append(node('strong', '', names[kind]), node('span', 'summary-reason', title), ...(next ? [node('span', 'summary-next', next)] : []));
       const domain = domainOf(state.handoff), go = link(state.handoff, ok ? t(`Payer sur ${domain} ↗`, `Pay on ${domain} ↗`) : t(`Continuer sur ${domain} ↗`, `Continue on ${domain} ↗`), 'summary-link');
       item.append(node('span', 'agent-icon', ok ? '✓' : agentIcons[kind]), body, go || node('span', 'summary-none', t('Pas de site vérifié', 'No verified site')));
@@ -845,6 +879,9 @@
     const e = {...raw, ...raw.data}; if (Number.isFinite(Number(e.sequence))) after = Math.max(after, Number(e.sequence));
     if (!kinds.includes(e.kind)) return;
     const state = agentState[e.kind] ||= {status: 'pending', level: -1, frames: 0, progress: 0};
+    if (typeof e.stale_frame === 'boolean') state.staleFrame = e.stale_frame;
+    if (e.prefilled === true) state.prefilled = true;
+    if (['dates', 'selection'].includes(e.checkpoint)) state.checkpoint = e.checkpoint;
     const message = String(e.message ?? ''), activity = e.type === 'step_progress' || e.status === 'queued' ? activityOf(e) : null;
     if (e.type === 'step_started') { state.started ||= Date.now(); state.level = Math.max(state.level, 0); }
     if (activity?.code === 'queued') { state.queued = true; state.started ||= Date.now(); state.level = Math.max(state.level, 0); if (!terminal.has(state.status)) state.status = 'running'; }
@@ -867,7 +904,7 @@
     const visited = domainOf(e.final_url) || domainOf(e.site_url) || domainOf(e.start_url);
     if (visited) state.site = visited;
     const href = safeURL(e.handoff_url); if (href) state.handoff = href;
-    if (!state.site && state.active && state.handoff) state.site = domainOf(state.handoff);
+    if (!state.site && state.handoff) state.site = domainOf(state.handoff);
     render(e.kind);
     if (e.type === 'live_frame' && e.frame_id) loadFrame(e.kind, e);
     overview();
@@ -953,7 +990,7 @@
     if ($('mode').value === 'live') return false;
     const fake = (kind, data) => event({kind, synthetic: true, ...data});
     const show = () => { $('agents').hidden = false; $('workspace').classList.add('executing'); $('history-toggle').hidden = false; };
-    if (name === 'stale') kinds.forEach(kind => { const state = agentState[kind]; if (state?.received) { state.received -= FRESH_MS + 27000; frameMeta(kind); } });
+    if (name === 'stale') kinds.forEach(kind => { const state = agentState[kind]; if (state?.received) { state.received -= 90000; frameMeta(kind); } });
     else if (name === 'alternative') fake('hotel', {type: 'step_progress', message: 'Essai d\'un autre site'});
     else if (name === 'frame') kinds.forEach(kind => { if (agentState[kind] && !terminal.has(agentState[kind].status)) demoFrame(kind); });
     else if (name === 'focus') focusAgent('hotel');
@@ -961,6 +998,10 @@
       resetStage(); show();
       const codes = name === 'coverage' ? ['no_site_coverage', 'no_site_coverage', 'policy_denied'] : ['sold_out', 'no_inventory', 'captcha'];
       kinds.forEach((kind, index) => {
+        if (name === 'preflight') {
+          fake(kind, {status: 'blocked', reason_code: ['registration_closed', 'sold_out', 'not_yet_bookable'][index], handoff_url: `https://example.com/runai-synthetic/${kind}`});
+          return;
+        }
         fake(kind, {type: 'step_started'});
         if (name === 'queued') { fake(kind, {type: 'step_progress', message: index === 2 ? 'Ouverture du site' : 'En attente d\'un navigateur disponible'}); return; }
         if (name === 'coverage') { fake(kind, {status: 'blocked', reason_code: codes[index], handoff_url: index ? null : 'https://example.com/runai-synthetic/registration'}); return; }
