@@ -1,19 +1,52 @@
+# R5-02 step 5 live hotel smokes — 2026-11-09
+
+Real merged HAgentRunner.run with branch build_task output; only alternatives
+removed to keep each invocation single-task. Stay March 20–22 2027, race March21,
+one adult, EUR600 budget. External launcher: /home/ubuntu/scratch/r5_smokes.py;
+scrubbed summaries only: /home/ubuntu/scratch/r5-smokes.jsonl. H key bound through
+exec environment, never logged. No private URLs, queries, session IDs or image
+payloads persisted locally. Frame counts are actual emitted live_frame events (deduped
+by hclient), not simulated footage. Tasks retain all normal safety guardrails.
+
+| Task | Adapter/policy | Frames | Final observed host/path | Checkpoint | hclient status | reason_code |
+|---|---|---:|---|---|---|---|
+| Hotel Milan | hotel-bb-com | 7 | www.hotel-bb.com/checkout/ | no | blocked | provider_error |
+| Hotel Amsterdam | ihg-com | 9 | www.ihg.com/hotels/gb/en/find-hotels/select-enhance-stay | yes | ready_for_payment | null |
+
+Both runs were strictly sequential. GET /api/v2/sessions/quota returned available=3
+before each; exactly one session was created for each, and explicit cleanup
+returned HTTP204 before the next run. Elapsed: Milan 290.5s; Amsterdam 72.2s.
+
+Amsterdam: this is a genuine hclient ready_for_payment return at the configured
+IHG checkpoint, not merely a page visit or synthetic status. Runtime handoff
+matched the same public checkpoint host/path; no booking/payment is claimed.
+
+Milan: /checkout/ is a new distinct observed path, but the run did not return
+READY or match the configured extras/review pattern. The generic provider_error
+does not establish whether guest details, a site error or incomplete evidence
+caused the stop. Ordinary Chrome GET of /checkout/ without H's selection state
+redirected to /en, so it could not verify a post-selection/pre-personal-data
+boundary. **Do not promote /checkout/ to a checkpoint on this evidence.** No
+pattern changed and no extra H reproduction was run. A stateful boundary review
+is still required; task guardrails prohibit personal data, consent and forms,
+but these summary-only measurements are not an audit of every hosted action.
+
 # R5-02 step 4 hotel retry — 2026-11-09
 
 No second NL/CH provider added in this bounded retry. Scandic website terms
-§2.1–2.2 permit printing individual pages but otherwise require written permission
+permit printing individual pages but otherwise require written permission
 for copying/reproduction; `/en/hotels` redirected to the destinations index, not
 a dated NL/CH result. H10 legal notice reserves protected elements/reproduction;
 the captured hotel catalogue lists European cities but no NL/CH destination was
-established. The attempted `/en/hotels` returned its not-found page, not rates.
+established. An attempted hotel index returned its not-found page, not rates.
 
-Novum legal notice permits private non-commercial unprocessed use on one
-workstation. Its actual `/en/hotels` list loaded; many Book links now go to IHG,
+Novum legal notice requires prior consent for reproduction/distribution and
+processing of protected content. Its hotel list loaded; many Book links go to IHG,
 others to onepagebooking.com. This does not establish a distinct reviewed Novum
 checkout, nor extend Novum's terms to the third-party engine. No adapter added.
 
-Leonardo's reviewed 2026 disclaimer PDF again produced no readable browser text;
-`/legal-notice` returned /404. A March20–22/one-adult Rembrandtpark property URL
+Leonardo's reviewed 2026 disclaimer PDF again produced no readable browser text.
+A March20–22/one-adult Rembrandtpark property URL
 rendered **9 Nov–10 Nov, 1 Room, 2 Guests**, ignoring requested query values. This
 is a date/party mismatch, not an executable dated link. No review renewal or adapter.
 

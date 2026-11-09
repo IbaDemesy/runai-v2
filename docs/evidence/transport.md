@@ -1,3 +1,46 @@
+# R5-02 step 5 live transport smokes — 2026-11-09
+
+Merged HAgentRunner.run with branch build_task output, alternatives removed only
+to keep each invocation single-task. Paris origin, March20–22 2027, race March21,
+one adult, EUR600 budget; same external launcher and summary-only privacy method
+as the hotel smokes. No synthetic provider or direct raw-session navigation used.
+NS start fragments retain the normal P12 keep_fragment flag. Frame counts below
+are actual deduplicated live_frame emissions, not raw observation counts.
+
+| Task | Adapter/policy | Frames | Final observed host/path | Checkpoint | hclient status | reason_code |
+|---|---|---:|---|---|---|---|
+| Paris–Barcelona | ns-international | 10 | www.nsinternational.com/en/traintickets-v3/ | no | blocked | sold_out |
+| Paris–Milan | vueling-com | 0 | unavailable (no public final URL) | no | blocked | provider_error |
+| Paris–Amsterdam | ns-international | 7 | www.nsinternational.com/en/traintickets-v3/ | no | failed | unsafe_claim |
+
+Paris–Barcelona: quota available=3 before starting, exactly one session created,
+explicit cleanup HTTP204; elapsed239.7s. sold_out is the actual runtime
+classification, not an independently verified inventory claim from these
+summary-only measurements. No READY and no distinct safe path/query checkpoint
+were established. Existing unverified overview/review pattern remains unchanged.
+
+Paris–Milan: quota available=3, one session created, cleanup HTTP204; elapsed14.3s.
+No frame or public final URL was emitted. The merged runtime returned
+provider_error, not unreviewed_redirect. This is consistent with the corrected
+browser-startup/blank-observation classification, but this summary does not expose
+the underlying raw Chrome observation or prove a DNS/TLS/bot-wall cause. The
+underlying Vueling load failure remains unresolved. No new scope/checkpoint
+was inferred from absence of public observations.
+
+Paris–Amsterdam: quota available=3, one session created, cleanup HTTP204;
+elapsed169.0s. Real runtime returned failed/unsafe_claim, not READY. Last public
+host/path still the NS root, not the configured overview/review boundary.
+This safety failure needs review before retry; these scrubbed summary-only
+measurements do not establish that any payment or booking actually happened.
+Code inspection shows this reason is assigned by _UnsafeClaim, reached through
+_payment_claim checks on hosted events/answers. That predicate also accepts
+form_submitted, terms_accepted, account_created and personal_data_entered
+admissions, not only payment/booking. Thus the verified evidence is a runtime
+claim-gate failure, not a verified executed transaction. The triggering payload
+and actual hosted action were not retained or independently audited. Runtime
+owner review is needed; hclient's documented non-interceptable hosted-tool limit
+means prompt guardrails and cancellation alone are not deterministic prevention.
+
 # R5-02 step 4 second-provider research — 2026-11-09
 
 No new adapter met the full dated round-trip + party + safe checkpoint standard
@@ -30,24 +73,22 @@ Terms reread before considering each candidate:
 
 **SBB additional finding:** public GET timetable with `suche=true`, `von=Genève`,
 `nach=Luzern`, `datum=20.03.2027`, `zeit=08:00`, `an=false` rendered March 20
-departures. After loading, ticket buttons showed CHF39.00/30.60/32.20 and other
-one-way offers. These are NOT a verified round-trip party total. The page also
-states timetable information valid only to 12.12.2026 and carries a reCAPTCHA
-notice; no challenge was handled. Inspection of the first public ticket control
-showed type=button inside shopForm, invoking leistungOfferierenRC0. That function
-calls PrimeFaces.ab with f=shopForm (AJAX form submission). **It was not clicked.**
+departures including 08:05 and 08:54 with ticket-purchase controls. This is NOT a
+verified round-trip party total. The page carries a reCAPTCHA notice; no challenge
+was handled. Inspection showed purchase controls inside forms with PrimeFaces
+AJAX handlers. **They were not clicked.**
 This is a verified next-action form boundary, not proof that no alternative public
 GET ticket link exists. Geneva–Zurich and Paris–Zurich/Lucerne dated timetable
 GETs rendered the timetable shell; no complete round-trip/one-adult fare and safe
 distinct checkpoint were established. SBB remains unwired, Geneva–Lucerne open.
 
-Trenitalia `www.lefrecce.it/Channels.Website.WEB/` dated Paris Gare de Lyon–Milano
-Centrale round-trip candidate returned “We are sorry. An error has occurred.”
+Trenitalia's dated Paris Gare de Lyon–Milano Centrale reservation candidate
+returned a shell/error, not dated one-adult round-trip fare results.
 The official French `/reservation/` path is an assistance/group-reservation page,
 not a dated fare result, even with date/party query parameters. No search submitted.
-SWISS `/booking/flight-search` and `/booking/flight-selection` dated candidates
-returned requested-page-not-found; homepage loaded but does not count as coverage.
-Iberia `/gb/booking/flight-search/` dated candidate returned Not Found. Volotea
+SWISS `/booking/flight-selection` dated candidate returned requested-page-not-found;
+homepage loaded but does not count as coverage. Iberia's dated candidate returned
+Not Found. Volotea
 `/en/booking/select-flight/` dated candidate returned its 404 page. These failed
 candidate URL shapes do not prove the carriers lack working booking flows; no
 safe dated deep link was established within this pass, so no adapters were added.
