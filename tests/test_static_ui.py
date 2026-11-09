@@ -430,7 +430,7 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     assert.equal(cards[0].querySelectorAll('.prep-badge').length, 3);
     assert.ok(cards[0].textContent.includes('Inscription ✓')); assert.ok(cards[0].textContent.includes('Hôtel ✓'));
     assert.equal(cards[1].querySelectorAll('.prep-badge').length, 0); assert.equal(cards[1].querySelector('.prep'), null);
-    assert.ok(cards[0].textContent.includes('🇵🇹'));
+    assert.equal(cards[0].querySelector('svg').dataset.country, 'PT');
   } else if (scenario === 'crossfade') {
     ids.mode.value = 'live'; ids.mode.onchange();
     ui.event({kind:'hotel', type:'step_started'}); ui.event(frame('hotel', 'c1', 1)); await loaded(images.at(-1));

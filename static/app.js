@@ -571,7 +571,7 @@
     const observed = Date.parse(state.observed);
     state.observedTime = Number.isFinite(observed) && observed <= Date.now() ? observed : null;
     const remaining = FRESH_MS - (Date.now() - frameTime(state));
-    if (remaining > 0) state.freshTimer = setTimeout(() => { if (agentState[kind] === state) frameMeta(kind); }, remaining);
+    if (remaining > 0 && !terminal.has(state.status)) state.freshTimer = setTimeout(() => { if (agentState[kind] === state) frameMeta(kind); }, remaining);
     img.className = previous ? 'frame' : 'frame first-frame';
     preview.replaceChildren(img);
     if (previous && previous !== img) {
@@ -736,7 +736,7 @@
     if (e.type === 'step_progress' && (e.alternative === true || activity?.code === 'alternative')) state.alternative = true;
     if (terminal.has(e.status)) state.status = e.status;
     else if (e.type === 'step_started' && !terminal.has(state.status)) state.status = 'running';
-    if (terminal.has(state.status)) { state.ended ||= Date.now(); state.queued = false; }
+    if (terminal.has(state.status)) { state.ended ||= Date.now(); state.queued = false; clearTimeout(state.freshTimer); }
     if (terminal.has(e.status)) {
       state.reason = e.reason_code || (e.checkpoint_reached === true && e.status !== 'ready_for_payment' ? 'checkpoint_reached' : null) || state.reason;
       state.total = shownTotal(e.summary) || state.total; state.alternative = false; state.activity = null;
