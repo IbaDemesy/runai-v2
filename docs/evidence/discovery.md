@@ -648,3 +648,15 @@ the original requests to pass. Recommended follow-up: improve standard-mode
 organizer grounding and preserve original country/race through recovery, then
 bound later deep-enrichment latency and rerun the five-case batch. Do not claim
 generic live readiness or H success from these results. UI was not rendered.
+
+Integration note: the evidence-only commit was subsequently rebased onto
+`origin/main` (`b9a6fb6`). Frozen setup and full offline checks passed:
+```text
+Checked 23 packages in 0.22ms
+All checks passed!
+2119 passed, 1 warning in 49.44s
+```
+The warning is the baseline Starlette/httpx deprecation. No post-rebase live
+batch was run. Upstream registration/policy/runtime/UI changes mean the live
+coverage observations above apply specifically to the pre-rebase smoke, not
+to a new integrated live validation.
