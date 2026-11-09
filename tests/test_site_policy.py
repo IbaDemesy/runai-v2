@@ -498,6 +498,28 @@ def test_registration_matching_country_and_platform_expiry():
     assert not site_policy.coverage("registration", today=TODAY, registry=reg)["covered"]
 
 
+@pytest.mark.parametrize("expires,available", [
+    ("2027-02-01", True), ("2026-11-07", False),
+])
+def test_registration_path_scoped_platform_availability(expires, available):
+    reg = registration_adapter_registry()
+    reg["entries"][1].update({
+        "scopes": [{"host": "platform.example", "path_prefix": "/reviewed-race"}],
+        "expires_at": expires,
+    })
+    expected = {**EXPECTED, "country": "IT", "race_name": "Example Marathon 2027"}
+    assert not evaluate_url("https://platform.example/", "registration", today=TODAY,
+                            registry=reg)["allowed"]
+    assert site_policy.coverage("registration", country="IT", today=TODAY,
+                                registry=reg)["covered"] is available
+    if available:
+        assert site_policy.select_adapter("registration", expected, today=TODAY,
+                                          registry=reg)[2]["policy_id"] == "example-marathon-2027"
+    else:
+        with pytest.raises(ValueError, match="registration platform unavailable or expired"):
+            site_policy.select_adapter("registration", expected, today=TODAY, registry=reg)
+
+
 def test_coverage_normal_empty_and_error():
     reg = _place_registry()
     assert site_policy.coverage("hotel", city="Zürich", country="Switzerland",

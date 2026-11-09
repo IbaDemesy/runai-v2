@@ -642,9 +642,14 @@ def _candidates(
                     and not (partial and expected.get("country") is None)):
                 reasons.append(f"{entry['id']}: race country does not match")
                 continue
-            if any(not evaluate_url(f"https://{host}/", "registration", today=today,
-                                    registry=registry)["allowed"]
-                   for host in adapter["platform_hosts"]):
+            if any(not any(
+                evaluate_url(f"https://{host}{scope['path_prefix']}", "registration",
+                             today=today, registry=registry)["allowed"]
+                for platform in entries
+                if "registration" in platform["purposes"]
+                and platform["automation"] in ("allowed_read_only", "allowed_owner_rule")
+                for scope in platform["scopes"] if scope["host"] == host
+            ) for host in adapter["platform_hosts"]):
                 reasons.append(f"{entry['id']}: registration platform unavailable or expired")
                 continue
         filled = dict(values)
