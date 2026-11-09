@@ -3,8 +3,9 @@ import re
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from test_site_policy import TODAY, registry, transport_entry
+from test_site_policy import TODAY, assert_task_policy, distinct_entry, registry, transport_entry
 
+from runai.agents import hclient
 from runai.agents.transport import build_task
 
 KEYS = {"kind", "site_name", "start_url", "instructions", "stop_before", "success_signal",
@@ -180,7 +181,9 @@ def test_train_preferred_and_flight_fallback_with_reviewed_destination(rail_cove
     assert ("round-trip train" if rail_covers else "round-trip flight") in task["instructions"]
     destination = "Lisbon via Lisboa Santa Apolónia, LIS" if rail_covers else "Lisbon via LIS"
     assert destination in task["instructions"]
-    assert set(task) == KEYS
+    assert set(task) == KEYS | ({"alternatives"} if rail_covers else set())
+    if rail_covers:
+        assert [a["site_name"] for a in task["alternatives"]] == ["flight"]
 
 
 def test_flight_airport_mapping_keeps_expected_city():
@@ -193,3 +196,107 @@ def test_flight_airport_mapping_keeps_expected_city():
     assert "Freiburg im Breisgau via BSL" in task["instructions"]
     assert task["expected"]["city"] == "Freiburg im Breisgau"
     assert "airport=BSL" in task["start_url"]
+
+
+@pytest.mark.parametrize("city,country,policy,airport", [
+    ("Milan", "IT", "vueling-com", "MXP"), ("Barcelona", "ES", "vueling-com", "BCN"),
+    ("Lisbon", "PT", "vueling-com", "LIS"), ("Valencia", "ES", "vueling-com", "VLC"),
+    ("Seville", "ES", "vueling-com", "SVQ"), ("Zurich", "CH", "vueling-com", "ZRH"),
+    ("Geneva", "CH", "vueling-com", "GVA"), ("Rome", "IT", "vueling-com", "FCO"),
+    ("Madrid", "ES", "vueling-com", "MAD"),
+    ("Amsterdam", "NL", "ns-international", None), ("Den Haag", "NL", "ns-international", None),
+])
+def test_r4_paris_routes_and_policy(city, country, policy, airport, monkeypatch):
+    task = build_task(trip(city=city, country=country, origin_city="Paris", travelers=1,
+                          budget_eur=450, arrival_date="2027-01-09",
+                          departure_date="2027-01-11",
+                          race_changes={"race_date": "2027-01-10"}), today=TODAY)
+    assert task["site_name"] == policy
+    assert task["expected"]["city"] == city
+    assert_task_policy(task, monkeypatch)
+    assert set(task) == KEYS
+    if airport:
+        query = parse_qs(urlsplit(task["start_url"]).query)
+        assert query["o"] == (["CDG"] if city == "Geneva" else ["ORY"])
+        assert query["d"] == [airport]
+        assert query["adt"] == ["1"]
+        assert "both outbound and return fares" in task["instructions"]
+    else:
+        assert "#/search/FRPNO/NLASC/20270109?pax=A&inboundDate=20270111" in task["start_url"]
+    if city == "Den Haag":
+        assert "Den Haag via Amsterdam Centraal" in task["instructions"]
+        assert "onward Den Haag transfer not included" in task["instructions"]
+        assert "without changing the race city in expected" in task["instructions"]
+        assert "READY covers the round trip to/from" in task["instructions"]
+        assert "mention it in the final report" in task["instructions"]
+        assert "Never substitute a non-reviewed gateway" in task["instructions"]
+
+
+@pytest.mark.parametrize("origin,airport", [("Lyon", "LYS"), ("Genève", "GVA")])
+def test_r4_barcelona_supported_valencia_unverified(origin, airport, monkeypatch):
+    data = trip(city="Barcelona", country="ES", origin_city=origin, travelers=1)
+    task = build_task(data, today=TODAY)
+    assert parse_qs(urlsplit(task["start_url"]).query)["o"] == [airport]
+    assert_task_policy(task, monkeypatch)
+    data["race"]["city"] = "Valencia"
+    with pytest.raises(ValueError, match="no policy-reviewed transport"):
+        build_task(data, today=TODAY)
+
+
+@pytest.mark.parametrize("origin", ["Zurich", "Geneva"])
+@pytest.mark.parametrize("city", ["Savognin", "Grindelwald", "Sierre"])
+def test_r4_unverified_domestic_swiss_routes_fail_closed(origin, city):
+    with pytest.raises(ValueError, match="no policy-reviewed transport"):
+        build_task(trip(city=city, country="CH", origin_city=origin, travelers=1), today=TODAY)
+
+
+def test_transport_alternatives_distinct_rail_first_and_policy(monkeypatch):
+    items = [distinct_entry(n, "transport") for n in range(6)]
+    for item in items:
+        item["adapters"][0]["mode"] = "rail"
+    items[0]["adapters"][0]["mode"] = "flight"
+    items[1]["adapters"] *= 2
+    items[2]["automation"] = "prohibited"
+    items[3]["expires_at"] = "2026-11-08"
+    reg = registry(*items)
+    before = copy.deepcopy(reg)
+    task = build(trip(), reg)
+    assert task["site_name"] == "site1"
+    assert [a["site_name"] for a in task["alternatives"]] == ["site4", "site5"]
+    assert all(set(a) == KEYS for a in task["alternatives"])
+    assert reg == before
+    assert_task_policy(task, monkeypatch, reg)
+    task["alternatives"][0]["expected"]["city"] = "Changed"
+    assert task["expected"]["city"] == "Lisbon"
+
+
+def test_via_text_not_url_substitution_and_still_requires_reviewed_ids():
+    item = transport_entry()
+    item["adapters"][0].update(places={
+        "Den Haag": {"station_code": "NLASC", "via": "Amsterdam Centraal"},
+    })
+    item["adapters"][0]["url_template"] += "&station={station_code}"
+    task = build(trip(city="Den Haag", country="DE"), registry(item))
+    assert task["expected"]["city"] == "Den Haag"
+    assert "Den Haag via Amsterdam Centraal" in task["instructions"]
+    del item["adapters"][0]["places"]["Den Haag"]["station_code"]
+    with pytest.raises(ValueError, match="no reviewed place IDs"):
+        build(trip(city="Den Haag", country="DE"), registry(item))
+
+
+def test_gateway_ready_is_not_supported_by_unchanged_hclient_city_verifier():
+    task = build_task(trip(city="Den Haag", country="NL", origin_city="Paris", travelers=1),
+                      today=TODAY)
+    url = task["start_url"].split("#", 1)[0]
+    answer = {"verification": {
+        "origin_city": "Paris", "city": "Amsterdam", "arrival_date": "2027-03-20",
+        "departure_date": "2027-03-22", "travelers": 1, "fare": "Public round trip",
+        "total": "EUR 120", "outbound_selected": True, "return_selected": True,
+        "selected": True, "next_safe_boundary": "Passenger details",
+    }}
+    reviews = [(set(task["allowed_hosts"]), ("/",))]
+    assert task["expected"]["city"] == "Den Haag"
+    assert not hclient._verified(task, answer, url, url, url, reviews)
+    control = copy.deepcopy(task)
+    control["expected"]["city"] = "Amsterdam"
+    assert hclient._verified(control, answer, url, url, url, reviews)

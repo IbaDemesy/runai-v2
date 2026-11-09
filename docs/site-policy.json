@@ -102,7 +102,7 @@
       "reviewed_at": "2026-11-09",
       "expires_at": "2027-02-07",
       "reviewed_sections": "5. Accès; 7. Services; 15. Droits de propriété intellectuelle",
-      "justification": "Browser reread 2026-11-09: no express robots/agents/scraping prohibition found. Section 15 restricts copying, reproduction, code downloading and commercial exploitation without express permission. Retain the existing owner's 2026-11-08 read-only rule for this ambiguity: no forms, login, consent or payment; screenshots in-session only, never published. Freiburg-Nord exact-date public rates verified for one adult only; two-adult encoding remains unverified. See docs/evidence/hotel.md.",
+      "justification": "Browser reread 2026-11-09: no express robots/agents/scraping prohibition found. Section 15 restricts copying, reproduction, code downloading and commercial exploitation without express permission. Retain the existing owner's 2026-11-08 read-only rule for this ambiguity: no forms, login, consent or payment; screenshots in-session only, never published. Freiburg-Nord exact-date public rates verified for one adult only; two-adult encoding remains unverified. See docs/evidence/hotel.md. R4-02: public fixed-property exact-date rate lists also verified for Milan, Paris, Brussels, Vienna, Prague and Birmingham, one adult only.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -128,6 +128,129 @@
           },
           "success_evidence": "Observed 2026-11-09: B&B HOTEL Freiburg-Nord, Tullastraße 87c, 79108 Freiburg, Germany; 1 room | 1 adult | From 09 Jan. 2027 to 11 Jan. 2027. Double and twin rooms list public SUPERSAVER and FLEX rates with date-by-date prices and Select controls. One adult only; rooms parameter is not verified for larger parties. Verify selected room, rate, party and full-stay total before guest data. Never submit the room-selection form or use member login rates.",
           "blocked_evidence": "Observed on B&B search: No hotels match your search criteria. Freiburg has rates on the tested dates; no property-specific sold-out message was observed this round. Block empty rates, wrong city/dates/party, member login, consent, captcha, form submission or guest details."
+        },
+        {
+          "kind": "hotel",
+          "mode": "hotel",
+          "destination_countries": [
+            "IT"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.hotel-bb.com/en/hotel/milano-sant-ambrogio?arrival_date={arrival_mdy_slash}&departure_date={departure_mdy_slash}&rooms={travelers}&destination={place_name}",
+          "places": {
+            "milan": {
+              "place_name": "milano-sant-ambrogio"
+            },
+            "milano": {
+              "place_name": "milano-sant-ambrogio"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: milano-sant-ambrogio renders 1 room, 1 adult, From 09 Jan. 2027 to 11 Jan. 2027 and public room/rate prices with Select controls. One adult only. These unselected rates are not READY: require selected room AND public rate, exact city/dates/party and full-stay total on a review page before guest data. Stop if selection would submit a form; that safe selected state was not observed.",
+          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form."
+        },
+        {
+          "kind": "hotel",
+          "mode": "hotel",
+          "destination_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.hotel-bb.com/en/hotel/paris-porte-des-lilas?arrival_date={arrival_mdy_slash}&departure_date={departure_mdy_slash}&rooms={travelers}&destination={place_name}",
+          "places": {
+            "paris": {
+              "place_name": "Paris"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: paris-porte-des-lilas renders 1 room, 1 adult, From 09 Jan. 2027 to 11 Jan. 2027 and public room/rate prices with Select controls. One adult only. These unselected rates are not READY: require selected room AND public rate, exact city/dates/party and full-stay total on a review page before guest data. Stop if selection would submit a form; that safe selected state was not observed.",
+          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form."
+        },
+        {
+          "kind": "hotel",
+          "mode": "hotel",
+          "destination_countries": [
+            "BE"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.hotel-bb.com/en/hotel/bruxelles-centre-gare-midi?arrival_date={arrival_mdy_slash}&departure_date={departure_mdy_slash}&rooms={travelers}&destination={place_name}",
+          "places": {
+            "brussels": {
+              "place_name": "bruxelles-centre-gare-midi"
+            },
+            "bruxelles": {
+              "place_name": "bruxelles-centre-gare-midi"
+            },
+            "brussel": {
+              "place_name": "bruxelles-centre-gare-midi"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: bruxelles-centre-gare-midi renders 1 room, 1 adult, From 09 Jan. 2027 to 11 Jan. 2027 and public room/rate prices with Select controls. One adult only. These unselected rates are not READY: require selected room AND public rate, exact city/dates/party and full-stay total on a review page before guest data. Stop if selection would submit a form; that safe selected state was not observed.",
+          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form."
+        },
+        {
+          "kind": "hotel",
+          "mode": "hotel",
+          "destination_countries": [
+            "AT"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.hotel-bb.com/en/hotel/wien-hbf?arrival_date={arrival_mdy_slash}&departure_date={departure_mdy_slash}&rooms={travelers}&destination={place_name}",
+          "places": {
+            "vienna": {
+              "place_name": "wien-hbf"
+            },
+            "wien": {
+              "place_name": "wien-hbf"
+            },
+            "vienne": {
+              "place_name": "wien-hbf"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: wien-hbf renders 1 room, 1 adult, From 09 Jan. 2027 to 11 Jan. 2027 and public room/rate prices with Select controls. One adult only. These unselected rates are not READY: require selected room AND public rate, exact city/dates/party and full-stay total on a review page before guest data. Stop if selection would submit a form; that safe selected state was not observed.",
+          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form."
+        },
+        {
+          "kind": "hotel",
+          "mode": "hotel",
+          "destination_countries": [
+            "CZ"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.hotel-bb.com/en/hotel/prague-city?arrival_date={arrival_mdy_slash}&departure_date={departure_mdy_slash}&rooms={travelers}&destination={place_name}",
+          "places": {
+            "prague": {
+              "place_name": "prague-city"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: prague-city renders 1 room, 1 adult, From 09 Jan. 2027 to 11 Jan. 2027 and public room/rate prices with Select controls. One adult only. These unselected rates are not READY: require selected room AND public rate, exact city/dates/party and full-stay total on a review page before guest data. Stop if selection would submit a form; that safe selected state was not observed.",
+          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form."
+        },
+        {
+          "kind": "hotel",
+          "mode": "hotel",
+          "destination_countries": [
+            "GB"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.hotel-bb.com/en/hotel/birmingham-centre?arrival_date={arrival_mdy_slash}&departure_date={departure_mdy_slash}&rooms={travelers}&destination={place_name}",
+          "places": {
+            "birmingham": {
+              "place_name": "birmingham-centre"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: birmingham-centre renders 1 room, 1 adult, From 09 Jan. 2027 to 11 Jan. 2027 and public room/rate prices with Select controls. One adult only. These unselected rates are not READY: require selected room AND public rate, exact city/dates/party and full-stay total on a review page before guest data. Stop if selection would submit a form; that safe selected state was not observed.",
+          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form."
         }
       ]
     },
@@ -153,7 +276,7 @@
       "reviewed_at": "2026-11-09",
       "expires_at": "2027-02-07",
       "reviewed_sections": "LIMITED LICENCE TO VIEW AND COPY; PROHIBITED CONDUCT; INTELLECTUAL PROPERTY RIGHTS",
-      "justification": "Browser reread 2026-11-09: no express robot, automated-agent or scraping prohibition found. The limited licence remains for Authorised Users' non-commercial individual use; copying/transferring materials and use on another site or computer environment are restricted. Retain the owner's 2026-11-08 read-only rule for materially ambiguous terms: no forms, accounts, consent or payment; screenshots in-session only, never published. Generic destination searches verified in IT/PT/ES/CH/DE for 1 and 2 adults; nearby results are not proof of an in-city hotel. See docs/evidence/hotel.md.",
+      "justification": "Browser reread 2026-11-09: no express robot, automated-agent or scraping prohibition found. The limited licence remains for Authorised Users' non-commercial individual use; copying/transferring materials and use on another site or computer environment are restricted. Retain the owner's 2026-11-08 read-only rule for materially ambiguous terms: no forms, accounts, consent or payment; screenshots in-session only, never published. Generic destination searches verified in IT/PT/ES/CH/DE for 1 and 2 adults; nearby results are not proof of an in-city hotel. See docs/evidence/hotel.md. R4-02 browser checks on 2026-11-09 also verified the existing exact-date search in NL/BE/AT/CZ/FR/GB. Savognin, Grindelwald, Sierre and Seville returned distant properties only; this is executable search coverage, not in-city inventory or READY evidence.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -162,9 +285,21 @@
         {
           "kind": "hotel",
           "mode": "hotel",
-          "destination_countries": ["IT", "PT", "ES", "CH", "DE"],
+          "destination_countries": [
+            "IT",
+            "PT",
+            "ES",
+            "CH",
+            "DE",
+            "NL",
+            "BE",
+            "AT",
+            "CZ",
+            "FR",
+            "GB"
+          ],
           "url_template": "https://www.ihg.com/hotels/gb/en/find-hotels/hotel/list?qDest={city_query}%2C%20{country}&qCiD={arrival_day}&qCiMy={arrival_monthyear0}&qCoD={departure_day}&qCoMy={departure_monthyear0}&qAdlt={travelers}&qChld=0&qRms=1",
-          "success_evidence": "IHG redirects to hotel-search on www.ihg.com. The rendered destination, DD/MM/YYYY dates and Rooms & Guests must match the confirmed trip (month-year URL values are zero-based). Observed 2026-11-09: priced hotel results for Milan, Lisbon, Valencia, Zurich and Geneva with 1 and 2 adults, 2027-01-09..11. Lausanne and Freiburg queries returned only distant hotels: verify the hotel's actual city, not just the search field; do not substitute Geneva or Ringsheim for the confirmed city. Results and From nightly prices alone are not ready: only a selected room AND rate showing the exact stay, party and stay total before guest data can qualify.",
+          "success_evidence": "IHG redirects to hotel-search on www.ihg.com. The rendered destination, DD/MM/YYYY dates and Rooms & Guests must match the confirmed trip (month-year URL values are zero-based). Observed 2026-11-09: priced hotel results for Milan, Lisbon, Valencia, Zurich and Geneva with 1 and 2 adults, 2027-01-09..11. Lausanne and Freiburg queries returned only distant hotels: verify the hotel's actual city, not just the search field; do not substitute Geneva or Ringsheim for the confirmed city. Results and From nightly prices alone are not ready: only a selected room AND rate showing the exact stay, party and stay total before guest data can qualify. READY boundary: Add Extras / select-enhance-stay review page after selecting room AND rate, showing hotel in the confirmed city, exact check-in/check-out dates, party and full-stay total. STOP there and report READY immediately, before guest details or any form submission. This boundary comes from prior R3 navigation, not a newly observed selected-room success.",
           "blocked_evidence": "Observed empty/error search text: 0 Hotel Found. An error has occurred. Please contact your nearest reservation office and a representative will be able to assist you. Treat as blocked, not proof of sold-out inventory. Also block on no hotel in the confirmed city, Your search results contain properties in neighboring countries/regions without a matching city hotel, mismatched dates/party, login, captcha, consent acceptance, form submission, unreviewed redirect or guest details."
         },
         {
@@ -187,7 +322,7 @@
               "place_code": "6C"
             }
           },
-          "success_evidence": "IHG rates page for the hotel shows the exact check-in/check-out dates (IHG encodes months zero-based in the URL; verify the rendered dates, not the URL), the adults count, and a selected room AND rate with the stay total (observed 2026-11-08: 8 room options for Holiday Inn Lisbon 13-15 March 2027).",
+          "success_evidence": "IHG rates page for the hotel shows the exact check-in/check-out dates (IHG encodes months zero-based in the URL; verify the rendered dates, not the URL), the adults count, and a selected room AND rate with the stay total (observed 2026-11-08: 8 room options for Holiday Inn Lisbon 13-15 March 2027). READY boundary: Add Extras / select-enhance-stay review page after selecting room AND rate, showing hotel in the confirmed city, exact check-in/check-out dates, party and full-stay total. STOP there and report READY immediately, before guest details or any form submission. This boundary comes from prior R3 navigation, not a newly observed selected-room success.",
           "blocked_evidence": "Rendered dates are one month off or otherwise differ (date_mismatch), no availability, IHG One Rewards sign-in required to see the rate, captcha, or the next step is guest details."
         }
       ]
@@ -615,10 +750,10 @@
       "terms_urls": [
         "https://www.trenitalia.com/it/informazioni/termini-e-condizioni-di-utilizzo-sito-trenitalia.html"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Proprietà intellettuale; Utilizzo del Sito. Divieti.",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Italian website terms. Reproduction/download and commercial-use restrictions; no express robot/scraping clause found.",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Utilizzo del Sito. Divieti; intellectual property",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Italian website terms. Reproduction/download and commercial-use restrictions; no express robot/scraping clause found. R4-02 normal-browser check 2026-11-09: Personal/non-commercial access and saving extracts allowed; copying/distribution restricted. No express robot prohibition found. No public round-trip dated party fare deep link verified. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -652,10 +787,10 @@
       "terms_urls": [
         "https://www.italotreno.com/en/copyright-legal-notes"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "7 Site Restrictions",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Copying/download and personal/non-commercial restrictions; no express automation clause found. Verbatim excerpts capped at 600 characters; full selected paragraphs retained in clause evidence.",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "3 Access; 7 Site Restrictions; 8 Copyright; 13 Links",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Copying/download and personal/non-commercial restrictions; no express automation clause found. Verbatim excerpts capped at 600 characters; full selected paragraphs retained in clause evidence. R4-02 normal-browser check 2026-11-09: Personal/non-commercial access only; copying/downloading restricted. No express robot prohibition found. Tested deep link retained dates but lost stations and did not show fares. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -681,10 +816,10 @@
       "terms_urls": [
         "https://www.sbb.ch/en/meta/legallines/legal-information.html"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Use of the SBB Websites",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Official footer legal-information page fetched. No explicit automation clause found here; copying/public/commercial use restricted.",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Restrictions on access; Use of SBB Websites",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Official footer legal-information page fetched. No explicit automation clause found here; copying/public/commercial use restricted. R4-02 normal-browser check 2026-11-09: Individual pages may be saved; public/commercial reuse requires consent. No express robot prohibition found. Tested link did not show a round-trip fare list with party. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -735,10 +870,10 @@
       "terms_urls": [
         "https://grupo.renfe.com/es/es/informacion-legal/renfe---operadora/nuestra-web"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Propiedad intelectual e industrial",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Official Renfe legal notice. Reproduction/reuse restriction, no express automation clause found.",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Nuestra web: intellectual property and use",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Official Renfe legal notice. Reproduction/reuse restriction, no express automation clause found. R4-02 normal-browser check 2026-11-09: Content use/reproduction restricted except authorized or contracted service use. No express robot prohibition found. Tested route returned page unavailable; no executable adapter. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -984,7 +1119,7 @@
               "origin_iata": "BRU"
             }
           },
-          "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping.",
+          "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping. READY boundary: stop immediately on fare selection with both legs selected, exact dates and party and full round-trip total visible, before passenger details; never continue to passenger forms.",
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
         },
         {
@@ -1027,7 +1162,7 @@
               "origin_iata": "LYS"
             }
           },
-          "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping. Lyon's January 11 return had no flights for all three destinations: report no_inventory, not ready.",
+          "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping. Lyon's January 11 return had no flights for all three destinations: report no_inventory, not ready. READY boundary: stop immediately on fare selection with both legs selected, exact dates and party and full round-trip total visible, before passenger details; never continue to passenger forms.",
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
         },
         {
@@ -1072,7 +1207,7 @@
               "origin_iata": "GVA"
             }
           },
-          "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping.",
+          "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping. READY boundary: stop immediately on fare selection with both legs selected, exact dates and party and full round-trip total visible, before passenger details; never continue to passenger forms.",
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
         },
         {
@@ -1111,7 +1246,154 @@
               "origin_iata": "BRU"
             }
           },
-          "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping. BSL is Basel EuroAirport, an explicitly reviewed airport-only fallback for Freiburg, not a flight to Freiburg city or an included onward ground transfer. Brussels-Basel January 9 had no outbound flights; January 11 listed return fares. Report no_inventory for that stay, not a prepared round trip.",
+          "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping. BSL is Basel EuroAirport, an explicitly reviewed airport-only fallback for Freiburg, not a flight to Freiburg city or an included onward ground transfer. Brussels-Basel January 9 had no outbound flights; January 11 listed return fares. Report no_inventory for that stay, not a prepared round trip. READY boundary: stop immediately on fare selection with both legs selected, exact dates and party and full round-trip total visible, before passenger details; never continue to passenger forms.",
+          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
+        },
+        {
+          "kind": "transport",
+          "mode": "flight",
+          "destination_countries": [
+            "ES",
+            "IT"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd={arrival_date}&rd={departure_date}&adt={travelers}&chd=0&inf=0&c=en-GB&cur=EUR",
+          "places": {
+            "barcelona": {
+              "iata": "BCN"
+            },
+            "barcelone": {
+              "iata": "BCN"
+            },
+            "seville": {
+              "iata": "SVQ"
+            },
+            "sevilla": {
+              "iata": "SVQ"
+            },
+            "rome": {
+              "iata": "FCO"
+            },
+            "roma": {
+              "iata": "FCO"
+            },
+            "madrid": {
+              "iata": "MAD"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_iata": "ORY"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: /booking/selectFlight rendered both route headers, Return with 1 Adult, active Sat 9 Jan and Mon 11 Jan 2027 tabs and public EUR fares. This list is NOT READY. READY only on the fare-selection page with outbound AND return selected, exact dates, arrival by the requested arrival_date, party, fare and full-party round-trip total visible. STOP and report READY immediately before passenger details, personal data, consent, form submission or payment; this selected state was not observed in this research.",
+          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
+        },
+        {
+          "kind": "transport",
+          "mode": "flight",
+          "destination_countries": [
+            "CH"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd={arrival_date}&rd={departure_date}&adt={travelers}&chd=0&inf=0&c=en-GB&cur=EUR",
+          "places": {
+            "geneva": {
+              "iata": "GVA"
+            },
+            "genève": {
+              "iata": "GVA"
+            },
+            "genf": {
+              "iata": "GVA"
+            },
+            "ginevra": {
+              "iata": "GVA"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_iata": "CDG"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: /booking/selectFlight rendered both route headers, Return with 1 Adult, active Sat 9 Jan and Mon 11 Jan 2027 tabs and public EUR fares. This list is NOT READY. READY only on the fare-selection page with outbound AND return selected, exact dates, arrival by the requested arrival_date, party, fare and full-party round-trip total visible. STOP and report READY immediately before passenger details, personal data, consent, form submission or payment; this selected state was not observed in this research.",
+          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
+        },
+        {
+          "kind": "transport",
+          "mode": "flight",
+          "destination_countries": [
+            "ES"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd={arrival_date}&rd={departure_date}&adt={travelers}&chd=0&inf=0&c=en-GB&cur=EUR",
+          "places": {
+            "barcelona": {
+              "iata": "BCN"
+            },
+            "barcelone": {
+              "iata": "BCN"
+            }
+          },
+          "origin_places": {
+            "lyon": {
+              "origin_iata": "LYS"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: /booking/selectFlight rendered both route headers, Return with 1 Adult, active Sat 9 Jan and Mon 11 Jan 2027 tabs and public EUR fares. This list is NOT READY. READY only on the fare-selection page with outbound AND return selected, exact dates, arrival by the requested arrival_date, party, fare and full-party round-trip total visible. STOP and report READY immediately before passenger details, personal data, consent, form submission or payment; this selected state was not observed in this research.",
+          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
+        },
+        {
+          "kind": "transport",
+          "mode": "flight",
+          "destination_countries": [
+            "ES"
+          ],
+          "origin_countries": [
+            "CH"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd={arrival_date}&rd={departure_date}&adt={travelers}&chd=0&inf=0&c=en-GB&cur=EUR",
+          "places": {
+            "barcelona": {
+              "iata": "BCN"
+            },
+            "barcelone": {
+              "iata": "BCN"
+            }
+          },
+          "origin_places": {
+            "genève": {
+              "origin_iata": "GVA"
+            },
+            "geneva": {
+              "origin_iata": "GVA"
+            },
+            "genf": {
+              "origin_iata": "GVA"
+            },
+            "ginevra": {
+              "origin_iata": "GVA"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: /booking/selectFlight rendered both route headers, Return with 1 Adult, active Sat 9 Jan and Mon 11 Jan 2027 tabs and public EUR fares. This list is NOT READY. READY only on the fare-selection page with outbound AND return selected, exact dates, arrival by the requested arrival_date, party, fare and full-party round-trip total visible. STOP and report READY immediately before passenger details, personal data, consent, form submission or payment; this selected state was not observed in this research.",
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
         }
       ]
@@ -1728,10 +2010,10 @@
       "terms_urls": [
         "https://www.radissonhotels.com/en-us/site-usage"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Use of Site / Contents",
-      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. curl empty/blocked; browser terms fetched without captcha. Single lawful personal non-commercial copy allowed, preserving notices; no express automation prohibition found. Other-website/networked-use restriction remains. Deep-link: Indexed property availability link: /en-us/hotels/radisson-c",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Site usage; contents and prohibited use",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. curl empty/blocked; browser terms fetched without captcha. Single lawful personal non-commercial copy allowed, preserving notices; no express automation prohibition found. Other-website/networked-use restriction remains. Deep-link: Indexed property availability link: /en-us/hotels/radisson-c R4-02 normal-browser check 2026-11-09: Content copying/commercial reuse and damaging access restricted; no express robot prohibition found. Tested exact-date search returned not-found/search UI, no verified rate list. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -1757,10 +2039,10 @@
       "terms_urls": [
         "https://www.barcelo.com/en-us/general-information/legal-notice/"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Intellectual and industrial property",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha observed. No explicit automation ban found, but prior-authorization wording makes copying/screenshot suitability unclear. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Industrial and intellectual property",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha observed. No explicit automation ban found, but prior-authorization wording makes copying/screenshot suitability unclear. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted. R4-02 normal-browser check 2026-11-09: Content use/exploitation requires prior authorization; no express robot prohibition found. Tested booking URL returned 404; no adapter. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -1797,7 +2079,7 @@
       "reviewed_at": "2026-11-08",
       "expires_at": "2027-02-06",
       "reviewed_sections": "Disclaimer (Benelux); Intellectual property",
-      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. No captcha on fetched regional documents. Benelux disclaimer prohibits public-place use without permission, not private screenshots expressly. UK disclaimer also read. NOT a blanket finding for every Leonardo region; personal copying is not affirmatively licensed. Deep-link: Not found: no co",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. No captcha on fetched regional documents. Benelux disclaimer prohibits public-place use without permission, not private screenshots expressly. UK disclaimer also read. NOT a blanket finding for every Leonardo region; personal copying is not affirmatively licensed. Deep-link: Not found: no co R4-02 2026-11-09: the linked PDF yielded no readable browser legal text; /terms was also checked but did not establish a complete current authorization review. No review renewal or adapter: Amsterdam query rendered default November dates/2 guests instead of requested January dates/1 adult.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -1898,10 +2180,10 @@
       "terms_urls": [
         "https://www.meininger-hotels.com/en/imprint/"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Disclaimer & imprint §3 Copyright and trademark rights",
-      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. No captcha observed. Restricts reproduction/use in other electronic or print publications; private in-session screenshots are not expressly mentioned or affirmatively licensed. Deep-link: Official homepage href: https://book.meininger-hotels.com/deep-links?step=stay&hotel=AMS-OP&lang=en (hot",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Imprint; 3 Copyright and trademark rights",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. No captcha observed. Restricts reproduction/use in other electronic or print publications; private in-session screenshots are not expressly mentioned or affirmatively licensed. Deep-link: Official homepage href: https://book.meininger-hotels.com/deep-links?step=stay&hotel=AMS-OP&lang=en (hot R4-02 normal-browser check 2026-11-09: Copyright remains reserved; no express robot prohibition found. Booking link redirected too many times; no adapter. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -2010,10 +2292,10 @@
       "terms_urls": [
         "https://www.scandichotels.com/en/customer-service/policies/website-terms"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "2.2 Copyright",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha observed. No automation clause found, but exception is printing only; other copying needs written permission, so screenshots not cleared. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "2 Intellectual property; 6 Automatically gathered information",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha observed. No automation clause found, but exception is printing only; other copying needs written permission, so screenshots not cleared. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted. R4-02 normal-browser check 2026-11-09: Only printing individual pages allowed; other copying requires written permission. No express robot prohibition found. Tested booking URL returned not-found/default dates; no adapter. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -2122,10 +2404,10 @@
       "terms_urls": [
         "https://www.h10hotels.com/en/legal-notice"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Legal notice: Intellectual and industrial property",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. Official browser HTML contained JSON-encoded legal text, decoded verbatim. No captcha. Broad reproduction ban plus private documentary-use exception leaves result screenshots unclear. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No for",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Legal notice; intellectual and industrial property",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. Official browser HTML contained JSON-encoded legal text, decoded verbatim. No captcha. Broad reproduction ban plus private documentary-use exception leaves result screenshots unclear. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No for R4-02 normal-browser check 2026-11-09: Rights remain reserved and unlawful use restricted; no express robot prohibition found. Tested booking URL returned 404; no adapter. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -2209,10 +2491,10 @@
       "terms_urls": [
         "https://www.cataloniahotels.com/en/legal/disclaimer"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Legal disclaimer: Intellectual and industrial property",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha observed. Personal/private use stated but reproduction rights expressly withheld absent written consent; screenshot exception unclear. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted. Quo",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Disclaimer; 3 Intellectual and industrial property",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha observed. Personal/private use stated but reproduction rights expressly withheld absent written consent; screenshot exception unclear. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted. Quo R4-02 normal-browser check 2026-11-09: Personal/private use only; commercial hyperlinks require prior consent. No express robot prohibition found, but commercial deep-link authorization remains unresolved. No adapter: tested search showed login/cookie UI, not verified rates. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -2300,10 +2582,10 @@
       "terms_urls": [
         "https://www.belgiantrain.be/en/support/customer-service/copyright-declaration"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Copyright Statement",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. curl robot-verification wall; browser copyright notice fetched without solving challenge. Broad reproduction prohibition, no personal screenshot exception found. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no conse",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Copyright statement",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. curl robot-verification wall; browser copyright notice fetched without solving challenge. Broad reproduction prohibition, no personal screenshot exception found. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no conse R4-02 normal-browser check 2026-11-09: Use/reproduction/display requires written permission. No express robot prohibition found in the checked notice. Booking host showed a robot challenge; no adapter. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -2329,15 +2611,48 @@
       "terms_urls": [
         "https://www.nsinternational.com/en/disclaimer-ns"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Disclaimer NS: Copyright",
-      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. No captcha observed. Copyright ownership asserted; no express automation or copying prohibition in this website disclaimer. Booking-conditions index also reviewed; this is not affirmative screenshot permission. Deep-link: Official homepage href /nl/treintickets-v3/#/to/FRPNO (destination sta",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Disclaimer: information, availability, copyright, links and transport conditions",
+      "justification": "Normal Chrome reread 2026-11-09: the public disclaimer reserves copyright, disclaims accuracy/availability and references transport conditions; no express robot/automation prohibition found in that page. This is not express contractual authorization. Retain the existing owner's read-only rule, no forms/accounts/consent/payment; screenshots in-session only. Paris Gare du Nord to Amsterdam Centraal public fares verified with January 9-11 2027 and one adult. Den Haag uses that explicitly labelled gateway only, with no onward transfer included. A direct Den Haag guessed code reset to blank search and is not wired.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
       "registration_observations": [],
-      "adapters": []
+      "adapters": [
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "NL"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.nsinternational.com/en/traintickets-v3/#/search/{origin_station_code}/{station_code}/{arrival_ymd}?pax=A&inboundDate={departure_ymd}",
+          "places": {
+            "amsterdam": {
+              "station_code": "NLASC",
+              "station_name": "Amsterdam Centraal"
+            },
+            "den haag": {
+              "station_code": "NLASC",
+              "via": "Amsterdam Centraal (onward Den Haag transfer not included)"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_station_code": "FRPNO",
+              "origin_station_name": "Paris Gare du Nord"
+            }
+          },
+          "success_evidence": "Observed 2026-11-09: Paris Gare du Nord to Amsterdam Central, Sat 09 Jan / Mon 11 Jan 2027, 1 Adult (26-59 years), outbound train times and public EUR prices on NS International. Only this one-adult default age category is reviewed; stop if it does not match the traveler. For Den Haag, reviewed Amsterdam Centraal is the arrival gateway: READY covers the selected round trip to/from that gateway. The onward local transfer is out of scope and must be mentioned in the final report, never claimed as booked or included. Never substitute a non-reviewed gateway or replace expected.city. The unchanged hclient city verifier currently rejects Amsterdam-only city evidence for expected.city Den Haag; never fabricate Den Haag evidence to pass it. READY boundary is the NS journey/fare review after selecting outward AND return, with both routes/dates, party and full round-trip fare visible, before opening passenger details. STOP and report READY immediately there. That selected return/review state was not observed; unselected outbound fares and EUR 0.00 are not READY.",
+          "blocked_evidence": "Block blank search, reset/stale route, missing or wrong dates/party, no connections/fares, sales horizon, unmatched age category, non-reviewed gateway, login, captcha, consent or any required form submission. A prohibited carrier host redirect is never allowed even if that carrier is named on an NS fare."
+        }
+      ]
     },
     {
       "id": "ouigo-france",
@@ -2358,10 +2673,10 @@
       "terms_urls": [
         "https://www.ouigo.com/infos-legales"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Crédits et droits de reproduction",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha wall on legal fetch. Personal site use allowed but copying/reproduction requires permission; Wi-Fi portal terms were not substituted. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Credits and reproduction; 5 Propriete intellectuelle",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha wall on legal fetch. Personal site use allowed but copying/reproduction requires permission; Wi-Fi portal terms were not substituted. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted. R4-02 normal-browser check 2026-11-09: Copying/reuse and unauthorized downloading restricted. No express robot prohibition found. No exact-date party fare list verified; no adapter. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -2387,10 +2702,10 @@
       "terms_urls": [
         "https://www.ouigo.com/es/informacion-legal"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Información legal: propiedad intelectual",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha observed; actual website legal notice, not app conditions. Copying for any purpose requires authorization. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Informacion legal: intellectual property and use",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. No captcha observed; actual website legal notice, not app conditions. Copying for any purpose requires authorization. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted. R4-02 normal-browser check 2026-11-09: Copying restricted and third-party profit-making use excluded. No express robot prohibition found. Deep links showed route/date/party shell but remained Cargando without fares; no adapter. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -2441,10 +2756,10 @@
       "terms_urls": [
         "https://www.alsa.com/en/legal-notice"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Industrial and Intellectual Property Rights",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. curl entered queue/waiting redirect; browser legal text fetched, cookie banner untouched. No specific automation clause found, but copying/reproduction requires written authorization. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No for",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Legal notice; intellectual property",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. curl entered queue/waiting redirect; browser legal text fetched, cookie banner untouched. No specific automation clause found, but copying/reproduction requires written authorization. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No for R4-02 normal-browser check 2026-11-09: Use and copyright restrictions remain; no express robot prohibition found. No verified public dated round-trip party fare list; no adapter. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -2470,10 +2785,10 @@
       "terms_urls": [
         "https://www.swiss.com/ch/en/terms-conditions/copyright"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
       "reviewed_sections": "Copyright information",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. curl 403; browser official copyright page fetched. Use/duplication/reproduction require express written consent; no personal-copy exception found. Separate general site-use terms not located. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. curl 403; browser official copyright page fetched. Use/duplication/reproduction require express written consent; no personal-copy exception found. Separate general site-use terms not located. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs R4-02 normal-browser check 2026-11-09: Content may not be used, duplicated or reproduced without written consent; no express robot prohibition in checked page. Tested booking link did not show a verified dated party fare list; no adapter. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -2576,8 +2891,8 @@
       ],
       "reviewed_at": "2026-11-08",
       "expires_at": "2027-02-06",
-      "reviewed_sections": "Copyright and Trademark Notice / website use terms",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. curl 403; browser combined conditions page includes website terms. Personal non-commercial use but express copying/reproduction ban; no screenshot exception found. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no con",
+      "reviewed_sections": "Conditions and notices (carriage, not complete website-use terms)",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. curl 403; browser combined conditions page includes website terms. Personal non-commercial use but express copying/reproduction ban; no screenshot exception found. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no con R4-02 normal-browser check 2026-11-09: Current page mainly contains carriage conditions; a complete website-automation authorization review could not be established. No adapter; this observation does not renew the prior authorization. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -2628,10 +2943,10 @@
       "terms_urls": [
         "https://www.volotea.com/en/legal-conditions/terms-of-use/"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Intellectual property / website content",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. curl 403; browser fetched. No express automation clause found, but content use/reproduction requires prior written consent. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted.",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Terms of use; Industrial Property; Intellectual Property",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Pass 2. curl 403; browser fetched. No express automation clause found, but content use/reproduction requires prior written consent. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/docs. No forms submitted; no consent accepted. R4-02 normal-browser check 2026-11-09: Reuse and non-permitted use restricted; no express robot prohibition found. No dated round-trip party fare list verified; no adapter. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -2657,10 +2972,10 @@
       "terms_urls": [
         "https://www.iberia.com/us/informacion-legal/"
       ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Propiedad Intelectual e Industrial",
-      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. curl 403; browser HTML contains full collapsed accordion text. Private non-commercial download expressly allowed; public/commercial reproduction prohibited. No express automation clause found. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/doc",
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Informacion legal: responsibility and intellectual property",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. curl 403; browser HTML contains full collapsed accordion text. Private non-commercial download expressly allowed; public/commercial reproduction prohibited. No express automation clause found. Deep-link: Not found: no complete destination+dates+party result URL verified from public links/doc R4-02 normal-browser check 2026-11-09: Copyright and non-permitted use restrictions remain; no express robot prohibition found in inspected content. No dated round-trip party fare list verified; no adapter. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -2688,8 +3003,8 @@
       ],
       "reviewed_at": "2026-11-08",
       "expires_at": "2027-02-06",
-      "reviewed_sections": "Terms of Use: Internet bookings; Conditions of Carriage",
-      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. No captcha on small modal terms document. No automation/content-copying clause located in fetched website terms; no affirmative screenshot license. Scope is the internet-booking terms, not every linked ancillary policy. Deep-link: Not found: no complete destination+dates+party result URL ver",
+      "reviewed_sections": "Terms of use modal",
+      "justification": "No automation or copying clause found in the reviewed document. Absence is not explicit permission and per-event terms were not all reviewed; allowed read-only (no forms, accounts, consent or payment; screenshots in-session only) by owner decision of 2026-11-08 for the reviewed hosts only, not for organizer sites or other platforms. Note: Pass 2. No captcha on small modal terms document. No automation/content-copying clause located in fetched website terms; no affirmative screenshot license. Scope is the internet-booking terms, not every linked ancillary policy. Deep-link: Not found: no complete destination+dates+party result URL ver R4-02 normal-browser check 2026-11-09: Rendered only the booking facility availability statement, not a complete current website-automation review. No adapter; this observation does not renew prior authorization. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],

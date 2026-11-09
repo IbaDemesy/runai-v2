@@ -83,7 +83,7 @@ def _observation(raw: Any) -> dict[str, Any]:
 _DATE_VARIANTS = ("dmy_slash", "dmy_dot", "day", "monthyear0", "ymd", "dmy_dash", "mdy_slash")
 _PLACE_FIELDS = frozenset({
     "place_id", "place_code", "place_name", "place_country", "place_extra",
-    "city_query", "iata", "station_code", "station_name",
+    "city_query", "iata", "station_code", "station_name", "via",
 })
 _ORIGIN_FIELDS = frozenset({
     "origin_place_id", "origin_place_code", "origin_city_query", "origin_iata",
@@ -490,6 +490,8 @@ _CITY_COUNTRIES = {
     "nantes": "FR", "montpellier": "FR", "rotterdam": "NL", "salzburg": "AT",
     "innsbruck": "AT", "prague": "CZ", "budapest": "HU", "copenhagen": "DK",
     "dublin": "IE", "athens": "GR",
+    "den haag": "NL", "savognin": "CH", "grindelwald": "CH", "sierre": "CH",
+    "birmingham": "GB",
 }
 
 
@@ -578,6 +580,17 @@ def select_adapter(
     today: date | None = None, registry: Any = None, modes: Sequence[str] | None = None,
 ) -> tuple[dict[str, Any], str, dict[str, Any]]:
     """First reviewed deep-link adapter whose filled URL passes evaluate_url, else ValueError."""
+    return select_adapters(
+        kind, expected, origin_country=origin_country, today=today, registry=registry,
+        modes=modes,
+    )[0]
+
+
+def select_adapters(
+    kind: str, expected: Mapping[str, Any], *, origin_country: str | None = None,
+    today: date | None = None, registry: Any = None, modes: Sequence[str] | None = None,
+) -> list[tuple[dict[str, Any], str, dict[str, Any]]]:
+    """Up to three ordered, distinct reviewed policies, including the primary choice."""
     destination = country_code(expected.get("country"))
     if destination is None:
         raise ValueError("unknown destination country")
@@ -586,11 +599,19 @@ def select_adapter(
     except (OSError, ValueError, TypeError) as exc:
         raise ValueError("site-policy registry unavailable or invalid") from exc
     reasons = []
+    selected = []
+    policies = set()
     for _, adapter, url, decision in _candidates(
         kind, expected, entries, origin_country=origin_country, today=today,
         registry=registry, modes=modes, reasons=reasons,
     ):
-        return adapter, url, decision
+        if decision["policy_id"] not in policies:
+            selected.append((adapter, url, decision))
+            policies.add(decision["policy_id"])
+        if len(selected) == 3:
+            break
+    if selected:
+        return selected
     detail = "; ".join(reasons) or "no reviewed adapter covers this route/destination"
     raise ValueError(f"no policy-reviewed {kind} site for this trip ({detail})")
 

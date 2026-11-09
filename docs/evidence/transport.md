@@ -231,3 +231,106 @@ The secret was supplied only through exec environment. No H session/share/trace 
 tokens, personal data or raw provider responses were retained. The task prohibited all
 forms, login, consent acceptance, booking, payment and personal data. No action trace
 was retained, and no claim of an independently audited safe stop is made. No retries.
+
+## R4-02 normal-Chrome research — 2026-11-09 (offline, no H)
+
+Terms checks are in site-policy.md; all 14 requested allowed-but-unwired IDs exist.
+No prohibited host was authorized. Public navigation and read-only inspection only;
+no search submissions, passenger details, consent acceptance, payment or captcha bypass.
+January trials use outbound 2027-01-09 / return 2027-01-11, one adult.
+
+### Vueling verified additions
+
+Pattern:
+`https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd=2027-01-09&rd=2027-01-11&adt=1&chd=0&inf=0&c=en-GB&cur=EUR`.
+
+The following rendered /booking/selectFlight with both route headers, Return • 1 Adult,
+active Sat 9 Jan and Mon 11 Jan tabs and public SELECT FLIGHT FOR EUR fares:
+ORY–BCN, ORY–SVQ, ORY–FCO, ORY–MAD, CDG–GVA, LYS–BCN, GVA–BCN.
+Examples: ORY–BCN EUR47 outbound / EUR33 return cards; LYS–BCN EUR42 / EUR34;
+GVA–BCN EUR37 / EUR84; CDG–GVA EUR328 / EUR98. These are unselected leg
+prices, NOT prepared round-trip totals or claims they fit the budget.
+New mappings are restricted to the verified origin/destination pairs and one adult.
+
+LYS–VLC, GVA–VLC, ORY–AMS, ORY–GVA and CDG–AMS reset to /booking/flightSearch
+with blank/stale dates rather than a verified exact-date list: NOT wired.
+CDG–BLQ showed both date tabs but no outbound flight on Jan 9 (return EUR103);
+not wired as a new fare-list adapter. Florence was not verified and not added.
+Use Paris CDG specifically for Geneva, ORY for the other new Paris routes.
+Existing Paris Milan/Lisbon/Valencia/Zurich mappings and prior reviewed origins remain.
+
+READY is the fare-selection page with outbound AND return selected, exact dates, party,
+fare and full round-trip total visible; STOP and report READY immediately before
+passenger details. This research verified lists, NOT that selected safe stop.
+No-flights date tabs, nearby dates, missing return, wrong arrival day, login, captcha,
+consent or a required form submission must block rather than become READY.
+
+### NS International: new reviewed rail deep link
+
+Verified:
+`https://www.nsinternational.com/en/traintickets-v3/#/search/FRPNO/NLASC/20270109?pax=A&inboundDate=20270111`.
+
+Rendered Paris Gare du Nord → Amsterdam Central, Sat 09 Jan / Mon 11 Jan, one Adult
+(26–59 years), outbound departures/arrivals and EUR fares (e.g. 07:23→10:50 EUR48,
+09:24→12:50 EUR41/EUR33). Return date appears in the search summary; a selected return
+and its fare were NOT observed. Default age category must match; otherwise block.
+pax=A encodes one adult, so traveler_counts=[1]; not a universal party-count mapping.
+Rail remains preferred before flight, using the existing mode ordering.
+
+Den Haag explicitly maps to this same reviewed Amsterdam Centraal gateway, with
+`via: Amsterdam Centraal (onward Den Haag transfer not included)`. expected.city stays
+Den Haag. Per the follow-up brief, READY covers the round trip to/from this reviewed
+gateway; the onward local transfer is out of scope and must be mentioned in the final
+report, never claimed as booked or included. Never substitute a non-reviewed gateway.
+H client's city verification is untouched and currently does NOT support this gateway
+semantics: Amsterdam-only page evidence cannot match expected.city Den Haag.
+
+The initial guessed NS format with both dates as path segments reset to blank search;
+using inboundDate in the fragment query fixed Amsterdam. A guessed NLGVC destination
+first appeared to retain Amsterdam due to SPA hash state; a fresh navigation disproved
+it and reset to blank search. Direct Den Haag code NOT added. No stale SPA state is
+counted as verification.
+
+NS-specific READY: journey/fare review after selecting BOTH outward and return,
+showing routes, exact dates, party and full round-trip price, before opening passenger
+details. STOP immediately there. That selected review was not observed; EUR0.00 and
+an unselected outbound list are NOT READY. Never follow a link to a prohibited carrier
+host, even when its name appears in an NS-sold train offer.
+
+### Unwired transport research / blockers
+
+| Policy | Public trial / discovery | Result |
+| --- | --- | --- |
+| trenitalia-com | www.trenitalia.com/en.html, inspect public booking links | Homepage/search controls, no verified dates+party round-trip fare deep link. Not wired. |
+| italotreno-com | biglietti.italotreno.com/en/booking/ricerca-treni?osc=Milano&dsc=Roma&jt=roundtrip&od=09%2F01%2F2027&id=11%2F01%2F2027&adt=1&yng=0&chd=0&snr=0&inf=0&pet=0&lang=en&startSearch=true | Redirect /booking/ricerca retained dates but no stations/fares. Not wired. |
+| sbb-ch | www.sbb.ch/en?date=2027-01-09&moment=DEPARTURE&stops=[{"value":"Zürich HB"},{"value":"Grindelwald"}] (URL-encoded) | Homepage timetable UI, no applied-date round-trip fare list/party. No domestic Swiss adapter. |
+| renfe-com | /es/en homepage and /es/en/viajar/prepara-tu-viaje/billetes-ave-y-larga-distancia | Latter unavailable/404; no dated party fare link verified. Not wired. |
+| ouigo-france | www.ouigo.com/ and public links | Root redirected /es/; no verified French dated party fare link. Not wired. |
+| ouigo-espana | ventas.ouigo.com/es-ES/_deeplink/journey-search?target=calendar&origin=7117000&destination=7161200&outboundDate=2027-01-09&inboundDate=2027-01-11&passengers[0][type]=A&passengers[0][disability_type]=NH; also Madrid–Barcelona trial | Dates/one traveler/route shell rendered, but remained Cargando without fares; one guessed destination was Murcia, not intended city. Neither wired. |
+| sncb-nmbs | www.belgiantrain.be/en | “We need to verify that you are not a robot.” Stopped, no bypass, no adapter. |
+| alsa-com | /en/web/bus/home → /en/, public link discovery | Homepage/cookie UI; no verified dated party round-trip deep link. Not wired. |
+| swiss-com | /booking/flight-search?tripType=R&flight1=PAR.GVA.2027-01-09&flight2=GVA.PAR.2027-01-11&adults=1 | “The requested page could not be found”; homepage also inspected. No adapter. |
+| volotea-com | /en/, public link discovery | No verified dated party fare link; not wired. No exact-date fare-list trial established. |
+| iberia-com | /us/, public link discovery | No verified dated party fare link; not wired. No exact-date fare-list trial established. |
+| aegean | en.aegeanair.com/, public link discovery | No verified dated party fare link; incomplete website-use terms review. Not wired. |
+| aerlingus-com | /html/en-US/home.html, public link discovery | No verified dated party fare link; incomplete current terms response. Not wired. |
+
+No domestic Spain/Italy adapter was added: public searches above did not establish
+a trustworthy round-trip fare list with dates and party. Zurich/Geneva to Savognin,
+Grindelwald and Sierre remain blocked with no reviewed route. This is an explicit
+gap, not an airport fallback or invented nearest-station mapping. Lyon/Genève to
+Valencia likewise remain blocked, while Barcelona works. ÖBB/bahn.de were not
+retested this handoff; previous Cloudflare/Access Denied evidence is not new evidence.
+
+### Follow-up verifier inspection — 2026-11-09
+
+Actual app path: app.prepare → providers.LiveRunner → agents.hclient.HAgentRunner.
+There is no runai/hclient.py. Two independent read-only integration limitations:
+1. _verified compares page city to expected.city. Controlled complete synthetic gateway
+   evidence fails for Den Haag but passes for Amsterdam with all other inputs equal.
+   This does not authorize inventing Den Haag page evidence or modifying expected.city.
+2. HAgentRunner cleans start_url with scrub_url, which drops the NS public search fragment:
+   `https://www.nsinternational.com/en/traintickets-v3/#/search/FRPNO/NLASC/20270115?pax=A&inboundDate=20270117`
+   becomes `https://www.nsinternational.com/en/traintickets-v3/`. The offline adapter and
+   policy checks do not prove that the live runner preserves routing. No hclient/scrub
+   edit was made; no form submission or unreviewed routing workaround is authorized.
