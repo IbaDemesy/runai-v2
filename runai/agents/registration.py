@@ -160,6 +160,12 @@ def _availability(raw: Any, entry_id: Any) -> dict[str, Any] | None:
     return result
 
 
+def _distance_matches(distance_km: Any, distances_km: list[float]) -> bool:
+    return type(distance_km) in (int, float) and 0 < distance_km < float("inf") and any(
+        abs(distance_km - observed) <= 0.15 for observed in distances_km
+    )
+
+
 def _fresh_status(
     adapter: Mapping[str, Any] | None, today: date, distance_km: Any,
 ) -> tuple[str, str | None]:
@@ -167,7 +173,9 @@ def _fresh_status(
     availability = adapter.get("availability") if adapter else None
     if not availability:
         return "unknown", None
-    if "distances_km" in availability and distance_km not in availability["distances_km"]:
+    if "distances_km" in availability and not _distance_matches(
+        distance_km, availability["distances_km"]
+    ):
         return "unknown", None
     age = (today - date.fromisoformat(availability["observed_at"])).days
     if not 0 <= age <= AVAILABILITY_MAX_AGE_DAYS:
@@ -271,7 +279,8 @@ def _matching(adapters, race: Mapping[str, Any]) -> list[dict[str, Any]]:
         a for a in adapters
         if name and any(p.search(name) for p in a["patterns"])
         and (a["countries"] is None or code in a["countries"])
-        and (a["distances_km"] is None or race.get("distance_km") in a["distances_km"])
+        and (a["distances_km"] is None or _distance_matches(
+            race.get("distance_km"), a["distances_km"]))
     ]
 
 

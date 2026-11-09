@@ -9,6 +9,7 @@ from test_site_policy import TODAY, registration_entry, registry
 from runai.agents import hclient, site_policy
 from runai.agents.registration import (
     NJUKO_CHECKPOINT,
+    _distance_matches,
     build_task,
     policy_view,
     registration_coverage,
@@ -762,3 +763,32 @@ def test_stoos_shell_is_not_a_personal_data_checkpoint_or_open_evidence():
     assert registration_coverage(trip["race"], today=MERGED_TODAY,
                                  registry=_merged())["status"] == "unknown"
     assert not _matches(task["checkpoint"]["url_patterns"], task["start_url"])
+
+
+def test_bologna_rounded_half_distance_has_fresh_open_coverage():
+    trip = _race_trip(*FRESH_OPEN_RACES[4])
+    trip["race"]["distance_km"] = 21.1
+    coverage = registration_coverage(trip["race"], today=date(2026, 11, 9), registry=_merged())
+    assert coverage["covered"] is True
+    assert coverage["status"] == "open"
+
+
+@pytest.mark.parametrize(("observed", "requested", "status"), [
+    (21.097, 21.1, "open"), (42.195, 42.2, "open"), (5, 10, "unknown"),
+])
+def test_distance_tolerance_in_adapter_matching_and_availability(observed, requested, status):
+    reg = _with_availability(distances_km=[observed])
+    reg["entries"][0]["adapters"][0]["race_match"]["distances_km"] = [observed]
+    coverage = _coverage(_trip(distance_km=requested)["race"], reg=reg)
+    assert coverage["covered"] is True
+    assert coverage["status"] == status
+
+
+@pytest.mark.parametrize("distance", [None, "21.1", True, 0, float("inf"), float("nan")])
+def test_distance_tolerance_rejects_invalid_distance(distance):
+    assert not _distance_matches(distance, [21.097])
+
+
+def test_distance_tolerance_does_not_match_empty_scope_or_different_race():
+    assert not _distance_matches(21.1, [])
+    assert not _distance_matches(10, [5])
