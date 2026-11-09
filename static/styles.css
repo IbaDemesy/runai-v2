@@ -261,7 +261,7 @@ dd { margin: 0; font-family: var(--display); font-size: 24px; line-height: 1.1; 
 .status[data-status='running'] { background: var(--orange-soft); color: var(--orange-ink); }
 .status[data-status='running']::before { content: '●'; margin-right: 6px; display: inline-block; animation: pulse 1.4s infinite; }
 .status[data-status='queued'] { background: #eeeef3; color: #4a4a55; }
-.status[data-status='queued']::before { content: '⏳'; margin-right: 5px; }
+.status[data-status='queued']::before { content: ''; display: inline-block; width: 10px; height: 10px; margin-right: 6px; border: 1.5px solid currentColor; border-radius: 50%; background: linear-gradient(currentColor, currentColor) 50% 25% / 1px 4px no-repeat; vertical-align: -1px; }
 .status[data-status='ready_for_payment'] { background: var(--green-soft); color: var(--green); }
 .status[data-status='ready_for_payment']::before { content: '✓ '; }
 .status[data-status='blocked'], .status[data-status='failed'], .status[data-status='cancelled'] { background: var(--amber-soft); color: var(--amber); }

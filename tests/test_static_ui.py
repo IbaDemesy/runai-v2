@@ -48,6 +48,7 @@ def test_svg_flags_and_live_stage_contract():
     assert "[data-view='coverage'] .agent-grid { display: none" not in CSS
     assert ".agent-grid .agent:last-child:nth-child(odd)" not in CSS
     assert "minmax(0, 1fr) 20px minmax(0, 1fr)" in CSS
+    assert "⏳" not in CSS
 
 
 DOM_HARNESS = r"""
