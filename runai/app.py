@@ -526,6 +526,8 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
         missions.pop(mission_id, None)
         states.pop(mission_id, None)
         guides.pop(mission_id, None)
+        locks.pop(mission_id, None)
+        generations.pop(mission_id, None)
         return Response(status_code=204)
 
     @app.post("/api/missions/{mission_id}/confirm", response_model=Mission, status_code=202)

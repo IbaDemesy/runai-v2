@@ -80,6 +80,26 @@ def test_delete_running_mission_cancels_all_agents_and_drops_profile():
         assert client.get(url).status_code == 404
 
 
+@pytest.mark.parametrize("background", [False, True])
+def test_delete_mission_clears_lock_and_generation_bookkeeping(background):
+    app = create_app(guide=StubGuide())
+    delete = next(route.endpoint for route in app.routes
+                  if getattr(route, "name", None) == "delete_mission")
+    private = getclosurevars(delete).nonlocals
+    with TestClient(app) as client:
+        for _ in range(3):
+            mission = client.post("/api/missions", json={"text": "race",
+                                                        "background": background}).json()
+            mission_id = mission["id"]
+            assert mission_id in private["locks"]
+            if background:
+                assert mission_id in private["generations"]
+            assert client.delete(f"/api/missions/{mission_id}").status_code == 204
+            assert mission_id not in private["locks"]
+            assert mission_id not in private["generations"]
+        assert not private["locks"] and not private["generations"]
+
+
 @pytest.mark.parametrize("profile", [
     {"email": "invalid"}, {"phone": "not a phone"}, {"birth_date": "1990-02-30"},
     {"birth_date": "19900101"}, {"nationality": "ZZ"}, {"nationality": "FRA"},
