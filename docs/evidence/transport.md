@@ -1032,3 +1032,434 @@ no additional H sessions were started and no old outcome was upgraded.
   alternative candidates passed exact P7 keys, complete expected fields, evaluate_url
   and the rebased hclient._policy. Existing coverage is unchanged:
   `{'covered': True, 'policy_ids': ['vueling-com']}` for Barcelona from Paris.
+
+## R7-02 — transport route render and selected checkpoints (2026-11-09)
+
+Owner-lifted `allowed_owner_rule` permits read/prepare-only research; it is not
+provider authorization or proof of checkout readiness. No private H URLs/IDs,
+screenshots, tokens or passenger values retained. Dates 2027-01-29 → 2027-01-31,
+one adult unless stated. Raw H research used one session at a time, checked quota
+before each, rejected cookies and deleted each session (HTTP204). Round two:
+18 completed sessions, maximum 11 actual steps; final quota active=0/available=3.
+Image-event counts are observations, not independently reviewed screenshots.
+
+| Route / site | H fares / steps | Observed result mode |
+|---|---|---|
+| Paris→Milan / Omio | yes / 5 (round one) | train, EUR99/EUR169 outbound |
+| Paris→Berlin / Omio | yes / 4 | train, EUR80/EUR89 |
+| Paris→Lisbon / Omio | yes / 5, plus 5 for flight tab | bus EUR60/EUR99; Ryanair BVA→LIS EUR48 outbound, round trip from EUR136 |
+| Paris→Zurich / Omio | yes / 6 | bus; Air France flight EUR70 outbound, round trip from EUR139 |
+| Paris→Madrid / Omio | yes / 4 | train EUR108/EUR116 |
+| Lyon→Milan / Omio | yes / 4 | train EUR78/EUR98 |
+| Brussels→Berlin / Omio | yes / 4 | train EUR70 |
+| Geneva→Barcelona / Omio | yes / 6 | bus; easyJet flight EUR41/EUR58 |
+| Paris→Milan, two adults / Omio | yes / 5 | UI showed 2 adults, EUR198/EUR338 versus one-adult EUR99/EUR169 |
+| Paris→The Hague / Omio | nearby only / 4 | train actually ends Rotterdam Centraal (+21km); NOT verified literal Hague coverage |
+| Paris→Milan / Google Flights | yes / 4 | round-trip lists EUR48/EUR49 |
+| Paris→Berlin / Google Flights | yes / 3 | round-trip lists EUR88/EUR89 |
+| PAR→LIS / Google Flights | yes / 2 | round-trip lists EUR136 Transavia / EUR159 TAP; IATA wording succeeds |
+| Paris→Valencia / Google Flights | yes / 3 (round one) | round-trip lists EUR45/EUR80 |
+| Geneva→Barcelona / Google Flights | yes / 2 | round-trip lists EUR68/EUR102 |
+| ORY→LIS / TAP | yes / 3 (round one) | outbound economy EUR87.47/EUR97.47 |
+| Paris→Berlin / corrected Trainline | no / 4 | error and temporary bot restriction; dropped |
+
+Omio public name-based entry:
+`https://www.omio.com/links/626fa8a9-f982-43d0-ace9-9a13f6b14612?departurePosTerm={origin}&arrivalPosTerm={destination}&departureDate={out_ISO}&returnDate={back_ISO}&adults={adults}`.
+The UUID is Omio's public published redirect identifier, not an H ID. All three
+mode tabs appeared. Results paths are
+`/app/search-frontend/results/{id}/train`, `/bus` or `/flight`.
+List prices are outbound or advertised round-trip-from prices, not selected totals.
+Airport substitutions such as Beauvais must be disclosed. The Hague is unverified;
+Den Haag Centraal is an untested next-probe search name. No Rotterdam gateway
+is approved by this change.
+
+| Deep flow | Observed paths in order | Selected total / safe stop |
+|---|---|---|
+| Omio Paris→Milan, 10 steps | `/app/search-frontend/results/{id}/train` → `/app/search-frontend/results/{id}/train/{id}/inbound` → `/app/search-frontend/journey/train/{id}/{id}/{id}/{id}` → `/app/search-frontend/booking/{id}/passenger-details` | EUR248 on Customise your trip (journey/train); EUR99 outbound + EUR149 return. Passenger page reached with no typing. |
+| Google Paris→Valencia, 5 steps | `/travel/flights` → `/travel/flights/search` → `/travel/flights/booking` | EUR45 selected round trip; stopped at booking options, no airline click-through. |
+| TAP ORY→LIS, 11 steps | `/booking/flights` through both selections → `/booking/review-your-trip` | EUR158.35 selected round trip; stopped at login/register or guest-continuation gate. Passenger path unobserved; login is not proven mandatory. |
+
+Only Omio **rail** summary shape is observed; bus/flight selected-summary shapes
+remain unverified. Its no-profile checkpoint is the selected journey prefix,
+never results or outbound-only inbound lists. Passenger prefill is opt-in,
+field-names-only P14 metadata; final post-prefill checkpoint remains `(?!)`
+until a permitted live probe observes it. No passenger values were entered in
+research. Google/TAP do not advertise prefill.
+
+Hosts observed: Omio **www.omio.com** only, including passenger page; Google
+**consent.google.com/m** (reject only) and **www.google.com**; TAP
+**booking.flytap.com**. Google selected search/booking query keys `tfs,tfu`;
+entry keys `hl,q`. No airline or booking-partner host was visited or authorized
+as a Google navigation target.
+
+New verified adapters are split by actual origin/destination observations.
+Paris→Brunnen/Stoos/Lucerne uses reviewed **Zurich gateway** evidence, excludes
+onward transfer and preserves race city. Google others and broad Omio inventory
+remain undated alternatives pending route probes. SBB/NS prior evidence remains
+unchanged. SBB must FIRST set 1 adult without reduction before reading fares;
+Top offers/travelcard/Half-Fare/GA purchase path tokens are blocked, ordinary
+`/en/offer` is not. Those purchase tokens are defensive boundaries, not new live
+path observations.
+
+Offline adapter construction does not establish product H READY or integrated
+live success. No product UI visual check or new H run was performed for code.
+
+## Round 3 — coverage closure and synthetic prefill probe (2026-11-09)
+
+Dates Jan29→Jan31 2027, 1 adult. **30 sequential H sessions**, quota before every
+creation (available3), DELETE HTTP204 after each; 29 render probes and one 23-step
+synthetic passenger probe. No screenshots downloaded/saved. All 29 render probes
+reported prices and matching dates/return/adult; these are priced result lists,
+NOT selected round-trip checkout evidence. H answer reports plus image-bearing
+event counts, not independently human-reviewed screenshots.
+
+Start URLs used the exact registry formatter `site_policy._candidates` that
+build_task uses (undated primary gaps initially cannot build_task). After dating,
+the same Omio start URLs are produced by build_task. Paris/Lyon initial Den Haag
+Centraal probes preceded the gateway change: Paris again priced Rotterdam only;
+Lyon showed Hague bus prices and nearby Amsterdam flights. Adopted explicit
+Rotterdam gateway uniformly and repeated Paris/Lyon against the exact Rotterdam
+start URL. Brussels/Geneva Hague probes already used that updated URL. The Hague
+race city stays unchanged; onward Rotterdam→The Hague transfer is excluded.
+
+Added Geneva→Zurich to establish the exact shared Zurich gateway URL. Also probed
+Paris→Amsterdam and Geneva→Milan on Omio so expanding adults1..4 does not rely
+on SBB/NS adapters that remain limited to one adult. Google fallback was not
+needed: every requested route had priced Omio results (Hague via disclosed gateway).
+
+| Route / run | Site | Priced results | Steps/images | Mode / examples |
+|---|---|---|---|---|
+| brussels-amsterdam | Omio | yes | 4/4 | Trains; €29/€62/€100 |
+| brussels-barcelona | Omio | yes | 4/4 | Buses; €41/€57/€26 |
+| brussels-lisbon | Omio | yes | 4/4 | Flights; €50/€99/€70 |
+| brussels-madrid | Omio | yes | 4/4 | Flights; €60/€74/€81 |
+| brussels-milan | Omio | yes | 6/6 | Flights; €56/€27/€37 |
+| brussels-the-hague | Omio | yes | 4/4 | Trains; €29/€90 |
+| brussels-valencia | Omio | yes | 5/5 | Flights; €75/€39/€78 |
+| brussels-zurich | Omio | yes | 4/4 | Trains; €156/€164 |
+| geneva-amsterdam | Omio | yes | 4/4 | Trains; €92/€85/€77 |
+| geneva-berlin | Omio | yes | 5/5 | Trains; €60/€51/€77 |
+| geneva-lisbon | Omio | yes | 4/4 | Flights; €64/€128/€67 |
+| geneva-madrid | Omio | yes | 5/5 | Flights; €39/€62/€46 |
+| geneva-milan | Omio | yes | 4/4 | Buses; €22/€29 |
+| geneva-the-hague | Omio | yes | 8/8 | Trains; €92/€77/€85 |
+| geneva-valencia | Omio | yes | 4/4 | Buses; €51/€62/€79 |
+| geneva-zurich | Omio | yes | 5/5 | Trains (initially), Flights (checked); €61/€119/€164 |
+| lyon-amsterdam | Omio | yes | 6/6 | Flights; selected EUR264 |
+| lyon-barcelona | Omio | yes | 4/4 | Trains; €65/€24/€42 |
+| lyon-berlin | Omio | yes | 6/6 | Flights; €49/€57/€167 |
+| lyon-lisbon | Omio | yes | 5/5 | Flights; €62/€63/€70 |
+| lyon-madrid | Omio | yes | 6/6 | Flights; €39/€63/€66 |
+| lyon-rotterdam | Omio | yes | 4/4 | Trains; €99/€107 |
+| lyon-the-hague | Omio | yes | 6/6 | Flights; €48/€54/€126 |
+| lyon-valencia | Omio | yes | 5/5 | Trains; €59/€67 |
+| lyon-zurich | Omio | yes | 5/5 | Buses; €36/€46/€87 |
+| paris-amsterdam | Omio | yes | 6/6 | Flights; €33/€37/€27 |
+| paris-barcelona | Omio | yes | 4/4 | Trains; €69/€31/€40 |
+| paris-rotterdam | Omio | yes | 4/4 | Trains; €33/€26/€86 |
+| paris-the-hague | Omio | yes | 6/6 | Trains; €33/€44/€37 |
+| prefill | Omio | yes | 23/23 | deep passenger flow; selected EUR264 |
+
+### Prefill path result: final sentinel retained
+
+Observed sequence, all www.omio.com, IDs scrubbed:
+1. `/app/search-frontend/results/{id}/train`
+2. `/app/search-frontend/results/{id}/train/{id}/inbound`
+3. `/app/search-frontend/journey/train/{id}/{id}/{id}/{id}`
+4. `/app/search-frontend/booking/{id}/passenger-details` — final observed page.
+
+Selected round-trip total EUR264. Required fields reported: given name, family
+name, email, phone, **birth date**, **country/region of residence**. Optional:
+loyalty-card type/number. H reported entering only the five authorized synthetic
+identity fields (names, email, phone, birth date); country was not supplied in
+the authorized identity. No real personal values, final submission or purchase
+was permitted. Do not retain synthetic values in evidence.
+
+**No post-passenger page observed.** H returned blocker=null but stopped on the
+passenger form after23 steps, rather than reaching extras/seats/insurance/payment/
+terms. This is an incomplete probe, NOT a successful final checkpoint or a
+confirmed login/captcha block. Country was reported required and not entered;
+whether that was the actual navigation blocker is unverified (no action audit
+retained). Do not infer any final path. Keep prefill url_patterns=`(?!)`, retain
+observed passenger prefill_patterns, add birth_date/country to authorized field
+names to reflect the reported required form. A future probe needs explicit
+authorization for a synthetic residence country before attempting continuation.
+
+### Safety and scope caveats
+
+H was instructed to reject cookies and never accept optional categories.
+Most reports say Deny All. Lyon→Berlin's cookie answer ambiguously calls
+performance/functional/analytics necessary while also claiming rejection; no
+action audit retained, so **that report does not independently establish safe
+cookie rejection**. Do not claim every cookie action was verified. Fare rendering
+itself was reported with actual numeric prices and matching dates.
+
+Geneva→Madrid flights suggested a cheaper **Lyon** departure as well as a genuine
+GVA→MAD EUR52 option; bus Geneva→Madrid EUR39 also rendered. Never substitute an
+unreviewed origin airport. Brussels flight results may include Charleroi/Bergamo;
+actual airports must be disclosed. No additional navigation hosts observed beyond
+www.omio.com. No captcha or login reported in these probes.
+
+Registry date covers only observed route sets, plus identical reviewed Zurich
+and Rotterdam gateway URLs. Omio verified for47/48 eval combinations; Paris→Valencia
+retains verified Google primary. No one-adult route gaps remain. All48 also build
+for adults1..4 after the explicitly requested expansion; this is NOT a claim that
+3/4 adults were independently live-probed. SBB/NS unchanged. Google plural query
+uses adult for1, adults for2..4. Unsupported counts remain blocked.
+
+# R7-02 final authorized live step — 2026-11-09
+
+## Synthetic passenger retry: no final checkpoint observed
+
+One quota-checked sequential raw H session; cleanup HTTP204. Paris→Milan,
+2027-01-29→31, one adult, up to45 steps. Actual37 steps,31 image-bearing
+observations. Only explicitly authorized synthetic passenger fields were permitted;
+no terms/newsletter/insurance/account choices or final submissions authorized.
+H reports Deny All and entering all six required field names: given name, family
+name, email, phone, birth date, country/region of residence. Additional newly
+authorized nationality/gender/address fields were not reported required or entered.
+No identity values are retained here.
+
+Observed public paths (www.omio.com; opaque IDs replaced):
+`/app/search-frontend/results/{id}/train` →
+`/app/search-frontend/results/{id}/train/{id}/inbound` →
+`/app/search-frontend/journey/train/{id}/{id}/{id}/{id}` →
+`/app/search-frontend/booking/{id}/passenger-details`.
+
+H returned total265.00 (currency not specified in its answer), blocker=null,
+final_page_type=passenger-details. **It again stopped on the passenger form,
+not on a post-passenger boundary.** All reported required fields were entered
+this time, so the earlier missing-country hypothesis does not explain this run.
+No login/captcha or other concrete blocker was reported. Actual reason for the
+premature completion is unknown; no complete action audit retained. Do not
+invent extras/payment paths. Omio prefill sentinel `(?!)` and six observed
+required field names remain unchanged. No successful P14 final checkpoint claim.
+
+## Product-pipeline acceptance: zero READY, core preflight blocker
+
+Real trip dict → transport.build_task → hclient._policy → unmodified
+HAgentRunner.run, no runner_profile, one adult, EUR800 budget, Jan29/31 travel
+and explicitly synthetic race-like Jan30 date (not a sourced real race).
+Original max_steps60 retained; automatic alternatives retained, not manually
+stripped or promoted. Routes invoked in requested order; Geneva→Barcelona added
+because fewer than two READY. These are actual runner outputs, not raw-probe
+success relabelled as pipeline success.
+
+| Route | Provider | Status | reason_code | Steps / frames | Stop host/path | Checkpoint matched | Total seen |
+|---|---|---|---|---|---|---|---|
+| Paris→Milan | Omio | failed | provider_error | 0 / 0 | none | no | none |
+| Paris→Berlin | Omio | failed | provider_error | 0 / 0 | none | no | none |
+| Paris→Lisbon | Omio | failed | provider_error | 0 / 0 | none | no | none |
+| Paris→Brunnen via Zurich | Omio | failed | provider_error | 0 / 0 | none | no | none |
+| Geneva→Barcelona | Omio | failed | provider_error | 0 / 0 | none | no | none |
+
+Every runner error: `Invalid H task or provider response`. **No pipeline H
+session was created**, so there were no provider steps/images/selected totals.
+The runner's preflight failed before the harness's quota-before-every-creation
+hook and POST. Explicit smoke-level quota on Geneva showed available3; the
+synthetic retry was quota-checked before creation. No overlapping owned sessions.
+
+### Verified causal chain, not an inferred provider failure
+
+- Actual builder outputs use Omio's published public /links/{public-affiliate-id}
+  URL. hclient._policy accepts every task. No profile metadata is involved.
+- Direct diagnostic: `scrub_url(task["start_url"]) is None`.
+- Disproof check: removing every query parameter still returns None, whereas
+  `https://www.omio.com/links` survives unchanged. Not a date/adult/query issue.
+- The public affiliate UUID matches scrub._OPAQUE_PATH and does not match
+  scrub._PUBLIC_SLUG. scrub_url's segment gate returns None before query parsing.
+- HAgentRunner._attempt computes clean_url(start_url), then its public-HTTPS
+  check raises ValueError for None **before POST /sessions**. Its ValueError
+  handler produces exactly the observed failed/provider_error message.
+- HAgentRunner.run retries alternatives only when status=blocked with selected
+  reason codes. Here status=failed, so the retained alternatives never execute.
+
+This verifies the core scrub/start-URL gate for these exact tasks; it is NOT an
+Omio inventory, consent, checkpoint, date, network or quota failure. No H request
+was made that could test those hypotheses. No same-input live retries or
+primary-ranking changes were used to manufacture success. Fix requires a narrow,
+reviewed public-link exception in hclient/scrub (outside this ticket's allowed
+files), and potentially separate public selected-path handling if opaque selected
+IDs are rejected later; that latter possibility has NOT been live-tested here.
+
+**Acceptance target >=2 verified READY is unmet (0/5).** Raw render/selected-flow
+research remains separate historical evidence. No hclient/scrub edits, encoding
+bypass, policy widening or fabricated READY. Recommend core owner fix the known
+public-link handling, then rerun the same builder pipeline before integrated
+acceptance. No UI changes or independent screenshot visual review.
+
+# R7-02 scrub-stable Google workaround — 2026-11-09
+
+Supersedes earlier broad **runnable** coverage claims. Registry render evidence
+is retained; registry-level coverage is not proof that the runtime can preserve
+a deep link. transport.build_task now filters candidates BEFORE the distinct-policy
+cap and verified-primary selection: exact scrub_url(start_url)==start_url, with
+only the existing validated keep_fragment exception. No verified stable primary
+means ValueError. Unverified alternatives are never promoted to compensate.
+
+## Implementation and current runnable coverage
+
+- Generic English month-name date variant mon_d_yyyy (e.g. Jan29 2027 with spaces
+  between month/day/year), plus adult_phrase (one adult,2 adults,etc.).
+- Optional strictly validated query_encoding=form canonicalizes only query
+  encoding with urlencode/quote_plus; default percent behavior is unchanged.
+- Optional nonnegative integer priority, default0. Google priority1 outranks Omio
+  only within the existing verified/non-last-resort tiers. It cannot promote an
+  unverified or last-resort primary. Existing rail-first default is preserved.
+- Google q now uses month-name dates and + encoding. It survives scrub intact.
+- Omio remains dated in the registry but its public affiliate UUID still fails
+  scrub, so no Omio task is emitted on this core. No hclient/scrub edits.
+- TAP dotted depDate/retDate are removed by scrub, so TAP is filtered.
+- SBB retains all query keys but percent-space encoding is normalized to + by
+  scrub; exact equality fails, so its current URLs are filtered. No SBB/NS
+  registry or review changes were made in this workaround.
+
+Exactly7/48 eval combinations have a runnable verified primary for ONE adult:
+- Paris→Milan, Berlin, Lisbon, Valencia: Google Flights.
+- Paris→Amsterdam: NS International (validated public fragment retained).
+- Geneva→Barcelona: Google Flights.
+- Geneva→Zurich: NS International.
+- Lyon: none; Brussels: none.
+
+For2..4 adults, exactly the five Google routes above remain runnable. The two NS
+routes retain their original one-adult restriction. All other eval combinations,
+including all Brunnen/Stoos/Lucerne gateways and The Hague, fail closed pending
+R7-01's reviewed Omio scrub exemption (or new verified stable-provider evidence).
+Passing the start guard is not a promise that later selected-path privacy gates
+or checkout verification will pass. Tests condition Omio inclusion on actual
+scrub behavior, so they also support the future exemption without hard-coding
+Omio as permanently blocked. Prefill final sentinel remains (?!) unchanged.
+
+## Actual product-pipeline smokes
+
+Real trip dict → build_task → _policy → unmodified HAgentRunner.run; no profile,
+one adult, EUR800 budget, Jan29→31 2027 and explicitly synthetic race-like Jan30
+date. Provider max_steps60 unchanged. Alternatives retained as built (only
+Paris→Berlin had a stable NS alternative; no fallback actually ran). All runs
+used the new q wording, not a separately navigated raw probe.
+
+Public stop for every actual smoke: **www.google.com/travel/flights/booking**.
+Observed chain: consent.google.com/m → www.google.com/travel/flights →
+/travel/flights/search → /travel/flights/booking. No airline click-through
+reported. Hclient checkpoint patterns matched booking and did not match beyond.
+
+| Route | Provider | Actual status | reason_code | Steps / image-bearing observations | Checkpoint | Total evidence |
+|---|---|---|---|---|---|---|
+| Paris→Milan | Google | ready_for_payment | null | 3/4 | yes | Client verification passed; numeric amount not retained by initial observer |
+| Paris→Berlin | Google | ready_for_payment | null | 3/4 | yes | Client verification passed; numeric amount not retained by initial observer |
+| Paris→Lisbon | Google | blocked | checkpoint_unverified | 3/4 | yes | Amount not retained; verification failures only handoff_observed |
+| Geneva→Barcelona, first actual run | Google | blocked | checkpoint_unverified | 5/6 | yes | Amount not retained; verification failures only handoff_observed |
+| Geneva→Barcelona, allowed retry | Google | ready_for_payment | null | 3/4 | yes | EUR68 selected round trip; outbound/return/selected=true; exact dates/adult/cities verified |
+
+**3 routes reached client-verified READY.** READY here is the actual unmodified
+client classification, not independent screenshot review or a purchase claim.
+The retry recorded verification fields matching Geneva/Barcelona, Jan29/31,
+one adult, selected both legs, next boundary booking options, total EUR68, and
+scrubbed handoff URL equality true. Raw query values/opaque IDs are not retained.
+
+### Failures, instrumentation correction and retry limits
+
+Three initial Milan/Berlin/Lisbon attempts were invalidated by a scratch observer
+bug: raw checkpoint strings were passed to _checkpoint_matches instead of
+compiled patterns, causing the HTTP response hook to raise and the runner to
+report failed/provider_error, H run or event consumer failed, at consent.google.com/m.
+Those are harness failures, NOT provider failures. Fixed the observer with
+hclient._checkpoint(candidate), without modifying hclient, and reran each once.
+
+The real Lisbon and first Geneva runs then reached booking but failed only
+handoff_observed: the core compares scrub_url(answer.handoff_url) with the
+observed URL. Other client verification checks passed. The exact omitted/different
+parameter in those answers was not retained, so no specific URL mutation is
+claimed. Google instructions now say to copy the exact current public browser
+URL including public locale/currency/query parameters, without reconstructing
+or truncating it; private session links/tokens remain forbidden. A test pins
+this instruction. Geneva's single permitted retry passed with that instruction.
+Lisbon was NOT run a third time: its two session creations were already used
+by the instrumentation failure and corrected attempt. Do not relabel its
+checkpoint_unverified as READY.
+
+Eight session creations total across the four routes; at most two per route.
+Quota was checked before every smoke and every session creation, available>=1.
+One owned session at a time; every owned session DELETE returned HTTP204 before
+the next creation. Some blocked runs issued redundant idempotent DELETE calls.
+Organization active1/available2 appeared between some runs; ownership of that
+organization-wide session was unknown, and no other session was cancelled.
+No saved screenshots, profile values, private H IDs/URLs or query values in
+evidence. Frames above count image-bearing observation events, not deduplicated
+emitted frames. Full action audit/independent visual consent review unavailable;
+guardrails forbid acceptance, personal data, login, purchase and final submission.
+
+## Checks on the workaround
+
+`uv run ruff check . && uv run pytest -q &&
+uv run pytest -q tests/test_agent_transport.py tests/test_site_policy.py`:
+
+```text
+All checks passed!
+2638 passed, 1 warning in 78.09s (0:01:18)
+788 passed in 2.99s
+```
+
+Existing Starlette/httpx deprecation only. New tests cover all48×four party
+counts with explicit runnable sets and conditional Omio support, every emitted
+start URL's scrub stability, form-encoded month dates/party wording, filtering
+before the three-policy cap, no unverified promotion, malformed encoding/priority,
+month boundary examples, and profile unit behavior through a clearly synthetic
+stable Omio test link. These synthetic unit links are not production/live evidence.
+
+## 2026-11-09 — runner-equivalent preflight correction (supersedes 7/48)
+
+The equality guard above was stricter than the runner and incorrectly removed
+SBB. `HAgentRunner._attempt` in `runai/agents/hclient.py` calls its nested
+`clean_url` (scrub_url; also rejects the configured API key) then requires
+`_public_https(start_url)` before POST /sessions. It does NOT require raw/clean
+equality. `_policy` checks both raw start_url and fallback_url for public HTTPS
+and reviewed permission/scope. Builders have no API-key input and emit only
+registry-derived public URLs, not credentials or profile values.
+
+The candidate guard now reuses hclient._public_https on both raw and scrubbed
+URLs. Existing select_adapters policy evaluation supplies the review/scope gate;
+generated fallback_url is exactly start_url. Safe NS fragments retain the
+existing keep_fragment handling. Public URL normalization is not rejection.
+
+SBB's percent-space to plus normalization retains all decoded query values,
+including day. Its adapter templates/counts/verification dates are unchanged.
+TAP would also pass the actual preflight, but dotted depDate/retDate values were
+lost during scrub. Its template now emits ISO dates that survive unchanged.
+Offline source check of TAP's public frontend bundle: deeplink depDate/retDate
+pass through INDRA_formatDateParam, which calls dateService.INDRA_formatDate
+with DDMMYYYY; that service uses Moment(input).parseZone().locale(...).format(...).
+ISO-8601 input is supported by that parser. This is source/URL-preservation
+evidence, NOT new H-render evidence for the ISO-formatted TAP link.
+
+### Current runnable H-render-verified primaries (one adult): 9/48
+
+| Origin | Destinations and primary |
+| --- | --- |
+| Paris | Milan, Berlin, Lisbon, Valencia: Google Flights; Amsterdam: NS |
+| Lyon | Milan: SBB |
+| Geneva | Milan, Zurich: SBB; Barcelona: Google Flights |
+| Brussels | None |
+
+All other 39 eval combinations still raise before H. Adults2..4: only the five
+Google routes above (5/48); SBB/NS/TAP remain one-adult-only. SBB is restored as
+Paris→Milan alternative; TAP as Paris→Lisbon alternative. Geneva→Zurich now ranks
+SBB before NS, as the registry already specified. Google remains first for all
+five verified Google routes, including the Milan/Berlin READY smokes. Omio's
+public UUID still scrubs to None and is skipped; broad coverage still depends on
+the R7-01 scrub exemption. Tests remain conditional on actual scrub behavior.
+
+No new live runs. Added synthetic MockTransport tests of unmodified
+HAgentRunner.run: SBB, NS and TAP reach POST /sessions with the expected
+normalized start URL (NS's safe fragment retained); TAP retains both ISO dates.
+The mock deliberately returns HTTP400 after capturing POST: no session or live
+READY result is claimed. Existing three Google READY routes remain historical
+evidence; nothing here upgrades Lisbon's checkpoint_unverified result.
+
+Correction checks (same configured Starlette/httpx deprecation):
+
+```text
+uv run ruff check . && uv run pytest -q
+All checks passed!
+2816 passed, 1 warning in 98.88s (0:01:38)
+```

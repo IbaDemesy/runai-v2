@@ -850,8 +850,27 @@ def test_r4_coverage_known_unknown_expired():
         assert site_policy.coverage("hotel", city=city, today=TODAY)["covered"]
     assert not site_policy.coverage("transport", city="Unknown",
                                    origin_city="Paris", today=TODAY)["covered"]
-    assert not site_policy.coverage("transport", city="Barcelona", origin_city="Paris",
-                                   today=date(2030, 1, 1))["covered"]
+    assert not site_policy.coverage("transport", city="Milan", origin_city="Paris",
+                                   today=date(2030, 1, 1),
+                                   registry=registry(transport_entry()))["covered"]
+
+
+@pytest.mark.parametrize("verified_backup", [False, True])
+def test_transport_coverage_filters_unrunnable_verified_candidates(verified_backup):
+    blocked, backup = [distinct_entry(n, "transport") for n in range(2)]
+    blocked["adapters"][0]["url_template"] = blocked["adapters"][0]["url_template"].replace(
+        "/results?", "/sessions/private?",
+    )
+    backup["adapters"][0]["url_template"] += "&station=Paris%20Gare%20de%20Lyon"
+    if not verified_backup:
+        backup["adapters"][0].pop("h_render_verified_at")
+    kwargs = {"city": "Milan", "country": "IT", "origin_city": "Paris", "today": TODAY}
+    assert site_policy.coverage("transport", registry=registry(blocked), **kwargs) == {
+        "covered": False, "policy_ids": [],
+    }
+    result = site_policy.coverage("transport", registry=registry(blocked, backup), **kwargs)
+    assert result == {"covered": verified_backup,
+                      "policy_ids": ["site1"] if verified_backup else []}
 
 
 @pytest.mark.parametrize("value", [None, True, 123, "", "not-a-date", "2026-02-30",
@@ -944,3 +963,98 @@ def test_sbb_owner_rule_and_unknown_host_decisions_remain_exact_host():
         assert unknown["policy_id"] == "owner-any-site"
     assert evaluate_url(url, "hotel", today=TODAY)["allowed"]
     assert evaluate_url(url, "transport", today=date(2027, 2, 7))["allowed"]
+
+
+@pytest.mark.parametrize("value", [None, 0, 1, "true", [], {}])
+def test_last_resort_malformed_fails_closed(value):
+    item = transport_entry()
+    item["adapters"][0]["last_resort"] = value
+    with pytest.raises(PolicyError, match="last_resort"):
+        parse_registry(registry(item))
+    assert not site_policy.coverage("transport", today=TODAY, registry=registry(item))["covered"]
+
+
+@pytest.mark.parametrize("kind", ["transport", "hotel"])
+def test_last_resort_ranks_last_and_can_never_be_primary(kind):
+    items = [distinct_entry(n, kind) for n in range(3)]
+    items[0]["adapters"][0]["last_resort"] = True
+    expected = {**EXPECTED, "country": "IT", "origin_city": "Paris"}
+    selected = site_policy.select_adapters(kind, expected, origin_country="FR", today=TODAY,
+                                           registry=registry(*items))
+    assert [d["policy_id"] for _, _, d in selected] == ["site1", "site2", "site0"]
+    with pytest.raises(ValueError, match="last-resort"):
+        site_policy.select_adapters(kind, expected, origin_country="FR", today=TODAY,
+                                    registry=registry(items[0]))
+    assert not site_policy.coverage(kind, city="Milan", today=TODAY,
+                                    registry=registry(items[0]))["covered"]
+
+
+def prefill_config():
+    return {"fields": ["given_name", "email"], "scope": "passenger details",
+            "prefill_patterns": ["^/booking/[^/]+/passenger-details"],
+            "url_patterns": ["(?!)"], "beyond_patterns": ["payment|login|terms"]}
+
+
+@pytest.mark.parametrize("changes", [
+    {"fields": []}, {"fields": ["password"]}, {"fields": ["email", "email"]},
+    {"fields": "email"}, {"fields": [None]}, {"scope": ""}, {"scope": 1},
+    {"prefill_patterns": []}, {"prefill_patterns": ["["]}, {"url_patterns": None},
+    {"url_patterns": ["["]}, {"beyond_patterns": []}, {"extra": True},
+])
+def test_prefill_malformed_fails_closed(changes):
+    item = transport_entry()
+    item["adapters"][0]["prefill"] = prefill_config() | changes
+    with pytest.raises(PolicyError, match="prefill"):
+        parse_registry(registry(item))
+
+
+@pytest.mark.parametrize("value", [None, [], "passenger details", {}])
+def test_prefill_invalid_object_fails_closed(value):
+    item = transport_entry()
+    item["adapters"][0]["prefill"] = value
+    with pytest.raises(PolicyError, match="prefill"):
+        parse_registry(registry(item))
+
+
+def test_prefill_validated_without_mutating_source_or_default_checkpoint():
+    item = transport_entry()
+    item["adapters"][0]["prefill"] = prefill_config()
+    before = copy.deepcopy(item)
+    adapter = parse_registry(registry(item))[0]["adapters"][0]
+    assert adapter["prefill"] == prefill_config()
+    assert "prefill_patterns" not in site_policy.task_checkpoint(adapter)
+    adapter["prefill"]["fields"].append("phone")
+    assert item == before
+
+
+@pytest.mark.parametrize("value", [None, True, -1, 1.5, "1", [], {}])
+def test_adapter_priority_malformed_fails_closed(value):
+    item = transport_entry()
+    item["adapters"][0]["priority"] = value
+    with pytest.raises(PolicyError, match="priority"):
+        parse_registry(registry(item))
+
+
+@pytest.mark.parametrize("value", [None, True, 0, "", "url", [], {}])
+def test_query_encoding_malformed_fails_closed(value):
+    item = transport_entry()
+    item["adapters"][0]["query_encoding"] = value
+    with pytest.raises(PolicyError, match="query_encoding"):
+        parse_registry(registry(item))
+
+
+@pytest.mark.parametrize("day,expected", [(date(2027, 1, 9), "Jan 9 2027"),
+                                         (date(2027, 12, 31), "Dec 31 2027")])
+def test_month_name_date_variant(day, expected):
+    assert site_policy._date_values("arrival", day)["arrival_mon_d_yyyy"] == expected
+
+
+def test_priority_does_not_promote_unverified_transport():
+    items = [distinct_entry(n, "transport") for n in range(2)]
+    items[0]["adapters"][0].pop("h_render_verified_at")
+    items[0]["adapters"][0]["priority"] = 99
+    selected = site_policy.select_adapters(
+        "transport", {**EXPECTED, "country": "IT", "origin_city": "Paris"},
+        origin_country="FR", today=TODAY, registry=registry(*items),
+    )
+    assert selected[0][2]["policy_id"] == "site1"

@@ -20,6 +20,7 @@ from runai.agents.site_policy import (
     gateway_city,
     select_adapters,
     task_checkpoint,
+    transport_url_runnable,
     trip_expected,
 )
 
@@ -58,18 +59,36 @@ def build_task(
     candidates = select_adapters(
         KIND, expected, origin_country=origin_country(trip), today=today, registry=registry,
         modes=("rail", "flight"),
+        url_filter=transport_url_runnable,
     )
-    tasks = [_candidate_task(expected.copy(), budget, *candidate) for candidate in candidates]
+    profile = trip.get("runner_profile")
+    tasks = [_candidate_task(expected.copy(), budget, *candidate, profile=profile)
+             for candidate in candidates]
     primary = tasks[0]
     if len(tasks) > 1:
         primary["alternatives"] = tasks[1:]
     return primary
 
 
-def _candidate_task(expected, budget, adapter, url, decision):
+def _keep_fragment(url):
+    parts = urlsplit(url)
+    fragment_url = "https://fragment.example/" + parts.fragment.lstrip("/")
+    return bool(parts.fragment and scrub_url(fragment_url) == fragment_url
+                and scrub_text(parts.fragment) == parts.fragment
+                and scrub_url(url) == parts._replace(fragment="").geturl())
+
+
+def _candidate_task(expected, budget, adapter, url, decision, *, profile=None):
     origin, city = expected["origin_city"], expected["city"]
     mode = {"rail": "train", "flight": "flight"}.get(adapter.get("mode"), "transport")
     checkpoint = task_checkpoint(adapter)
+    prefill = adapter.get("prefill")
+    fields = [f for f in prefill["fields"] if isinstance(profile.get(f), str)
+              and profile[f].strip()] if prefill and isinstance(profile, Mapping) else []
+    if fields:
+        checkpoint = {key: list(prefill[key]) for key in (
+            "prefill_patterns", "url_patterns", "beyond_patterns",
+        )}
     checkpoint_stop = (
         "When matched, STOP and answer immediately: READY if evidence is complete else "
         "BLOCKED unsafe_claim. "
@@ -93,8 +112,9 @@ def _candidate_task(expected, budget, adapter, url, decision):
     sbb_hint = (
         "SBB start link has no return-date or party URL parameters. "
         "Reject cookies or choose necessary-only; never accept consent. "
-        "If the UI defaults to Half-Fare or another reduction, set the "
-        "traveller to 1 adult without reduction/Half-Fare, without personal data or form submission. "
+        "FIRST set the traveller to 1 adult without reduction/Half-Fare BEFORE reading any fare, "
+        "without personal data or form submission. Never open Top offers or travelcard/Half-Fare/GA "
+        "purchase pages. "
         f"Choose outbound then add the return departing on {departure} using safe selection "
         "controls only; never submit a search form. Stop at the fare/ticket selection summary "
         "before passenger details, login or payment. If these safe controls are unavailable, "
@@ -158,10 +178,42 @@ def _candidate_task(expected, budget, adapter, url, decision):
         "expected": expected,
         "allowed_hosts": hosts,
     }
-    parts = urlsplit(url)
-    fragment_url = "https://fragment.example/" + parts.fragment.lstrip("/")
-    if (parts.fragment and scrub_url(fragment_url) == fragment_url
-            and scrub_text(parts.fragment) == parts.fragment
-            and scrub_url(url) == parts._replace(fragment="").geturl()):
+    if fields:
+        passenger_rules = (
+            "Passenger fields may be typed only from the Runner profile block appended by the "
+            "system, only into passenger fields, and only the authorized prefill_fields. "
+            "Intermediate Continue to the next form page is allowed, never a final submit/book/pay. "
+            "Never log in or create an account, accept terms or consent, buy extras/insurance, "
+            "select paid seats, pay or submit a final booking. "
+            f"Prefill page patterns: {checkpoint['prefill_patterns']}; do not force an answer there. "
+            f"Stop at final checkpoint patterns {checkpoint['url_patterns']}, before payment, "
+            "seats, extras, insurance or terms; an unobserved checkpoint remains BLOCKED. "
+            f"Never navigate beyond {checkpoint['beyond_patterns']}."
+        )
+        task["instructions"] = instructions.replace(
+            "Never fill or submit any form.", passenger_rules,
+        )
+        task["instructions"] = task["instructions"].replace(
+            adapter["success_evidence"],
+            "Prefer trains if supported, otherwise a reviewed bus/flight mode tab with fares. "
+            "Disclose actual airports, including Beauvais, and reviewed gateways. "
+            "Select both legs and verify round-trip dates, adults and full party total, then "
+            "proceed only to authorized passenger fields and the reviewed final checkpoint.",
+        ).replace("passenger forms or ", "")
+        start = task["instructions"].index("7. STOP")
+        end = task["instructions"].index("8. Finish", start)
+        task["instructions"] = (task["instructions"][:start] + "7. " + passenger_rules + "\n"
+                                + task["instructions"][end:])
+        task["stop_before"] = [s for s in STOP_BEFORE if s not in {
+            "passenger details / personal data form", "any form submission",
+        }] + ["seats / extras / insurance", "final submit / book / pay"]
+        task["prefill_fields"] = fields
+        task["prefill_scope"] = "passenger details"
+        task["success_signal"] = (
+            "READY only at the reviewed final checkpoint with selected round-trip total, "
+            "dates, party and authorized passenger fields completed; before seats, extras, "
+            "insurance, terms or payment. Unobserved checkpoint means BLOCKED."
+        )
+    if _keep_fragment(url):
         task["keep_fragment"] = True
     return task

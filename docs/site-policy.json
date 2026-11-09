@@ -967,56 +967,6 @@
       "adapters": []
     },
     {
-      "id": "omio-com",
-      "name": "omio.com",
-      "purposes": [
-        "transport"
-      ],
-      "scopes": [
-        {
-          "host": "omio.com",
-          "path_prefix": "/"
-        }
-      ],
-      "terms_urls": [
-        "https://www.omio.com/terms-of-use"
-      ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "7. Intellectual Property",
-      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Browser fetched official terms. Written-consent exception for automated access, scraping and direct API access.",
-      "automation": "allowed_owner_rule",
-      "screenshot_scope": "in_session_only",
-      "navigation_hosts": [],
-      "registration_observations": [],
-      "adapters": []
-    },
-    {
-      "id": "google-travel-google-terms",
-      "name": "Google Travel / Google Terms",
-      "purposes": [
-        "transport"
-      ],
-      "scopes": [
-        {
-          "host": "google.com",
-          "path_prefix": "/"
-        }
-      ],
-      "terms_urls": [
-        "https://policies.google.com/terms"
-      ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "Using Google services: respecting others; abuse restrictions",
-      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Google general Terms, not travel-specific terms. Automation prohibition is conditional on violating machine-readable instructions. robots.txt is not independently treated as authorization.",
-      "automation": "allowed_owner_rule",
-      "screenshot_scope": "in_session_only",
-      "navigation_hosts": [],
-      "registration_observations": [],
-      "adapters": []
-    },
-    {
       "id": "skyscanner-net",
       "name": "skyscanner.net",
       "purposes": [
@@ -1127,184 +1077,6 @@
           "kind": "transport",
           "mode": "flight",
           "destination_countries": [
-            "IT",
-            "PT",
-            "ES",
-            "CH"
-          ],
-          "origin_countries": [
-            "FR",
-            "BE"
-          ],
-          "url_template": "https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd={arrival_date}&rd={departure_date}&adt={travelers}&chd=0&inf=0&c=en-GB&cur=EUR",
-          "places": {
-            "milan": {
-              "iata": "MXP"
-            },
-            "milano": {
-              "iata": "MXP"
-            },
-            "lisbon": {
-              "iata": "LIS"
-            },
-            "lisboa": {
-              "iata": "LIS"
-            },
-            "lisbonne": {
-              "iata": "LIS"
-            },
-            "valencia": {
-              "iata": "VLC"
-            },
-            "valència": {
-              "iata": "VLC"
-            },
-            "zurich": {
-              "iata": "ZRH"
-            },
-            "zürich": {
-              "iata": "ZRH"
-            }
-          },
-          "origin_places": {
-            "paris": {
-              "origin_iata": "ORY"
-            },
-            "bruxelles": {
-              "origin_iata": "BRU"
-            },
-            "brussels": {
-              "origin_iata": "BRU"
-            },
-            "brussel": {
-              "origin_iata": "BRU"
-            }
-          },
-          "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping. READY boundary: stop immediately on fare selection with both legs selected, exact dates and party and full round-trip total visible, before passenger details; never continue to passenger forms.",
-          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
-          "checkpoint": {
-            "url_patterns": [
-              "^(?!.*(?:login|log[-_]in|sign[-_]?in|account|travell?er|personal[-_]details|(?:enter[-_](?:your[-_])?)details|/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
-            ],
-            "beyond_patterns": [
-              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
-              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
-              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
-            ]
-          }
-        },
-        {
-          "kind": "transport",
-          "mode": "flight",
-          "destination_countries": [
-            "IT",
-            "PT",
-            "CH"
-          ],
-          "origin_countries": [
-            "FR"
-          ],
-          "url_template": "https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd={arrival_date}&rd={departure_date}&adt={travelers}&chd=0&inf=0&c=en-GB&cur=EUR",
-          "places": {
-            "milan": {
-              "iata": "MXP"
-            },
-            "milano": {
-              "iata": "MXP"
-            },
-            "lisbon": {
-              "iata": "LIS"
-            },
-            "lisboa": {
-              "iata": "LIS"
-            },
-            "lisbonne": {
-              "iata": "LIS"
-            },
-            "zurich": {
-              "iata": "ZRH"
-            },
-            "zürich": {
-              "iata": "ZRH"
-            }
-          },
-          "origin_places": {
-            "lyon": {
-              "origin_iata": "LYS"
-            }
-          },
-          "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping. Lyon's January 11 return had no flights for all three destinations: report no_inventory, not ready. READY boundary: stop immediately on fare selection with both legs selected, exact dates and party and full round-trip total visible, before passenger details; never continue to passenger forms.",
-          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
-          "checkpoint": {
-            "url_patterns": [
-              "^(?!.*(?:login|log[-_]in|sign[-_]?in|account|travell?er|personal[-_]details|(?:enter[-_](?:your[-_])?)details|/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
-            ],
-            "beyond_patterns": [
-              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
-              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
-              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
-            ]
-          }
-        },
-        {
-          "kind": "transport",
-          "mode": "flight",
-          "destination_countries": [
-            "IT",
-            "PT"
-          ],
-          "origin_countries": [
-            "CH"
-          ],
-          "url_template": "https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd={arrival_date}&rd={departure_date}&adt={travelers}&chd=0&inf=0&c=en-GB&cur=EUR",
-          "places": {
-            "milan": {
-              "iata": "MXP"
-            },
-            "milano": {
-              "iata": "MXP"
-            },
-            "lisbon": {
-              "iata": "LIS"
-            },
-            "lisboa": {
-              "iata": "LIS"
-            },
-            "lisbonne": {
-              "iata": "LIS"
-            }
-          },
-          "origin_places": {
-            "genève": {
-              "origin_iata": "GVA"
-            },
-            "geneva": {
-              "origin_iata": "GVA"
-            },
-            "genf": {
-              "origin_iata": "GVA"
-            },
-            "ginevra": {
-              "origin_iata": "GVA"
-            }
-          },
-          "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping. READY boundary: stop immediately on fare selection with both legs selected, exact dates and party and full round-trip total visible, before passenger details; never continue to passenger forms.",
-          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
-          "checkpoint": {
-            "url_patterns": [
-              "^(?!.*(?:login|log[-_]in|sign[-_]?in|account|travell?er|personal[-_]details|(?:enter[-_](?:your[-_])?)details|/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
-            ],
-            "beyond_patterns": [
-              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
-              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
-              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
-            ]
-          }
-        },
-        {
-          "kind": "transport",
-          "mode": "flight",
-          "destination_countries": [
             "CH",
             "DE"
           ],
@@ -1348,7 +1120,8 @@
               "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
             ]
-          }
+          },
+          "last_resort": true
         },
         {
           "kind": "transport",
@@ -1365,12 +1138,6 @@
           ],
           "url_template": "https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd={arrival_date}&rd={departure_date}&adt={travelers}&chd=0&inf=0&c=en-GB&cur=EUR",
           "places": {
-            "barcelona": {
-              "iata": "BCN"
-            },
-            "barcelone": {
-              "iata": "BCN"
-            },
             "seville": {
               "iata": "SVQ"
             },
@@ -1382,9 +1149,6 @@
             },
             "roma": {
               "iata": "FCO"
-            },
-            "madrid": {
-              "iata": "MAD"
             }
           },
           "origin_places": {
@@ -1403,7 +1167,8 @@
               "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
             ]
-          }
+          },
+          "last_resort": true
         },
         {
           "kind": "transport",
@@ -1448,94 +1213,8 @@
               "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
             ]
-          }
-        },
-        {
-          "kind": "transport",
-          "mode": "flight",
-          "destination_countries": [
-            "ES"
-          ],
-          "origin_countries": [
-            "FR"
-          ],
-          "traveler_counts": [
-            1
-          ],
-          "url_template": "https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd={arrival_date}&rd={departure_date}&adt={travelers}&chd=0&inf=0&c=en-GB&cur=EUR",
-          "places": {
-            "barcelona": {
-              "iata": "BCN"
-            },
-            "barcelone": {
-              "iata": "BCN"
-            }
           },
-          "origin_places": {
-            "lyon": {
-              "origin_iata": "LYS"
-            }
-          },
-          "success_evidence": "Observed 2026-11-09: /booking/selectFlight rendered both route headers, Return with 1 Adult, active Sat 9 Jan and Mon 11 Jan 2027 tabs and public EUR fares. This list is NOT READY. READY only on the fare-selection page with outbound AND return selected, exact dates, arrival by the requested arrival_date, party, fare and full-party round-trip total visible. STOP and report READY immediately before passenger details, personal data, consent, form submission or payment; this selected state was not observed in this research.",
-          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
-          "checkpoint": {
-            "url_patterns": [
-              "^(?!.*(?:login|log[-_]in|sign[-_]?in|account|travell?er|personal[-_]details|(?:enter[-_](?:your[-_])?)details|/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
-            ],
-            "beyond_patterns": [
-              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
-              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
-              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
-            ]
-          }
-        },
-        {
-          "kind": "transport",
-          "mode": "flight",
-          "destination_countries": [
-            "ES"
-          ],
-          "origin_countries": [
-            "CH"
-          ],
-          "traveler_counts": [
-            1
-          ],
-          "url_template": "https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd={arrival_date}&rd={departure_date}&adt={travelers}&chd=0&inf=0&c=en-GB&cur=EUR",
-          "places": {
-            "barcelona": {
-              "iata": "BCN"
-            },
-            "barcelone": {
-              "iata": "BCN"
-            }
-          },
-          "origin_places": {
-            "genève": {
-              "origin_iata": "GVA"
-            },
-            "geneva": {
-              "origin_iata": "GVA"
-            },
-            "genf": {
-              "origin_iata": "GVA"
-            },
-            "ginevra": {
-              "origin_iata": "GVA"
-            }
-          },
-          "success_evidence": "Observed 2026-11-09: /booking/selectFlight rendered both route headers, Return with 1 Adult, active Sat 9 Jan and Mon 11 Jan 2027 tabs and public EUR fares. This list is NOT READY. READY only on the fare-selection page with outbound AND return selected, exact dates, arrival by the requested arrival_date, party, fare and full-party round-trip total visible. STOP and report READY immediately before passenger details, personal data, consent, form submission or payment; this selected state was not observed in this research.",
-          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
-          "checkpoint": {
-            "url_patterns": [
-              "^(?!.*(?:login|log[-_]in|sign[-_]?in|account|travell?er|personal[-_]details|(?:enter[-_](?:your[-_])?)details|/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
-            ],
-            "beyond_patterns": [
-              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
-              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
-              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
-            ]
-          }
+          "last_resort": true
         },
         {
           "kind": "transport",
@@ -1555,17 +1234,9 @@
             "porto": {
               "iata": "OPO"
             },
-            "stoos": {
-              "iata": "ZRH",
-              "via": "Zurich (onward Stoos transfer not included)"
-            },
             "morschach": {
               "iata": "ZRH",
               "via": "Zurich (onward Morschach transfer not included)"
-            },
-            "brunnen": {
-              "iata": "ZRH",
-              "via": "Zurich (onward Brunnen transfer not included)"
             }
           },
           "origin_places": {
@@ -1584,34 +1255,10 @@
               "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
             ]
-          }
+          },
+          "last_resort": true
         }
       ]
-    },
-    {
-      "id": "flytap-com",
-      "name": "flytap.com",
-      "purposes": [
-        "transport"
-      ],
-      "scopes": [
-        {
-          "host": "flytap.com",
-          "path_prefix": "/"
-        }
-      ],
-      "terms_urls": [
-        "https://www.flytap.com/en-ca/legal-info/terms-and-conditions"
-      ],
-      "reviewed_at": "2026-11-08",
-      "expires_at": "2027-02-06",
-      "reviewed_sections": "3. Copyright; Website use obligations",
-      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: TAP Air Portugal official terms.",
-      "automation": "allowed_owner_rule",
-      "screenshot_scope": "in_session_only",
-      "navigation_hosts": [],
-      "registration_observations": [],
-      "adapters": []
     },
     {
       "id": "lufthansa-com",
