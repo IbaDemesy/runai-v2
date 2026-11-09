@@ -335,7 +335,7 @@ dd { margin: 0; font-family: var(--display); font-size: 24px; line-height: 1.1; 
 .terminal-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; font-size: 22px; font-weight: 800; color: var(--orange-ink); background: var(--orange-soft); border: 1px solid #f6d7c6; }
 .agent[data-status='ready_for_payment'] .terminal-icon { background: var(--green); color: #fff; border-color: var(--green); animation: pop .5s var(--ease); }
 .terminal-state strong { font-size: 15px; color: var(--ink); }
-#agents[data-synthetic='true'] .preview:not([data-state='ended']) { background: #2a2118; }
+#agents[data-synthetic='true'] .preview:is([data-state='available'], [data-state='stale'], [data-state='unavailable']) { background: #2a2118; }
 .agent-footnote { color: var(--muted); font-size: 13px; margin: 18px 0 0; line-height: 1.6; }
 #coverage:not([hidden]) { margin-top: 24px; }
 

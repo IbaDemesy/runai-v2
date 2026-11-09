@@ -42,6 +42,7 @@ def test_svg_flags_and_live_stage_contract():
     assert "const FRESH_MS = 15000" in JS
     assert "clearTimeout(state.freshTimer)" in JS
     assert "browser-skeleton" in CSS
+    assert "#agents[data-synthetic='true'] .preview:not([data-state='ended'])" not in CSS
     assert "position: sticky; bottom: 0" in CSS
     assert HTML.index('class="agent-grid"') < HTML.index('id="coverage"')
     assert "[data-view='coverage'] .agent-grid { display: none" not in CSS
