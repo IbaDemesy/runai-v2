@@ -1231,12 +1231,14 @@ class GuideEngine:
         personal = re.search(
             r"[\w.+%-]+@[\w.-]+\.[a-zA-Z]{2,}|"
             r"\b(?:je m['’]appelle|my name is|i['’]m called|moi c['’]est)\s+\S+|"
-            r"\b(?:ne[e]?\s+le|born\s+on|date\s+of\s+birth|date\s+de\s+naissance)\b|"
+            r"\b(?:ne[e]?\s+le|born\s+on|born\s+in\s+(?:19|20)\d{2}|"
+            r"date\s+of\s+birth|date\s+de\s+naissance)\b|"
             r"\b(?:birth|birthday|born|naissance)\s*(?:(?:is|est|le|on)\s+|[:=]\s*)?\d|"
+            r"\b(?:my\s+address\s+is|mon\s+adresse)\b|"
             r"\b\d{1,2}[/.-]\d{1,2}[/.-]19\d{2}\b|"
             r"\b(?:19\d{2})-\d{2}-\d{2}\b|"
             r"\b\d+\s+(?:(?:rue|avenue|boulevard|street|road|lane)\b|"
-            r"[\w -]+\s+(?:street|road|lane|avenue)\b)",
+            r"[\w -]+\s+(?:street|road|lane|avenue|st|ave|rd|blvd)\b)",
             normalize(raw_text),
         )
         date_text = re.sub(

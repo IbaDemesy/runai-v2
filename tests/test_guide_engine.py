@@ -1059,6 +1059,26 @@ def test_r7_real_birth_context_and_contact_details_remain_private(text, value):
     assert state.history[0]["text"] == "[redacted personal data]"
 
 
+@pytest.mark.parametrize("text,value", [
+    ("I was born in 2001", "2001"),
+    ("my address is 12 Main St", "Main"),
+    ("mon adresse est 12 rue des Fleurs", "Fleurs"),
+    ("12 Main St", "Main"), ("12 Example Ave", "Example"), ("12 Example Rd", "Example"),
+    ("phone (202) 555-0123", "555-0123"),
+])
+def test_review_personal_birth_address_and_phone_are_redacted(text, value):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(query)
+        return []
+
+    state, turn = run(engine(discover).start(text))
+    assert turn.error == "safety_refusal" and not calls
+    assert value not in state.model_dump_json() + turn.model_dump_json()
+    assert state.history[0]["text"] == "[redacted personal data]"
+
+
 @pytest.mark.parametrize("field,value", [("nights", "3"), ("budget", "800")])
 def test_r7_summary_field_chips_allow_typed_corrections(field, value):
     e = engine()
