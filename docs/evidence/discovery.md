@@ -507,3 +507,144 @@ quality, and Portugal reliability need follow-up. The successes were collected
 across incremental fixes, not a fresh all-eight run on the final revision. This
 small sample proves neither generic live readiness nor H preparation. UI
 presentation was not visually verified.
+
+## R6-04 — Linkup-only live smoke (2026-11-09)
+
+One complete five-request batch, **05:38:23–05:59:06 UTC** on 2026-11-09,
+after `be0e50d`. No second or third batch, no code changes during the smoke.
+Real `GuideEngine` → `runai.app._discovery_hints` →
+`runai.discovery.linkup.discover(..., timeout_s=120)`, using the environment
+credential only. Run from the repository root with `PYTHONPATH=.`. No app
+server, H sessions, confirmation, submissions, accounts, consent or purchases.
+The runner and scrubbed incremental JSON were kept outside the repository
+(`/home/ubuntu/r604_linkup_smoke.py` and
+`/home/ubuntu/r604_linkup_smoke_results.json`), not committed.
+
+Each mission cleared the discovery cache before starting. First-reply timing
+covers `GuideEngine.start`, including any standard fallback lookup. Every later
+input selected exactly the first offered chip, stopping at `ready_to_confirm`
+or ten **total inputs including the initial request**. No confirm chip was
+clicked. No identical consecutive assistant turns were observed, comparing
+message, question, candidate names/dates/distances/statuses and chip kind/value,
+excluding transient chip IDs. No sensitive values or raw provider bodies recorded.
+
+### Results
+
+| Initial request | First reply (s) | First candidates | Inputs to ready | Total journey (s) | Final official-date race | Identical consecutive turns |
+| --- | ---: | ---: | ---: | ---: | --- | --- |
+| I'd love to run a big marathon in Germany next autumn | 7.865 | 1 | 8 | 359.082 | Jungfrau-Marathon, 2027-09-11 (**Switzerland**, not Germany) | 0 |
+| un semi-marathon au Portugal | 7.074 | 4 | 5 | 7.095 | Hyundai Porto Half Marathon, 2027-09-19 | 0 |
+| un marathon au printemps en Italie | 13.231 | 4 | 9 | 504.777 | Generali Genève Marathon, 2027-05-08 (**Switzerland**, not Italy/Milan) | 0 |
+| le marathon de Berlin | 7.933 | 1 | 7 | 148.578 | Generali Genève Marathon, 2027-05-08 (**not Berlin**) | 0 |
+| a marathon in October | 13.046 | 2 | 7 | 223.724 | Lausanne Marathon, 2027-10-24 (October retained) | 0 |
+
+**First-reply p95 = 13.231 s**, nearest-rank method:
+sort five observations and take `ceil(0.95 × 5) = 5`, the maximum.
+All five first replies meet the ≤20 s target; five samples are not a sustained
+latency guarantee. All first-reply provider invocations used `standard` (nine
+invocations including fallbacks). Later turns used `deep` (17 invocations).
+There were 26 guide-level discovery invocations in total, including nine
+`DiscoveryTimeout` failures. These are not HTTP-request counts: discovery issues
+paired searches and may retry. Later deep calls frequently consumed ~70 s,
+so fast first replies did **not** imply fast complete journeys.
+
+### Candidates and public source evidence
+
+Statuses below are exactly the guide's normalized Linkup output, not independent
+verification of the pages or race schedules. `official` is the existing
+organizer-source/date rule; `unverified` retains a sourced date without qualifying
+official evidence. No status/date was manually upgraded. All candidates were
+non-synthetic. Listed dates and distances are provider extractions, not guarantees.
+
+1. **Germany/autumn — first reply:** GENERALI BERLIN-MARATHON,
+   2027-09-26, 42.195 km, **unverified**. Sources:
+   https://www.visitberlin.de/en/event/generali-berlin-marathon-2027,
+   https://marathonguide.com/coach/how-to-enter-the-2027-berlin-marathon/,
+   https://aims-worldrunning.org/countries/39.html.
+   Later Swiss recovery candidates were all **official**:
+   - Jungfrau-Marathon, 2027-09-11, 42.195 km:
+     https://www.jungfrau-marathon.ch/de/social-wall.html and
+     https://www.faernresorts.com/wengen/events-and-packages-wengen/jungfrau-marathon.
+   - Lausanne Marathon, 2027-10-24:
+     https://en.lausanne-marathon.com/conseils/dates-de-levenement/.
+   - SwissCityMarathon – Lucerne, 2027-10-31:
+     https://www.swisscitymarathon.ch/en/event-guide/media/facts-and-figures/.
+
+2. **Portugal half — first reply:**
+   - Hyundai Porto Half Marathon, 2027-09-19, 21.0975 km, **official**:
+     https://www.porto-marathon.com/en/half.html.
+   - Lisbonne Marathon Half Marathon (localized display name), 2027-10-10,
+     21.0975 km, **official**:
+     https://www.running-portugal.com/lisbon/marathon/en/rules.html.
+   - Algarve Marathon Half Marathon, 2026-12-06, 21.0975 km, **unverified**:
+     https://www.race-calendar.com/algarve-marathon-marina-de-vilamoura-portugal-on-06-december-2026/154458.
+   - EDP Lisbonne Half Marathon, 2027-03-07, 21.0975 km, **official**:
+     https://www.running-portugal.com/lisbon/lisbonhalf/en/home.html and
+     https://maratonaclubedeportugal.com/en/.
+   No additional race candidates appeared later. First-chip selection stayed
+   on Porto; neither Funchal nor Gaia was returned, and no ping-pong occurred.
+
+3. **Italy/spring — first reply:** all four were **unverified**, 42.195 km:
+   - Run Rome The Marathon, 2027-03-14:
+     https://www.infront.sport/news/run-rome-the-marathon-confirmed-through-2031-with-2027-race-set-for-14-march
+     and https://marathon-index.com/races/rome-marathon/.
+   - Milano Marathon, 2027-04-04:
+     https://marathon-index.com/races/milan-marathon/.
+   - Padova Marathon, 2027-04-18:
+     https://marathon-index.com/races/padova-marathon/.
+   - Rimini Marathon, 2027-04-25: FIDAL's sourced 2027 marathon/half calendar
+     PDF under https://www.fidal.it/upload/files/Organizzazione/2027/.
+   Later recovery returned Generali Genève Marathon, 2027-05-08, 42.195 km,
+   **official**, https://www.generaligenevemarathon.com/.
+   Milan remained unverified and was **not** the final selected race.
+
+4. **Berlin named — first reply:** Berlin Marathon, 2027-09-26, 42.195 km,
+   **unverified**, https://www.berlin.de/en/events/september/.
+   Later Swiss recovery candidates were all **official**:
+   - Generali Genève Marathon, 2027-05-08, 42.195 km:
+     https://www.generaligenevemarathon.com/en.
+   - OCHSNER SPORT Zürich Marathon, 2027-04-11:
+     https://www.zuerichmarathon.ch/marathon-2/marathon.
+   - Gornergrat Zermatt Marathon, 2027-07-03:
+     https://guide.swiss-running.ch/en/events/6030 and
+     https://www.zermattmarathon.ch/en/our-courses/top20run.
+   - Jungfrau-Marathon, 2027-09-11:
+     https://www.jungfrau-marathon.ch/en/news.html.
+
+5. **October — first reply:**
+   - Yorkshire Marathon Festival, 2027-10-24, 42.195 km, **unverified**:
+     https://www.timeoutdoors.com/events/marathons/october.
+   - 2XU Long Beach Marathon, no confirmed date, 42.195 km, **unknown**:
+     https://www.runlongbeach.com/.
+   Later recovery returned **official** Lausanne Marathon, 2027-10-24,
+   42.195 km, https://fr.lausanne-marathon.com/contact/contact/ and
+   https://en.lausanne-marathon.com/info-coureurs/departs-horaires/;
+   and **official** SwissCityMarathon – Lucerne, 2027-10-31,
+   https://www.swisscitymarathon.ch/faq/.
+   This live request found sourced October dates; it did not exercise the
+   October-empty/adjacent-month path (covered offline instead).
+
+### Limits, blockers and next steps
+
+Five missions reached the **draft confirmation gate**, not successful H
+preparation. Only Portugal and October retained the original race/country/month
+intent; Germany, Italy and named Berlin followed first-chip recovery into
+Switzerland. Four journeys exceeded the offline six-input target (but all met
+this smoke's ten-input limit). In particular, Germany/Italy/Berlin are **not**
+successful completions of their original requests.
+
+Final coverage was partial for Jungfrau and Lausanne (registration unknown,
+transport false, hotel true) and Porto (registration unknown, hotel/transport
+true). Geneva's coverage modules reported registration covered and hotel/transport
+true; this is module coverage, not a live browser/preparation result. No H ran.
+Milan registration coverage was unknown in its unverified initial candidate,
+so this batch does not establish live Milan registration readiness.
+
+The observed limiting chain is direct: standard source rows for Germany,
+Italy and Berlin lacked qualifying organizer-date evidence, so the guide kept
+them unverified and led with recovery; later deep timeouts and country recovery
+produced slow Swiss alternatives. No dates/verification were fabricated to force
+the original requests to pass. Recommended follow-up: improve standard-mode
+organizer grounding and preserve original country/race through recovery, then
+bound later deep-enrichment latency and rerun the five-case batch. Do not claim
+generic live readiness or H success from these results. UI was not rendered.
