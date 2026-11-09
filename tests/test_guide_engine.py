@@ -140,7 +140,10 @@ def test_preparation_registration_labels(monkeypatch, status, fr, en, lang):
     monkeypatch.setitem(sys.modules, "runai.agents.registration",
                         SimpleNamespace(registration_coverage=lambda race: status))
     _, turn = run(engine(preparation_discovery).start("un semi" if lang == "fr" else "a half"))
-    assert all((fr if lang == "fr" else en) in s.label for s in turn.suggestions)
+    race_chips = [s for s in turn.suggestions if s.kind == "choose_race"]
+    assert race_chips and all((fr if lang == "fr" else en) in s.label for s in race_chips)
+    if status == "closed":
+        assert turn.suggestions[0].kind != "choose_race"
 
 
 def test_package_public_api():
@@ -1127,6 +1130,28 @@ def test_domestic_unavailable_race_cannot_displace_foreign_open_default(monkeypa
     assert state.draft.race is None
     assert turn.suggestions[0].value == "foreign"
     assert next(s for s in turn.suggestions if s.value == "domestic").kind == "choose_race"
+
+
+def test_organizer_verification_targets_unverified_domestic_before_foreign_official(monkeypatch):
+    covered_offline(monkeypatch)
+    calls = []
+    berlin = {"id": "berlin", "name": "Berlin Marathon", "country": "Germany",
+              "race_date": "2027-09-26", "distance_km": 42.195, "date_status": "unverified",
+              "source_urls": ["https://directory.example/berlin"]}
+    geneva = dict(berlin, id="geneva", name="Geneva Marathon", country="Switzerland",
+                  date_status="official", source_urls=["https://race.example/geneva"])
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        if hints.get("verification_only"):
+            return [dict(berlin, date_status="official") if hints["race_name"] == "Berlin Marathon" else geneva]
+        return [geneva, berlin]
+
+    state, turn = run(engine(discover).start("a marathon in Germany"))
+    assert calls[1]["race_name"] == "Berlin Marathon" and calls[1]["country"] == "Germany"
+    assert calls[1]["depth"] == "standard"
+    assert next(r for r in state.candidates if r.id == "berlin").date_status == "official"
+    assert turn.suggestions[0].value == "berlin"
 
 
 @pytest.mark.parametrize("event_type", ["Relay", "Staffetta", "Relais"])

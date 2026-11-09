@@ -806,7 +806,8 @@ class GuideEngine:
                     and not hints.get("verification_only")):
                 alternatives = dict(hints, official_date_required=True, depth="deep",
                                     alternative_scope="official dated alternatives", broaden=True)
-                target = next((r for r in state.candidates if self._official_hint(r)), None)
+                target = next((r for r in state.candidates if not self._eligible(r)
+                               and self._same_country(state, r) and self._official_hint(r)), None)
                 if target:
                     alternatives.update(self._official_hint(target), depth="standard", verification_only=True,
                                         named=True, year=target.race_date.year if target.race_date else self.today.year + 1)
