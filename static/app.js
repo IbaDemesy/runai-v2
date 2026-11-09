@@ -73,7 +73,9 @@
     session_failed: ['La session du navigateur s’est interrompue.', 'Relancez plus tard ou continuez sur le site.', 'The browser session was interrupted.', 'Try again later or continue on the site.'],
     timeout: ['Le site a mis trop de temps à répondre.', 'Réessayez plus tard ou continuez sur le site.', 'The site took too long to respond.', 'Try again later or continue on the site.'],
     unsafe_claim: ['Le résultat n’a pas pu être vérifié en sécurité.', 'Vérifiez vous-même sur le site avant tout paiement.', 'The result could not be safely verified.', 'Check it yourself on the site before paying.'],
-    provider_error: ['Le service d’agents est momentanément indisponible.', 'Réessayez dans quelques minutes ou continuez sur le site.', 'The agent service is temporarily unavailable.', 'Try again in a few minutes or continue on the site.']
+    provider_error: ['Le service d’agents est momentanément indisponible.', 'Réessayez dans quelques minutes ou continuez sur le site.', 'The agent service is temporarily unavailable.', 'Try again in a few minutes or continue on the site.'],
+    checkpoint_unverified: ['Étape de réservation atteinte — à vérifier', 'Vérifiez les dates et votre sélection sur le site avant de continuer.', 'Booking step reached — please verify', 'Check your dates and selection on the site before continuing.'],
+    checkpoint_reached: ['Étape de réservation atteinte — à vérifier', 'La page est ouverte : vérifiez les détails avant tout engagement.', 'Booking step reached — please verify', 'The page is open: check the details before any commitment.']
   };
   const boundaryReason = ['L’agent s’est arrêté à la limite de ce qu’il a le droit de faire sur ce site.', 'Il ne va jamais plus loin sans vous : reprenez à cette étape sur le site.', 'The agent stopped at the edge of what it may do on this site.', 'It never goes further without you: continue from this step on the site.'];
   const kindReasons = {
@@ -98,7 +100,31 @@
     const raw = String(race.country_code || race.country || '').trim();
     return /^[a-z]{2}$/i.test(raw) ? raw.toUpperCase() : countries[raw.toLowerCase()] || '';
   };
-  const flag = race => { const code = isoCountry(race); return code ? [...code].map(c => String.fromCodePoint(127397 + c.charCodeAt())).join('') : ''; };
+  const flagShapes = {
+    IT: [['rect', {width: 24, height: 16, fill: '#fff'}], ['rect', {width: 8, height: 16, fill: '#009246'}], ['rect', {x: 16, width: 8, height: 16, fill: '#ce2b37'}]],
+    FR: [['rect', {width: 24, height: 16, fill: '#fff'}], ['rect', {width: 8, height: 16, fill: '#002395'}], ['rect', {x: 16, width: 8, height: 16, fill: '#ed2939'}]],
+    BE: [['rect', {width: 24, height: 16, fill: '#fdda24'}], ['rect', {width: 8, height: 16, fill: '#161616'}], ['rect', {x: 16, width: 8, height: 16, fill: '#ef3340'}]],
+    DE: [['rect', {width: 24, height: 16, fill: '#ffce00'}], ['rect', {width: 24, height: 10.67, fill: '#d00'}], ['rect', {width: 24, height: 5.33, fill: '#161616'}]],
+    NL: [['rect', {width: 24, height: 16, fill: '#21468b'}], ['rect', {width: 24, height: 10.67, fill: '#fff'}], ['rect', {width: 24, height: 5.33, fill: '#ae1c28'}]],
+    CH: [['rect', {width: 24, height: 16, fill: '#da291c'}], ['path', {d: 'M10 3h4v3h3v4h-3v3h-4v-3H7V6h3z', fill: '#fff'}]],
+    ES: [['rect', {width: 24, height: 16, fill: '#aa151b'}], ['rect', {y: 4, width: 24, height: 8, fill: '#f1bf00'}], ['path', {d: 'M6 6h3v4L7.5 11 6 10z', fill: '#aa151b'}]],
+    PT: [['rect', {width: 24, height: 16, fill: '#f00'}], ['rect', {width: 9.6, height: 16, fill: '#006600'}], ['circle', {cx: 9.6, cy: 8, r: 3.5, fill: '#ffdf00'}], ['path', {d: 'M8 5.5h3.2v4L9.6 11 8 9.5z', fill: '#fff', stroke: '#c00', 'stroke-width': .8}]]
+  };
+  function flag(race) {
+    const code = isoCountry(race); if (!code) return null;
+    const shapes = flagShapes[code], el = shapes ? document.createElementNS('http://www.w3.org/2000/svg', 'svg') : node('span', 'flag flag-fallback', code);
+    el.setAttribute('class', shapes ? 'flag' : 'flag flag-fallback');
+    el.setAttribute('role', 'img'); el.setAttribute('aria-label', code); el.dataset.country = code;
+    if (shapes) {
+      el.setAttribute('viewBox', '0 0 24 16'); el.setAttribute('width', '24'); el.setAttribute('height', '16'); el.setAttribute('focusable', 'false');
+      for (const [tag, attributes] of shapes) {
+        const shape = document.createElementNS('http://www.w3.org/2000/svg', tag);
+        for (const [key, value] of Object.entries(attributes)) shape.setAttribute(key, String(value));
+        el.append(shape);
+      }
+    }
+    return el;
+  }
   const countdown = race => {
     const now = new Date(), days = Math.round((Date.parse(race.race_date) - Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
     return !Number.isFinite(days) || days < 0 ? '' : days === 0 ? t('aujourd’hui', 'today') : t(`dans ${days} j`, `in ${days} day${days > 1 ? 's' : ''}`);
@@ -311,7 +337,7 @@
     for (const race of items) {
       const card = node('article', 'candidate'), top = node('div', 'candidate-top'), days = countdown(race);
       top.append(bigDistance(race)); if (days) top.append(node('span', 'countdown', days));
-      const where = node('p', 'location'); if (flag(race)) where.append(node('span', 'flag', flag(race)));
+      const where = node('p', 'location'), countryFlag = flag(race); if (countryFlag) where.append(countryFlag);
       where.append(node('span', '', place(race)));
       const tiles = node('dl', 'race-tiles'), when = node('div', 'tile tile-date');
       when.append(node('dt', '', t('Date', 'Date')), node('dd', '', date(race.race_date)), dateStatus(race)); tiles.append(when);
@@ -324,8 +350,9 @@
   }
   function planCard(p, ready) {
     const card = node('section', 'plan-card'), head = node('div', 'plan-head');
-    head.append(node('p', 'eyebrow', 'VOTRE LIGNE DE DÉPART'), node('h3', '', p.race.name),
-      node('p', 'location', [flag(p.race), [place(p.race), distance(p.race)].filter(Boolean).join(' · ')].filter(Boolean).join(' ')), raceWhen(p.race), sources(p.race));
+    const where = node('p', 'location'), countryFlag = flag(p.race); if (countryFlag) where.append(countryFlag);
+    where.append(node('span', '', [place(p.race), distance(p.race)].filter(Boolean).join(' · ')));
+    head.append(node('p', 'eyebrow', 'VOTRE LIGNE DE DÉPART'), node('h3', '', p.race.name), where, raceWhen(p.race), sources(p.race));
     const prep = prepBadges(p.race); if (prep) head.append(prep);
     card.append(head);
     if (p.origin_city || p.race.city) {
@@ -370,14 +397,15 @@
     if (turn.plan) reply.inner.append(planCard(turn.plan, turn.ready_to_confirm));
     if (turn.candidates.length && (!turn.plan || !['official', 'unverified'].includes(turn.plan.race.date_status))) reply.inner.append(candidates(turn.candidates));
     if (turn.question) reply.inner.append(node('p', 'question', turn.question));
-    const chips = node('div', 'chips'); chips.dataset.testid = 'chips';
+    const chips = node('div', 'chips'); chips.dataset.testid = 'chips'; chips.setAttribute('role', 'group'); chips.setAttribute('aria-label', t('Suggestions de réponse', 'Suggested replies'));
     for (const suggestion of turn.suggestions) {
       if (!suggestion.id || !suggestion.label || suggestion.kind === 'confirm') continue;
       const race = suggestion.kind === 'choose_race' ? turn.candidates.find(r => r.id === suggestion.value || suggestion.id === `choose_race:${r.id}`) : null;
       const item = node('div', 'suggestion'), button = node('button', 'chip', `${race?.name || suggestion.label} ↗`);
       button.type = 'button'; button.onclick = () => send({suggestion_id: suggestion.id}, suggestion.label);
       const metadata = race ? `${distance(race)} · ${date(race.race_date)}` : {source: 'Course sourcée', synthetic: 'Exemple synthétique', suggested_default: 'Suggestion · modifiable'}[suggestion.provenance] || 'Choisir cette réponse';
-      item.append(button, node('span', 'suggestion-meta', metadata)); chips.append(item);
+      const hint = node('span', 'suggestion-meta', metadata); hint.id = `suggestion-${generation}-${$('thread').querySelectorAll('.message').length}-${chips.children.length}`;
+      button.setAttribute('aria-describedby', hint.id); item.append(button, hint); chips.append(item);
     }
     if (chips.children.length) reply.inner.append(chips);
     const area = reply.inner.querySelector('.confirm-area'); if (area) reply.inner.append(area);
@@ -397,7 +425,8 @@
     let clock;
     const tick = () => {
       const elapsed = Math.floor((Date.now() - started) / 1000);
-      progress.textContent = t(`Recherche en cours · ${elapsed} s écoulées${elapsed >= 20 ? ' · les sources officielles peuvent prendre un peu de temps.' : ''}`, `Searching · ${elapsed} s elapsed${elapsed >= 20 ? ' · official sources can take a little time.' : ''}`);
+      const stage = elapsed < 8 ? t('Recherche des courses officielles', 'Finding official races') : elapsed < 20 ? t('Vérification des dates et distances', 'Checking dates and distances') : t('Comparaison des sources · encore un instant', 'Comparing sources · a little longer');
+      progress.textContent = `${stage} · ${t(`${elapsed} s écoulées`, `${elapsed} s elapsed`)}`;
       clock = setTimeout(tick, 1000);
     };
     clock = setTimeout(tick, 1000); return () => clearTimeout(clock);
@@ -441,6 +470,7 @@
       mission.ready_to_confirm = false; document.querySelectorAll('.confirm-area,.chips').forEach(el => el.remove());
       $('agents').hidden = false; $('workspace').classList.add('executing');
       $('history-toggle').hidden = false; $('history-toggle').setAttribute('aria-expanded', 'false');
+      kinds.forEach(kind => event({kind, type: 'step_started'}));
       consume(result); poll(token);
     } catch (err) { if (token === generation) { error(err); button.textContent = translate('Réessayer la confirmation'); } }
     finally { if (token === generation) loading(false); }
@@ -477,11 +507,13 @@
     if (state.level < 0 && done && !ready) items.slice(0, 3).forEach(item => { item.dataset.state = 'skipped'; });
     list.replaceChildren(...items);
   }
-  const frameAge = state => state.received ? Math.max(0, Math.floor((Date.now() - state.received) / 1000)) : null;
+  const frameTime = state => $('mode').value === 'live' ? state.observedTime : state.received;
+  const frameAge = state => Number.isFinite(frameTime(state)) ? Math.max(0, Math.floor((Date.now() - frameTime(state)) / 1000)) : null;
   const ageCopy = age => age < 2 ? t('image à l’instant', 'frame just now') : age < 60 ? t(`image il y a ${age} s`, `frame ${age} s ago`)
     : t(`image il y a ${Math.floor(age / 60)} min`, `frame ${Math.floor(age / 60)} min ago`);
   function activityLine(kind) {
     const state = agentState[kind], a = state.activity || {};
+    if (terminal.has(state.status)) return state.status === 'ready_for_payment' ? t('Prêt avant paiement', 'Ready before payment') : reason(state.reason, state.status, kind, state.active);
     if (state.queued) return t('En attente d’un navigateur disponible', 'Waiting for a free browser');
     const fallback = state.status === 'running'
       ? {registration: t('Parcours d’inscription officiel', 'Official registration journey'), hotel: t('Recherche de chambre pour vos dates', 'Finding a room for your dates'), transport: t('Recherche de votre aller-retour', 'Finding your return journey')}[kind]
@@ -498,8 +530,8 @@
   }
   function frameMeta(kind) {
     const state = agentState[kind], card = cardFor(kind); if (!state) return;
-    const done = terminal.has(state.status), mode = $('mode').value, age = frameAge(state) ?? 0;
-    const stale = state.image && !done && (state.stale || age * 1000 >= FRESH_MS);
+    const done = terminal.has(state.status), mode = $('mode').value, age = frameAge(state);
+    const stale = state.image && !done && (state.stale || age === null || age * 1000 >= FRESH_MS);
     const interrupted = state.pollFailed || ['failed', 'cancelled'].includes(state.status);
     const synthetic = mode !== 'live';
     const status = !state.image ? '' : interrupted ? t('Image conservée · suivi interrompu', 'Image retained · tracking interrupted')
@@ -510,7 +542,7 @@
     if (badge) { badge.textContent = status; badge.hidden = !status; badge.dataset.tone = interrupted || done ? 'stopped' : stale ? 'working' : synthetic ? 'synthetic' : 'live'; }
     card.dataset.phase = phase(state);
     const preview = card.querySelector('.preview');
-    preview.dataset.state = state.image ? stale ? 'stale' : 'available' : done ? 'ended' : state.queued ? 'queued' : 'unavailable';
+    preview.dataset.state = state.image ? stale ? 'stale' : 'available' : done ? 'ended' : state.queued ? 'queued' : 'starting';
     const time = state.image ? (mode === 'replay' ? state.recorded : state.observed) : null;
     const clock = time && Number.isFinite(Date.parse(time)) ? `${mode === 'replay' ? t('heure originale', 'original time') : t('observée', 'observed')} ${new Intl.DateTimeFormat(locale(), {hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'UTC'}).format(new Date(time))} UTC` : '';
     const seconds = state.started ? Math.floor(((state.ended || Date.now()) - state.started) / 1000) : 0;
@@ -523,9 +555,11 @@
         node('strong', '', ready ? t('Prêt avant paiement', 'Ready before payment') : state.active ? t('L’agent vous passe le relais', 'The agent hands over to you') : t('Aucun site ouvert', 'No site opened')));
       preview.replaceChildren(box);
     } else if (!state.image) {
-      const copy = state.queued ? t('En attente d’un navigateur disponible…', 'Waiting for a free browser…') : t('Ouverture du navigateur de l’agent…', 'Opening the agent’s browser…');
-      if (preview.querySelector('.waiting')?.textContent !== copy) {
-        const box = node('div', 'waiting'); box.append(node('span', 'pulse-dot'), node('span', '', copy)); preview.replaceChildren(box);
+      const copy = state.queued ? t('En attente d’un navigateur disponible…', 'Waiting for a free browser…') : t('Ouverture du site…', 'Opening the site…');
+      if (preview.querySelector('.waiting-copy')?.textContent !== copy) {
+        const box = node('div', 'waiting'), skeleton = node('div', 'browser-skeleton'); skeleton.setAttribute('aria-hidden', 'true');
+        skeleton.append(node('i'), node('i'), node('i'));
+        box.append(node('span', 'pulse-dot'), node('strong', 'waiting-copy', copy), skeleton); preview.replaceChildren(box);
       }
     }
     statusLine(kind);
@@ -533,6 +567,11 @@
   function showFrame(kind, img) {
     const state = agentState[kind], preview = cardFor(kind).querySelector('.preview'), previous = preview.querySelector('img:not(.previous-frame)') || preview.querySelector('img');
     state.image = img; state.stale = false; state.received = Date.now();
+    clearTimeout(state.freshTimer);
+    const observed = Date.parse(state.observed);
+    state.observedTime = Number.isFinite(observed) && observed <= Date.now() ? observed : null;
+    const remaining = FRESH_MS - (Date.now() - frameTime(state));
+    if (remaining > 0 && !terminal.has(state.status)) state.freshTimer = setTimeout(() => { if (agentState[kind] === state) frameMeta(kind); }, remaining);
     img.className = previous ? 'frame' : 'frame first-frame';
     preview.replaceChildren(img);
     if (previous && previous !== img) {
@@ -587,7 +626,7 @@
     pill.dataset.status = key; pill.textContent = translate(labels[key] || labels.pending);
     const heading = card.querySelector('h3'); if (heading) heading.textContent = agentNames()[kind];
     const site = card.querySelector('.site');
-    if (site) site.textContent = state.site ? `${state.alternative ? t('Autre site · ', 'Alternative · ') : ''}${state.site}` : terminal.has(state.status) && !state.active ? t('Aucun site ouvert', 'No site opened') : t('Site choisi au lancement', 'Site picked at launch');
+    if (site) site.textContent = state.site ? `${state.alternative && !terminal.has(state.status) ? t('Autre site · ', 'Alternative · ') : ''}${state.site}` : terminal.has(state.status) && !state.active ? t('Aucun site ouvert', 'No site opened') : t('Site choisi au lancement', 'Site picked at launch');
     stepper(kind);
     const steps = card.querySelector('.steps'), handoff = card.querySelector('.handoff');
     if (state.status === 'ready_for_payment') steps.textContent = kind === 'registration' ? t('Prêt : vous complétez vous-même l’inscription, puis payez.', 'Ready: you complete the registration details yourself, then pay.') : t('Tout est prêt : il ne reste que le paiement, par vous.', 'All set: only the payment is left, for you.');
@@ -697,8 +736,11 @@
     if (e.type === 'step_progress' && (e.alternative === true || activity?.code === 'alternative')) state.alternative = true;
     if (terminal.has(e.status)) state.status = e.status;
     else if (e.type === 'step_started' && !terminal.has(state.status)) state.status = 'running';
-    if (terminal.has(state.status)) { state.ended ||= Date.now(); state.queued = false; }
-    if (terminal.has(e.status)) { state.reason = e.reason_code || state.reason; state.total = shownTotal(e.summary) || state.total; }
+    if (terminal.has(state.status)) { state.ended ||= Date.now(); state.queued = false; clearTimeout(state.freshTimer); }
+    if (terminal.has(e.status)) {
+      state.reason = e.reason_code || (e.checkpoint_reached === true && e.status !== 'ready_for_payment' ? 'checkpoint_reached' : null) || state.reason;
+      state.total = shownTotal(e.summary) || state.total; state.alternative = false; state.activity = null;
+    }
     const visited = domainOf(e.final_url) || domainOf(e.site_url) || domainOf(e.start_url);
     if (visited) state.site = visited;
     const href = safeURL(e.handoff_url); if (href) state.handoff = href;
@@ -740,7 +782,7 @@
   };
   $('toast').querySelector('button').onclick = () => { $('toast').hidden = true; };
   function resetStage() {
-    for (const kind of kinds) delete agentState[kind];
+    for (const kind of kinds) { clearTimeout(agentState[kind]?.freshTimer); delete agentState[kind]; }
     focusAgent(null);
     document.querySelectorAll('.agent').forEach(card => {
       card.dataset.status = 'pending'; card.dataset.phase = 'pending';
@@ -809,7 +851,7 @@
     }
     return true;
   }
-  globalThis.__runai = {event, consume, frameMeta, safeURL, reason, reasonCopy, reasons, detectLanguage: value => { detectLanguage(value); return language; }, demo: demoStage, focus: focusAgent, cityName, translate, setLanguage: value => { language = value; localize(); badge(); }};
+  globalThis.__runai = {event, consume, frameMeta, safeURL, reason, reasonCopy, reasons, flag, detectLanguage: value => { detectLanguage(value); return language; }, demo: demoStage, focus: focusAgent, cityName, translate, setLanguage: value => { language = value; localize(); badge(); }};
   localize(); badge(); const initialGeneration = generation;
   api('/api/health').then(health => {
     liveReady = health.live_ready || null;
