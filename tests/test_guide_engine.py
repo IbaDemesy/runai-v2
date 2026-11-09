@@ -66,7 +66,7 @@ def test_preparation_ranking_labels_delegation_and_payload(monkeypatch, lang, de
     e = engine(preparation_discovery)
     text = "un semi depuis Lyon" if lang == "fr" else "a half marathon from Lyon"
     state, turn = run(e.start(text))
-    assert [r.id for r in turn.candidates] == ["open", "sold", "full"]
+    assert [r.id for r in turn.candidates] == ["open", "full", "sold"]
     assert turn.candidates[0].preparation.model_dump() == {
         "registration": "covered", "hotel": True, "transport": True, "origin_city": "Lyon"}
     sold = next(s for s in turn.suggestions if s.value == "sold")
@@ -448,7 +448,7 @@ def test_sensitive_race_identifiers_remain_redacted_and_selectable(identifier):
     assert identifier not in state.model_dump_json()
     assert identifier not in turn.model_dump_json()
     assert all("[redacted" in race.id for race in state.candidates)
-    assert len({race.id for race in state.candidates}) == 2
+    assert len({race.id for race in state.candidates}) == 1
     for chip in turn.suggestions:
         selected, response = run(e.step(state, {"suggestion_id": chip.id}))
         assert response.error is None
@@ -838,6 +838,387 @@ def engine(discover=None):
     return GuideEngine(discover or FakeDiscovery(), today=date(2026, 1, 1))
 
 
+def test_delegated_empty_named_search_escalates_instead_of_repeating():
+    calls = []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        return []
+
+    e = engine(discover)
+    state, _ = run(e.start("le marathon de Milan"))
+    before = calls.copy()
+    state, turn = run(e.step(state, {"text": "choisis pour moi"}))
+    assert calls[-1] not in before
+    assert state.hints["depth"] == "deep" and state.hints["retry_count"] == 1
+    assert turn.suggestions
+
+
+def test_unselected_unknown_date_result_has_live_recovery_chip():
+    async def discover(query, hints):
+        if not hints.get("broaden"):
+            return []
+        return [{"id": "berlin", "name": "Berlin Marathon", "date_status": "unknown",
+                 "source_urls": ["https://race.example/edition"]}]
+
+    state, turn = run(engine(discover).start("le marathon de Berlin"))
+    assert state.draft.race is None
+    assert any(s.kind == "retry" for s in turn.suggestions)
+
+
+def test_delegation_researches_unverified_options_with_changed_hints():
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        return [{"id": "lisbon", "name": "Lisbon Half Marathon", "distance_km": 21.1,
+                 "race_date": "2027-03-07", "date_status": "unverified",
+                 "source_urls": ["https://race.example/edition"]}]
+
+    e = engine(discover)
+    state, _ = run(e.start("a spring half marathon in Portugal"))
+    before = calls.copy()
+    state, turn = run(e.step(state, {"text": "you choose"}))
+    assert calls[-1] not in before
+    assert state.hints["retry_count"] == 1
+    assert turn.suggestions and not turn.ready_to_confirm
+
+
+@pytest.mark.parametrize("text", ["météo demain", "c'est quoi la météo demain ?",
+                                  "écris-moi un poème", "what is the weather tomorrow?",
+                                  "write me a poem"])
+def test_off_topic_never_discovers_or_treats_weather_as_date(text):
+    async def discover(query, hints):
+        raise AssertionError("off-topic must not discover")
+
+    _, turn = run(engine(discover).start(text))
+    assert turn.error is None and not turn.candidates
+    assert "course" in turn.message or "running trip" in turn.message
+    assert "événement sourcé" not in turn.message and "event for tomorrow" not in turn.message
+
+
+@pytest.mark.parametrize("distances,labels,expected", [
+    ([42.195, 10], ["", ""], 2),
+    ([42.195, 42.195], ["", ""], 1),
+    ([None, 10], ["", ""], 1),
+    ([10, None], ["", ""], 1),
+    ([None, None], ["", ""], 1),
+    ([10, None], ["", "10 km"], 1),
+    ([42.195, None], ["", "10 km"], 2),
+    ([None, None], ["marathon", "10 km"], 2),
+    ([None, None], ["16–111 km", "111 km"], 2),
+    ([None, None], ["16—111 km", "16-111 km"], 1),
+    ([None, None], ["16–111 km", "111 / 16 km"], 1),
+])
+def test_deduplication_preserves_distinct_distances(distances, labels, expected):
+    async def discover(query, hints):
+        return [{"id": f"race-{index}", "name": "City Run", "race_date": "2027-04-10",
+                 "date_status": "official", "distance_km": distance, "distance_label": label,
+                 "source_urls": [f"https://source{index}.example/edition"]}
+                for index, (distance, label) in enumerate(zip(distances, labels, strict=True))]
+
+    e = engine(discover)
+    state, turn = run(e.start("un marathon"))
+    assert len(state.candidates) == expected
+    if expected == 1:
+        assert len(state.candidates[0].source_urls) == 2
+        if 10 in distances:
+            assert state.candidates[0].distance_km == 10
+    else:
+        for race in state.candidates:
+            chip = next(s for s in turn.suggestions if s.value == race.id)
+            selected, _ = run(e.step(state, {"suggestion_id": chip.id}))
+            assert selected.draft.race.id == race.id
+
+
+@pytest.mark.parametrize("distance,label", [
+    (21.1, "Semi-marathon"), (21.1, "Half-marathon"), (21.1, "semi"),
+    (21.1, "half"), (21.1, "21.1"), (21.1, "21.0975"), (21.0975, "HALF MARATHON"),
+    (42.195, "marathon"), (42.195, "42.2"), (42.2, "42.195"),
+    (10, "10k"), (10, "10 km"), (21.1, "  SEMI - MARATHON  "),
+    (10, "10-km"), (21.1, "21,1-km"), (42, "42-km"),
+])
+def test_deduplicate_standard_distance_aliases(distance, label):
+    async def discover(query, hints):
+        return [{"id": "numeric", "name": "City Run", "distance_km": distance,
+                 "race_date": "2027-04-10", "date_status": "official",
+                 "source_urls": ["https://numeric.example/edition"]},
+                {"id": "label", "name": "City Run", "distance_label": label,
+                 "race_date": "2027-04-10", "date_status": "official",
+                 "source_urls": ["https://label.example/edition"]}]
+
+    state, _ = run(engine(discover).start("un marathon"))
+    assert len(state.candidates) == 1
+    assert len(state.candidates[0].source_urls) == 2
+
+
+def test_deduplicate_normalized_name_date_and_merge_sources():
+    async def discover(query, hints):
+        return [{"id": str(index), "name": name, "race_date": "2027-04-10",
+                 "date_status": "official", "distance_km": 42.195,
+                 "source_urls": [f"https://source{index}.example/edition"]}
+                for index, name in enumerate(["Acea Run Rome", "ACEA  RUN ROME",
+                                               "Another Marathon"])]
+
+    state, turn = run(engine(discover).start("un marathon"))
+    assert len(turn.candidates) == 2
+    assert len(state.candidates[0].source_urls) == 2
+
+
+@pytest.mark.parametrize("status", ["sold_out", "closed"])
+def test_unavailable_named_only_is_selectable_with_warning(monkeypatch, status):
+    monkeypatch.setitem(sys.modules, "runai.agents.registration", SimpleNamespace(
+        registration_coverage=lambda race: status))
+    e = engine()
+    state, turn = run(e.start("le marathon de Milan"))
+    assert turn.candidates and state.draft.race.id == "milan"
+    assert ("complet (liste d'attente)" if status == "sold_out" else "inscriptions closes") in turn.message
+    assert "liste d'attente ou la page officielle" in turn.message
+    state, turn = run(e.step(state, {"text": "choisis pour moi"}))
+    assert state.draft.race.id == "milan" and turn.ready_to_confirm
+    assert "liste d'attente ou la page officielle" in turn.message
+
+
+@pytest.mark.parametrize("lang", ["fr", "en"])
+def test_localized_display_leaves_builder_payload_canonical(lang):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        return [{"id": "geneva", "name": "Geneva Marathon", "city": "Geneva",
+                 "country": "Switzerland", "race_date": "2027-05-10", "distance_km": 42.195,
+                 "date_status": "official", "source_urls": ["https://race.example/edition"]}]
+
+    text = ("le marathon de Genève depuis Bruxelles 2 nuits budget 800" if lang == "fr"
+            else "I want the Geneva marathon from Brussels 2 nights budget 800")
+    e = engine(discover)
+    state, turn = run(e.start(text))
+    assert len(calls) == 1
+    assert turn.draft.race.city == ("Genève" if lang == "fr" else "Geneva")
+    assert turn.draft.origin_city == ("Bruxelles" if lang == "fr" else "Brussels")
+    assert ("Genève" if lang == "fr" else "Geneva") in turn.message
+    payload = e.trip_payload(state)
+    assert payload["race"]["city"] == "Geneva" and payload["origin_city"] == "Brussels"
+
+
+def test_named_milan_queries_are_identical():
+    calls = []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        return await FakeDiscovery(today=date(2026, 1, 1))(query, hints)
+
+    for text in ["le marathon de Milan", "marathon de Milan", "Milano marathon",
+                 "Milan marathon", "J'aimerais faire le marathon de Milan"]:
+        state, _ = run(engine(discover).start(text))
+        assert state.draft.race.id == "milan"
+    assert all(call == calls[0] for call in calls)
+
+
+def test_berlin_mind_change_and_origin_corrections():
+    calls = []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        return await FakeDiscovery(today=date(2026, 1, 1))(query, hints)
+
+    e = engine(discover)
+    state, _ = run(e.start("le semi de Lisbonne"))
+    race = state.draft.race.id
+    for text, city in [("Paris", "Paris"), ("je pars de Lyon", "Lyon"),
+                       ("non en fait de Bruxelles", "Brussels")]:
+        before = len(calls)
+        state, _ = run(e.step(state, {"text": text}))
+        assert state.draft.origin_city == city and state.draft.race.id == race
+        assert len(calls) == before
+    state, _ = run(e.step(state, {"text": "finalement plutôt le marathon de Berlin"}))
+    assert calls[-1][0] == "Berlin Marathon"
+    assert calls[-1][1]["city"] == "Berlin" and calls[-1][1]["named"]
+    assert calls[-1][1]["distance"] == "marathon"
+
+
+@pytest.mark.parametrize("unverified", [False, True])
+@pytest.mark.parametrize("value,key,expected", [
+    ("En Suisse", "country", "Switzerland"),
+    ("En juillet", "months", ["2026-07"]),
+    ("Un marathon", "distance", "marathon"),
+])
+def test_recovery_chips_merge_and_escalate(unverified, value, key, expected):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        return ([{"id": "unknown", "name": "Unknown", "date_status": "unverified",
+                  "city": "Barcelona"}] if unverified else [])
+
+    e = engine(discover)
+    state, turn = run(e.start("le semi de Barcelone"))
+    previous = None
+    for _ in range(5):
+        state, turn = run(e.step(state, {"text": value}))
+        signature = (turn.message, tuple(r.id for r in turn.candidates),
+                     tuple(s.value for s in turn.suggestions))
+        assert signature != previous
+        previous = signature
+        assert calls[-1][1][key] == expected
+        if key != "distance":
+            assert calls[-1][1]["distance"] == "half"
+    assert state.hints["retry_count"] == 5
+
+
+def test_failed_retry_changes_search_and_offers_concrete_choices():
+    calls = []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        return [{"id": "unknown", "name": "Unknown", "date_status": "unverified"}]
+
+    e = engine(discover)
+    state, turn = run(e.start("le semi de Barcelone"))
+    before = calls.copy()
+    retry = next(s for s in turn.suggestions if s.kind == "retry")
+    state, turn = run(e.step(state, {"suggestion_id": retry.id}))
+    assert calls[-1] not in before
+    assert state.hints["retry_count"] == 1
+    assert all(s.kind != "retry" for s in turn.suggestions)
+    assert any(s.value == "En Suisse" for s in turn.suggestions)
+
+
+def test_no_result_city_answer_keeps_destination_and_sets_origin():
+    calls = []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        return []
+
+    e = engine(discover)
+    state, _ = run(e.start("le marathon de Milan"))
+    before = len(calls)
+    state, _ = run(e.step(state, {"text": "Paris"}))
+    assert state.draft.origin_city == "Paris" and len(calls) == before
+    assert state.hints["city"] == "Milan"
+
+
+def test_initial_origin_and_country_reach_discovery():
+    calls = []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        return []
+
+    state, _ = run(engine(discover).start("un 10 km aux Pays-Bas, départ de Bruxelles"))
+    assert state.draft.origin_city == "Brussels"
+    assert calls[0][1]["country"] == "Netherlands"
+    assert "city" not in calls[0][1]
+
+
+@pytest.mark.parametrize("official_date,in_season", [
+    ("2027-04-10", True), ("2027-10-10", False),
+])
+def test_named_official_lookup_reports_actual_season_match(official_date, in_season):
+    async def discover(query, hints):
+        return [{"id": "edition", "name": "Milan Marathon", "distance_km": 42.195,
+                 "race_date": official_date if hints.get("official_date_required") else None,
+                 "date_status": "official" if hints.get("official_date_required") else "unknown",
+                 "source_urls": ["https://race.example/edition"]}]
+
+    state, turn = run(engine(discover).start("le marathon de Milan au printemps 2027"))
+    assert state.draft.race is None
+    assert ("Rien de sourcé sur la période demandée" in turn.message) == (not in_season)
+    assert not turn.ready_to_confirm
+
+
+def test_in_season_unverified_card_does_not_mask_out_of_season_official_alternative():
+    async def discover(query, hints):
+        official = hints.get("official_date_required")
+        return [{"id": "official" if official else "unverified", "name": "Milan Marathon",
+                 "distance_km": 42.195,
+                 "race_date": "2027-10-10" if official else "2027-04-10",
+                 "date_status": "official" if official else "unverified",
+                 "source_urls": ["https://race.example/edition"]}]
+
+    state, turn = run(engine(discover).start("le marathon de Milan au printemps 2027"))
+    assert state.draft.race is None
+    assert {r.id for r in state.candidates} == {"official", "unverified"}
+    assert "Rien de sourcé sur la période demandée" in turn.message
+    assert any(s.kind == "choose_race" and s.value == "official" for s in turn.suggestions)
+    assert not turn.ready_to_confirm
+
+
+def test_named_official_alternative_outside_season_requires_explicit_selection():
+    async def discover(query, hints):
+        return [{"id": "edition", "name": "Milan Marathon", "distance_km": 42.195,
+                 "race_date": "2027-10-10" if hints.get("official_date_required") else None,
+                 "date_status": "official" if hints.get("official_date_required") else "unknown",
+                 "source_urls": ["https://race.example/edition"]}]
+
+    e = engine(discover)
+    state, turn = run(e.start("le marathon de Milan au printemps 2027"))
+    assert len(state.candidates) == 1
+    assert state.candidates[0].race_date == date(2027, 10, 10)
+    assert state.draft.race is None and state.stage == "choose_race"
+    assert not turn.ready_to_confirm
+    assert any(s.kind == "choose_race" and s.value == "edition" for s in turn.suggestions)
+
+
+@pytest.mark.parametrize("secondary", ["empty", "error", "official"])
+def test_optional_alternative_lookup_preserves_initial_results(secondary):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        if hints.get("official_date_required"):
+            if secondary == "error":
+                raise RuntimeError("provider unavailable")
+            if secondary == "empty":
+                return []
+            return [{"id": "official", "name": "Other Marathon", "distance_km": 42.195,
+                     "race_date": "2027-04-10", "date_status": "official",
+                     "source_urls": ["https://race.example/official"]}]
+        return [{"id": "initial", "name": "Milan Marathon", "distance_km": 42.195,
+                 "race_date": "2027-04-11", "date_status": "unverified",
+                 "source_urls": ["https://race.example/initial"]}]
+
+    state, turn = run(engine(discover).start("le marathon de Milan"))
+    assert len(calls) == 2
+    assert turn.error is None
+    assert any(r.id == "initial" for r in state.candidates)
+    assert any(r.id == "initial" for r in turn.candidates)
+    assert turn.suggestions
+    assert not turn.ready_to_confirm
+    if secondary == "official":
+        assert any(r.id == "official" for r in state.candidates)
+
+
+def test_unverified_result_offers_available_official_alternative():
+    async def discover(query, hints):
+        if hints.get("official_date_required"):
+            return [{"id": "official", "name": "Official Half", "race_date": "2027-03-14",
+                     "date_status": "official", "distance_km": 21.1,
+                     "source_urls": ["https://race.example/edition"]}]
+        return [{"id": "unknown", "name": "Unknown", "date_status": "unverified"}]
+
+    _, turn = run(engine(discover).start("le semi de Barcelone"))
+    assert any(r.date_status == "official" for r in turn.candidates)
+    assert any(s.value == "official" for s in turn.suggestions)
+
+
+def test_error_retry_escalates_and_replaces_retry_chip():
+    calls = []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        raise RuntimeError("unavailable")
+
+    e = engine(discover)
+    state, turn = run(e.start("le marathon de Milan"))
+    retry = next(s for s in turn.suggestions if s.kind == "retry")
+    state, turn = run(e.step(state, {"suggestion_id": retry.id}))
+    assert turn.error == "discovery_failed"
+    assert calls[0] != calls[-1] and state.hints["depth"] == "deep"
+    assert all(s.kind == "answer" for s in turn.suggestions)
+
+
 def invariant(turn):
     assert (turn.message + (turn.question or "")).count("?") <= 1
     assert turn.question or not turn.suggestions
@@ -1201,7 +1582,7 @@ def test_r1_03_race_contract_and_hint_bridge():
     state, turn = run(e.start("le semi de Lisbonne au printemps 2028"))
     hints = observed[-1]
     assert hints["month_from"] == "2028-03" and hints["month_to"] == "2028-05"
-    assert hints["year"] == 2028 and hints["race_name"] == "le semi de Lisbonne au printemps 2028"
+    assert hints["year"] == 2028 and hints["race_name"] == "Lisbon Half Marathon"
     assert hints["distance"] == "half" and hints["named"]
     assert hints["months"] == ["2028-03", "2028-04", "2028-05"]
     assert state.draft.race.distance_label == "Semi-marathon"
@@ -1237,13 +1618,13 @@ def test_named_race_refinement_keeps_base_query_and_race_name():
     state, turn = run(e.start("le semi de Lisbonne"))
     state, turn = run(e.step(state, {"text": "plutôt en mai"}))
     query, hints = observed[-1]
-    assert query == "le semi de Lisbonne" and hints["race_name"] == query
+    assert query == "Lisbon Half Marathon" and hints["race_name"] == query
     assert hints["city"] == "Lisbon" and hints["distance"] == "half" and hints["named"]
     assert hints["month_from"] == hints["month_to"] == "2026-05"
     assert state.query == query and state.draft.race.city == "Lisbon" and turn.candidates
     state, turn = run(e.step(state, {"text": "un marathon à Rome"}))
-    assert observed[-1][0] == "un marathon à Rome"
-    assert observed[-1][1]["race_name"] == "un marathon à Rome"
+    assert observed[-1][0] == "Rome Marathon"
+    assert observed[-1][1]["race_name"] == "Rome Marathon"
 
 
 def _coverage_module(monkeypatch, covered=None, error=False):
@@ -1274,7 +1655,7 @@ def test_origin_chips_rank_transport_covered_cities_first(monkeypatch):
     assert [s.value for s in turn.suggestions][:2] == ["Lyon", "Genève"]
     assert {c[0] for c in calls} == {"hotel", "transport"}
     assert all(c[2] == "Lisbon" for c in calls)
-    assert "couvert" not in turn.message + turn.question
+    assert "Non couverts" in turn.message
     assert "coverage" not in (turn.message + turn.question).lower()
 
 

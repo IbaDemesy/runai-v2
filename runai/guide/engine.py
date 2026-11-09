@@ -20,7 +20,7 @@ from runai.agents.scrub import (
 )
 
 from .fake import FakeDiscovery
-from .parse import CITY_GROUPS, bare_city, country_name, normalize, parse_intent
+from .parse import CITY_GROUPS, bare_city, country_name, named_query, normalize, parse_intent
 from .types import GuidedTurn, GuideState, RaceOption, RacePreparation, Suggestion
 
 Discover = Callable[[str, dict], Awaitable[list[dict]]]
@@ -48,6 +48,26 @@ class GuideEngine:
 
     def _say(self, state, fr, en):
         return en if state.lang == "en" else fr
+
+    def _display_text(self, state, text):
+        names = {"Geneva": "Genève", "Lisbon": "Lisbonne", "Barcelona": "Barcelone",
+                 "The Hague": "La Haye", "Brussels": "Bruxelles", "London": "Londres",
+                 "Valencia": "Valence", "Italy": "Italie", "Germany": "Allemagne",
+                 "Switzerland": "Suisse", "Netherlands": "Pays-Bas", "Spain": "Espagne",
+                 "Belgium": "Belgique", "United Kingdom": "Royaume-Uni"}
+        pairs = names.items() if state.lang == "fr" else ((v, k) for k, v in names.items())
+        for source, target in pairs:
+            text = re.sub(r"(?<!\w)" + re.escape(source) + r"(?!\w)", target, text)
+        return text
+
+    def _display_race(self, state, race):
+        race = race.model_copy(deep=True)
+        for field in ("name", "city", "country", "distance_label"):
+            if getattr(race, field):
+                setattr(race, field, self._display_text(state, getattr(race, field)))
+        if race.preparation and race.preparation.origin_city:
+            race.preparation.origin_city = self._display_text(state, race.preparation.origin_city)
+        return race
 
     def _chip(self, value, label=None, kind="answer", provenance="suggested_default"):
         return Suggestion(
@@ -135,7 +155,29 @@ class GuideEngine:
         p = race.preparation or RacePreparation()
         fully = p.registration == "covered" and p.hotel is True and p.transport is True
         partial = p.registration == "covered" or p.hotel is True or p.transport is True
-        return (not self._matches_distance(state, race), 0 if fully else 1 if partial else 2)
+        return (self._unavailable(race), not self._matches_distance(state, race),
+                0 if fully else 1 if partial else 2)
+
+    def _unavailable(self, race):
+        return bool(race.preparation and race.preparation.registration in {
+            "sold_out", "closed"})
+
+    def _preparation_message(self, state, race):
+        p = race.preparation or RacePreparation()
+        parts = [(p.registration == "covered", "l'inscription", "registration"),
+                 (p.hotel is True, "l'hôtel", "hotel"),
+                 (p.transport is True, "le transport", "transport")]
+        covered = [self._say(state, fr, en) for ok, fr, en in parts if ok]
+        missing = [self._say(state, fr, en) for ok, fr, en in parts if not ok]
+        message = self._say(
+            state, f" Je peux préparer {', '.join(covered)} pour {race.name}." if covered
+            else f" Aucune préparation couverte pour {race.name}.",
+            f" I can prepare {', '.join(covered)} for {race.name}." if covered
+            else f" No preparation is covered for {race.name}.")
+        if missing:
+            message += self._say(state, f" Non couverts : {', '.join(missing)}.",
+                                 f" Not covered: {', '.join(missing)}.")
+        return message
 
     def _eligible(self, race):
         return bool(race and race.race_date and race.race_date >= self.today
@@ -158,6 +200,29 @@ class GuideEngine:
             return next((item["distances"] for item in state.hints.get("_race_distances", [])
                          if item["race_id"] == race.id), [])
         return []
+
+    def _dedupe_distance(self, race):
+        def canonical(value):
+            for standard in (21.1, 42.195):
+                if abs(value - standard) < 0.01:
+                    return standard
+            return round(value, 3)
+
+        if race.distance_km is not None:
+            return (canonical(race.distance_km),)
+        label = normalize(race.distance_label)
+        label = re.sub(r"(?<=\d)\s*[-–—]\s*(?=k(?:m)?\b)", " ", label)
+        if re.fullmatch(r"\d+(?:[.,]\d+)?", label):
+            return (canonical(float(label.replace(",", "."))),)
+        values = self._distance_values(re.sub(r"(?<=\d)\s*k\b", " km", label))
+        if values:
+            return tuple(sorted(canonical(value) for value in values))
+        label = " ".join(re.sub(r"[-–—]", " ", label).split())
+        named = {"marathon": 42.195, "half marathon": 21.1, "semi marathon": 21.1,
+                 "semi": 21.1, "half": 21.1}
+        if label in named:
+            return (named[label],)
+        return label or None
 
     def _pending_distances(self, state):
         race = state.draft.race
@@ -208,6 +273,12 @@ class GuideEngine:
         elif state.stage == "choose_race":
             question = self._say(state, "Laquelle te tente ?", "Which one catches your eye?")
             chips = self._race_chips(state)
+            if not d.race and (
+                state.hints.get("retry_count") and not any(self._eligible(r) for r in state.candidates)
+                or not any(r.race_date for r in state.candidates)
+            ):
+                chips += (self._recovery_chips(state) if state.hints.get("retry_count") else
+                          [self._chip("retry", self._say(state, "Relancer", "Try again"), "retry")])
             if d.race:
                 explanation = self._say(
                     state,
@@ -215,9 +286,9 @@ class GuideEngine:
                     "This race's date cannot be confirmed from the current sources; let's try another option.",
                 )
                 message = (message + " " if message else "") + explanation
-                chips.append(
-                    self._chip("retry", self._say(state, "Relancer", "Try again"), "retry")
-                )
+                chips += (self._recovery_chips(state) if state.hints.get("retry_count")
+                          else [self._chip("retry", self._say(state, "Relancer", "Try again"),
+                                           "retry")])
         elif state.stage in {"origin", "nights", "budget"}:
             if state.stage == "origin":
                 choices = self._origin_choices(d.race)
@@ -317,6 +388,14 @@ class GuideEngine:
                                  " Synthetic dates, not live-verified.")
         if d.race:
             message += self._access_warning(state, d.race)
+            if self._unavailable(d.race):
+                message += self._say(
+                    state, " L'agent d'inscription peut seulement atteindre la liste d'attente "
+                    "ou la page officielle, pas obtenir une place.",
+                    " The registration agent can only reach the waitlist or official page, "
+                    "not secure an entry.")
+                chips += self._race_chips(state, [r for r in state.candidates
+                                                  if not self._unavailable(r)])
             if d.race.distance_km is None and not self._sourced_distances(state):
                 message += self._say(state, " Distance inconnue dans les sources.",
                                      " Distance is unknown in the sources.")
@@ -324,21 +403,31 @@ class GuideEngine:
             message += self._say(
                 state, " Attention : date non vérifiée.", " Warning: unverified date."
             )
-        message = scrub_text(message)
-        question = scrub_text(question) if question else None
+        message = self._display_text(state, scrub_text(message))
+        previous = next((row["text"] for row in reversed(state.history)
+                         if row.get("role") == "assistant"), None)
+        if message == previous:
+            message += self._say(state, " Précisons une autre piste.",
+                                 " Let's refine another option.")
+        question = self._display_text(state, scrub_text(question)) if question else None
         for chip in chips:
             chip.id += f":turn-{len(state.history)}"
-            chip.label = scrub_text(chip.label)
+            chip.label = self._display_text(state, scrub_text(chip.label))
             chip.value = (self._scrub_identifier(chip.value) if chip.kind == "choose_race"
                           else scrub_text(chip.value))
         state.pending_suggestions = chips
         state.history.append({"role": "assistant", "text": message})
+        display_draft = d.model_copy(deep=True)
+        if display_draft.race:
+            display_draft.race = self._display_race(state, display_draft.race)
+        if display_draft.origin_city:
+            display_draft.origin_city = self._display_text(state, display_draft.origin_city)
         return state, GuidedTurn(
             message=message,
             question=question,
             suggestions=chips,
-            candidates=state.candidates,
-            draft=d.model_copy(deep=True),
+            candidates=[self._display_race(state, r) for r in state.candidates],
+            draft=display_draft,
             ready_to_confirm=ready,
             error=error,
             language=state.lang,
@@ -458,6 +547,23 @@ class GuideEngine:
             if race.race_date and race.race_date < self.today:
                 flags["past"] = True
                 continue
+            def identity(name):
+                return " ".join(re.findall(r"\w+", normalize(name)))
+            duplicate = next((r for r in state.candidates
+                              if identity(r.name) == identity(race.name)
+                              and r.race_date == race.race_date
+                              and (self._dedupe_distance(r) is None
+                                   or self._dedupe_distance(race) is None
+                                   or self._dedupe_distance(r) == self._dedupe_distance(race))), None)
+            if duplicate:
+                if self._dedupe_distance(duplicate) is None:
+                    duplicate.distance_km = race.distance_km
+                    duplicate.distance_label = race.distance_label
+                duplicate.source_urls = list(dict.fromkeys(
+                    [*duplicate.source_urls, *race.source_urls]))
+                if race.date_status == "official":
+                    duplicate.date_status = "official"
+                continue
             if state.hints.get("exact_date") and (
                 not race.race_date or race.race_date.isoformat() != state.hints["exact_date"]
             ):
@@ -499,6 +605,20 @@ class GuideEngine:
                 state.candidates.append(race)
         return flags
 
+    def _recovery_chips(self, state):
+        return [self._chip(value) for value in self._say(
+            state, ["En Suisse", "En juillet", "Un marathon"],
+            ["In Switzerland", "In July", "A marathon"])]
+
+    def _escalate(self, state):
+        attempt = state.hints.get("retry_count", 0) + 1
+        state.hints["retry_count"] = attempt
+        state.hints["depth"] = "deep"
+        state.hints["official_date_required"] = True
+        if attempt >= 2:
+            state.hints["broaden"] = True
+            state.hints["alternative_scope"] = "same country, other cities and neighbouring months"
+
     async def _discover(self, state):
         state.draft.race = None
         state.draft.arrival_date = state.draft.departure_date = None
@@ -513,10 +633,31 @@ class GuideEngine:
         if hints.get("named"):
             hints.setdefault("race_name", state.query)
         broadened = None
+        alternative_ids = set()
         try:
             flags = await self._collect(state, hints)
+            if state.candidates and not any(self._eligible(r) for r in state.candidates):
+                alternatives = dict(hints, official_date_required=True, depth="deep",
+                                    alternative_scope="official dated alternatives", broaden=True)
+                original_candidates = state.candidates
+                state.candidates = []
+                try:
+                    await self._collect(state, alternatives, broadened=True)
+                except Exception:  # noqa: BLE001 -- optional alternatives must not discard initial results
+                    state.candidates = []
+                official = [r for r in state.candidates if self._eligible(r)]
+                alternative_ids.update(r.id for r in official)
+                state.candidates = official + [r for r in original_candidates
+                                               if r.id not in {a.id for a in official}]
+                if official:
+                    months = hints.get("months")
+                    if not months:
+                        broadened = "criteria"
+                    elif not any(r.race_date and r.race_date.strftime("%Y-%m") in months
+                                 for r in official):
+                        broadened = "months"
             if (not state.candidates and not flags["past"] and not flags["unsafe"]
-                    and not state.hints.get("exact_date")):
+                    and not state.hints.get("exact_date") and not hints.get("retry_count")):
                 broad = {key: value for key, value in hints.items()
                          if key not in {"months", "month_from", "month_to"}}
                 if "year" not in state.hints:
@@ -537,7 +678,7 @@ class GuideEngine:
                 ),
                 "discovery_failed",
             )
-            turn.suggestions = [
+            turn.suggestions = self._recovery_chips(state) if hints.get("retry_count") else [
                 self._chip("retry", self._say(state, "Réessayer", "Retry"), "retry")
             ]
             state.pending_suggestions = turn.suggestions
@@ -588,6 +729,7 @@ class GuideEngine:
         self._prepare_candidates(state)
         state.candidates.sort(key=lambda race: self._preparation_rank(state, race))
         if (len(state.candidates) == 1 and self._matches_distance(state, state.candidates[0])
+                and state.candidates[0].id not in alternative_ids
                 and state.hints.get("named") and not broadened) and not (
             state.candidates[0].registration_access and (
                 state.candidates[0].registration_access.account_required is True
@@ -614,6 +756,8 @@ class GuideEngine:
                 "Rien avec ces critères exacts ; voici des options sourcées en élargissant un peu la recherche.",
                 "Nothing with those exact criteria; here are sourced options from a slightly wider search.",
             )
+        if self._preparation_rank(state, state.candidates[0])[-1] != 0:
+            found += self._preparation_message(state, state.candidates[0])
         return self._turn(
             state,
             found if not unsourced_date_found else self._say(
@@ -685,6 +829,8 @@ class GuideEngine:
     async def _recommend(self, state):
         direction = None
         if not state.candidates:
+            if state.query:
+                self._escalate(state)
             if not state.query:
                 state.query = self._say(state, "Un marathon en Italie au printemps",
                                         "A marathon in Italy in spring")
@@ -710,7 +856,13 @@ class GuideEngine:
                 "distances, à toi de choisir sans changement automatique.",
                 "No race was found at the requested distance; here are other distances "
                 "for you to choose, without switching automatically."))
+        self._prepare_candidates(state)
         suitable = [r for r in matching if self._eligible(r)]
+        available = [r for r in suitable if not self._unavailable(r)]
+        if available:
+            suitable = available
+        elif not state.hints.get("named") and not state.draft.race:
+            suitable = []
         if not state.hints.get("named"):
             suitable.sort(key=lambda r: bool(r.registration_access and (
                 r.registration_access.account_required is True or r.registration_access.captcha is True
@@ -720,9 +872,8 @@ class GuideEngine:
         self._prepare_candidates(state)
         suitable.sort(key=lambda r: self._preparation_rank(state, r))
         if not suitable:
-            return self._turn(state, self._say(
-                state, "Aucune date future vérifiée ; il faut une nouvelle source.",
-                "No verified future date is available; we need a new source."))
+            self._escalate(state)
+            return await self._discover(state)
         months = state.hints.get("months")
         if months and not state.draft.race:
             suitable = [r for r in suitable if r.race_date.strftime("%Y-%m") in months]
@@ -750,6 +901,7 @@ class GuideEngine:
         message = self._say(
             state, f"Je recommande {race.name} : {reason}.",
             f"I recommend {race.name}: {reason}.")
+        message += self._preparation_message(state, race)
         if direction:
             message = direction + " " + message
         access = race.registration_access
@@ -758,7 +910,8 @@ class GuideEngine:
         state.draft.race = race
         state.draft.provenance["race"] = "source"
         applied = []
-        for field, value in [("origin_city", self._origin_choices(race)[0]),
+        for field, value in [("origin_city", bare_city(self._origin_choices(race)[0])
+                             or self._origin_choices(race)[0]),
                              ("nights", 2), ("budget_eur", 450)]:
             if getattr(state.draft, field) is None:
                 setattr(state.draft, field, value)
@@ -823,6 +976,7 @@ class GuideEngine:
             )
         if chip:
             if chip.kind == "retry":
+                self._escalate(state)
                 if chip.value == "next_edition":
                     state.hints.pop("year", None)
                     state.hints.pop("months", None)
@@ -858,7 +1012,8 @@ class GuideEngine:
                     state.stage
                 ]
                 setattr(
-                    state.draft, field, chip.value if field == "origin_city" else int(chip.value)
+                    state.draft, field, (bare_city(chip.value) or chip.value)
+                    if field == "origin_city" else int(chip.value)
                 )
                 state.draft.provenance[field] = "suggested_default"
                 description = {
@@ -928,6 +1083,12 @@ class GuideEngine:
         if introduction and not intent.fr_cues and not intent.en_cues:
             intent.switch_language = introduced_language
         self._set_language(state, intent, typed=chip is None)
+        if re.search(r"\b(?:meteo|weather|poeme?|poetry)\b", normalize(text)) and not (
+            intent.distance or intent.named
+        ):
+            return self._turn(state, self._say(
+                state, "Restons sur ton projet de course : dis-moi quelle course te tente.",
+                "Let's focus on your running trip: tell me which race interests you."))
         if _FORBIDDEN_SITE.search(normalize(text)):
             return self._turn(state, self._say(
                 state, "Je ne peux pas imposer ce site : les agents n'utilisent que des sites "
@@ -941,7 +1102,8 @@ class GuideEngine:
                 "Nothing starts without your explicit confirmation of the ready plan, "
                 "via the dedicated button. Let's continue here."), "confirmation_required")
         state.history.append({"role": "user", "text": text})
-        if bare_city(text) and state.stage in {"origin", "confirm", "confirmed"}:
+        if bare_city(text) and (state.stage in {"origin", "confirm", "confirmed"}
+                                or (state.query and not state.draft.origin_city)):
             intent.origin_city = bare_city(text)
             intent.city = intent.country = None
         if text.isdecimal() and state.stage in {"nights", "budget"}:
@@ -1051,13 +1213,25 @@ class GuideEngine:
             if intent.same_place and not intent.city:
                 intent.city, intent.country = previous_city, previous_country
                 intent.named = bool(intent.city and intent.distance)
-            if intent.distance or intent.country or intent.city:
-                state.query = text
+            recovery = normalize(text) in {
+                "en suisse", "in switzerland", "en juillet", "in july", "un marathon",
+                "a marathon",
+            } and bool(state.query) and (state.stage == "discover"
+                                         or not self._eligible(state.draft.race))
+            if (intent.distance or intent.country or intent.city) and not recovery:
+                state.query = (named_query(intent.city, intent.distance)
+                               if intent.named else text)
                 state.hints = {}
             elif not state.query:
                 state.query = text
+            if recovery:
+                self._escalate(state)
+                if intent.country:
+                    state.hints.pop("city", None)
+                    state.hints.pop("race_name", None)
+                    state.hints.pop("named", None)
             if intent.named:
-                state.hints["race_name"] = text
+                state.hints["race_name"] = state.query
             if intent.problem == "exact_date":
                 state.hints.pop("months", None)
                 state.hints.pop("year", None)
@@ -1078,6 +1252,11 @@ class GuideEngine:
                     if k in {"distance", "city", "country", "months", "named", "year"} and v
                 }
             )
+            if recovery:
+                place = state.hints.get("city") or state.hints.get("country", "")
+                state.query = named_query(place, state.hints.get("distance", "race"))
+                if state.hints.get("named"):
+                    state.hints["race_name"] = state.query
             if intent.problem == "exact_date":
                 state.hints["exact_date"] = re.search(r"\d{4}-\d{2}-\d{2}", text)[0]
             state, turn = await self._discover(state)

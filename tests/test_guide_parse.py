@@ -7,6 +7,21 @@ from runai.guide.parse import bare_city, country_name, parse_intent
 TODAY = date(2026, 9, 1)
 
 
+@pytest.mark.parametrize("text", ["non en fait de Bruxelles", "je pars de Bruxelles",
+                                  "départ de Bruxelles", "from Brussels",
+                                  "I'm leaving from Brussels"])
+def test_origin_corrections_are_not_destinations(text):
+    intent = parse_intent(text, today=TODAY)
+    assert intent.origin_city == "Brussels"
+    assert intent.city is None and intent.country is None
+
+
+def test_origin_is_removed_from_initial_destination():
+    intent = parse_intent("un 10 km aux Pays-Bas, départ de Bruxelles", today=TODAY)
+    assert intent.origin_city == "Brussels"
+    assert intent.country == "Netherlands" and intent.distance == "10k"
+
+
 @pytest.mark.parametrize(
     "text,distance",
     [

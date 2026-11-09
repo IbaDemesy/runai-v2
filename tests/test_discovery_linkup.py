@@ -66,6 +66,65 @@ def search(rows, **kwargs):
     return asyncio.run(run())
 
 
+@pytest.mark.parametrize("country,localized", [("Germany", "Allemagne"), ("Italy", "Italie")])
+@pytest.mark.parametrize("outcome", ["normal", "empty", "error"])
+def test_country_query_templates_and_cache(monkeypatch, country, localized, outcome):
+    metadata_calls = []
+
+    def registration_info(url):
+        metadata_calls.append(url)
+
+    monkeypatch.setattr(linkup, "_site_registration_info", registration_info)
+
+    async def run():
+        calls = []
+
+        def handler(request):
+            assert str(request.url) == linkup.SEARCH_URL
+            payload = json.loads(request.content)
+            calls.append(payload)
+            assert f"marathon {localized} 2027 date officielle" in payload["q"]
+            assert f"major marathon editions in {country} 2027 official date" in payload["q"]
+            assert "organizer calendars" in payload["q"]
+            if outcome == "error":
+                return httpx.Response(400, json={"error": "unavailable"})
+            return httpx.Response(200, json={"candidates": [] if outcome == "empty" else [race()]})
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            kwargs = {"hints": {"country": country, "distance": "marathon", "year": 2027},
+                      "api_key": KEY, "client": client}
+            if outcome == "error":
+                with pytest.raises(DiscoveryProviderError):
+                    await discover("a marathon", **kwargs)
+            else:
+                result = await discover("a marathon", **kwargs)
+                assert bool(result) == (outcome == "normal")
+                assert await discover("a marathon", **kwargs) == result
+            assert len(calls) == (2 if outcome in {"normal", "error"} else 4)
+            assert len(metadata_calls) == (1 if outcome == "normal" else 0)
+
+    asyncio.run(run())
+
+
+def test_named_query_enrichment_survives_app_hint_mapping():
+    from runai.app import _discovery_hints
+
+    async def run():
+        def handler(request):
+            prompt = json.loads(request.content)["q"]
+            assert "Milan Marathon 2027 official date" in prompt
+            assert "Milano marathon 2027 date officielle" in prompt
+            return httpx.Response(200, json={"candidates": []})
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            assert await discover("Milan Marathon", _discovery_hints({
+                "named": True, "race_name": "Milan Marathon", "city": "Milan",
+                "country": "Italy", "distance": "marathon", "year": 2027,
+            }), api_key=KEY, client=client) == []
+
+    asyncio.run(run())
+
+
 def test_normal_multi_candidate_and_structured_request():
     async def run():
         def handler(request):
@@ -494,7 +553,7 @@ def test_semi_en_espagne_recovers_from_past_only_strict_reply_with_one_broadened
     _state, turn = asyncio.run(run())
     assert len(calls) == 4
     assert len(turn.candidates) == 4 and not turn.error
-    assert all(r.country == "Spain" and r.distance_km == 21.097 for r in turn.candidates)
+    assert all(r.country == "Espagne" and r.distance_km == 21.097 for r in turn.candidates)
     assert all(len(r.source_urls) == 1 for r in turn.candidates)  # one provenance per domain
     assert "élargissant" in turn.message and turn.language == "fr"
     assert {s.kind for s in turn.suggestions} == {"choose_race"}
