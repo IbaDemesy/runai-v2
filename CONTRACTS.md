@@ -1,5 +1,17 @@
 # Generic guided-mission contract
 
+## Owner site-exclusion override (2026-11-08)
+The owner lifted site-based exclusions for read/prepare-only automation. Committed
+registry decisions now use allowed_owner_rule, including historically prohibited
+or ambiguous sites; old reviews are evidence, not permission from those sites.
+Review expiry does not expire the owner's rule. Unknown HTTPS hosts pass the
+default navigation policy on their exact host; this does not create an adapter
+or expand task navigation allowlists. Explicit injected registries retain strict
+evaluation for tests/custom configurations. Malformed registries fail closed.
+The H client's Accor-specific exclusion is removed. Frames remain in-session only.
+All action/payment/consent/CAPTCHA/privacy guardrails and honest blocked states
+remain unchanged. This product-owner decision does not imply site authorization.
+
 Pydantic v2 schemas: `runai/models.py`; unknown request/model fields are forbidden.
 The product supports any discoverable race. Milan is one evaluation, not a path.
 No agent starts before explicit confirmation. No purchase, booking, account,
