@@ -1181,6 +1181,9 @@ def test_r8_frankfurt_bounded_flow_starts_on_provider():
         assert urlsplit(task["start_url"]).hostname == "in.motionevents-registrations.com"
         assert task["max_steps"] <= 15
         assert "under 15 steps" in task["instructions"] or profile
+        if profile:
+            assert "answer before step 11 " in task["instructions"]
+            assert "within 5 steps of opening the form" in task["instructions"]
         assert hclient._policy(task)
 
 
