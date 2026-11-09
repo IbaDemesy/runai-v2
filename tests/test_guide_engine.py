@@ -1064,7 +1064,7 @@ def test_two_failed_recoveries_offer_sourced_preparable_alternative(monkeypatch)
         if "preparable alternative" not in query:
             return []
         return [{"id": "official", "name": "Offline Official Half", "distance_km": 21.1,
-                 "race_date": "2027-09-12", "date_status": "official",
+                 "country": "Portugal", "race_date": "2027-09-12", "date_status": "official",
                  "source_urls": ["https://race.example/edition"]}]
 
     e = engine(discover)
@@ -1152,6 +1152,25 @@ def test_organizer_verification_targets_unverified_domestic_before_foreign_offic
     assert calls[1]["depth"] == "standard"
     assert next(r for r in state.candidates if r.id == "berlin").date_status == "official"
     assert turn.suggestions[0].value == "berlin"
+
+
+@pytest.mark.parametrize("country", [None, "", "Unspecified"])
+def test_unknown_country_cannot_suppress_domestic_verification(country):
+    calls = []
+    berlin = {"id": "berlin", "name": "Berlin Marathon", "country": "Germany",
+              "race_date": "2027-09-26", "distance_km": 42.195, "date_status": "unverified",
+              "source_urls": ["https://directory.example/berlin"]}
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        if hints.get("verification_only"):
+            return [dict(berlin, date_status="official")]
+        return [dict(berlin, id="unknown", name="Unknown Marathon", country=country, date_status="official"), berlin]
+
+    e = engine(discover)
+    state, _ = run(e.start("a marathon in Germany"))
+    assert len(calls) == 2 and calls[1]["race_name"] == "Berlin Marathon"
+    assert not e._same_country(state, next(r for r in state.candidates if r.id == "unknown"))
 
 
 @pytest.mark.parametrize("event_type", ["Relay", "Staffetta", "Relais"])

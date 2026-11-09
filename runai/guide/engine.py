@@ -107,8 +107,8 @@ class GuideEngine:
                 and self._preparation_rank(state, race)[-1] == 0)
 
     def _same_country(self, state, race):
-        return (not state.requested_country or not race.country or
-                normalize(country_name(race.country) or race.country) == normalize(state.requested_country))
+        return (not state.requested_country or bool(race.country and
+                normalize(country_name(race.country) or race.country) == normalize(state.requested_country)))
 
     def _official_hint(self, race):
         if race.synthetic:
