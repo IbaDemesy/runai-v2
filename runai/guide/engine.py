@@ -104,7 +104,10 @@ class GuideEngine:
         return " — " + self._say(state, *labels[status]) if status in labels else ""
 
     def _prepare_candidates(self, state):
-        for race in state.candidates:
+        races = list(state.candidates)
+        if state.draft.race and all(race is not state.draft.race for race in races):
+            races.append(state.draft.race)
+        for race in races:
             origin = state.draft.origin_city or self._origin_choices(race)[0]
             preparation = RacePreparation(origin_city=origin)
             try:
@@ -389,6 +392,11 @@ class GuideEngine:
 
     def _advance(self, state):
         d = state.draft
+        races = [*state.candidates, *([d.race] if d.race else [])]
+        if d.origin_city and any(
+            not race.preparation or race.preparation.origin_city != d.origin_city for race in races
+        ):
+            self._prepare_candidates(state)
         if not d.race:
             state.stage = "choose_race" if state.candidates else "discover"
         elif not self._eligible(d.race) or self._needs_distance(state):

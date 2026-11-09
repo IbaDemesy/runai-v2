@@ -102,6 +102,32 @@ def test_preparation_optional_modules_fail_closed(monkeypatch, failure):
     assert '"registration":"unknown"' in turn.model_dump_json()
 
 
+@pytest.mark.parametrize("action", ["typed", "chip", "detached-race"])
+def test_origin_changes_refresh_candidate_and_selected_preparation(monkeypatch, action):
+    monkeypatch.setitem(sys.modules, "runai.agents.registration",
+                        SimpleNamespace(registration_coverage=lambda race: "covered"))
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(
+        coverage=lambda kind, **kwargs: {"covered": kwargs["origin_city"] == "Lyon"}))
+    e = engine()
+    state, turn = run(e.start("le semi de Lisbonne depuis Paris 2 nuits budget 450"))
+    assert state.draft.race.preparation.origin_city == "Paris"
+    assert state.draft.race.preparation.transport is False
+    if action == "chip":
+        edit = next(s for s in turn.suggestions if s.kind == "edit" and s.value == "origin")
+        state, turn = run(e.step(state, {"suggestion_id": edit.id}))
+        origin = next(s for s in turn.suggestions if s.value == "Lyon")
+        answer = {"suggestion_id": origin.id}
+    else:
+        if action == "detached-race":
+            state.candidates = []
+        answer = {"text": "Lyon"}
+    state, turn = run(e.step(state, answer))
+    assert state.draft.origin_city == "Lyon" and turn.ready_to_confirm
+    for race in [*state.candidates, state.draft.race, turn.draft.race]:
+        assert race.preparation.origin_city == "Lyon"
+        assert race.preparation.hotel is True and race.preparation.transport is True
+
+
 @pytest.mark.parametrize("status,fr,en", [
     ("not_open", "inscriptions pas encore ouvertes", "registration not open yet"),
     ("closed", "inscriptions closes", "registration closed"),
