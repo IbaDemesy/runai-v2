@@ -4,7 +4,10 @@ Start URL priority: a reviewed registration adapter matching the race name/count
 sourced ``registration_url``, then ``official_url``; each must be allowed by a dated site-policy
 review (host + path). Unknown, prohibited or expired pages raise ValueError (blocked). Allowed
 hosts add the organizer's reviewed registration platforms (organizer -> njuko/raceresult/endu).
-Registration access observations are hints only, never permission.
+Registration access observations are hints only, never permission. A sourced registration URL
+on a prohibited site blocks (no organizer fallback). Adapters may carry a dated ``availability``
+observation (validated here, fail closed); a fresh sold_out/closed one is put first in the
+instructions. ``registration_coverage`` (P8) answers offline whether ``build_task`` would succeed.
 """
 
 from __future__ import annotations
@@ -13,7 +16,7 @@ import copy
 import json
 import re
 from collections.abc import Mapping
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlsplit
@@ -46,6 +49,9 @@ STOP_BEFORE = [
     "any form submission",
     "redirect to a host or path outside the reviewed registration scope",
 ]
+AVAILABILITY_STATUSES = ("open", "sold_out", "not_open", "closed", "unknown")
+AVAILABILITY_MAX_AGE_DAYS = 21
+_PROHIBITED = "site terms prohibit"
 
 
 def _https_url(value: Any) -> str | None:
@@ -94,6 +100,39 @@ def _check_scopes(entries: list[Any]) -> None:
             key = (scope.get("host"), scope.get("path_prefix", "/"))
             if decisions.setdefault(key, raw.get("automation")) != raw.get("automation"):
                 raise site_policy.PolicyError(f"conflicting policy decisions for {key}")
+
+
+def _availability(raw: Any, entry_id: Any) -> dict[str, str] | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping) or raw.get("status") not in AVAILABILITY_STATUSES:
+        raise site_policy.PolicyError(f"{entry_id}: availability.status is invalid")
+    observed = raw.get("observed_at")
+    try:
+        if not isinstance(observed, str):
+            raise TypeError(observed)
+        observed = date.fromisoformat(observed).isoformat()
+    except (TypeError, ValueError) as exc:
+        raise site_policy.PolicyError(f"{entry_id}: availability.observed_at is invalid") from exc
+    source, note = raw.get("source"), raw.get("note", "")
+    if not isinstance(source, str) or urlsplit(source).scheme != "https" or not urlsplit(
+        source).hostname:
+        raise site_policy.PolicyError(f"{entry_id}: availability.source must be an https URL")
+    if not isinstance(note, str):
+        raise site_policy.PolicyError(f"{entry_id}: availability.note must be text")
+    return {"status": raw["status"], "observed_at": observed, "source": source,
+            "note": note.strip()}
+
+
+def _fresh_status(adapter: Mapping[str, Any] | None, today: date) -> tuple[str, str | None]:
+    """Observed availability status, or 'unknown' when absent, stale or dated in the future."""
+    availability = adapter.get("availability") if adapter else None
+    if not availability:
+        return "unknown", None
+    age = (today - date.fromisoformat(availability["observed_at"])).days
+    if not 0 <= age <= AVAILABILITY_MAX_AGE_DAYS:
+        return "unknown", availability["observed_at"]
+    return availability["status"], availability["observed_at"]
 
 
 def _registration_adapter(raw: Any, entry: Mapping[str, Any]) -> dict[str, Any]:
@@ -147,6 +186,7 @@ def _registration_adapter(raw: Any, entry: Mapping[str, Any]) -> dict[str, Any]:
         ),
         "success_evidence": raw["success_evidence"].strip(),
         "blocked_evidence": raw["blocked_evidence"].strip(),
+        "availability": _availability(raw.get("availability"), entry_id),
     }
 
 
@@ -191,6 +231,13 @@ def build_task(
     trip: Mapping[str, Any], *, today: date | None = None, registry: Any = None,
 ) -> dict[str, Any]:
     """Build the H browser-agent task for the race registration step of ``trip``."""
+    return _plan(trip, today=today, registry=registry)[0]
+
+
+def _plan(
+    trip: Mapping[str, Any], *, today: date | None, registry: Any,
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    today = today or datetime.now(UTC).date()
     expected = trip_expected(trip, KIND, today=today, require_origin=False)
     race = trip["race"]
     registration_url = _https_url(race.get("registration_url"))
@@ -206,6 +253,10 @@ def build_task(
     except (OSError, ValueError, TypeError) as exc:
         raise ValueError("site-policy registry unavailable or invalid") from exc
 
+    if registration_url:
+        denial = evaluate_url(registration_url, KIND, today=today, registry=view)
+        if denial["reason"].startswith(_PROHIBITED):
+            raise ValueError(f"registration site not policy-reviewed: denied ({denial['reason']})")
     values = {"race_date": expected["race_date"], "edition": _text(race, "edition")}
     candidates: list[tuple[str, dict[str, Any] | None]] = []
     for adapter in _matching(adapters, race):
@@ -230,6 +281,14 @@ def build_task(
         reasons.append(decision["reason"])
     if start_url is None or decision is None:
         raise ValueError(f"registration site not policy-reviewed ({'; '.join(reasons)})")
+    alternatives = []
+    if adapter:
+        for url in dict.fromkeys(
+            [u for u, _ in candidates] + [adapter["organizer_url"]]
+        ):
+            if url and url != start_url and evaluate_url(
+                url, KIND, today=today, registry=view)["allowed"]:
+                alternatives.append(url)
 
     fallback_url = next(
         (u for u in (registration_url, official_url)
@@ -261,6 +320,21 @@ def build_task(
         f"{adapter['success_evidence']} BLOCKED looks like: {adapter['blocked_evidence']}\n"
         if adapter else ""
     )
+    status, observed_at = _fresh_status(adapter, today)
+    availability_first = ""
+    if adapter and status in ("sold_out", "closed"):
+        code = "sold_out" if status == "sold_out" else "registration_closed"
+        availability_first = (
+            f"AVAILABILITY FIRST: registration was observed {status.replace('_', ' ')} on "
+            f"{observed_at} ({adapter['availability']['source']}). Within your first 5 steps, "
+            f"check whether this is still the case; if it is, STOP and report BLOCKED {code} "
+            "with the URL. Never join a waiting list or fill any form.\n"
+        )
+    alternatives_hint = (
+        "Other reviewed entry points for this race (human handoff only; do not navigate "
+        f"there unless they are on an allowed host): {', '.join(alternatives)}.\n"
+        if alternatives else ""
+    )
     stop_lines = "\n".join(f"- {item}" for item in STOP_BEFORE)
     success = (
         f"READY: the registration flow for {label}, {distance} on {expected['race_date']} is "
@@ -271,7 +345,7 @@ def build_task(
         "earlier, or an unreviewed redirect; report the reason code and the last URL. "
         "Always end with: no payment, booking or submission was made."
     )
-    instructions = (
+    instructions = availability_first + (
         f"Goal: open the official registration for {label} ({distance}; race date "
         f"{expected['race_date']}; {expected['city']}, {expected['country']}) and stop at its "
         "first personal-data page without touching it. Be step-efficient: finish in under "
@@ -288,7 +362,7 @@ def build_task(
         f"4. Select the distance {distance} and a ticket category with public buttons only, "
         "if this needs no personal data.\n"
         "5. Cookie banners: reject or close only, never accept optional consent.\n"
-        f"{access_hint}{adapter_hint}"
+        f"{access_hint}{adapter_hint}{alternatives_hint}"
         f"6. STOP at the first page that asks for any of:\n{stop_lines}\n"
         "7. Never type personal data, log in, create an account, tick consent or terms, upload "
         "documents, submit a form, pay or bypass a captcha.\n"
@@ -310,4 +384,58 @@ def build_task(
         "max_steps": DEFAULT_MAX_STEPS,
         "expected": expected,
         "allowed_hosts": hosts,
-    }
+        "alternatives": alternatives,
+    }, adapter
+
+
+def _coverage_trip(race: Mapping[str, Any], today: date) -> dict[str, Any]:
+    race_date = date.fromisoformat(str(race.get("race_date")))
+    arrival = max(race_date - timedelta(days=1), today + timedelta(days=1))
+    departure = race_date + timedelta(days=1)
+    return {"race": dict(race), "travelers": 1, "nights": (departure - arrival).days,
+            "arrival_date": arrival.isoformat(), "departure_date": departure.isoformat()}
+
+
+def _prohibition(race: Mapping[str, Any], today: date, registry: Any) -> str | None:
+    view, adapters = policy_view(registry)
+    urls = [race.get("registration_url"), race.get("official_url")]
+    for adapter in _matching(adapters, race):
+        urls += [adapter["organizer_url"], adapter["url_template"]]
+    for url in urls:
+        if isinstance(url, str):
+            decision = evaluate_url(url, KIND, today=today, registry=view)
+            if decision["reason"].startswith(_PROHIBITED):
+                return decision["policy_id"]
+    return None
+
+
+def registration_coverage(
+    race: Mapping[str, Any], *, today: date | None = None, registry: Any = None,
+) -> dict[str, Any]:
+    """Offline P8 coverage: would ``build_task`` succeed for ``race``? Never raises.
+
+    ``status`` is the matched adapter's recorded availability, or ``unknown`` when absent,
+    older than 21 days or the race is not covered.
+    """
+    result: dict[str, Any] = {"covered": False, "status": "unknown", "policy_id": None,
+                              "observed_at": None, "prohibited": False}
+    try:
+        if not isinstance(race, Mapping):
+            return result
+        today = today if isinstance(today, date) else datetime.now(UTC).date()
+        try:
+            task, adapter = _plan(_coverage_trip(race, today), today=today, registry=registry)
+        except (ValueError, TypeError, KeyError):
+            policy_id = _prohibition(race, today, registry)
+            if policy_id:
+                result.update(prohibited=True, policy_id=policy_id)
+            return result
+        status, observed_at = _fresh_status(adapter, today)
+        decision = evaluate_url(task["start_url"], KIND, today=today,
+                                registry=policy_view(registry)[0])
+        result.update(covered=True, status=status, observed_at=observed_at,
+                      policy_id=decision["policy_id"])
+    except Exception:  # noqa: BLE001
+        return {"covered": False, "status": "unknown", "policy_id": None,
+                "observed_at": None, "prohibited": False}
+    return result
