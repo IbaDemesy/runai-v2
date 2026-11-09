@@ -22,7 +22,7 @@ SENTINELS = (
     "+33 6 12 34 56 78", "sk-artificial-sentinel-not-a-real-key",
     "artificial_private_value", "Bearer artificial-bearer-sentinel",
     "FR76 3000 6000 0112 3456 7890 189", "FR7630006000011234567890189",
-    "SentinelRunnerName",
+    "SentinelRunnerName", "Alpha", "Beta", "Gamma", "Delta",
 )
 OFFTOPIC = "Quelle est la capitale de l'Australie ? Et raconte-moi une blague"
 PASTED_FR = ("Voici la page de la course : Marathon de Rome, édition 2027, inscriptions "
@@ -60,6 +60,31 @@ class Case:
 
 
 CASES = [
+    Case("four-word-name-fr", "r4-regression",
+         "je m'appelle SentinelRunnerName Alpha Beta Gamma et je veux le semi de Lisbonne", (),
+         "name-lisbon"),
+    Case("five-word-name-fr", "r4-regression",
+         "moi c'est SentinelRunnerName Alpha Beta Gamma Delta je veux le semi de Lisbonne", (),
+         "name-lisbon"),
+    Case("four-word-name-en", "r4-regression",
+         "my name is SentinelRunnerName Alpha Beta Gamma and I want a half marathon in Lisbon", (),
+         "name-lisbon", lang="en"),
+    Case("five-word-name-en", "r4-regression",
+         "I'm called SentinelRunnerName Alpha Beta Gamma Delta I want a half marathon in Lisbon", (),
+         "name-lisbon", lang="en"),
+    Case("name-before-article-fr", "r4-regression",
+         "je m'appelle SentinelRunnerName Alpha Beta Gamma Delta le semi de Lisbonne", (),
+         "name-lisbon"),
+    Case("name-before-inscris-fr", "r4-regression",
+         "moi c'est SentinelRunnerName Alpha Beta Gamma Delta inscris-moi au semi de Lisbonne", (),
+         "name-lisbon"),
+    Case("name-before-punctuation-en", "r4-regression",
+         "I'm called SentinelRunnerName Alpha Beta Gamma Delta! I want a half marathon in Lisbon", (),
+         "name-lisbon", lang="en"),
+    Case("name-without-boundary-fr", "r4-regression",
+         "je m'appelle SentinelRunnerName Alpha Beta Gamma Delta", (), "question"),
+    Case("name-without-boundary-en", "r4-regression", FR,
+         ("my name is SentinelRunnerName Alpha Beta Gamma Delta",), "name-lisbon"),
     Case("name-and-race-fr", "r4-regression",
          "Je m'appelle SentinelRunnerName et je veux le semi de Lisbonne", (), "name-lisbon"),
     Case("name-and-race-en", "r4-regression",
@@ -341,7 +366,8 @@ def assert_immediate(case, state, turn, discovery):
         assert discovery.calls and state.draft.race.city == "Lisbon"
         serialized = json.dumps({"state": state.model_dump(mode="json"),
                                  "turn": turn.model_dump(mode="json"), "calls": discovery.calls})
-        assert all(name not in serialized for name in ["SentinelRunnerName", "Alpha", "Beta"])
+        assert all(name not in serialized
+                   for name in ["SentinelRunnerName", "Alpha", "Beta", "Gamma", "Delta"])
     elif expected == "same-place":
         assert state.hints["city"] == "Valencia" and state.hints["country"] == "Spain"
         assert state.hints["distance"] == "half"
