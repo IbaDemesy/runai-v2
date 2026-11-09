@@ -889,7 +889,7 @@
     const e = {...raw, ...raw.data}; if (Number.isFinite(Number(e.sequence))) after = Math.max(after, Number(e.sequence));
     if (!kinds.includes(e.kind)) return;
     const state = agentState[e.kind] ||= {status: 'pending', level: -1, frames: 0, progress: 0};
-    if (typeof e.stale_frame === 'boolean') state.staleFrame = e.stale_frame;
+    if (e.type === 'live_frame' || e.type?.startsWith('step_') || typeof e.stale_frame === 'boolean') state.staleFrame = e.stale_frame === true;
     if (e.prefilled === true) state.prefilled = true;
     if (typeof e.synthetic === 'boolean') state.synthetic = e.synthetic;
     if (['dates', 'selection', 'payment'].includes(e.checkpoint)) state.checkpoint = e.checkpoint;

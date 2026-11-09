@@ -771,6 +771,15 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     assert.ok(!card('hotel').querySelector('.steps').textContent.includes('à l’instant'));
     assert.ok(!card('hotel').querySelector('.frame-meta').textContent.includes('Durée 0 s'));
     assert.ok(!card('hotel').textContent.includes('EN DIRECT'));
+    for (const stale_frame of [null, undefined]) {
+      ui.event({kind:'hotel', stale_frame:true});
+      ui.event({...frame('hotel', `new-${stale_frame}`, 2), stale_frame, observed_at:new Date(now - 5000).toISOString()}); await loaded(images.at(-1));
+      assert.equal(card('hotel').querySelector('.live-badge').textContent, 'EN DIRECT');
+    }
+    ui.event({kind:'hotel', stale_frame:true});
+    ui.event({kind:'hotel', type:'step_progress', stale_frame:null});
+    assert.equal(card('hotel').querySelector('.live-badge').textContent, 'EN DIRECT');
+    ui.event({kind:'hotel', stale_frame:true});
     ui.event({kind:'hotel', status:'ready_for_payment', handoff_url:'https://example.org/checkout'});
     assert.equal(card('hotel').querySelector('.live-badge').textContent, 'Dernière capture · agent arrêté');
     ui.event({kind:'hotel', status:'failed'});
