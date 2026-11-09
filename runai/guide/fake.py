@@ -42,7 +42,7 @@ class FakeDiscovery:
             results.append(
                 {
                     "id": city.lower(),
-                    "name": f"[Synthétique / Synthetic] {city} {distance}",
+                    "name": f"{city} {distance}",
                     "edition": str(year),
                     "distance_km": {"marathon": 42.195, "half": 21.1, "trail": 30, "ultra": 80}[
                         distance

@@ -78,6 +78,8 @@ class GuidedTurn(Model):
 
 
 class GuideState(Model):
+    profile_status: dict[str, StrictBool] | None = None
+    profile_invited: bool = False
     stage: Literal[
         "discover", "choose_race", "origin", "nights", "budget", "confirm", "confirmed"
     ] = "discover"

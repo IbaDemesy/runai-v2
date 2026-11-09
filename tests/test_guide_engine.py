@@ -282,7 +282,7 @@ def test_deferral_recommends_one_future_option_with_editable_defaults(text):
     state, turn = run(e.step(state, {"text": text}))
     assert state.draft.race in state.candidates
     assert state.draft.race.race_date >= e.today
-    assert ("I recommend" if text == "what do you think?" else "recommande") in turn.message
+    assert ("Let's plan on" if text == "what do you think?" else "Je pars sur") in turn.message
     assert turn.language == state.lang == ("en" if text == "what do you think?" else "fr")
     assert turn.ready_to_confirm and state.stage == "confirm"
     assert {s.value for s in turn.suggestions if s.kind == "edit"} == {"origin", "nights", "budget"}
@@ -306,7 +306,7 @@ def test_deferral_searches_stated_direction_without_inventing_results(result):
     if result == "empty":
         assert seen[1][1]["broaden"] is True and "month_from" not in seen[1][1]
         assert "year" not in seen[1][1] and seen[1][1]["country"] == "Italy"
-    assert "spring" in turn.message
+    assert "spring" in turn.message or result == "normal" and turn.ready_to_confirm
     assert bool(state.draft.race) == (result == "normal")
     assert bool(turn.error) == (result == "error")
     invariant(turn)
@@ -944,6 +944,385 @@ def engine(discover=None):
     return GuideEngine(discover or FakeDiscovery(), today=date(2026, 1, 1))
 
 
+def test_demo_race_and_chip_names_are_clean_but_explicitly_synthetic():
+    e = engine()
+    state, turn = run(e.start("un marathon en Italie"))
+    assert turn.candidates and all(r.synthetic for r in turn.candidates)
+    assert all("Synthetic" not in r.name and "Synthétique" not in r.name for r in turn.candidates)
+    chips = [s for s in turn.suggestions if s.kind == "choose_race"]
+    assert chips and all(s.provenance == "synthetic" for s in chips)
+    assert all("[" not in s.label for s in chips)
+    state, turn = run(e.step(state, {"suggestion_id": chips[0].id}))
+    assert turn.draft.race.synthetic and "date synthétique" in turn.message
+
+
+@pytest.mark.parametrize("wish", ["un marathon au printemps en Italie",
+                                  "a trail in Switzerland this summer"])
+def test_r7_vague_request_reaches_ready_with_at_most_two_clicks(wish):
+    e = engine()
+    state, turn = run(e.start(wish))
+    for _ in range(2):
+        if turn.ready_to_confirm:
+            break
+        choice = next(s for s in turn.suggestions if s.kind in {"choose_race", "distance"})
+        state, turn = run(e.step(state, {"suggestion_id": choice.id}))
+    assert turn.ready_to_confirm
+    assert state.draft.origin_city == "Paris" and state.draft.nights == 2
+    assert state.draft.budget_eur == 450
+    assert all(state.draft.provenance[field] == "suggested_default"
+               for field in ["origin_city", "nights", "budget_eur"])
+    assert turn.question in {"On lance la préparation ?", "Shall we start preparation?"}
+    assert {s.value for s in turn.suggestions if s.kind == "edit"} == {"origin", "nights", "budget"}
+
+
+@pytest.mark.parametrize("complete", [False, True, None])
+def test_r7_profile_invitation_once_or_never_when_complete(complete):
+    e = engine()
+    state, turn = run(e.start("un marathon au printemps en Italie"))
+    if complete is not None:
+        state.profile_status = {"complete": complete}
+    choice = next(s for s in turn.suggestions if s.kind == "choose_race")
+    state, turn = run(e.step(state, {"suggestion_id": choice.id}))
+    messages = [turn.message]
+    invitation_chips = [s for s in turn.suggestions if s.value == "continue_without_profile"]
+    assert bool(invitation_chips) == (complete is not True)
+    if invitation_chips:
+        state, turn = run(e.step(state, {"suggestion_id": invitation_chips[0].id}))
+        messages.append(turn.message)
+    for text in ["depuis Lyon", "3 nuits", "budget 800"]:
+        state, turn = run(e.step(state, {"text": text}))
+        messages.append(turn.message)
+    assert sum("Remplis une seule fois" in message for message in messages) == (complete is not True)
+    assert state.draft.origin_city == "Lyon" and state.draft.nights == 3
+    assert state.draft.budget_eur == 800 and turn.ready_to_confirm
+
+
+@pytest.mark.parametrize("text,value", [
+    ("runner@example.test", "runner@example.test"),
+    ("mon téléphone +33 6 12 34 56 78", "+33 6 12 34 56 78"),
+    ("né le 1990-04-12", "1990-04-12"), ("12/04/1990", "12/04/1990"),
+    ("12 rue des Fleurs", "Fleurs"), ("12 Example Street", "Example Street"),
+    ("je m'appelle SentinelName", "SentinelName"), ("my name is SentinelName", "SentinelName"),
+])
+def test_r7_chat_pii_is_dropped_and_redirected_to_profile(text, value):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(query)
+        return []
+
+    state, turn = run(engine(discover).start(text))
+    serialized = str(state.model_dump()) + str(turn.model_dump())
+    assert value not in serialized and not calls
+    assert "profil" in turn.message
+    assert state.history[0]["text"] == "[redacted personal data]"
+
+
+@pytest.mark.parametrize("text", ["le 12/04/2027", "on 12.04.2027", "12-04-2027"])
+def test_r7_numeric_race_date_is_not_personal_data(text):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(hints)
+        return []
+
+    state, turn = run(engine(discover).start(text))
+    assert turn.error != "safety_refusal" and calls
+    assert state.hints["exact_date"] == "2027-04-12"
+    assert "[redacted personal data]" not in state.model_dump_json()
+
+
+@pytest.mark.parametrize("text", ["the Born to Run marathon", "born", "birthday", "naissance"])
+def test_r7_birth_words_without_personal_context_do_not_block(text):
+    state, turn = run(engine().start(text))
+    assert turn.error != "safety_refusal"
+    assert "[redacted personal data]" not in state.model_dump_json()
+
+
+@pytest.mark.parametrize("text,value", [
+    ("1990-01-01", "1990-01-01"), ("née le 01/01/1990", "01/01/1990"),
+    ("born on 12.04.2001", "12.04.2001"), ("birthday: 12/04/2001", "12/04/2001"),
+    ("date de naissance 2001-04-12", "2001-04-12"),
+    ("runner@example.test", "runner@example.test"),
+    ("phone +33 6 12 34 56 78", "+33 6 12 34 56 78"),
+])
+def test_r7_real_birth_context_and_contact_details_remain_private(text, value):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(query)
+        return []
+
+    state, turn = run(engine(discover).start(text))
+    assert not calls and turn.error == "safety_refusal"
+    assert value not in state.model_dump_json() + turn.model_dump_json()
+    assert state.history[0]["text"] == "[redacted personal data]"
+
+
+@pytest.mark.parametrize("text,value", [
+    ("I was born in 2001", "2001"),
+    ("my address is 12 Main St", "Main"),
+    ("mon adresse est 12 rue des Fleurs", "Fleurs"),
+    ("12 Main St", "Main"), ("12 Example Ave", "Example"), ("12 Example Rd", "Example"),
+    ("phone (202) 555-0123", "555-0123"),
+])
+def test_review_personal_birth_address_and_phone_are_redacted(text, value):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(query)
+        return []
+
+    state, turn = run(engine(discover).start(text))
+    assert turn.error == "safety_refusal" and not calls
+    assert value not in state.model_dump_json() + turn.model_dump_json()
+    assert state.history[0]["text"] == "[redacted personal data]"
+
+
+@pytest.mark.parametrize("field,value", [("nights", "3"), ("budget", "800")])
+def test_r7_summary_field_chips_allow_typed_corrections(field, value):
+    e = engine()
+    state, turn = run(e.start("le marathon de Milan"))
+    old_confirm = next(s.id for s in turn.suggestions if s.kind == "confirm")
+    edit = next(s.id for s in turn.suggestions if s.kind == "edit" and s.value == field)
+    state, turn = run(e.step(state, {"suggestion_id": edit}))
+    assert not turn.ready_to_confirm
+    state, turn = run(e.step(state, {"text": value}))
+    draft_field = {"nights": "nights", "budget": "budget_eur"}[field]
+    assert getattr(state.draft, draft_field) == int(value)
+    assert state.draft.provenance[draft_field] == "user" and turn.ready_to_confirm
+    state, turn = run(e.step(state, {"suggestion_id": old_confirm}))
+    assert turn.error == "unknown_suggestion" and state.stage != "confirmed"
+
+
+def test_r7_personal_details_after_ready_leave_plan_unchanged():
+    e = engine()
+    state, turn = run(e.start("le marathon de Milan"))
+    before = state.draft.model_copy(deep=True)
+    state, turn = run(e.step(state, {"text": "my name is SentinelName, from London"}))
+    assert state.draft == before and state.stage != "confirmed"
+    assert "SentinelName" not in state.model_dump_json() + turn.model_dump_json()
+    assert state.history[-2]["text"] == "[redacted personal data]"
+    assert "secure runner profile card" in turn.message
+
+
+def test_r7_summary_edits_and_stale_confirmation_never_confirm():
+    e = engine()
+    state, turn = run(e.start("le marathon de Milan depuis Lyon 3 nuits budget 800"))
+    assert turn.ready_to_confirm and state.draft.origin_city == "Lyon"
+    stale = next(s.id for s in turn.suggestions if s.kind == "confirm")
+    edit = next(s.id for s in turn.suggestions if s.kind == "edit" and s.value == "origin")
+    state, turn = run(e.step(state, {"suggestion_id": edit}))
+    assert not turn.ready_to_confirm and state.stage == "origin"
+    state, turn = run(e.step(state, {"text": "Genève"}))
+    assert turn.ready_to_confirm and state.draft.origin_city == "Geneva"
+    state, turn = run(e.step(state, {"suggestion_id": stale}))
+    assert turn.error == "unknown_suggestion" and state.stage != "confirmed"
+    state, turn = run(e.start("un marathon en Italie"))
+    state, turn = run(e.step(state, {"text": "go confirm"}))
+    assert not turn.ready_to_confirm and state.stage != "confirmed"
+
+
+@pytest.mark.parametrize("text,missing,alternatives", [
+    ("marathon d’Atlantis 2027", "Je ne trouve pas le marathon d'Atlantis 2027",
+     "Voici des marathons proches de ta demande"),
+    ("a marathon in Atlantis 2027", "I couldn't find Atlantis Marathon 2027",
+     "Here are marathons close to your request"),
+])
+def test_named_missing_race_labels_alternatives(text, missing, alternatives):
+    async def discover(query, hints):
+        return [{"id": "nantes", "name": "Abalone Nantes Marathon", "city": "Nantes",
+                 "distance_km": 42.195, "race_date": "2027-04-11",
+                 "date_status": "official", "synthetic": True}]
+
+    state, turn = run(engine(discover).start(text))
+    assert missing in turn.message and alternatives in turn.message
+    assert "matching your search" not in turn.message and "correspondant" not in turn.message
+    assert state.draft.race is None
+    assert all(s.group == "Alternatives" for s in turn.suggestions if s.kind == "choose_race")
+
+
+@pytest.mark.parametrize("text,missing", [
+    ("marathon d’Atlantis 2027", "Je ne trouve pas le marathon d'Atlantis 2027."),
+    ("a marathon in Atlantis 2027", "I couldn't find Atlantis Marathon 2027."),
+])
+def test_named_missing_race_with_no_results_still_names_the_request(text, missing):
+    async def discover(query, hints):
+        return []
+
+    state, turn = run(engine(discover).start(text))
+    assert missing in turn.message and not turn.ready_to_confirm
+    assert "proches de ta demande" not in turn.message and "close to your request" not in turn.message
+    assert not turn.candidates and state.draft.race is None
+
+
+@pytest.mark.parametrize("name,matched", [("Lisbon Marathon", False), ("València Marathon", True),
+                                        ("Valence Marathon", True), ("Other Race", False)])
+def test_review_named_race_without_city_requires_name_evidence(name, matched):
+    async def discover(query, hints):
+        return [{"id": "candidate", "name": name, "distance_km": 42.195,
+                 "country": "Spain",
+                 "race_date": "2027-04-11", "date_status": "official", "synthetic": True}]
+
+    state, turn = run(engine(discover).start("le marathon de Valencia"))
+    assert turn.ready_to_confirm == matched
+    if not matched:
+        assert state.draft.race is None and "Je ne trouve pas" in turn.message
+        assert all(s.group == "Alternatives" for s in turn.suggestions if s.kind == "choose_race")
+
+
+@pytest.mark.parametrize("dodge", ["je sais pas", "whatever"])
+def test_review_dodge_does_not_accept_missing_named_race_alternatives(dodge):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(query)
+        return [{"id": "nantes", "name": "Nantes Marathon", "city": "Nantes", "country": "France",
+                 "distance_km": 42.195, "race_date": "2027-04-11", "date_status": "official",
+                 "synthetic": True}]
+
+    e = engine(discover)
+    state, turn = run(e.start("marathon d’Atlantis 2027"))
+    count = len(calls)
+    assert state.draft.race is None
+    state, turn = run(e.step(state, {"text": dodge}))
+    assert len(calls) == count and not turn.ready_to_confirm and state.draft.race is None
+    chips = [s for s in turn.suggestions if s.kind == "choose_race"]
+    assert chips and all(s.group == "Alternatives" for s in chips)
+    state, turn = run(e.step(state, {"suggestion_id": chips[0].id}))
+    assert turn.ready_to_confirm and state.draft.race.city == "Nantes"
+
+
+@pytest.mark.parametrize("country,fr", [("Austria", "Autriche"), ("Germany", "Allemagne"),
+    ("Switzerland", "Suisse"), ("Spain", "Espagne"), ("Italy", "Italie"),
+    ("Portugal", "Portugal"), ("Netherlands", "Pays-Bas"),
+    ("United Kingdom", "Royaume-Uni"), ("Belgium", "Belgique")])
+def test_country_copy_is_localized(country, fr):
+    e = engine()
+    assert e._display_text(GuideState(lang="fr"), country) == fr
+    assert e._display_text(GuideState(lang="en"), fr) == country
+
+
+@pytest.mark.parametrize("alias,city,country", [
+    ("València", "Valencia", "Spain"), ("Londres", "London", "United Kingdom"),
+    ("Roma", "Rome", "Italy"), ("Francfort", "Frankfurt", "Germany"),
+])
+def test_major_race_engine_passes_canonical_target_to_discovery(alias, city, country):
+    async def discover(query, hints):
+        assert query == f"{city} Marathon"
+        assert hints["city"] == city and hints["country"] == country and hints["year"] == 2027
+        return [{"id": "major", "name": query, "city": city, "country": country,
+                 "race_date": "2027-04-11", "date_status": "official",
+                 "distance_km": 42.195, "synthetic": True}]
+
+    state, _turn = run(engine(discover).start(f"le marathon de {alias} 2027"))
+    assert state.draft.race.name == f"{city} Marathon"
+
+
+@pytest.mark.parametrize("official", [False, True])
+def test_candidate_names_deduplicate_and_dates_resolve(official):
+    async def discover(query, hints):
+        row = {"id": "one", "name": "Éxample Marathon 2027", "city": "Example",
+               "distance_km": 42.195, "race_date": "2027-04-11",
+               "date_status": "unverified", "source_urls": ["https://calendar.example/race"]}
+        return [row, dict(row, id="two", name="EXAMPLE-MARATHON", race_date="2027-04-12",
+                          date_status="official" if official else "unverified",
+                          official_url="https://organizer.example/race" if official else None,
+                          source_urls=["https://organizer.example/race"])]
+
+    _state, turn = run(engine(discover).start("the marathon"))
+    assert len(turn.candidates) == 1
+    race = turn.candidates[0]
+    assert race.date_status == ("official" if official else "conflicting")
+    assert race.race_date == (date(2027, 4, 12) if official else None)
+    if not official:
+        assert any("to be confirmed" in s.label for s in turn.suggestions
+                   if s.kind == "choose_race")
+
+
+@pytest.mark.parametrize("correction", [
+    "non de Genève", "non, de Genève", "plutôt depuis Genève",
+    "from Geneva instead", "actually from Geneva",
+])
+def test_a04_origin_correction_keeps_milan_marathon(correction):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(query)
+        return await FakeDiscovery()(query, hints)
+
+    e = engine(discover)
+    state, turn = run(e.start("marathon de Milan"))
+    race = state.draft.race
+    state, turn = run(e.step(state, {"text": "je pars de Lyon"}))
+    state, turn = run(e.step(state, {"text": correction}))
+    assert state.draft.race.id == race.id
+    assert turn.draft.race.city == "Milan"
+    assert turn.draft.race.distance_km == 42.195
+    assert turn.draft.origin_city in {"Genève", "Geneva"}
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("dodge", [
+    "je sais pas", "aucune idée", "I don't know", "peu importe", "whatever",
+])
+@pytest.mark.parametrize("details", ["", " depuis Lyon", " depuis Lyon 2 nuits",
+                                     " depuis Lyon 2 nuits budget 800"])
+def test_a02_field_dodges_never_rediscover(dodge, details):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(query)
+        return await FakeDiscovery()(query, hints)
+
+    e = engine(discover)
+    state, turn = run(e.start("marathon de Milan" + details))
+    race = state.draft.race
+    before = len(calls)
+    state, turn = run(e.step(state, {"text": dodge}))
+    assert len(calls) == before
+    assert state.draft.race.id == race.id
+    assert turn.suggestions
+
+
+@pytest.mark.parametrize("result", [[], [{
+    "id": "unknown", "name": "Unknown Marathon", "date_status": "unverified",
+}]])
+def test_a02_dodge_after_empty_or_unverified_search_never_retries(result):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(query)
+        return result
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon"))
+    before = len(calls)
+    state, turn = run(e.step(state, {"text": "je sais pas"}))
+    assert len(calls) == before
+    assert turn.suggestions and not turn.ready_to_confirm
+
+
+@pytest.mark.parametrize("wish,minimum", [("marathon", 42.195), ("half marathon", 21.1)])
+def test_distance_default_never_shorter_than_requested_type(wish, minimum):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(query)
+        return [{"id": "race", "name": "Race", "race_date": "2027-04-11",
+                 "date_status": "official", "synthetic": True,
+                 "distance_label": "5 km, 10 km, 21.1 km, 42.195 km"}]
+
+    e = engine(discover)
+    state, turn = run(e.start(wish))
+    state, turn = click(e, state, turn)
+    before = len(calls)
+    state, turn = run(e.step(state, {"text": "je sais pas"}))
+    assert len(calls) == before
+    assert turn.ready_to_confirm and state.draft.race.distance_km == minimum
+    assert state.draft.provenance["distance_km"] == "source"
+
+
 def covered_offline(monkeypatch):
     monkeypatch.setitem(sys.modules, "runai.agents.registration", SimpleNamespace(
         registration_coverage=lambda race: {"covered": True, "status": "open"}))
@@ -1298,7 +1677,7 @@ def test_selected_unverified_edition_verifies_before_country_fallback(monkeypatc
     assert len(calls) == 3
     assert state.draft.race and state.draft.race.country == "Germany"
     assert state.draft.race.date_status == ("official" if outcome == "official" else "unverified")
-    assert not turn.ready_to_confirm
+    assert turn.ready_to_confirm == (outcome == "official")
     if outcome != "official":
         assert turn.suggestions[0].value == "same_country"
 
@@ -1878,6 +2257,10 @@ def invariant(turn):
         "answer", "distance", "choose_race", "retry"
     } or all(
         s.kind in {"confirm", "edit", "choose_race", "retry"} for s in turn.suggestions
+    ) or (
+        turn.ready_to_confirm and all(s.kind in {"confirm", "edit"}
+                                     or s.value == "continue_without_profile"
+                                     for s in turn.suggestions)
     )
 
 
@@ -1893,7 +2276,9 @@ def test_acceptance_full_conversation(query):
     e = engine()
     state, turn = run(e.start(query))
     assert len(turn.candidates) == 3
-    for _ in range(4):
+    for _ in range(2):
+        if turn.ready_to_confirm:
+            break
         state, turn = click(e, state, turn)
     invariant(turn)
     assert turn.ready_to_confirm and state.stage == "confirm"
@@ -1924,14 +2309,14 @@ def test_acceptance_full_conversation(query):
 def test_named_and_correction_and_bare_answers():
     e = engine()
     state, turn = run(e.start("le semi de Lisbonne"))
-    assert state.stage == "origin" and state.draft.race.city == "Lisbon"
+    assert state.stage == "confirm" and state.draft.race.city == "Lisbon"
     state, turn = run(e.step(state, {"text": "Lyon"}))
-    assert state.stage == "nights" and state.draft.provenance["origin_city"] == "user"
-    state, turn = run(e.step(state, {"text": "2"}))
-    assert state.stage == "budget"
+    assert state.stage == "confirm" and state.draft.provenance["origin_city"] == "user"
+    state, turn = run(e.step(state, {"text": "2 nuits"}))
+    assert state.stage == "confirm"
     state, turn = run(e.step(state, {"text": "plutôt 3 nuits"}))
-    assert state.stage == "budget" and state.draft.nights == 3
-    state, turn = run(e.step(state, {"text": "800"}))
+    assert state.stage == "confirm" and state.draft.nights == 3
+    state, turn = run(e.step(state, {"text": "budget 800"}))
     assert turn.ready_to_confirm and state.draft.budget_eur == 800
     assert state.draft.departure_date == date(2027, 3, 16)
 
@@ -1958,9 +2343,10 @@ def test_natural_free_text(query, smalltalk, yes, overrides):
     state, turn = run(e.start(query))
     before = state.draft.model_copy(deep=True)
     state, reply = run(e.step(state, {"text": smalltalk}))
-    assert state.draft == before and state.stage == "origin"
+    assert state.draft == before and state.stage == "confirm"
     assert reply.question == turn.question
-    assert [s.value for s in reply.suggestions] == [s.value for s in turn.suggestions]
+    assert [s.value for s in reply.suggestions] == [s.value for s in turn.suggestions
+                                                   if s.value != "continue_without_profile"]
     for answer in [yes, "ok", "ok"]:
         state, turn = run(e.step(state, {"text": answer}))
         invariant(turn)
@@ -2065,8 +2451,7 @@ def test_official_date_edit_and_yes_confirmation():
 
     e = engine(discover)
     state, turn = run(e.start("a marathon in Paris"))
-    assert state.stage == "origin"
-    assert turn.suggestions[0].value != "Paris"
+    assert state.stage == "confirm" and state.draft.origin_city == "Paris"
     for _ in range(3):
         state, turn = run(e.step(state, {"text": "ok"}))
     assert turn.ready_to_confirm
@@ -2101,7 +2486,7 @@ def test_question_in_free_text_does_not_create_second_question():
     state, turn = click(e, state, turn)
     state, turn = run(e.step(state, {"text": "bonjour, ça va ?"}))
     invariant(turn)
-    assert state.stage == "origin" and not turn.error
+    assert state.stage == "confirm" and not turn.error
 
 
 def test_explicit_year_discovery_and_mismatched_candidates():
@@ -2137,7 +2522,8 @@ def test_new_race_search_resets_hints_but_month_refines():
     state, turn = run(e.start("un marathon en Italie au printemps 2028"))
     state, turn = run(e.step(state, {"text": "un trail en Suisse"}))
     assert len(turn.candidates) == 3
-    assert state.hints == {"distance": "trail", "country": "Switzerland"}
+    assert state.hints == {"distance": "trail", "country": "Switzerland",
+                           "_requested_distance": "trail"}
     state, turn = run(e.step(state, {"text": "plutôt en juillet"}))
     assert state.hints["distance"] == "trail" and state.hints["country"] == "Switzerland"
     assert len(turn.candidates) == 1 and turn.candidates[0].city == "Zermatt"
@@ -2156,7 +2542,10 @@ def test_budget_is_not_a_race_year(answer):
 
     e = engine(discover)
     state, turn = run(e.start("le semi de Lisbonne depuis Lyon 2 nuits"))
-    assert state.stage == "budget"
+    assert state.stage == "confirm"
+    if answer.isdecimal():
+        edit = next(s.id for s in turn.suggestions if s.kind == "edit" and s.value == "budget")
+        state, turn = run(e.step(state, {"suggestion_id": edit}))
     race = state.draft.race
     state, turn = run(e.step(state, {"text": answer}))
     assert len(calls) == 1 and state.draft.race == race
@@ -2201,7 +2590,7 @@ def test_winter_months_take_precedence_over_single_year():
         "2029-02-10",
     ]
     state, turn = click(e, state, turn, 1)
-    assert state.draft.race.race_date == date(2029, 1, 10) and state.stage == "origin"
+    assert state.draft.race.race_date == date(2029, 1, 10) and turn.ready_to_confirm
 
 
 def test_r1_03_race_contract_and_hint_bridge():
@@ -2300,22 +2689,25 @@ def _coverage_module(monkeypatch, covered=None, error=False):
 
 def test_origin_chips_rank_transport_covered_cities_first(monkeypatch):
     calls = _coverage_module(monkeypatch, covered={"Genève", "Lyon"})
-    state, turn = run(engine().start("le semi de Lisbonne"))
-    state, turn = run(engine().step(state, {"text": "Lisbon Half Marathon"}))
-    if state.stage != "origin":
-        state, turn = run(engine().start("le semi de Lisbonne, 2 nuits, budget 800"))
+    e = engine()
+    state, turn = run(e.start("le semi de Lisbonne"))
+    assert turn.ready_to_confirm and state.draft.origin_city == "Paris"
+    edit = next(s.id for s in turn.suggestions if s.kind == "edit" and s.value == "origin")
+    state, turn = run(e.step(state, {"suggestion_id": edit}))
     assert state.stage == "origin"
     assert [s.value for s in turn.suggestions][:2] == ["Lyon", "Genève"]
     assert {c[0] for c in calls} == {"hotel", "transport"}
     assert all(c[2] == "Lisbon" for c in calls)
-    assert "Non couverts" in turn.message
     assert "coverage" not in (turn.message + turn.question).lower()
 
 
 @pytest.mark.parametrize("covered,error", [(set(), False), (None, True)])
 def test_origin_chips_fall_back_to_default_order(monkeypatch, covered, error):
     _coverage_module(monkeypatch, covered=covered, error=error)
-    state, turn = run(engine().start("le semi de Lisbonne, 2 nuits, budget 800"))
+    e = engine()
+    state, turn = run(e.start("le semi de Lisbonne, 2 nuits, budget 800"))
+    edit = next(s.id for s in turn.suggestions if s.kind == "edit" and s.value == "origin")
+    state, turn = run(e.step(state, {"suggestion_id": edit}))
     assert state.stage == "origin"
     assert [s.value for s in turn.suggestions] == ["Paris", "Lyon", "Bruxelles", "Genève"]
 
@@ -2323,10 +2715,9 @@ def test_origin_chips_fall_back_to_default_order(monkeypatch, covered, error):
 def test_dodge_applies_all_defaults_in_one_sentence(monkeypatch):
     _coverage_module(monkeypatch, covered={"Lyon"})
     state, turn = run(engine().start("je ne sais pas, choisis pour moi"))
-    sentences = [s for s in turn.message.split(".") if "par défaut" in s]
-    assert len(sentences) == 1
-    assert all(part in sentences[0] for part in ["départ de Lyon", "2 nuits", "budget de 450 €"])
-    assert state.draft.origin_city == "Lyon"
+    assert turn.message.count("Je pars sur") == 1
+    assert all(part in turn.message for part in ["départ de Paris", "2 nuits", "budget 450 €"])
+    assert state.draft.origin_city == "Paris"
     assert state.draft.provenance["origin_city"] == "suggested_default"
 
 

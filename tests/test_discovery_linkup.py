@@ -184,7 +184,7 @@ def test_normal_multi_candidate_and_structured_request():
 
     results = asyncio.run(run())
     assert len(results) == 2
-    assert results[0]["id"] == f"example-marathon-{YEAR}"
+    assert results[0]["id"] == f"example-marathon-{YEAR}-example-city"
     for candidate in results:
         assert set(candidate) == EXPECTED_KEYS
         assert candidate["date_status"] == "official"
@@ -207,7 +207,7 @@ def test_unicode_race_names_have_stable_distinct_ids():
     assert search([race(name="東京マラソン")])[0]["id"] == results[0]["id"]
 
 
-def test_conflicting_dates_even_across_duplicate_candidates():
+def test_official_date_wins_across_duplicate_candidates():
     other = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
     results = search([
         race(),
@@ -216,9 +216,151 @@ def test_conflicting_dates_even_across_duplicate_candidates():
         ]),
     ])
     assert len(results) == 1
-    assert results[0]["date_status"] == "conflicting"
-    assert results[0]["race_date"] is None
+    assert results[0]["date_status"] == "official"
+    assert results[0]["race_date"] == DAY
     assert len(results[0]["source_urls"]) == 2
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("conflicting", [False, True])
+def test_review_all_organizer_hosts_participate_in_date_conflicts(reverse, conflicting):
+    other_day = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
+    rows = [race(), race(official_url="https://second-organizer.example/", sources=[{
+        "url": "https://second-organizer.example/edition",
+        "race_date": other_day if conflicting else DAY}])]
+    result = search(list(reversed(rows)) if reverse else rows)
+    assert len(result) == 1
+    assert result[0]["date_status"] == ("conflicting" if conflicting else "official")
+    assert result[0]["race_date"] == (None if conflicting else DAY)
+
+
+def test_conflicting_official_dates_remain_unconfirmed():
+    other = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
+    results = search([race(), race(name=f"EXAMPLE-Marathon {YEAR}", sources=[
+        {"url": "https://race.example/other", "race_date": other}])])
+    assert len(results) == 1
+    assert results[0]["date_status"] == "conflicting" and results[0]["race_date"] is None
+
+
+@pytest.mark.parametrize("omit_city", [False, True])
+def test_review_sourced_candidates_without_city_are_preserved(omit_city):
+    first = race(city="")
+    if omit_city:
+        first.pop("city")
+    rows = [first, dict(first)]
+    result = search(rows)
+    assert len(result) == 1
+    assert result[0]["race_date"] == DAY
+    assert all(not r["city"] and r["source_urls"] for r in result)
+
+
+def test_review_candidate_ids_distinguish_cities_and_missing_city():
+    rows = [race(city="Paris"), race(city="Lyon"), race(city="")]
+    result = search(rows)
+    assert len(result) == 3 and len({r["id"] for r in result}) == 3
+    def by_location_date(rs):
+        return {(r["city"], r["race_date"]): r["id"] for r in rs}
+
+    assert by_location_date(result) == by_location_date(search(list(reversed(rows))))
+
+
+@pytest.mark.parametrize("evidence", ["same_host", "two_hosts", "calendar"])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_review_cityless_date_disagreements_merge_before_official_resolution(evidence, reverse):
+    other_day = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
+    host = "race.example" if evidence == "same_host" else "second.example"
+    rows = [race(city=""), race(city="", official_url=f"https://{host}/" if evidence != "calendar"
+                              else None, sources=[{
+                                  "url": f"https://{host}/other", "race_date": other_day}])]
+    result = search(list(reversed(rows)) if reverse else rows)
+    assert len(result) == 1
+    assert result[0]["date_status"] == ("official" if evidence == "calendar" else "conflicting")
+    assert result[0]["race_date"] == (DAY if evidence == "calendar" else None)
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_review_cityless_identity_includes_normalized_country(reverse):
+    rows = [race(city="", country="Italy"), race(city="", country="ITALY"),
+            race(city="", country="Germany")]
+    result = search(list(reversed(rows)) if reverse else rows)
+    assert len(result) == 2
+    assert {r["country"].casefold() for r in result} == {"italy", "germany"}
+    assert len({r["id"] for r in result}) == 2
+    assert {r["id"] for r in result} == {r["id"] for r in search(list(reversed(rows)))}
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("distance", [42.195, 10.0, None])
+def test_review_cityless_distance_identity_preserves_dates_and_conflicts(reverse, distance):
+    other_day = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
+    rows = [race(city="", distance_km=42.195), race(city="", distance_km=10.0, sources=[{
+        "url": "https://race.example/10k", "race_date": other_day}]),
+        race(city="", distance_km=None)]
+    result = search(list(reversed(rows)) if reverse else rows)
+    assert len(result) == 3 and len({r["id"] for r in result}) == 3
+    assert {(r["distance_km"], r["race_date"], r["date_status"]) for r in result} == {
+        (42.195, DAY, "official"), (10.0, other_day, "official"), (None, DAY, "official")}
+    rows.append(race(city="", distance_km=distance, sources=[{
+        "url": "https://race.example/conflict", "race_date": (
+            datetime.fromisoformat(other_day).date() + timedelta(days=1)).isoformat()}]))
+    conflicting = search(list(reversed(rows)) if reverse else rows)
+    assert len(conflicting) == 3
+    selected = next(r for r in conflicting if r["distance_km"] == distance)
+    assert selected["date_status"] == "conflicting" and selected["race_date"] is None
+    assert all(r["date_status"] == "official" for r in conflicting if r is not selected)
+    assert {r["id"] for r in result} == {r["id"] for r in conflicting}
+
+
+@pytest.mark.parametrize("first,second", [(42.195, 42.2), (21.0975, 21.1), (10.0, 10.0001),
+                                        (None, None)])
+def test_review_cityless_equivalent_distances_share_identity(first, second):
+    other_day = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
+    result = search([race(city="", distance_km=first), race(city="", distance_km=second,
+        sources=[{"url": "https://race.example/other", "race_date": other_day}])])
+    assert len(result) == 1
+    assert result[0]["date_status"] == "conflicting" and result[0]["race_date"] is None
+
+
+@pytest.mark.parametrize("city,domain", [
+    ("Valencia", "valenciaciudaddelrunning.com"),
+    ("Paris", "schneiderelectricparismarathon.com"),
+    ("London", "tcslondonmarathon.com"),
+])
+def test_named_major_targets_organizer_at_standard_depth(city, domain):
+    async def run():
+        def handler(request):
+            payload = json.loads(request.content)
+            assert payload["depth"] == "standard"
+            assert f"{city} Marathon 2027 official date" in payload["q"]
+            assert domain in payload["q"]
+            return httpx.Response(200, json={"candidates": [race(
+                name=f"{city} Marathon", city=city, official_url=f"https://{domain}/",
+                sources=[{"url": f"https://{domain}/edition", "race_date": DAY}])]})
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            result = await discover(f"{city} Marathon", hints={
+                "named": True, "race_name": f"{city} Marathon", "city": city,
+                "year": 2027, "distance": "marathon", "depth": "deep"},
+                api_key=KEY, client=client)
+            assert len(result) == 1 and result[0]["name"] == f"{city} Marathon"
+    asyncio.run(run())
+
+
+def test_named_major_without_year_searches_current_and_next_editions():
+    async def run():
+        year = datetime.now(UTC).year
+
+        def handler(request):
+            payload = json.loads(request.content)
+            assert f"{year} or {year + 1} next upcoming" in payload["q"]
+            return httpx.Response(200, json={"candidates": []})
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            assert await discover("Valencia Marathon", hints={
+                "named": True, "race_name": "Valencia Marathon", "city": "Valencia",
+                "distance": "marathon"}, api_key=KEY, client=client) == []
+
+    asyncio.run(run())
 
 
 @pytest.mark.parametrize("missing_distance", [None, 0, -1])
@@ -602,7 +744,7 @@ def test_one_malformed_row_does_not_hide_valid_candidates():
 
 def test_blank_edition_falls_back_to_single_sourced_year():
     results = search([race(edition="")])
-    assert len(results) == 1 and results[0]["id"] == f"example-marathon-{YEAR}"
+    assert len(results) == 1 and results[0]["id"] == f"example-marathon-{YEAR}-example-city"
 
 
 @pytest.mark.parametrize("changes,expected", [

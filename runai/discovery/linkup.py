@@ -56,6 +56,19 @@ CACHE_TTL_S = 1800
 CACHE_MAX_SIZE = 128
 CALL_BUDGET_S = 35
 _cache: OrderedDict[str, tuple[float, list[dict]]] = OrderedDict()
+MAJOR_ORGANIZERS = {
+    "Valencia": "valenciaciudaddelrunning.com",
+    "Paris": "schneiderelectricparismarathon.com",
+    "London": "tcslondonmarathon.com",
+    "Rome": "runromethemarathon.com",
+    "Barcelona": "zurichmaratobarcelona.es",
+    "Madrid": "rocknrollmadridrun.com",
+    "Amsterdam": "tcsamsterdammarathon.eu",
+    "Lisbon": "maratonaclubedeportugal.com",
+    "Porto": "maratonadoporto.com",
+    "Frankfurt": "frankfurt-marathon.com",
+    "Seville": "zurichmaratonsevilla.es",
+}
 
 
 def official_search_hint(name: str, distance: float | None = None, edition_year: int | None = None) -> dict:
@@ -75,6 +88,14 @@ def official_search_hint(name: str, distance: float | None = None, edition_year:
         canonical = slug in {"milan-marathon", "milano-marathon", "wizz-air-milano-marathon"}
         return {"race_name": "Milano Marathon" if canonical else name, "country": "Italy",
                 "official_domains": "milanomarathon.it"}
+    for country, groups in CITY_GROUPS.items():
+        for group in groups:
+            city, *aliases = group.split("/")
+            if city in MAJOR_ORGANIZERS and any(
+                set(_slug(alias).split("-")) <= words for alias in [city, *aliases]
+            ):
+                return {"race_name": name, "country": country,
+                        "official_domains": MAJOR_ORGANIZERS[city]}
     for country, seeds in RACE_SEARCH_SEEDS.items():
         for seed in seeds:
             if set(_slug(seed).split("-")) <= words:
@@ -180,7 +201,7 @@ class _Race(BaseModel):
     edition: str
     distance_km: float | None
     distance_label: str
-    city: str
+    city: str = ""
     country: str
     official_url: str | None
     registration_url: str | None
@@ -282,8 +303,18 @@ def _distance(value: float | None) -> float | None:
     return value if value is not None and math.isfinite(value) and value > 0 else None
 
 
+def _dedupe_distance(value: float | None) -> float | None:
+    value = _distance(value)
+    if value is None:
+        return None
+    for standard in (21.1, 42.195):
+        if abs(value - standard) < 0.01:
+            return standard
+    return round(value, 3)
+
+
 def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
-    groups: dict[tuple[str, str], list[_Race]] = {}
+    groups: dict[tuple[str | float | None, ...], list[_Race]] = {}
     for row in rows:
         row = row.model_copy(update={
             field: _data_text(getattr(row, field))
@@ -291,8 +322,12 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
         })
         if not any(_url(source.url) for source in row.sources):
             continue
-        key = (_slug(row.name), _edition_key(row.edition, row.sources))
-        if all(key):
+        edition = _edition_key(row.edition, row.sources)
+        name = re.sub(rf"\b{re.escape(edition)}\b", "", row.name)
+        key = (_slug(name), edition, _slug(row.city))
+        if not key[2]:
+            key += (_slug(row.country), _dedupe_distance(row.distance_km))
+        if key[0] and key[1]:
             groups.setdefault(key, []).append(row)
 
     candidates = []
@@ -304,9 +339,11 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
         if not source_urls:
             continue
         source_hosts = {_host(url) for url in source_urls}
-        official_url = next((_url(item.official_url) for item in group
+        official_urls = list(dict.fromkeys(_url(item.official_url) for item in group
                              if _url(item.official_url)
-                             and _host(_url(item.official_url)) in source_hosts), None)
+                             and _host(_url(item.official_url)) in source_hosts))
+        official_url = next(iter(official_urls), None)
+        official_hosts = {_host(url) for url in official_urls}
         official_host = _host(official_url)
         registration_url = next((
             _url(item.registration_url) for item in group
@@ -322,10 +359,12 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
         dates = {day for source in sources if (day := _day(source.race_date))}
         official_dates = {
             day for source in sources if (day := _day(source.race_date))
-            and (official_host is not None and _host(source.url) == official_host
+            and (_host(source.url) in official_hosts
                  or registration_url is not None and source.url == registration_url)
         }
-        if len(dates) > 1:
+        if len(official_dates) == 1:
+            status, race_date = "official", next(iter(official_dates)).isoformat()
+        elif len(dates) > 1:
             status, race_date = "conflicting", None
         elif dates:
             status = "official" if official_dates else "unverified"
@@ -337,7 +376,7 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
             edition_years and max(edition_years) < today.year
         )
         candidates.append((is_past, {
-            "id": "-".join(key),
+            "id": "-".join(str(part) for part in key if part),
             "name": row.name.strip(),
             "edition": row.edition.strip(),
             "distance_km": _distance(row.distance_km),
@@ -435,6 +474,7 @@ async def discover(
         _cache.move_to_end(cache_key)
         return copy.deepcopy(_cache[cache_key][1])
     search_terms = {}
+    named_year = constraints.get("year", f"{today.year} or {today.year + 1} next upcoming")
     if isinstance(constraints.get("distance"), str):
         search_terms["distance"] = DISTANCES.get(constraints["distance"], constraints["distance"])
     code = _country_code(constraints.get("country"))
@@ -444,7 +484,7 @@ async def discover(
         city = constraints["city"]
         aliases = next((group.split("/") for group in CITY_GROUPS.get(
             constraints.get("country"), []) if group.split("/")[0] == city), [city])
-        year = constraints.get("year", today.year + 1)
+        year = named_year
         distance = constraints.get("distance", "running race")
         search_terms["named_editions"] = (
             f"{constraints['race_name']} {year} official date; "
@@ -475,7 +515,7 @@ async def discover(
         official_hint = {"race_name": constraints.get("race_name", safe_query),
                          "official_domains": constraints["official_domains"]}
     if official_hint:
-        year = constraints.get("year", today.year + 1)
+        year = named_year
         search_terms["official_edition"] = (
             f"{official_hint['race_name']} {year} official edition date organizer "
             f"{official_hint['official_domains']}. Retrieve the dated organizer announcement "
@@ -529,7 +569,8 @@ async def discover(
     )
     payload = {
         "q": prompt,
-        "depth": "deep" if constraints.get("depth") == "deep" else "standard",
+        "depth": "standard" if constraints.get("named") and official_hint else (
+            "deep" if constraints.get("depth") == "deep" else "standard"),
         "outputType": "structured",
         "structuredOutputSchema": json.dumps(_Response.model_json_schema()),
     }
