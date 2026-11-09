@@ -512,7 +512,8 @@
               "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
             ]
-          }
+          },
+          "booking_horizon_days": 180
         }
       ]
     },
@@ -1121,7 +1122,8 @@
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
             ]
           },
-          "last_resort": true
+          "last_resort": true,
+          "booking_horizon_days": 330
         },
         {
           "kind": "transport",
@@ -1168,7 +1170,8 @@
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
             ]
           },
-          "last_resort": true
+          "last_resort": true,
+          "booking_horizon_days": 330
         },
         {
           "kind": "transport",
@@ -1214,7 +1217,8 @@
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
             ]
           },
-          "last_resort": true
+          "last_resort": true,
+          "booking_horizon_days": 330
         },
         {
           "kind": "transport",
@@ -1256,7 +1260,8 @@
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
             ]
           },
-          "last_resort": true
+          "last_resort": true,
+          "booking_horizon_days": 330
         }
       ]
     },

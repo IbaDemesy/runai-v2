@@ -125,7 +125,8 @@
             2,
             3,
             4
-          ]
+          ],
+          "booking_horizon_days": 180
         },
         {
           "kind": "transport",
@@ -226,7 +227,8 @@
             2,
             3,
             4
-          ]
+          ],
+          "booking_horizon_days": 180
         },
         {
           "kind": "transport",
@@ -327,7 +329,8 @@
             2,
             3,
             4
-          ]
+          ],
+          "booking_horizon_days": 180
         },
         {
           "kind": "transport",
@@ -428,7 +431,8 @@
             2,
             3,
             4
-          ]
+          ],
+          "booking_horizon_days": 180
         },
         {
           "kind": "transport",
@@ -487,6 +491,15 @@
             "lucerne": {
               "place_name": "Zurich",
               "via": "Zurich"
+            },
+            "frankfurt": {
+              "place_name": "Frankfurt"
+            },
+            "rome": {
+              "place_name": "Rome"
+            },
+            "seville": {
+              "place_name": "Seville"
             }
           },
           "origin_places": {
@@ -539,7 +552,8 @@
             2,
             3,
             4
-          ]
+          ],
+          "booking_horizon_days": 180
         }
       ]
     },
@@ -616,7 +630,8 @@
               "/(?:top[-_]offers|travelcards?|half[-_]fare|halbtax|ga[-_]travelcard)(?:[/.?_-]|$)"
             ]
           },
-          "h_render_verified_at": "2026-11-09"
+          "h_render_verified_at": "2026-11-09",
+          "booking_horizon_days": 180
         },
         {
           "kind": "transport",
@@ -657,7 +672,8 @@
               "/(?:top[-_]offers|travelcards?|half[-_]fare|halbtax|ga[-_]travelcard)(?:[/.?_-]|$)"
             ]
           },
-          "h_render_verified_at": "2026-11-09"
+          "h_render_verified_at": "2026-11-09",
+          "booking_horizon_days": 180
         },
         {
           "kind": "transport",
@@ -698,7 +714,8 @@
               "/(?:top[-_]offers|travelcards?|half[-_]fare|halbtax|ga[-_]travelcard)(?:[/.?_-]|$)"
             ]
           },
-          "h_render_verified_at": "2026-11-09"
+          "h_render_verified_at": "2026-11-09",
+          "booking_horizon_days": 180
         },
         {
           "kind": "transport",
@@ -739,7 +756,8 @@
               "/(?:top[-_]offers|travelcards?|half[-_]fare|halbtax|ga[-_]travelcard)(?:[/.?_-]|$)"
             ]
           },
-          "h_render_verified_at": "2026-11-09"
+          "h_render_verified_at": "2026-11-09",
+          "booking_horizon_days": 180
         },
         {
           "kind": "transport",
@@ -779,7 +797,8 @@
               "^/customer/en/alw/onboarding(?:[?;]|$)",
               "/(?:top[-_]offers|travelcards?|half[-_]fare|halbtax|ga[-_]travelcard)(?:[/.?_-]|$)"
             ]
-          }
+          },
+          "booking_horizon_days": 180
         },
         {
           "kind": "transport",
@@ -819,7 +838,8 @@
               "^/customer/en/alw/onboarding(?:[?;]|$)",
               "/(?:top[-_]offers|travelcards?|half[-_]fare|halbtax|ga[-_]travelcard)(?:[/.?_-]|$)"
             ]
-          }
+          },
+          "booking_horizon_days": 180
         }
       ]
     },
@@ -888,7 +908,8 @@
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
             ]
           },
-          "h_render_verified_at": "2026-11-09"
+          "h_render_verified_at": "2026-11-09",
+          "booking_horizon_days": 180
         },
         {
           "kind": "transport",
@@ -926,7 +947,8 @@
               "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
             ]
-          }
+          },
+          "booking_horizon_days": 180
         },
         {
           "kind": "transport",
@@ -974,7 +996,8 @@
               "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
             ]
-          }
+          },
+          "booking_horizon_days": 180
         },
         {
           "kind": "transport",
@@ -1012,7 +1035,8 @@
               "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
             ]
-          }
+          },
+          "booking_horizon_days": 180
         },
         {
           "kind": "transport",
@@ -1050,7 +1074,8 @@
               "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
             ]
-          }
+          },
+          "booking_horizon_days": 180
         },
         {
           "kind": "transport",
@@ -1089,7 +1114,8 @@
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
             ]
           },
-          "h_render_verified_at": "2026-11-09"
+          "h_render_verified_at": "2026-11-09",
+          "booking_horizon_days": 180
         }
       ]
     },
@@ -1165,11 +1191,11 @@
               "origin_iata": "PAR"
             }
           },
-          "success_evidence": "Reject consent.google.com cookies only. Select outbound then return; stop on Google booking options with selected round-trip dates, party and total. Never click through to an airline or booking partner; those hosts are not allowed. H 2026-11-09 observed Paris-Valencia booking options EUR45. Disclose actual airports and reviewed gateway. Return the exact current public browser URL as handoff_url, retaining public locale, currency and query parameters; do not reconstruct or truncate it. Never include private session links or tokens.",
+          "success_evidence": "Reject consent.google.com cookies only. Select outbound then return; stop on Google booking options with selected round-trip dates, party and total. Never click through to an airline or booking partner; those hosts are not allowed. H 2026-11-09 observed Paris-Valencia booking options EUR45. Disclose actual airports and reviewed gateway. Return the exact current public browser URL as handoff_url, retaining public locale, currency and query parameters; do not reconstruct or truncate it. Never include private session links or tokens. Choose the cheapest reasonable economy fare for the whole party; select outbound then return. Copy the booking URL including its nonempty tfs query parameter.",
           "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
           "checkpoint": {
             "url_patterns": [
-              "^/travel/flights/booking(?:[/?]|$)"
+              "^/travel/flights/booking\\?(?:[^&]*&)*tfs=[^&]+(?:&|$)"
             ],
             "beyond_patterns": [
               "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
@@ -1178,7 +1204,8 @@
           },
           "h_render_verified_at": "2026-11-09",
           "query_encoding": "form",
-          "priority": 1
+          "priority": 1,
+          "booking_horizon_days": 330
         },
         {
           "kind": "transport",
@@ -1206,11 +1233,11 @@
               "origin_iata": "GVA"
             }
           },
-          "success_evidence": "Reject consent.google.com cookies only. Select outbound then return; stop on Google booking options with selected round-trip dates, party and total. Never click through to an airline or booking partner; those hosts are not allowed. H 2026-11-09 observed Paris-Valencia booking options EUR45. Disclose actual airports and reviewed gateway. Return the exact current public browser URL as handoff_url, retaining public locale, currency and query parameters; do not reconstruct or truncate it. Never include private session links or tokens.",
+          "success_evidence": "Reject consent.google.com cookies only. Select outbound then return; stop on Google booking options with selected round-trip dates, party and total. Never click through to an airline or booking partner; those hosts are not allowed. H 2026-11-09 observed Paris-Valencia booking options EUR45. Disclose actual airports and reviewed gateway. Return the exact current public browser URL as handoff_url, retaining public locale, currency and query parameters; do not reconstruct or truncate it. Never include private session links or tokens. Choose the cheapest reasonable economy fare for the whole party; select outbound then return. Copy the booking URL including its nonempty tfs query parameter.",
           "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
           "checkpoint": {
             "url_patterns": [
-              "^/travel/flights/booking(?:[/?]|$)"
+              "^/travel/flights/booking\\?(?:[^&]*&)*tfs=[^&]+(?:&|$)"
             ],
             "beyond_patterns": [
               "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
@@ -1219,7 +1246,8 @@
           },
           "h_render_verified_at": "2026-11-09",
           "query_encoding": "form",
-          "priority": 1
+          "priority": 1,
+          "booking_horizon_days": 330
         },
         {
           "kind": "transport",
@@ -1278,6 +1306,15 @@
             "lucerne": {
               "iata": "ZRH",
               "via": "Zurich"
+            },
+            "frankfurt": {
+              "iata": "FRA"
+            },
+            "rome": {
+              "iata": "ROM"
+            },
+            "seville": {
+              "iata": "SVQ"
             }
           },
           "origin_places": {
@@ -1294,11 +1331,11 @@
               "origin_iata": "GVA"
             }
           },
-          "success_evidence": "Reject consent.google.com cookies only. Select outbound then return; stop on Google booking options with selected round-trip dates, party and total. Never click through to an airline or booking partner; those hosts are not allowed. H 2026-11-09 observed Paris-Valencia booking options EUR45. Disclose actual airports and reviewed gateway. Return the exact current public browser URL as handoff_url, retaining public locale, currency and query parameters; do not reconstruct or truncate it. Never include private session links or tokens.",
+          "success_evidence": "Reject consent.google.com cookies only. Select outbound then return; stop on Google booking options with selected round-trip dates, party and total. Never click through to an airline or booking partner; those hosts are not allowed. H 2026-11-09 observed Paris-Valencia booking options EUR45. Disclose actual airports and reviewed gateway. Return the exact current public browser URL as handoff_url, retaining public locale, currency and query parameters; do not reconstruct or truncate it. Never include private session links or tokens. Choose the cheapest reasonable economy fare for the whole party; select outbound then return. Copy the booking URL including its nonempty tfs query parameter.",
           "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
           "checkpoint": {
             "url_patterns": [
-              "^/travel/flights/booking(?:[/?]|$)"
+              "^/travel/flights/booking\\?(?:[^&]*&)*tfs=[^&]+(?:&|$)"
             ],
             "beyond_patterns": [
               "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
@@ -1312,7 +1349,8 @@
             4
           ],
           "query_encoding": "form",
-          "priority": 1
+          "priority": 1,
+          "booking_horizon_days": 330
         }
       ]
     },
@@ -1378,7 +1416,8 @@
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
             ]
           },
-          "h_render_verified_at": "2026-11-09"
+          "h_render_verified_at": "2026-11-09",
+          "booking_horizon_days": 330
         }
       ]
     }

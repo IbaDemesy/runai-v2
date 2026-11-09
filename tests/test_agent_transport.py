@@ -39,7 +39,10 @@ def runnable_primary(origin, city, travelers=1):
     pair = (city_name(origin), city_name(city))
     if pair in GOOGLE_VERIFIED:
         return "google-travel-google-terms"
-    if OMIO_RUNNABLE:
+    if OMIO_RUNNABLE and pair[0] in {"Paris", "Lyon", "Geneva", "Brussels"} and pair[1] in {
+        "Milan", "Berlin", "Lisbon", "Zurich", "Madrid", "Barcelona", "Den Haag",
+        "Brunnen", "Stoos", "Lucerne", "Amsterdam", "Valencia",
+    }:
         return "omio-com"
     if travelers == 1 and pair in SBB_RUNNABLE:
         return "sbb-ch"
@@ -600,6 +603,92 @@ R7_DESTINATIONS = {
 R7_ORIGINS = ("Paris", "Lyon", "Brussels", "Geneva")
 
 
+def allow_public_omio_links(monkeypatch):
+    from runai.agents import scrub
+
+    original = scrub.scrub_url
+
+    def clean(url):
+        if isinstance(url, str) and url.startswith(
+            "https://www.omio.com/links/626fa8a9-f982-43d0-ace9-9a13f6b14612?",
+        ):
+            return url
+        return original(url)
+
+    monkeypatch.setattr(scrub, "scrub_url", clean)
+
+
+@pytest.mark.parametrize("origin", R7_ORIGINS)
+@pytest.mark.parametrize("city,country", R7_DESTINATIONS.items())
+def test_r8_historical_48_with_core_omio_exemption(origin, city, country, monkeypatch):
+    allow_public_omio_links(monkeypatch)
+    task = build_task(trip(origin_city=origin, city=city, country=country), today=TODAY)
+    assert coverage("transport", city=city, country=country, origin_city=origin,
+                    today=TODAY)["covered"]
+    assert task.get("alternatives")
+    for candidate in [task, *task["alternatives"]]:
+        assert site_policy.transport_url_runnable(candidate["start_url"])
+    selected = site_policy.select_adapters(
+        "transport", task["expected"], origin_country=site_policy.city_country(origin),
+        today=TODAY, modes=("rail", "flight"), url_filter=site_policy.transport_url_runnable,
+    )
+    assert selected[0][0]["h_render_verified_at"]
+
+
+def test_r8_without_core_exemption_omio_is_not_emitted(monkeypatch):
+    from runai.agents import scrub
+
+    original = scrub.scrub_url
+    monkeypatch.setattr(scrub, "scrub_url", lambda url: None if "/links/" in url else original(url))
+    with pytest.raises(ValueError, match="no policy-reviewed"):
+        build_task(trip(origin_city="Lyon", city="Zurich", country="CH"), today=TODAY)
+    assert not coverage("transport", city="Zurich", country="CH", origin_city="Lyon",
+                        today=TODAY)["covered"]
+    task = build_task(trip(origin_city="Paris", city="Valencia", country="ES"), today=TODAY)
+    assert all(t["site_name"] != "omio-com" for t in [task, *task.get("alternatives", [])])
+
+
+@pytest.mark.parametrize("days,blocked", [(90, False), (400, True)])
+def test_r8_booking_horizon(days, blocked):
+    from datetime import timedelta
+    from typing import get_args
+
+    from runai.models import ReasonCode
+
+    out = TODAY + timedelta(days=days)
+    task = build_task(trip(
+        origin_city="Paris", city="Valencia", country="ES",
+        arrival_date=out.isoformat(), departure_date=(out + timedelta(days=2)).isoformat(),
+        race_changes={"race_date": (out + timedelta(days=1)).isoformat(),
+                      "edition": str(out.year)},
+    ), today=TODAY)
+    assert ("preflight_block" in task) is blocked
+    if blocked:
+        reason = "not_yet_bookable" if "not_yet_bookable" in get_args(ReasonCode) else "no_inventory"
+        assert task["preflight_block"] == {
+            "reason_code": reason, "summary": "Billets pas encore en vente pour ces dates",
+            "handoff_url": task["start_url"],
+        }
+        assert site_policy.transport_url_runnable(task["preflight_block"]["handoff_url"])
+
+
+@pytest.mark.parametrize("value", [0, -1, True, "180", 1.5])
+def test_r8_invalid_horizon_fails_closed(value):
+    reg = registry(transport_entry())
+    reg["entries"][0]["adapters"][0]["booking_horizon_days"] = value
+    with pytest.raises(ValueError, match="invalid"):
+        build_task(trip(), today=TODAY, registry=reg)
+
+
+def test_r8_horizon_filter_precedes_candidate_cap_and_keeps_verified_primary():
+    items = [distinct_entry(i, "transport") for i in range(4)]
+    for index, item in enumerate(items):
+        item["adapters"][0]["booking_horizon_days"] = 60 if index < 3 else 180
+    task = build_task(trip(origin_city="Paris"), today=TODAY, registry=registry(*items))
+    assert task["site_name"] == "site3"
+    assert "preflight_block" not in task
+
+
 @pytest.mark.parametrize("origin", R7_ORIGINS)
 @pytest.mark.parametrize("city,country", R7_DESTINATIONS.items())
 @pytest.mark.parametrize("travelers", [1, 2, 3, 4])
@@ -825,7 +914,8 @@ def test_r7_swiss_gateway_start_urls_equal_rendered_zurich(origin):
         "/app/search-frontend/results/id/flight", "/app/search-frontend/results/id/bus",
     ]),
     ("google-travel-google-terms", "/travel/flights/booking?tfs=public&tfu=public", [
-        "/travel/flights", "/travel/flights/search",
+        "/travel/flights", "/travel/flights/search", "/travel/flights/booking?hl=en",
+        "/travel/flights/booking?tfs=", "/travel/flights/booking?notfs=public",
     ]),
     ("flytap-com", "/booking/review-your-trip", ["/booking/flights"]),
 ])

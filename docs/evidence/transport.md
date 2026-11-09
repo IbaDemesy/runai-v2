@@ -1288,6 +1288,81 @@ bypass, policy widening or fabricated READY. Recommend core owner fix the known
 public-link handling, then rerun the same builder pipeline before integrated
 acceptance. No UI changes or independent screenshot visual review.
 
+# R8-02 transport update — 2026-11-09
+
+## Real builder smoke, not a readiness claim
+
+Paris→Valencia, outbound 2027-01-28, return 2027-01-30, one adult, EUR800;
+synthetic race date January 29. `build_task` → unmodified `HAgentRunner.run`,
+420-second timeout, alternatives removed to keep one owned session. A fake
+profile was supplied in memory; this Google adapter has no authorized passenger
+prefill fields, and no profile values were placed in task instructions.
+
+Quota immediately before the run: limit3/active0/available3. One session created;
+no concurrent owned session, no screenshots/frames saved. The first local harness
+invocation failed validation (`trip.race is required`) before creating a session;
+it is not counted as a live run. A subsequent quota check after completion was
+limit3/active1/available2; organization-wide ownership is not exposed by quota.
+No other session was cancelled.
+
+Actual result: **blocked / unsafe_claim**. Last public stop:
+`www.google.com/travel/flights/booking`. Last reported step57. Client diagnostic:
+`verify_failed: ["checkpoint_pattern"]`. H reached a booking path, but the
+retained public URL did not satisfy the selected-itinerary `tfs` checkpoint.
+Do not infer whether the browser lacked tfs or scrub removed it: that link has
+not been discriminated. No independent visual review, selected total, final
+payment boundary or successful profile prefill is claimed. No new verification
+dates were assigned from this failed run.
+
+## Coverage, dependencies and remaining blockers
+
+The historical R7 48-case matrix (which includes Lucerne, The Hague, Stoos and
+Amsterdam, but NOT Frankfurt, Rome or Seville) now has an explicit test with a
+synthetic Omio scrub exemption: verified primary and runnable alternative in
+every case. Runtime scrub is imported lazily, and no exemption means no Omio
+candidate is emitted. The test helper no longer claims every arbitrary route
+is covered merely because Omio's public link becomes runnable.
+
+The ticket's revised 48-case destination list is NOT the historical matrix.
+Measured one-adult/90-day revised coverage: without the core exemption 9/48
+verified primaries, 7 with alternatives; with the actual R8-01 scrub module
+36/48 primaries, all36 with alternatives. Frankfurt, Rome and Seville lack
+dated H evidence for all four origins (12 gaps). Their Google and Omio links
+are registered only as UNVERIFIED candidates; no dates were fabricated.
+Paris→Frankfurt therefore still fails closed. Lyon→Zurich works with Omio's
+existing dated R7 evidence and the core exemption; without it the route remains
+blocked. No new SBB/TGV Lyria Lyon→Zurich verification was obtained. Only the
+Paris→Valencia alternative requested smoke was run; no live Omio exemption was
+installed, and no unavailable primary was forcibly promoted for a smoke.
+
+Google's checkpoint now requires a nonempty `tfs` query parameter on booking,
+not bare booking or results. Cheapest reasonable economy/outbound-then-return
+selection and copying the full booking URL are explicit. Existing Omio selected
+rail-summary checkpoint and SBB return-leg checkpoint remain unchanged. Omio's
+post-prefill final checkpoint is still the fail-closed `(?!)`: historical probes
+above never observed a safe post-passenger/pre-payment page. This ticket does
+NOT claim that unresolved P14 acceptance is fixed; Google still cannot prefill
+passenger forms without navigating to unreviewed airline/partner hosts.
+
+## Horizon source and limitations
+
+Per-adapter caps: Google330, TAP330, Vueling330 days; Omio180, SBB180,
+NS180, CP180 days. These are conservative application eligibility assumptions,
+not provider promises of actual inventory. Google330 and rail120–180 follow the
+R8-02 owner brief; Omio180 is a local six-month cap for mixed rail/flight
+inventory, not a claim every Omio carrier opens at180 days. The corresponding
+provider help-page fetches (Omio advance booking and SBB point-to-point tickets)
+were unavailable in this environment, so an authoritative carrier-specific
+source remains outstanding. Do not present these caps as live inventory proof.
+
+Horizon filtering occurs before the distinct-policy cap and verified-primary
+selection. Beyond all eligible verified candidates' horizons the builder returns
+a public prefilled search handoff and `preflight_block`. This main's ReasonCode
+lacks `not_yet_bookable`, so it uses the requested `no_inventory` compatibility
+fallback; it automatically selects the new code when core adds it. Main's
+hclient does NOT consume preflight_block yet: tests assert builder output only,
+not no-H-POST behavior. Do not execute these blocked tasks until R8-01 P15 lands.
+
 # R7-02 scrub-stable Google workaround — 2026-11-09
 
 Supersedes earlier broad **runnable** coverage claims. Registry render evidence
