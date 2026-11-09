@@ -855,6 +855,24 @@ def test_r4_coverage_known_unknown_expired():
                                    registry=registry(transport_entry()))["covered"]
 
 
+@pytest.mark.parametrize("verified_backup", [False, True])
+def test_transport_coverage_filters_unrunnable_verified_candidates(verified_backup):
+    blocked, backup = [distinct_entry(n, "transport") for n in range(2)]
+    blocked["adapters"][0]["url_template"] = blocked["adapters"][0]["url_template"].replace(
+        "/results?", "/sessions/private?",
+    )
+    backup["adapters"][0]["url_template"] += "&station=Paris%20Gare%20de%20Lyon"
+    if not verified_backup:
+        backup["adapters"][0].pop("h_render_verified_at")
+    kwargs = {"city": "Milan", "country": "IT", "origin_city": "Paris", "today": TODAY}
+    assert site_policy.coverage("transport", registry=registry(blocked), **kwargs) == {
+        "covered": False, "policy_ids": [],
+    }
+    result = site_policy.coverage("transport", registry=registry(blocked, backup), **kwargs)
+    assert result == {"covered": verified_backup,
+                      "policy_ids": ["site1"] if verified_backup else []}
+
+
 @pytest.mark.parametrize("value", [None, True, 123, "", "not-a-date", "2026-02-30",
                                   "20261109", "2026-11-09T00:00:00", "9999-12-31"])
 def test_transport_render_date_malformed_or_future_fails_closed(value):

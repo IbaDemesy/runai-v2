@@ -16,6 +16,7 @@ import unicodedata
 from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, date, datetime, timedelta
 from functools import lru_cache
+from importlib import import_module
 from pathlib import Path
 from string import Formatter
 from typing import Any
@@ -896,6 +897,14 @@ def _candidates(
             reasons.append(f"{entry['id']}: {decision['reason']}")
 
 
+def transport_url_runnable(url: str) -> bool:
+    try:
+        client = import_module("runai.agents.hclient")
+        return client._public_https(url) and client._public_https(client.scrub_url(url))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def coverage(
     kind, *, country=None, city=None, origin_city=None, today=None, registry=None,
 ) -> dict[str, Any]:
@@ -920,6 +929,9 @@ def coverage(
             kind, expected, entries, origin_country=city_country(origin_city), today=today,
             registry=registry, partial=True,
         ))
+        if kind == "transport":
+            candidates = [candidate for candidate in candidates
+                          if transport_url_runnable(candidate[2])]
         if not candidates or candidates[0][1]["last_resort"] or (
             kind == "transport" and not candidates[0][1]["h_render_verified_at"]
         ):

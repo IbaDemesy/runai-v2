@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import date
-from importlib import import_module
 from math import isfinite
 from typing import Any
 from urllib.parse import urlsplit
@@ -21,6 +20,7 @@ from runai.agents.site_policy import (
     gateway_city,
     select_adapters,
     task_checkpoint,
+    transport_url_runnable,
     trip_expected,
 )
 
@@ -59,7 +59,7 @@ def build_task(
     candidates = select_adapters(
         KIND, expected, origin_country=origin_country(trip), today=today, registry=registry,
         modes=("rail", "flight"),
-        url_filter=_runnable_start_url,
+        url_filter=transport_url_runnable,
     )
     profile = trip.get("runner_profile")
     tasks = [_candidate_task(expected.copy(), budget, *candidate, profile=profile)
@@ -76,11 +76,6 @@ def _keep_fragment(url):
     return bool(parts.fragment and scrub_url(fragment_url) == fragment_url
                 and scrub_text(parts.fragment) == parts.fragment
                 and scrub_url(url) == parts._replace(fragment="").geturl())
-
-
-def _runnable_start_url(url):
-    public_https = import_module("runai.agents.hclient")._public_https
-    return public_https(url) and public_https(scrub_url(url))
 
 
 def _candidate_task(expected, budget, adapter, url, decision, *, profile=None):

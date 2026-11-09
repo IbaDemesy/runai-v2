@@ -17,7 +17,7 @@ from test_site_policy import (
 
 from runai.agents import hclient, site_policy
 from runai.agents.site_policy import city_name, coverage
-from runai.agents.transport import _candidate_task, _runnable_start_url, build_task
+from runai.agents.transport import _candidate_task, build_task
 
 KEYS = {"kind", "site_name", "start_url", "instructions", "stop_before", "success_signal",
         "fallback_url", "max_steps", "expected", "allowed_hosts", "checkpoint"}
@@ -93,7 +93,7 @@ def synthetic_gateway_registry():
 def test_committed_transport_route_matrix(origin, city, country, primary, alternative,
                                           gateway, monkeypatch):
     result = coverage("transport", city=city, origin_city=origin, today=TODAY)
-    assert result["covered"] is bool(primary)
+    assert result["covered"] is bool(runnable_primary(origin, city))
     if primary is None:
         assert result["policy_ids"] == []
         with pytest.raises(ValueError, match="no policy-reviewed"):
@@ -131,7 +131,9 @@ def test_committed_transport_route_matrix(origin, city, country, primary, altern
 
 
 def test_geneva_lucerne_uses_rendered_zurich_gateway():
-    assert coverage("transport", city="Lucerne", origin_city="Geneva", today=TODAY)["covered"]
+    assert coverage("transport", city="Lucerne", origin_city="Geneva", today=TODAY)["covered"] is (
+        OMIO_RUNNABLE
+    )
     if not OMIO_RUNNABLE:
         with pytest.raises(ValueError, match="no policy-reviewed"):
             build_task(trip(origin_city="Geneva", city="Lucerne", country="CH", travelers=1),
@@ -604,6 +606,9 @@ R7_ORIGINS = ("Paris", "Lyon", "Brussels", "Geneva")
 def test_r7_full_origin_destination_matrix(origin, city, country, travelers):
     data = trip(origin_city=origin, city=city, country=country, travelers=travelers)
     primary = runnable_primary(origin, city, travelers)
+    if travelers == 1:
+        assert coverage("transport", city=city, country=country, origin_city=origin,
+                        today=TODAY)["covered"] is bool(primary)
     if primary is None:
         with pytest.raises(ValueError, match="no policy-reviewed"):
             build_task(data, today=TODAY)
@@ -719,7 +724,23 @@ def test_restored_links_reach_unmodified_runner_session_post(origin, city, count
     ("https://tickets.rail.example/results#/search?token=private", True),
 ])
 def test_start_gate_matches_runner_public_https_checks(url, accepted):
-    assert _runnable_start_url(url) is accepted
+    assert site_policy.transport_url_runnable(url) is accepted
+
+
+@pytest.mark.parametrize("error", [ImportError, RuntimeError])
+def test_transport_coverage_and_builder_fail_closed_if_runner_import_fails(monkeypatch, error):
+    def unavailable(name):
+        raise error("Synthetic missing runner")
+
+    monkeypatch.setattr(site_policy, "import_module", unavailable)
+    reg = registry(transport_entry())
+    assert not site_policy.transport_url_runnable("https://tickets.rail.example/results")
+    assert coverage("transport", city="Milan", country="IT", origin_city="Paris",
+                    today=TODAY, registry=reg) == {"covered": False, "policy_ids": []}
+    with pytest.raises(ValueError, match="no policy-reviewed"):
+        build_task(trip(origin_city="Paris", city="Milan", country="IT"),
+                   today=TODAY, registry=reg)
+    assert coverage("hotel", city="Milan", today=TODAY, registry=registry())["covered"]
 
 
 @pytest.mark.parametrize("travelers,phrase", [(1, "one adult"), (2, "2 adults"), (3, "3 adults"),
