@@ -315,7 +315,7 @@
       where.append(node('span', '', place(race)));
       const tiles = node('dl', 'race-tiles'), when = node('div', 'tile tile-date');
       when.append(node('dt', '', t('Date', 'Date')), node('dd', '', date(race.race_date)), dateStatus(race)); tiles.append(when);
-      for (const stat of raceStats(race)?.children || []) { stat.className = 'tile'; tiles.append(stat); }
+      for (const stat of [...(raceStats(race)?.children || [])]) { stat.className = 'tile'; tiles.append(stat); }
       card.append(top, node('h3', '', race.name || 'Course proposée'), where, tiles);
       for (const extra of [prepBadges(race), sources(race), accessWarning(race)]) if (extra) card.append(extra);
       grid.append(card);
