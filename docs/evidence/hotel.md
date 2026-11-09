@@ -288,3 +288,29 @@ review page ONLY when selected room AND rate, matching city, exact dates, party 
 full-stay total are all visible, before guest details. Earliest safety boundary still
 wins. A page title, result list or partial summary is insufficient. Other hotels use
 their own selected-room review boundary, not an invented IHG page.
+
+## Authorized live smoke — 2026-11-09
+
+Direct app runner: `runai.agents.hclient.HAgentRunner` (also used by
+`providers.LiveRunner`). Dates 2027-01-15 to 2027-01-17, one adult, EUR450, origin Paris.
+The secret was bound only through exec env, never printed. Read/prepare-only instructions
+forbid payment, booking, form submission, login, personal data, consent and captcha bypass.
+Steps are maximum reported provider `metrics.steps`; frames are deduplicated emitted
+`live_frame` events, counted in memory then discarded, not saved screenshots.
+No private H session/share URLs, tokens or screenshots were recorded. Frames were not
+independently visually reviewed.
+
+| Date | Adapter/policy | Public requested start URL | Final status | Reason code | Last observed stage/page | Provider steps | Emitted frames |
+|---|---|---|---|---|---|---:|---:|
+| 2026-11-09 | ihg-com / Barcelona free-text | https://www.ihg.com/hotels/gb/en/find-hotels/hotel/list?qDest=Barcelona%2C%20ES&qCiD=15&qCiMy=002027&qCoD=17&qCoMy=002027&qAdlt=1&qChld=0&qRms=1 | failed | step_limit | Add Extras: https://www.ihg.com/hotels/gb/en/find-hotels/select-enhance-stay | 40 | 10 |
+
+The returned error was `H step limit reached`, not READY. The observed URL and
+coarse answer-stage category indicated Add Extras. This proves reaching the checkpoint,
+NOT a successful stop, matching room/rate/city/dates/party/total, or a verified handoff.
+
+Follow-up instruction refinement in hotel.py and IHG success_evidence: select-enhance-stay
+is terminal; inspect the selection summary once, then finish READY only with all required
+evidence, otherwise BLOCKED unsafe_claim immediately. Never add extras, navigate back or
+keep browsing. This is not a demonstrated fix; why the agent did not finish at the
+checkpoint is not established from retained safe metadata. No rerun: all three allowed
+sessions were exhausted. Post-refinement user-facing behavior remains visually unverified.

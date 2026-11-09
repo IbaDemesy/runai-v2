@@ -334,3 +334,39 @@ There is no runai/hclient.py. Two independent read-only integration limitations:
    becomes `https://www.nsinternational.com/en/traintickets-v3/`. The offline adapter and
    policy checks do not prove that the live runner preserves routing. No hclient/scrub
    edit was made; no form submission or unreviewed routing workaround is authorized.
+
+## Authorized live smoke — 2026-11-09
+
+Direct app runner: `runai.agents.hclient.HAgentRunner` (also used by
+`providers.LiveRunner`). Dates 2027-01-15 to 2027-01-17, one adult, EUR450, origin Paris.
+The secret was bound only through exec env, never printed. Read/prepare-only instructions
+forbid payment, booking, form submission, login, personal data, consent and captcha bypass.
+Steps are maximum reported provider `metrics.steps`; frames are deduplicated emitted
+`live_frame` events, counted in memory then discarded, not saved screenshots.
+No private H session/share URLs, tokens or screenshots were recorded. Frames were not
+independently visually reviewed.
+
+| Date | Adapter/policy | Public requested start URL | Final status | Reason code | Last observed stage/page | Provider steps | Emitted frames |
+|---|---|---|---|---|---|---:|---:|
+| 2026-11-09 | vueling-com / ORY–BCN | https://tickets.vueling.com/booking/flightSearch?o=ORY&d=BCN&dd=2027-01-15&rd=2027-01-17&adt=1&chd=0&inf=0&c=en-GB&cur=EUR | blocked | unreviewed_redirect | First unreviewed/non-public observation; no reviewed final page retained | 0 | 0 |
+| 2026-11-09 | ns-international / Paris–Amsterdam | https://www.nsinternational.com/en/traintickets-v3/#/search/FRPNO/NLASC/20270115?pax=A&inboundDate=20270117 | failed | step_limit | NS booking surface: https://www.nsinternational.com/en/traintickets-v3/ | 40 | 9 |
+
+Vueling returned `Site policy unavailable or destination not authorized`. The first
+observation failed the reviewed-public-URL gate; its destination was not retained.
+This does NOT establish a particular external redirect, captcha, inventory failure
+or provider-page cause. No policy scope was broadened.
+
+NS returned `H step limit reached`. The runner demonstrably removes the public routing
+fragment before session creation, so the actual cleaned initial URL is
+https://www.nsinternational.com/en/traintickets-v3/ . The last retained cleaned path
+does not distinguish an unselected list from a selected journey. No selected round-trip
+review or READY was verified. Start-URL fragment removal is confirmed; its contribution
+to the final step limit is not independently established from the retained metadata.
+Hclient/scrub were read-only and remain unchanged.
+
+Instruction refinement in NS blocked_evidence: at the first loaded booking page,
+missing/reset route, dates or party must stop BLOCKED date_mismatch immediately.
+Never fill/submit search forms, reconstruct routing or keep browsing to the step limit.
+This is not live-retested and does not repair fragment removal. Gateway-city verification
+is a separate blocker for Den Haag. A separately scoped hclient/scrub contract change is
+needed, not invented Den Haag evidence, loosened city checks or widened provider policy.

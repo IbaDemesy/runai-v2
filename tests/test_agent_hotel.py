@@ -276,6 +276,8 @@ def test_r4_committed_hotel_matrix_and_policy(city, country, monkeypatch):
         if candidate["site_name"] == "ihg-com":
             assert "select-enhance-stay" in candidate["success_signal"]
             assert "STOP" in candidate["instructions"] and "READY immediately" in candidate["instructions"]
+            assert "terminal checkpoint" in candidate["instructions"]
+            assert "otherwise finish BLOCKED unsafe_claim immediately" in candidate["instructions"]
             assert "no hotel in the confirmed city" in candidate["instructions"]
 
 

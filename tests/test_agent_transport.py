@@ -223,6 +223,8 @@ def test_r4_paris_routes_and_policy(city, country, policy, airport, monkeypatch)
         assert "both outbound and return fares" in task["instructions"]
     else:
         assert "#/search/FRPNO/NLASC/20270109?pax=A&inboundDate=20270111" in task["start_url"]
+        assert "At the first loaded NS booking page" in task["instructions"]
+        assert "STOP BLOCKED date_mismatch immediately" in task["instructions"]
     if city == "Den Haag":
         assert "Den Haag via Amsterdam Centraal" in task["instructions"]
         assert "onward Den Haag transfer not included" in task["instructions"]
