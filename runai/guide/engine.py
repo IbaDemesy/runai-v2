@@ -211,6 +211,7 @@ class GuideEngine:
         if race.distance_km is not None:
             return (canonical(race.distance_km),)
         label = normalize(race.distance_label)
+        label = re.sub(r"(?<=\d)\s*[-–—]\s*(?=k(?:m)?\b)", " ", label)
         if re.fullmatch(r"\d+(?:[.,]\d+)?", label):
             return (canonical(float(label.replace(",", "."))),)
         values = self._distance_values(re.sub(r"(?<=\d)\s*k\b", " km", label))

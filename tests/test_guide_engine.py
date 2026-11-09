@@ -936,6 +936,7 @@ def test_deduplication_preserves_distinct_distances(distances, labels, expected)
     (21.1, "half"), (21.1, "21.1"), (21.1, "21.0975"), (21.0975, "HALF MARATHON"),
     (42.195, "marathon"), (42.195, "42.2"), (42.2, "42.195"),
     (10, "10k"), (10, "10 km"), (21.1, "  SEMI - MARATHON  "),
+    (10, "10-km"), (21.1, "21,1-km"), (42, "42-km"),
 ])
 def test_deduplicate_standard_distance_aliases(distance, label):
     async def discover(query, hints):
