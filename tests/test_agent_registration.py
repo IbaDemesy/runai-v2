@@ -10,6 +10,7 @@ from runai.agents import hclient, site_policy
 from runai.agents.registration import (
     NJUKO_CHECKPOINT,
     _distance_matches,
+    availability_from_evidence,
     build_task,
     policy_view,
     registration_coverage,
@@ -427,7 +428,8 @@ def _coverage(race=None, reg=None, today=TODAY):
 def test_coverage_reports_fresh_open_availability():
     assert _coverage(reg=_with_availability()) == {
         "covered": True, "status": "open", "policy_id": "njuko-platform",
-        "observed_at": "2026-11-08", "prohibited": False}
+        "observed_at": "2026-11-08", "prohibited": False, "registration": "covered",
+        "preparable_open": True}
 
 
 @pytest.mark.parametrize(("observed", "status"), [
@@ -529,6 +531,7 @@ def test_njuko_personal_page_checkpoint_on_every_attempt(page):
 
 
 UNCOVERED = {"covered": False, "status": "unknown", "policy_id": None, "observed_at": None,
+             "registration": "uncovered", "preparable_open": False,
              "prohibited": False}
 
 
@@ -675,6 +678,11 @@ FRESH_OPEN_RACES = [
     ("Movistar Madrid Medio Maratón", "2027-04-04", 21.0975, "Madrid", "Spain",
      "https://www.mediomaratonmadrid.es/en/"),
 ]
+FRANKFURT = ("Mainova Frankfurt Marathon", "2027-10-31", 42.195, "Frankfurt am Main", "Germany",
+             "https://www.frankfurt-marathon.com/")
+STOOS = ("Stoos-Trail ST24", "2027-07-10", 25.6, "Brunnen", "Switzerland",
+         "https://stoos-trail.ch/")
+R6_OPEN = [STOOS]
 
 
 def test_named_fresh_open_matrix_spans_required_countries():
@@ -685,7 +693,7 @@ def test_named_fresh_open_matrix_spans_required_countries():
     assert any(r[4] == "Spain" and r[3] != "Sevilla" for r in FRESH_OPEN_RACES)
 
 
-@pytest.mark.parametrize("race", FRESH_OPEN_RACES, ids=lambda r: r[0])
+@pytest.mark.parametrize("race", FRESH_OPEN_RACES + R6_OPEN, ids=lambda r: r[0])
 def test_named_fresh_open_matrix_builds_scrubbed_policy_checked_tasks(race, monkeypatch):
     today = date(2026, 11, 9)
     reg = _merged()
@@ -693,8 +701,10 @@ def test_named_fresh_open_matrix_builds_scrubbed_policy_checked_tasks(race, monk
     coverage = registration_coverage(trip["race"], today=today, registry=reg)
     assert coverage["covered"] is True
     assert coverage["status"] == "open"
+    assert coverage["registration"] == "covered" and coverage["preparable_open"] is True
     assert coverage["observed_at"] == today.isoformat()
     task = build_task(trip, today=today, registry=reg)
+    assert task["max_steps"] == 60
 
     class ReviewClock(datetime):
         @classmethod
@@ -713,8 +723,64 @@ def test_named_fresh_open_matrix_builds_scrubbed_policy_checked_tasks(race, monk
         assert hclient._checkpoint(attempt) is not None
         for pattern in checkpoint["url_patterns"] + checkpoint["beyond_patterns"]:
             re.compile(pattern)
-        for boundary in ("payment", "summary", "login"):
+        for boundary in ("payment", "summary", "login", "cart"):
             assert _matches(checkpoint["beyond_patterns"], f"https://example.test/{boundary}")
+        for landing in (trip["race"]["official_url"], attempt["start_url"]):
+            if "web-form" not in landing:
+                assert not _matches(checkpoint["url_patterns"], landing), landing
+
+
+def test_fresh_open_coverage_per_required_country():
+    covered = {r[4] for r in FRESH_OPEN_RACES + R6_OPEN if _merged_coverage(r)["preparable_open"]}
+    assert {"Spain", "Netherlands", "Switzerland", "Italy"} <= covered
+
+
+def test_frankfurt_reviewed_but_not_preparable_until_white_label_id_is_scrub_clean():
+    coverage = _merged_coverage(FRANKFURT)
+    assert scrub_url(build_task(_race_trip(*FRANKFURT), today=MERGED_TODAY,
+                                registry=_merged())["start_url"]) is None
+    assert coverage["covered"] is False and coverage["preparable_open"] is False
+    assert coverage["prohibited"] is False
+
+
+def test_coverage_fails_closed_when_scrub_module_is_missing(monkeypatch):
+    import sys
+    monkeypatch.setitem(sys.modules, "runai.agents.scrub", None)
+    assert _merged_coverage(MILAN)["covered"] is False
+
+
+def test_stoos_checkpoint_enabled_on_observed_participant_form():
+    task = build_task(_race_trip(*STOOS), today=MERGED_TODAY, registry=_merged())
+    patterns = task["checkpoint"]["url_patterns"]
+    assert task["start_url"] == "https://my.raceresult.com/422182/registration"
+    assert "(?!)" not in patterns
+    form = "https://my.raceresult.com/422182/registration?regname=Einzel-Anmeldung"
+    assert _matches(patterns, form)
+    assert _matches(patterns, form.replace("regname", "lang=de&regname").upper())
+    assert not _matches(patterns, task["start_url"])
+    assert not _matches(patterns, "https://my.raceresult.com/422182/participants?regname=x")
+    for boundary in ("payment", "login", "cart"):
+        assert _matches(task["checkpoint"]["beyond_patterns"],
+                        f"https://my.raceresult.com/422182/{boundary}")
+
+
+@pytest.mark.parametrize("distance", [10, 11, 24, 25.6, 46.6])
+def test_stoos_contest_labels_and_course_lengths_are_open(distance):
+    trip = _race_trip(*STOOS)
+    trip["race"]["distance_km"] = distance
+    assert registration_coverage(trip["race"], today=MERGED_TODAY,
+                                 registry=_merged())["status"] == "open"
+
+
+def test_frankfurt_checkpoint_is_njuko_form_not_competition_list():
+    task = build_task(_race_trip(*FRANKFURT), today=MERGED_TODAY, registry=_merged())
+    base = "https://in.motionevents-registrations.com/mainova-frankfurt-marathon-2027-1789303690969"
+    assert task["start_url"] == base + "?currentPage=select-competition"
+    assert _matches(task["checkpoint"]["url_patterns"], base + "?currentPage=form_individual-form")
+    assert not _matches(task["checkpoint"]["url_patterns"], task["start_url"])
+    assert not evaluate_url("https://in.motionevents-registrations.com/other-race-2027",
+                            "registration", today=MERGED_TODAY,
+                            registry=policy_view(_merged())[0])["allowed"]
 
 
 def test_madrid_checkpoint_matches_observed_form_not_event_landing():
@@ -754,17 +820,6 @@ def test_fresh_observation_does_not_assert_an_unobserved_distance_open():
                                  registry=_merged())["status"] == "unknown"
 
 
-def test_stoos_shell_is_not_a_personal_data_checkpoint_or_open_evidence():
-    trip = _race_trip("Stoos-Trail ST24", "2027-07-10", 25.6, "Brunnen", "Switzerland",
-                      "https://stoos-trail.ch/")
-    task = build_task(trip, today=MERGED_TODAY, registry=_merged())
-    assert task["start_url"] == "https://my.raceresult.com/422182/registration"
-    assert scrub_url(task["start_url"]) == task["start_url"]
-    assert registration_coverage(trip["race"], today=MERGED_TODAY,
-                                 registry=_merged())["status"] == "unknown"
-    assert not _matches(task["checkpoint"]["url_patterns"], task["start_url"])
-
-
 def test_bologna_rounded_half_distance_has_fresh_open_coverage():
     trip = _race_trip(*FRESH_OPEN_RACES[4])
     trip["race"]["distance_km"] = 21.1
@@ -792,3 +847,91 @@ def test_distance_tolerance_rejects_invalid_distance(distance):
 def test_distance_tolerance_does_not_match_empty_scope_or_different_race():
     assert not _distance_matches(21.1, [])
     assert not _distance_matches(10, [5])
+
+
+@pytest.mark.parametrize(("text", "url", "status"), [
+    ("Lista de Espera - Esgotada 07/03/2027", "", "sold_out"),
+    ("", "https://meia-maratona.inscricoes.maratonaportugal.com/waitinglist.aspx?prova_id=3769",
+     "sold_out"),
+    ("As provas EDP Meia Maratona de Lisboa e Vodafone 10K estão esgotadas", "", "sold_out"),
+    ("Halbmarathon AUSVERKAUFT", "", "sold_out"), ("Course complète : COMPLET", "", "sold_out"),
+    ("Join the waiting list", "", "sold_out"), ("Halve marathon UITVERKOCHT", "", "sold_out"),
+    ("Liste d’attente", "", "sold_out"), ("Inscripciones agotadas", "", "sold_out"),
+    ("Registrations closed. The event is CLOSED.", "", "closed"),
+    ("Anmeldung ist geschlossen", "", "closed"),
+    ("Registration for the 2027 edition will open on Saturday, December 19.", "", "not_open"),
+    ("Die Anmeldung startet voraussichtlich im Februar 2027", "", "not_open"),
+    ("Einzel-Anmeldung ... Register Now", "", "open"), ("Inscrições abertas!", "", "open"),
+    ("Registration open", "", "open"), ("Registration opens 1 March", "", "not_open"),
+    ("", "", "unknown"), (None, 5, "unknown"), ("Marathon 2027 course map", "", "unknown"),
+])
+def test_availability_from_evidence(text, url, status):
+    assert availability_from_evidence(text, url) == status
+
+
+def test_waiting_list_registration_url_reports_sold_out_first_not_ready():
+    trip = _race_trip(*LISBON_HALF)
+    trip["race"]["registration_url"] = (
+        "https://meia-maratona.inscricoes.maratonaportugal.com/waitinglist.aspx?prova_id=3769")
+    task = build_task(trip, today=MERGED_TODAY, registry=_merged())
+    first = task["instructions"].splitlines()[0]
+    assert first.startswith("AVAILABILITY FIRST") and "BLOCKED sold_out" in first
+    assert "Never join" in task["instructions"] and "Lista de " in task["instructions"]
+    coverage = registration_coverage(trip["race"], today=MERGED_TODAY, registry=_merged())
+    assert coverage["status"] == "sold_out" and coverage["registration"] == "sold_out"
+    assert coverage["preparable_open"] is False
+
+
+def test_sold_out_page_answer_maps_to_sold_out_not_unsafe_claim():
+    task = build_task(_race_trip(*LISBON_HALF), today=MERGED_TODAY, registry=_merged())
+    answer = {"blocker": "Waiting list only: Lista de Espera, inscrições esgotadas",
+              "reached_step": "waitinglist.aspx"}
+    assert hclient._blocked_reason(answer, task) == "sold_out"
+    assert not hclient._payment_claim(
+        "BLOCKED sold_out: registration is unavailable (waiting list). "
+        "No payment, booking or submission was made.")
+
+
+def test_not_yet_open_registration_url_is_not_preparable():
+    trip = _race_trip(*FRESH_OPEN_RACES[1])
+    trip["race"]["registration_url"] = "https://nncpcloopdenhaag.nl/coming-soon/"
+    coverage = registration_coverage(trip["race"], today=MERGED_TODAY, registry=_merged())
+    assert coverage["registration"] in {"not_open", "uncovered"}
+    assert coverage["preparable_open"] is False
+
+
+@pytest.mark.parametrize("race", [
+    ("BMW Berlin Marathon", "2027-09-26", 42.195, "Berlin", "Germany",
+     "https://www.bmw-berlin-marathon.com/"),
+    ("Schneider Electric Marathon de Paris", "2027-04-11", 42.195, "Paris", "France",
+     "https://www.asicsmarathondeparis.com/"),
+    ("Run In Lyon", "2027-10-03", 42.195, "Lyon", "France", "https://www.runinlyon.com/"),
+    VALENCIA_10K, BARCELONA_HALF, IRONTRAIL,
+])
+def test_prohibited_races_stay_policy_denied(race):
+    coverage = _merged_coverage(race)
+    assert coverage["covered"] is False and coverage["preparable_open"] is False
+    if race[3] != "Berlin":
+        assert coverage["prohibited"] is True and coverage["registration"] == "prohibited"
+    with pytest.raises(ValueError, match="not policy-reviewed"):
+        build_task(_race_trip(*race), today=MERGED_TODAY, registry=_merged())
+
+
+@pytest.mark.parametrize("race", [STOOS, FRANKFURT], ids=lambda r: r[0])
+def test_next_edition_does_not_inherit_observed_2027_availability(race):
+    trip = _race_trip(race[0], race[1].replace("2027", "2028"), *race[2:])
+    coverage = registration_coverage(trip["race"], today=MERGED_TODAY, registry=_merged())
+    assert coverage["status"] == "unknown" and coverage["preparable_open"] is False
+
+
+def test_waiting_list_instruction_yields_hclient_sold_out_reason():
+    task = build_task(_race_trip(*STOOS), today=MERGED_TODAY, registry=_merged())
+    assert "must start with the words 'sold out'" in task["instructions"]
+    answer = {"blocker": "sold out: waiting list only", "reached_step": "waiting list"}
+    assert hclient._blocked_reason(answer, task) == "sold_out"
+
+
+def test_invalid_availability_race_dates_fail_closed():
+    reg = _with_availability()
+    reg["entries"][0]["adapters"][0]["availability"]["race_dates"] = ["2027-13-40"]
+    assert _coverage(reg=reg)["covered"] is False

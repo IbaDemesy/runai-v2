@@ -17,6 +17,7 @@ import json
 import re
 from collections.abc import Mapping
 from datetime import UTC, date, datetime, timedelta
+from importlib import import_module
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlsplit
@@ -51,6 +52,29 @@ STOP_BEFORE = [
 ]
 AVAILABILITY_STATUSES = ("open", "sold_out", "not_open", "closed", "unknown")
 AVAILABILITY_MAX_AGE_DAYS = 21
+REGISTRATION_VOCABULARY = {"open": "covered", "sold_out": "sold_out", "not_open": "not_open",
+                           "closed": "closed", "unknown": "unknown"}
+_AVAILABILITY_EVIDENCE = (
+    ("sold_out", re.compile(
+        r"wait(?:ing)?[-_ ]?list|warteliste|lista[-_ ]de[-_ ]espera|liste[-_ ]d.attente|"
+        r"wachtlijst|lista[-_ ]d.attesa|sold[-_ ]?out|ausverkauft|esgotad|agotad|uitverkocht|"
+        r"esaurit|\bcomplets?\b|no places left|keine startpl[aä]tze")),
+    ("closed", re.compile(
+        r"registrations? (?:is |are )?closed|event is closed|anmeldung (?:ist )?geschlossen|"
+        r"inscri[cç][oõ]es encerradas|inscripci[oó]n(?:es)? cerradas?|iscrizioni chiuse|"
+        r"inscriptions? (?:sont )?(?:clos|ferm)|inschrijving (?:is )?gesloten")),
+    ("not_open", re.compile(
+        r"registration (?:will open|opens)\b|\bwill (?:re)?open\b|not (?:yet )?open|"
+        r"opens?[-_ ]soon|coming[-_ ]soon|"
+        r"anmeldung (?:startet|beginnt|er[oö]ffnet)\s+(?:voraussichtlich|ab|erst|demn[aä]chst)|"
+        r"noch nicht (?:verf[uü]gbar|ge[oö]ffnet)|inscri[cç][oõ]es (?:em breve|brevemente)|"
+        r"pr[oó]ximamente|ouverture des inscriptions|iscrizioni (?:aprono|in apertura)|"
+        r"inschrijving (?:opent|binnenkort)")),
+    ("open", re.compile(
+        r"register now|jetzt anmelden|einzelanmeldung|inscri[cç][oõ]es abertas|"
+        r"inscripciones abiertas|iscrizioni aperte|inscriptions ouvertes|"
+        r"inschrijving (?:is )?geopend|registration (?:is )?open\b")),
+)
 _PROHIBITED = "site terms prohibit"
 
 NJUKO_CHECKPOINT = {
@@ -157,7 +181,35 @@ def _availability(raw: Any, entry_id: Any) -> dict[str, Any] | None:
         ):
             raise site_policy.PolicyError(f"{entry_id}: availability.distances_km is invalid")
         result["distances_km"] = distances
+    if "race_dates" in raw:
+        dates = raw["race_dates"]
+        try:
+            if not isinstance(dates, list) or not dates or not all(
+                    isinstance(d, str) for d in dates):
+                raise TypeError(dates)
+            result["race_dates"] = [date.fromisoformat(d).isoformat() for d in dates]
+        except (TypeError, ValueError) as exc:
+            raise site_policy.PolicyError(
+                f"{entry_id}: availability.race_dates is invalid") from exc
     return result
+
+
+def availability_from_evidence(text: Any = "", url: Any = "") -> str:
+    """Availability status from page evidence text and URL; never raises.
+
+    Waiting-list/sold-out beats closed, which beats not-open, which beats an explicit open
+    marker; anything else is ``unknown``. Evidence is a hint for ranking and early stops,
+    never permission to navigate.
+    """
+    parts = []
+    for value in (url, text):
+        if isinstance(value, str):
+            parts.append(value)
+    haystack = " ".join(parts).lower().replace("\u2019", "'")
+    for status, pattern in _AVAILABILITY_EVIDENCE:
+        if pattern.search(haystack):
+            return status
+    return "unknown"
 
 
 def _distance_matches(distance_km: Any, distances_km: list[float]) -> bool:
@@ -167,11 +219,14 @@ def _distance_matches(distance_km: Any, distances_km: list[float]) -> bool:
 
 
 def _fresh_status(
-    adapter: Mapping[str, Any] | None, today: date, distance_km: Any,
+    adapter: Mapping[str, Any] | None, today: date, distance_km: Any, race_date: Any = None,
 ) -> tuple[str, str | None]:
-    """Observed availability status, or 'unknown' when absent, stale or dated in the future."""
+    """Observed availability status, or 'unknown' when absent, stale, dated in the future or
+    observed for another edition (``race_dates``)."""
     availability = adapter.get("availability") if adapter else None
     if not availability:
+        return "unknown", None
+    if "race_dates" in availability and str(race_date)[:10] not in availability["race_dates"]:
         return "unknown", None
     if "distances_km" in availability and not _distance_matches(
         distance_km, availability["distances_km"]
@@ -383,13 +438,18 @@ def _plan(
         f"{adapter['success_evidence']} BLOCKED looks like: {adapter['blocked_evidence']}\n"
         if adapter else ""
     )
-    status, observed_at = _fresh_status(adapter, today, distance_km)
+    status, observed_at = _fresh_status(adapter, today, distance_km, expected["race_date"])
+    seen = f"on {observed_at} ({adapter['availability']['source']})" if adapter and (
+        adapter["availability"]) else ""
+    evidence = availability_from_evidence(url=start_url)
+    if status not in ("sold_out", "closed") and evidence in ("sold_out", "closed"):
+        status, seen = evidence, f"in the start URL ({start_url})"
     availability_first = ""
-    if adapter and status in ("sold_out", "closed"):
+    if status in ("sold_out", "closed"):
         code = "sold_out" if status == "sold_out" else "registration_closed"
         availability_first = (
-            f"AVAILABILITY FIRST: registration was observed {status.replace('_', ' ')} on "
-            f"{observed_at} ({adapter['availability']['source']}). Within your first 5 steps, "
+            f"AVAILABILITY FIRST: registration was observed {status.replace('_', ' ')} "
+            f"{seen}. Within your first 5 steps, "
             f"check whether this is still the case; if it is, STOP and report BLOCKED {code} "
             "with the URL. Never join a waiting list or fill any form.\n"
         )
@@ -426,6 +486,13 @@ def _plan(
         "if this needs no personal data. Open the first participant/personal-data page, "
         "then STOP and answer immediately without typing anything.\n"
         "5. Cookie banners: reject or close only, never accept optional consent.\n"
+        "5b. AVAILABILITY: a waiting-list, sold-out or closed page (Waiting list, Lista de "
+        "espera, Warteliste, Liste d'attente, Wachtlijst, Sold out, Ausverkauft, Complet, "
+        "Esgotado, Agotado, Uitverkocht, Registration closed) means STOP and report BLOCKED "
+        "sold_out (registration_closed when closed or not yet open) with its URL; the blocker "
+        "text must start with the words 'sold out' (or 'registration closed'), e.g. 'sold out: "
+        "waiting list only'. Never join the waiting list; say only that registration is "
+        "unavailable.\n"
         f"{access_hint}{adapter_hint}{alternatives_hint}"
         f"6. STOP at the first page that asks for any of:\n{stop_lines}\n"
         "7. Never type personal data, log in, create an account, tick consent or terms, upload "
@@ -497,10 +564,12 @@ def registration_coverage(
     """Offline P8 coverage: would ``build_task`` succeed for ``race``? Never raises.
 
     ``status`` is the matched adapter's recorded availability, or ``unknown`` when absent,
-    older than 21 days or the race is not covered.
+    older than 21 days or the race is not covered; a waiting-list/sold-out/closed sourced
+    ``registration_url`` downgrades it. ``registration`` is the same verdict in the P9
+    preparation vocabulary (``covered`` only for fresh open availability) and
+    ``preparable_open`` is True only then, so a guide can rank preparable-open races first.
     """
-    result: dict[str, Any] = {"covered": False, "status": "unknown", "policy_id": None,
-                              "observed_at": None, "prohibited": False}
+    result = _uncovered()
     try:
         if not isinstance(race, Mapping):
             return result
@@ -510,14 +579,35 @@ def registration_coverage(
         except (ValueError, TypeError, KeyError):
             policy_id = _prohibition(race, today, registry)
             if policy_id:
-                result.update(prohibited=True, policy_id=policy_id)
+                result.update(prohibited=True, policy_id=policy_id, registration="prohibited")
             return result
-        status, observed_at = _fresh_status(adapter, today, race.get("distance_km"))
+        if not _scrub_clean(task["start_url"]):
+            return result
+        status, observed_at = _fresh_status(
+            adapter, today, race.get("distance_km"), race.get("race_date"))
+        evidence = availability_from_evidence(url=race.get("registration_url"))
+        if status in ("open", "unknown") and evidence in ("sold_out", "closed", "not_open"):
+            status = evidence
         decision = evaluate_url(task["start_url"], KIND, today=today,
                                 registry=policy_view(registry)[0])
         result.update(covered=True, status=status, observed_at=observed_at,
-                      policy_id=decision["policy_id"])
+                      policy_id=decision["policy_id"],
+                      registration=REGISTRATION_VOCABULARY[status],
+                      preparable_open=status == "open")
     except Exception:  # noqa: BLE001
-        return {"covered": False, "status": "unknown", "policy_id": None,
-                "observed_at": None, "prohibited": False}
+        return _uncovered()
     return result
+
+
+def _scrub_clean(url: str) -> bool:
+    """The H runtime only starts on URLs that survive scrubbing; fail closed otherwise."""
+    try:
+        scrub_url = import_module("runai.agents.scrub").scrub_url
+    except (ImportError, AttributeError):
+        return False
+    return scrub_url(url) == url
+
+
+def _uncovered() -> dict[str, Any]:
+    return {"covered": False, "status": "unknown", "policy_id": None, "observed_at": None,
+            "prohibited": False, "registration": "uncovered", "preparable_open": False}

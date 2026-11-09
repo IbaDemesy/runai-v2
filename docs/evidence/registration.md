@@ -1,5 +1,55 @@
 # Registration path evidence (R2-02, supersedes R1-05 "assumed" claims)
 
+## R6-03 read-only observations and coverage — 2026-11-09
+
+Normal Chrome (the session browser), anonymous, read-only: pages rendered, cookie banners
+hidden (never accepted), only public selection buttons clicked, nothing typed or
+submitted. No screenshots were kept; no private ids.
+
+| Entry | Country | Observation (2026-11-09) | Checkpoint | Availability |
+|---|---|---|---|---|
+| `stoos-trail-raceresult` | CH | `my.raceresult.com/422182/registration`: "Stoos Trail 2027, 2027-07-10", ST46/ST24/ST10/Bärglauf, fee window 10/15/2026-11/14/2026; public "Register Now" opens `/422182/registration?regname=Einzel-Anmeldung` with empty Last/First Name, Year, Date of Birth (steps Grunddaten > Überprüfung > Payment) | enabled: `^/422182/registration\?(?:[^#]*&)?regname=` (bare landing has empty query, no match) | open |
+| `frankfurt-marathon-de` (new) | DE | official link -> Njuko white-label `in.motionevents-registrations.com/mainova-frankfurt-marathon-2027-...?currentPage=select-competition`: "MAINOVA FRANKFURT MARATHON 2027, DATUM 31.10.2027, 136,00 €, EINZELANMELDUNG"; the public button leads to `currentPage=form_individual-form` (empty Vorname/Nachname/Geburtsdatum, 15-min timer) | Njuko `currentPage=form_individual-form` | open (kids races not open until Feb 2027) |
+| `maratonaclubedeportugal-com` | PT | `default.aspx?prova_id=3765..3768` banner: "As provas EDP Meia Maratona de Lisboa, Vodafone 10K e Luso 7K estão esgotadas"; `prova_id=3769` redirects to `waitinglist.aspx` ("Lista de Espera", "Esgotada") | unchanged | sold_out (half); 10K also sold out |
+| (none) Porto marathon | PT | `maratonadoporto.com/en/registration-2026/` redirects to rockthesport.com (prohibited), "Registrations closed"; Porto half 19/09/2027 has no registration link | — | not covered |
+| TCS Amsterdam | NL | "Registration for the 2027 edition will open on Saturday, December 19" | unchanged | not_open |
+| Zurich Maratón Sevilla | ES | 2027 phases: repeaters 9–12 April, waiting list 13–16 April, public from 17 April | unchanged | not_open (Madrid half stays the open ES race) |
+
+Terms: Frankfurt Teilnahmebedingungen, Impressum and Datenschutz plus Njuko legal notices
+contain no robot/scraping/automated-agent prohibition; my.raceresult Terms of Use reviewed
+again (no bot clause; §3.4 submission = binding offer, so never submit). Berlin, Paris, Lyon,
+Valencia 10K, Barcelona, Rotterdam, Datasport and rockthesport stay prohibited/denied.
+
+**Frankfurt blocker:** `runai.agents.scrub.scrub_url` returns None for the white-label path
+`/mainova-frankfurt-marathon-2027-1789303690969` (the 13-digit Njuko event id is only exempted
+on njuko hosts), so H cannot start there. `registration_coverage` now fails closed
+(`covered=false`) when the start URL is not scrub-clean; Frankfurt becomes preparable once
+scrub.py adds `in.motionevents-registrations.com` to the Njuko public-id hosts (scope amendment,
+not in this ticket's files).
+
+Coverage (offline, `registration_coverage`, today 2026-11-09): fresh open and preparable for
+ES (Madrid half), NL (CPC Den Haag 10K/5K), CH (Stoos-Trail, Genève),
+IT (Milano, Roma, Bologna, Padova). **PT has no open race on a permitted platform**: Lisbon
+half/10K/7K are sold out (waiting list), Porto is on prohibited rockthesport and closed;
+no Funchal/Gaia registration page could be found. The guide gets
+`registration="sold_out"` for Lisbon and must not rank it preparable.
+
+Availability detection: `availability_from_evidence(text, url)` maps waiting-list /
+sold-out words (waiting list, lista de espera, Warteliste, liste d'attente, wachtlijst,
+sold out, ausverkauft, complet, esgotado, agotado, uitverkocht) to `sold_out`, closed
+wording to `closed`, "will open"/"startet voraussichtlich" to `not_open`. A sourced
+`waitinglist.aspx` registration URL makes the task start with AVAILABILITY FIRST
+`BLOCKED sold_out`; step 5b tells the agent never to join and to answer only that
+registration is unavailable (offline test: such an answer is `sold_out`, not a payment claim).
+
+### R6-03 live H smokes — NOT RUN (2026-11-09)
+
+`HAI_API_KEY` (and `LINKUP_API_KEY`) were absent from this session's environment;
+`GET /api/v2/sessions/quota` without a key returned an authorization error. No H session
+was started, so no live READY is claimed for Stoos-Trail or Frankfurt; the checkpoints
+above are based only on the read-only Chrome observation. Previous verified READY remains
+Milan only.
+
 ## R5-03 sequential live registration smokes — 2026-11-09 UTC
 
 Runtime: R5-01 PR #33 head `77fd6d5` in a detached, uncommitted throwaway worktree,
