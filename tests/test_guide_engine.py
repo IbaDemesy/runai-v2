@@ -25,6 +25,25 @@ async def preparation_discovery(query, hints):
     ]
 
 
+@pytest.mark.parametrize("text,delegation,label", [
+    ("un semi", "tu me conseilles", "Autre distance"),
+    ("a half marathon", "you choose", "Another distance"),
+])
+def test_delegation_never_auto_selects_other_distances(text, delegation, label):
+    async def discover(query, hints):
+        return [row for row in await preparation_discovery(query, hints) if row["id"] == "full"]
+
+    e = engine(discover)
+    state, turn = run(e.start(text))
+    assert state.draft.race is None
+    state, turn = run(e.step(state, {"text": delegation}))
+    assert state.draft.race is None and not turn.ready_to_confirm
+    assert state.stage == "choose_race"
+    assert [r.id for r in turn.candidates] == ["full"]
+    assert [s.group for s in turn.suggestions] == [label]
+    assert ("distance demandée" if label == "Autre distance" else "requested distance") in turn.message
+
+
 @pytest.mark.parametrize("lang,delegation", [
     ("fr", "tu me conseilles"), ("en", "you choose"),
 ])

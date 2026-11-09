@@ -692,7 +692,17 @@ class GuideEngine:
                     turn.message = direction + " " + turn.message
                     state.history[-1]["text"] = turn.message
                 return state, turn
-        suitable = [r for r in state.candidates if self._eligible(r)]
+        matching = [r for r in state.candidates if self._matches_distance(state, r)]
+        if not matching:
+            state.draft.race = None
+            state.draft.arrival_date = state.draft.departure_date = None
+            self._advance(state)
+            return self._turn(state, self._say(
+                state, "Aucune course trouvée à la distance demandée ; voici les autres "
+                "distances, à toi de choisir sans changement automatique.",
+                "No race was found at the requested distance; here are other distances "
+                "for you to choose, without switching automatically."))
+        suitable = [r for r in matching if self._eligible(r)]
         if not state.hints.get("named"):
             suitable.sort(key=lambda r: bool(r.registration_access and (
                 r.registration_access.account_required is True or r.registration_access.captcha is True
