@@ -1206,3 +1206,84 @@ retains verified Google primary. No one-adult route gaps remain. All48 also buil
 for adults1..4 after the explicitly requested expansion; this is NOT a claim that
 3/4 adults were independently live-probed. SBB/NS unchanged. Google plural query
 uses adult for1, adults for2..4. Unsupported counts remain blocked.
+
+# R7-02 final authorized live step — 2026-11-09
+
+## Synthetic passenger retry: no final checkpoint observed
+
+One quota-checked sequential raw H session; cleanup HTTP204. Paris→Milan,
+2027-01-29→31, one adult, up to45 steps. Actual37 steps,31 image-bearing
+observations. Only explicitly authorized synthetic passenger fields were permitted;
+no terms/newsletter/insurance/account choices or final submissions authorized.
+H reports Deny All and entering all six required field names: given name, family
+name, email, phone, birth date, country/region of residence. Additional newly
+authorized nationality/gender/address fields were not reported required or entered.
+No identity values are retained here.
+
+Observed public paths (www.omio.com; opaque IDs replaced):
+`/app/search-frontend/results/{id}/train` →
+`/app/search-frontend/results/{id}/train/{id}/inbound` →
+`/app/search-frontend/journey/train/{id}/{id}/{id}/{id}` →
+`/app/search-frontend/booking/{id}/passenger-details`.
+
+H returned total265.00 (currency not specified in its answer), blocker=null,
+final_page_type=passenger-details. **It again stopped on the passenger form,
+not on a post-passenger boundary.** All reported required fields were entered
+this time, so the earlier missing-country hypothesis does not explain this run.
+No login/captcha or other concrete blocker was reported. Actual reason for the
+premature completion is unknown; no complete action audit retained. Do not
+invent extras/payment paths. Omio prefill sentinel `(?!)` and six observed
+required field names remain unchanged. No successful P14 final checkpoint claim.
+
+## Product-pipeline acceptance: zero READY, core preflight blocker
+
+Real trip dict → transport.build_task → hclient._policy → unmodified
+HAgentRunner.run, no runner_profile, one adult, EUR800 budget, Jan29/31 travel
+and explicitly synthetic race-like Jan30 date (not a sourced real race).
+Original max_steps60 retained; automatic alternatives retained, not manually
+stripped or promoted. Routes invoked in requested order; Geneva→Barcelona added
+because fewer than two READY. These are actual runner outputs, not raw-probe
+success relabelled as pipeline success.
+
+| Route | Provider | Status | reason_code | Steps / frames | Stop host/path | Checkpoint matched | Total seen |
+|---|---|---|---|---|---|---|---|
+| Paris→Milan | Omio | failed | provider_error | 0 / 0 | none | no | none |
+| Paris→Berlin | Omio | failed | provider_error | 0 / 0 | none | no | none |
+| Paris→Lisbon | Omio | failed | provider_error | 0 / 0 | none | no | none |
+| Paris→Brunnen via Zurich | Omio | failed | provider_error | 0 / 0 | none | no | none |
+| Geneva→Barcelona | Omio | failed | provider_error | 0 / 0 | none | no | none |
+
+Every runner error: `Invalid H task or provider response`. **No pipeline H
+session was created**, so there were no provider steps/images/selected totals.
+The runner's preflight failed before the harness's quota-before-every-creation
+hook and POST. Explicit smoke-level quota on Geneva showed available3; the
+synthetic retry was quota-checked before creation. No overlapping owned sessions.
+
+### Verified causal chain, not an inferred provider failure
+
+- Actual builder outputs use Omio's published public /links/{public-affiliate-id}
+  URL. hclient._policy accepts every task. No profile metadata is involved.
+- Direct diagnostic: `scrub_url(task["start_url"]) is None`.
+- Disproof check: removing every query parameter still returns None, whereas
+  `https://www.omio.com/links` survives unchanged. Not a date/adult/query issue.
+- The public affiliate UUID matches scrub._OPAQUE_PATH and does not match
+  scrub._PUBLIC_SLUG. scrub_url's segment gate returns None before query parsing.
+- HAgentRunner._attempt computes clean_url(start_url), then its public-HTTPS
+  check raises ValueError for None **before POST /sessions**. Its ValueError
+  handler produces exactly the observed failed/provider_error message.
+- HAgentRunner.run retries alternatives only when status=blocked with selected
+  reason codes. Here status=failed, so the retained alternatives never execute.
+
+This verifies the core scrub/start-URL gate for these exact tasks; it is NOT an
+Omio inventory, consent, checkpoint, date, network or quota failure. No H request
+was made that could test those hypotheses. No same-input live retries or
+primary-ranking changes were used to manufacture success. Fix requires a narrow,
+reviewed public-link exception in hclient/scrub (outside this ticket's allowed
+files), and potentially separate public selected-path handling if opaque selected
+IDs are rejected later; that latter possibility has NOT been live-tested here.
+
+**Acceptance target >=2 verified READY is unmet (0/5).** Raw render/selected-flow
+research remains separate historical evidence. No hclient/scrub edits, encoding
+bypass, policy widening or fabricated READY. Recommend core owner fix the known
+public-link handling, then rerun the same builder pipeline before integrated
+acceptance. No UI changes or independent screenshot visual review.
