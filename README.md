@@ -15,13 +15,13 @@ chips, plan cards and three agent panels is the design priority.
 The chat should feel natural in French and English, with streaming-like replies,
 a bottom composer and one-click defaults or free-text corrections.
 
-**Status:** round 3 recorded 0/5 visible live successes
-([docs/eval/round-3.md](docs/eval/round-3.md)). Round 4 (R4-01..R4-05)
-unblocks live H runs (handoff-only fallback gate, about:blank startup, frame
-cadence, site alternatives), widens hotel/transport/registration coverage,
-ranks preparable races and polishes the UI to Strava grade. Read
-[HANDOFF.md](HANDOFF.md) for the evidence boundary. R4-01 owns core/shared docs
-and final acceptance after R4-02..R4-05 merge. Milan is one evaluation case only.
+**Status:** round 4 recorded 0/5 visible live successes
+([docs/eval/round-4.md](docs/eval/round-4.md)). Round 5 (R5-01..R5-05)
+adds queue-aware H startup, deterministic observed stop pages (P11), gateway
+city and fragment routes (P12), wider coverage, no-loop guide recovery and
+Strava-grade UI polish. No complete live success is claimed yet. Read
+[HANDOFF.md](HANDOFF.md) for the evidence boundary. R5-01 owns core/shared docs
+and final acceptance after R5-02..R5-05 merge. Milan is one evaluation case only.
 
 ## Run locally (Python 3.12)
 ```sh
@@ -76,9 +76,14 @@ CI tests never call live providers. Live verification requires separate dated,
 scrubbed observed evidence. See [AGENTS.md](AGENTS.md) for scoped branch/PR and
 safety rules, [PLAN.md](PLAN.md) for the architecture/evaluation set,
 [CONTRACTS.md](CONTRACTS.md) for API contracts, and
-[docs/tickets/index.json](docs/tickets/index.json) for the current round-4 queue.
-R3, R2, R1 and T01..T12 tickets are history. Keep main green; R4-01..R4-05 merge
-in any order, then R4-01 PR-B runs final live acceptance on a rebased branch in
-docs/eval/round-4-acceptance.md.
+[docs/tickets/index.json](docs/tickets/index.json) for the current round-5 queue.
+R4, R3, R2, R1 and T01..T12 tickets are history. Keep main green; R5-01..R5-05 merge
+in any order, then R5-01 PR-B runs final live acceptance on a rebased branch in
+docs/eval/round-5-acceptance.md.
+
+H's organization quota is three sessions: final acceptance runs **one mission
+at a time**, with its three agents parallel. A queued browser displays honest
+waiting feedback and does not consume the ten-minute running budget; queue
+wait is bounded to eight minutes. No site frames or private H URLs are committed.
 
 `render.yaml` is an unverified deployment blueprint, not a deployed URL.

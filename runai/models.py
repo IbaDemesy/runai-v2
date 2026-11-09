@@ -76,8 +76,26 @@ class StepResult(Model):
     live_view_url: HttpUrl | None = None
     error: str | None = None
     reason_code: ReasonCode | None = None
+    blocked_url_host: str | None = None
     synthetic: bool
     payment_executed: Literal[False] = False
+
+    @field_validator("blocked_url_host", mode="before")
+    @classmethod
+    def public_redirect_diagnostic(cls, value):
+        if not isinstance(value, str) or any(char in value for char in "?#@\\"):
+            return None
+        try:
+            from runai.agents.scrub import scrub_url
+
+            url = "https://" + value
+            parts = urlsplit(url)
+            if (not parts.path.startswith("/") or not public_url(url)
+                    or scrub_url(url) != url):
+                return None
+            return value
+        except (ImportError, ValueError):
+            return None
 
     @field_validator("reason_code", mode="before")
     @classmethod

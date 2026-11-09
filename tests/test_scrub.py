@@ -31,3 +31,25 @@ def test_empty_and_private_urls():
     assert scrub_text(None) == ""
     assert scrub_url(None) is None
     assert scrub_url("https://agp.eu.hcompany.ai/share/api/v1/trajectories/public") is None
+
+
+@pytest.mark.parametrize("url", [
+    "https://in.njuko.com/generali-geneve-marathon-2027-1782304695994",
+    "https://in.njuko.com/wizz-air-milano-marathon-20271776152378557",
+    "https://in.njuko.com/w/8a51dd786fba3d1be53c9a97",
+    "https://www.njuko.net/w/8a51dd786fba3d1be53c9a97",
+])
+def test_public_njuko_event_ids_are_not_contact_details(url):
+    assert scrub_url(url) == url
+    assert scrub_text("Race " + url) == "Race " + url
+    assert scrub_url(url + "?phone=%2B33+6+12+34+56+78&email=runner%40example.org") == url
+
+
+@pytest.mark.parametrize("url", [
+    "https://in.njuko.com/w/runner@example.org",
+    "https://in.njuko.com/w/+33-6-12-34-56-78",
+    "https://other.example.org/w/8a51dd786fba3d1be53c9a97",
+    "https://in.njuko.com/private/8a51dd786fba3d1be53c9a97",
+])
+def test_njuko_exception_does_not_allow_contacts_or_arbitrary_opaque_paths(url):
+    assert scrub_url(url) is None
