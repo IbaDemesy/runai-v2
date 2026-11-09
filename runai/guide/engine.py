@@ -772,7 +772,9 @@ class GuideEngine:
         original = state
         state = GuideState.model_validate(self._scrub_data(state.model_dump()))
         text = scrub_text(action.get("text", "")).strip()
-        text = re.sub(r"(?:je m'appelle|my name is)\s+[^,.;]+", "", text,
+        name_word = r"(?!(?:and|et|mais|but)\b)[^\W\d_][\w'-]*"
+        text = re.sub(r"(?:je m'appelle|my name is)\s+" + name_word
+                      + r"(?:\s+" + name_word + r"){0,2}", "", text,
                       flags=re.IGNORECASE).strip()
         chip = None
         if "suggestion_id" in action:

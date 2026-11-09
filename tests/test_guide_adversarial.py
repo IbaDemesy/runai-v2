@@ -60,6 +60,17 @@ class Case:
 
 
 CASES = [
+    Case("name-and-race-fr", "r4-regression",
+         "Je m'appelle SentinelRunnerName et je veux le semi de Lisbonne", (), "name-lisbon"),
+    Case("name-and-race-en", "r4-regression",
+         "my name is SentinelRunnerName and I want a half marathon in Lisbon", (),
+         "name-lisbon", lang="en"),
+    Case("three-word-name-fr", "r4-regression",
+         "Je m'appelle SentinelRunnerName Alpha Beta mais je veux le semi de Lisbonne", (),
+         "name-lisbon"),
+    Case("three-word-name-en", "r4-regression",
+         "my name is SentinelRunnerName Alpha Beta but I want a half marathon in Lisbon", (),
+         "name-lisbon", lang="en"),
     *[Case("same-place-" + str(i), "r4-regression", "10 km à Valence",
            ("en fait plutôt un half marathon, " + phrase,), "same-place", "valencia")
       for i, phrase in enumerate(["same city", "même ville", "la même ville", "là-bas", "same place"])],
@@ -326,7 +337,12 @@ def assert_safe(state, turn, discovery, lang):
 
 def assert_immediate(case, state, turn, discovery):
     expected = case.expected
-    if expected == "same-place":
+    if expected == "name-lisbon":
+        assert discovery.calls and state.draft.race.city == "Lisbon"
+        serialized = json.dumps({"state": state.model_dump(mode="json"),
+                                 "turn": turn.model_dump(mode="json"), "calls": discovery.calls})
+        assert all(name not in serialized for name in ["SentinelRunnerName", "Alpha", "Beta"])
+    elif expected == "same-place":
         assert state.hints["city"] == "Valencia" and state.hints["country"] == "Spain"
         assert state.hints["distance"] == "half"
         assert state.draft.race.city == "Valencia"
