@@ -2,7 +2,45 @@ from urllib.parse import quote
 
 import pytest
 
-from runai.agents.scrub import scrub_text, scrub_url
+from runai.agents.scrub import public_profile_context, scrub_profile, scrub_text, scrub_url
+
+
+def test_profile_quasi_identifiers_preserve_urls_and_public_context():
+    profile = {"city": "Paris", "nationality": "FR", "gender": "F", "country": "France"}
+    url = "https://example.org/fr/Paris?country=France"
+    assert scrub_profile(url, profile) == url
+    assert scrub_profile("Paris France FR F Frankfurt", profile) == (
+        "[redacted profile] [redacted profile] [redacted profile] [redacted profile] Frankfurt"
+    )
+    skip = public_profile_context({"origin_city": "PARIS", "race": {"country": "France"},
+                                   "runner_profile": profile})
+    assert scrub_profile("Paris France FR", profile, skip) == "Paris France [redacted profile]"
+    assert scrub_profile("Paris " + url, profile) == "[redacted profile] " + url
+
+
+@pytest.mark.parametrize("field", ["full_name", "given_name", "family_name", "email", "phone",
+                                    "birth_date", "address_line", "postal_code"])
+def test_identifying_values_always_redacted_even_when_public(field):
+    value = "Sentinelidentityxyz"
+    profile = {field: value}
+    assert scrub_profile(value.upper(), profile, {value}) == "[redacted profile]"
+    assert scrub_profile("https://example.org/" + value.upper(), profile, {value}) is None
+
+
+@pytest.mark.parametrize("profile", [{}, {"city": None}, {"city": ""}])
+def test_empty_profile_redaction(profile):
+    value = {"summary": "Paris", "handoff_url": "https://example.org/fr/Paris", "other": None}
+    assert scrub_profile(value, profile) == value
+
+
+def test_white_label_njuko_public_id():
+    url = ("https://in.motionevents-registrations.com/"
+           "wizz-air-milano-marathon-20271776152378557?currentPage=form_individual-form")
+    assert scrub_url(url) == url
+    assert scrub_text(url) == url
+    opaque = "https://in.motionevents-registrations.com/w/8a51dd786fba3d1be53c9a97"
+    assert scrub_url(opaque) == opaque
+    assert scrub_url(opaque.replace("-registrations.com", "-registrations.com.evil.org")) is None
 
 
 def test_tracking_noise_removed_without_changing_ihg_stay():

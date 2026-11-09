@@ -1,5 +1,46 @@
 # Generic guided-mission contract
 
+## P14 Runner profile prefill (round 7)
+
+`RunnerProfile` has twelve optional, length-capped strings: full_name, given_name,
+family_name, email, phone, birth_date (ISO date), gender, nationality (ISO-3166
+alpha-2), address_line, postal_code, city and country. Empty strings are absent.
+POST `/api/missions/{id}/profile` replaces the profile in process memory; DELETE clears it.
+Both return Mission and are allowed only in guiding/ready (otherwise HTTP 409).
+Mission exposes only `profile_status: {complete, fields}`; complete means the
+core identity fields are present: (full_name OR given_name + family_name), email,
+phone, birth_date, gender and nationality. Address fields are optional.
+Values never enter Mission JSON, events, logs, evidence,
+fixtures or disk. Mission deletion and run completion clear the profile/status.
+
+At confirmation live execution receives an ephemeral `trip['runner_profile']`
+dictionary, absent without a profile. Builders must not interpolate values into
+instructions; they declare `prefill_fields` and `prefill_scope`. Only H's prompt
+gets the selected values under `Runner profile (type only into the {prefill_scope}
+fields; never submit a final form)`. Every supplied profile value, including
+case-folded and URL-encoded variants, is handled before outgoing text and URLs.
+Identifying fields (full_name, given_name, family_name, email, phone, birth_date,
+address_line, postal_code) are redacted in free text and invalidate any URL
+containing them. Quasi-identifiers (gender, nationality, city, country) are
+redacted only as whole words in free text, never inside URLs. A quasi-identifier
+equal (case-folded) to a public trip/expected string is exempt from text redaction;
+this preserves public route/destination evidence without exempting identifiers.
+
+Supplied participant/guest/passenger fields may be typed, and intermediate
+Continue/Next may move to the next form page. Payment, booking, final submission,
+account creation/login, terms, medical declarations, consent and captcha solving
+remain forbidden. `personal_data_entered=true` is accepted only with effective
+`prefill_fields`; payment/booking/form_submitted/account_created/terms_accepted
+claims remain rejected. `checkpoint.prefill_patterns` identifies typing pages:
+never force an answer there during prefill, even if also a final URL pattern.
+Without a profile the original untouched-personal-data boundary is unchanged.
+StepResult may expose only `prefilled: bool` and a short `stop_label`, never values.
+
+Njuko public event IDs are preserved on canonical Njuko hosts and DNS names
+ending in `*-registrations.com` (including subdomains). This constrained
+white-label suffix does not exempt arbitrary hosts, contacts, or opaque paths;
+the existing event-slug/year/13-digit-ID validation still applies.
+
 ## Owner site-exclusion override (2026-11-08)
 The owner lifted site-based exclusions for read/prepare-only automation. Committed
 registry decisions now use allowed_owner_rule, including historically prohibited
@@ -288,13 +329,17 @@ round-3 interfaces (P1–P6) remain in force.
 ### P7 Task alternatives
 A builder task dict may carry `alternatives`: a list of task-like dicts with
 `kind, site_name, start_url, fallback_url, instructions, success_signal,
-stop_before, expected, allowed_hosts, max_steps` (at most 2 are used). R4-02
+stop_before, expected, allowed_hosts, max_steps`. R4-02
 (hotel/transport) and R4-03 (registration) produce them; R4-01/hclient consumes
-them. If an attempt ends `blocked` with reason_code in `unreviewed_redirect`,
-`provider_error`, `no_inventory`, `sold_out`, `captcha` or `session_failed`
-within the 10-minute wall clock, hclient stops that session, runs the policy
-gate on the next alternative and starts it, emitting step_progress
-"Essai d'un autre site". The result is the first `ready_for_payment` attempt,
+them. Round 7 supersedes the original retry rules: sequential alternatives may
+follow `provider_error`, runtime `no_site_coverage`, or another frameless block.
+Never continue after READY, any framed block, captcha, consent/terms, login,
+policy denial, unsafe claims or `checkpoint_unverified`. Browser startup
+unavailability receives one same-task retry after an injectable 20-second delay.
+Each switch passes the policy gate and emits one step_progress
+"Essai d’un autre site". The total agent wall-clock cap is 15 minutes including
+queueing, retries and alternatives; each attempt retains its 10-minute cap.
+The result is the first `ready_for_payment` attempt,
 else the last attempt; never upgraded or merged. Missing, malformed or
 policy-failing alternatives are skipped.
 
@@ -360,7 +405,8 @@ retry) gets a fresh Idempotency-Key. Browser-internal URLs (`about:`, `chrome:`,
 `chrome-error:`, `data:`, `blob:` and empty) are blank observations, not redirects.
 Real metrics.steps emit monotonic friendly "Étape N" activity, never fake frames.
 App/LiveRunner continue to launch all three kinds concurrently; quota queueing
-does not serialize a mission. Queue time does not consume the shared P7 budget.
+does not serialize a mission. Round 7 includes queue time in the shared
+15-minute P7 wall-clock cap; the eight-minute cumulative queue limit remains.
 
 `StepResult.blocked_url_host: str|null` is additive: the scrubbed public host +
 path of an unreviewed redirect, **without scheme, query, fragment, credentials
@@ -382,7 +428,8 @@ never extracted values or personal data; diagnostics are not UI copy.
 
 READY still requires complete selected evidence, matching dates/party/city,
 a genuine frame of the final checkpoint, a reviewed handoff equal to the observed
-URL after scrubbing, and no beyond-pattern. Scrubbing drops known tracking query
+URL after scrubbing (query-key ordering is immaterial; values and duplicate-value
+order must match), and no beyond-pattern. Scrubbing drops known tracking query
 parameters, not booking dates or party. IHG qCiMy/qCoMy encode zero-based months:
 062027 is July 2027. Verification dates must be ISO dates of the actual stay.
 The optional field passes through model-based provider/API serialization; old

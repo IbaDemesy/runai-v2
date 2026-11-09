@@ -157,6 +157,8 @@ class LiveRunner:
                 task, "fallback_url", None,
             ))
             client = importlib.import_module("runai.agents.hclient").HAgentRunner()
+            if trip.get("runner_profile"):
+                task = {**task, "runner_profile": dict(trip["runner_profile"])}
 
             async def on_event(event):
                 if event.get("type") in {"step_progress", "live_view_available", "live_frame"}:

@@ -15,7 +15,18 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import Field, StrictBool, model_validator
 
-from runai.models import Event, Kind, Mission, Mode, Model, StepResult, public_url
+from runai.agents.scrub import public_profile_context, scrub_profile
+from runai.models import (
+    Event,
+    Kind,
+    Mission,
+    Mode,
+    Model,
+    ProfileStatus,
+    RunnerProfile,
+    StepResult,
+    public_url,
+)
 from runai.providers import FakeRunner, LiveRunner, ReplayRunner
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -197,6 +208,7 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
     frames: dict[str, tuple[bytes, str]] = {}
     tasks: set[asyncio.Task] = set()
     generations: dict[str, int] = {}
+    profiles: dict[str, dict] = {}
 
     @asynccontextmanager
     async def lifespan(app):
@@ -305,6 +317,8 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
             emit(mission, "step_started", "Preparation started; no purchases or submissions", kind)
 
             async def progress(data):
+                data = scrub_profile(data, profiles.get(mission.id, {}),
+                                     public_profile_context(mission.trip))
                 event_type = data.get("type", "step_progress")
                 if event_type not in {"step_progress", "live_view_available", "live_frame"}:
                     return
@@ -355,8 +369,14 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
                     runner = ReplayRunner(replay_path) if replay_path is not None else ReplayRunner()
                 else:
                     runner = LiveRunner() if mission.mode == Mode.live else FakeRunner()
-                result = await runner.run(kind, mission.trip, progress)
-                result = StepResult.model_validate(sanitize(jsonable_encoder(result)))
+                trip = dict(mission.trip or {})
+                if mission.mode == Mode.live and profiles.get(mission.id):
+                    trip["runner_profile"] = dict(profiles[mission.id])
+                result = await runner.run(kind, trip, progress)
+                result = StepResult.model_validate(sanitize(scrub_profile(
+                    jsonable_encoder(result), profiles.get(mission.id, {}),
+                    public_profile_context(mission.trip),
+                )))
                 if result.kind != kind or result.synthetic != mission.synthetic:
                     raise ValueError("Runner result provenance mismatch")
             except Exception as exc:  # noqa: BLE001 — isolate each background provider failure
@@ -368,7 +388,11 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
             mission.results.append(result)
             emit(mission, "step_finished", result.summary, kind)
 
-        await asyncio.gather(*(run(kind) for kind in Kind))
+        try:
+            await asyncio.gather(*(run(kind) for kind in Kind))
+        finally:
+            profiles.pop(mission.id, None)
+            mission.profile_status = ProfileStatus()
         successes = sum(result.status == "ready_for_payment" for result in mission.results)
         mission.status = "completed" if successes == 3 else "partial" if successes else "failed"
 
@@ -449,6 +473,38 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
             apply_turn(mission, state, turn, guides[mission_id])
             states[mission_id] = clean_state
             return mission
+
+    @app.post("/api/missions/{mission_id}/profile", response_model=Mission)
+    async def set_profile(mission_id: str, profile: RunnerProfile):
+        mission = get(mission_id)
+        async with locks[mission_id]:
+            if mission.status not in {"guiding", "ready"}:
+                raise HTTPException(409, "Profile cannot change after confirmation")
+            values = profile.model_dump(exclude_none=True)
+            profiles[mission_id] = values
+            mission.profile_status = ProfileStatus(
+                complete=profile.complete, fields=list(values),
+            )
+            return mission
+
+    @app.delete("/api/missions/{mission_id}/profile", response_model=Mission)
+    async def clear_profile(mission_id: str):
+        mission = get(mission_id)
+        async with locks[mission_id]:
+            if mission.status not in {"guiding", "ready"}:
+                raise HTTPException(409, "Profile cannot change after confirmation")
+            profiles.pop(mission_id, None)
+            mission.profile_status = ProfileStatus()
+            return mission
+
+    @app.delete("/api/missions/{mission_id}", status_code=204)
+    async def delete_mission(mission_id: str):
+        get(mission_id)
+        profiles.pop(mission_id, None)
+        missions.pop(mission_id, None)
+        states.pop(mission_id, None)
+        guides.pop(mission_id, None)
+        return Response(status_code=204)
 
     @app.post("/api/missions/{mission_id}/confirm", response_model=Mission, status_code=202)
     async def confirm(mission_id: str, request: ConfirmRequest):

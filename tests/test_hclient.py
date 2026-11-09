@@ -10,6 +10,8 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
+from runai.agents import hotel as hotel_builder
+from runai.agents import registration as registration_builder
 from runai.agents.hclient import (
     GUARDRAILS,
     HAgentRunner,
@@ -110,6 +112,10 @@ def run(provider, task=None, **kwargs):
     emitted = []
 
     async def execute():
+        async def no_sleep(seconds):
+            pass
+
+        kwargs.setdefault("sleep", no_sleep)
         async def emit(event):
             emitted.append(event)
 
@@ -120,6 +126,62 @@ def run(provider, task=None, **kwargs):
             return result
 
     return asyncio.run(execute()), emitted
+
+
+@pytest.mark.parametrize("fields", [[], ["full_name"], ["email"]])
+def test_prefill_prompt_is_scoped_and_outputs_private(fields):
+    profile = {"full_name": "Sentinel Runnerxyz", "city": "Sentinelvillexyz"}
+    effective = "full_name" in fields
+    provider = Provider(answer={**ANSWER, "personal_data_entered": effective,
+                                "reached_step": profile["full_name"].upper()})
+    task = {**TASK, "runner_profile": profile, "prefill_fields": fields,
+            "prefill_scope": "participant form"}
+    result, events = run(provider, task)
+    request = next(r for r in provider.requests if r.url.path == "/api/v2/sessions"
+                   and r.method == "POST")
+    prompt = json.loads(request.content)["messages"][0]["message"]
+    assert (profile["full_name"] in prompt) == effective
+    assert profile["city"] not in prompt
+    if effective:
+        assert ("Runner profile (type only into the participant form fields; "
+                "never submit a final form)") in prompt
+        assert result["reason_code"] != "unsafe_claim"
+        assert result["prefilled"] is True
+        assert result["stop_label"] == "payment page reached"
+    assert all(v.casefold() not in str([result, events]).casefold() for v in profile.values())
+
+
+@pytest.mark.parametrize("allowed", [False, True])
+@pytest.mark.parametrize("claim", ["payment_executed", "booking_executed", "form_submitted",
+                                   "account_created", "terms_accepted"])
+def test_prefill_never_allows_commitment(claim, allowed):
+    assert _payment_claim({claim: True}, allowed)
+    assert _payment_claim({"personal_data_entered": True}, allowed) is not allowed
+
+
+@pytest.mark.parametrize("profile,fields", [({}, ["full_name"]),
+                                          ({"full_name": "Test Runner"}, [])])
+def test_personal_data_claim_requires_effective_prefill(profile, fields):
+    result, _ = run(Provider(answer={**ANSWER, "personal_data_entered": True}),
+                    {**TASK, "runner_profile": profile, "prefill_fields": fields})
+    assert result["reason_code"] == "unsafe_claim"
+
+
+def test_prefill_page_never_forces_answer():
+    task = {**TASK, "runner_profile": {"full_name": "Test Runner"},
+            "prefill_fields": ["full_name"], "checkpoint": {
+                "url_patterns": ["registration"], "beyond_patterns": [],
+                "prefill_patterns": ["registration"],
+            }}
+    class PrefillProvider(Provider):
+        def __call__(self, request):
+            if request.url.path.endswith("/changes"):
+                self.status = "running" if self.polls == 0 else "completed"
+            return super().__call__(request)
+
+    provider = PrefillProvider()
+    run(provider, task, timeout_s=0.02)
+    assert not any(r.url.path.endswith("/force_answer") for r in provider.requests)
 
 
 def test_real_milan_registration_fallback_is_handoff_only(monkeypatch):
@@ -160,6 +222,12 @@ def test_handoff_fallback_fails_closed(monkeypatch, failure):
 def blank_observation(url="about:blank"):
     event = observation()
     event["data"]["metadata"] = {} if url is None else {"url": url}
+    return event
+
+
+def frameless_observation(url=HANDOFF):
+    event = blank_observation(url)
+    event["data"].pop("image", None)
     return event
 
 
@@ -214,7 +282,7 @@ def test_blank_startup_count_or_deadline_blocks(monkeypatch, deadline):
         return provider(request)
 
     monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
-    result, emitted = run(handle)
+    result, emitted = run(handle, timeout_s=65 if deadline else 20)
     assert result["status"] == "blocked"
     assert result["reason_code"] == "provider_error"
     assert result["summary"] == "Le site n'a pas pu s'ouvrir"
@@ -1137,7 +1205,9 @@ def test_provider_time_budget_leaves_local_final_answer_headroom(timeout, provid
     provider = Provider()
     result, _ = run(provider, timeout_s=timeout)
     assert result["status"] == "ready_for_payment"
-    assert json.loads(provider.requests[0].content)["max_time_s"] == provider_budget
+    assert json.loads(provider.requests[0].content)["max_time_s"] == pytest.approx(
+        provider_budget, abs=0.01,
+    )
 
 
 @pytest.mark.parametrize("text", [
@@ -1308,8 +1378,8 @@ def test_r3_timeout_status_and_error_code(status):
 
 
 def test_r3_runtime_defaults():
-    assert HAgentRunner("key").timeout_s == 600
-    assert HAgentRunner("key", timeout_s=900).timeout_s == 600
+    assert HAgentRunner("key").timeout_s == 900
+    assert HAgentRunner("key", timeout_s=1200).timeout_s == 900
 
 
 def test_stale_frame_from_previous_page_never_verifies_new_handoff():
@@ -1354,7 +1424,7 @@ def test_alternative_after_redirect_returns_ready():
     assert result["status"] == "ready_for_payment"
     assert first.cancelled
     assert second.polls == 2
-    assert any(e.get("message") == "Essai d'un autre site" for e in emitted)
+    assert any(e.get("message") == "Essai d’un autre site" for e in emitted)
 
 
 def test_alternative_policy_failure_skipped_without_session(monkeypatch):
@@ -1365,7 +1435,7 @@ def test_alternative_policy_failure_skipped_without_session(monkeypatch):
 
     monkeypatch.setitem(sys.modules, "runai.agents.site_policy",
                         SimpleNamespace(evaluate_url=policy))
-    first, second = Provider(status="failed"), Provider()
+    first, second = Provider(status="failed", events=[frameless_observation()]), Provider()
     result, _ = run(alternative_provider([first, second]), task={
         **TASK, "alternatives": [{**TASK, "start_url": "https://denied.example/"}, dict(TASK)],
     })
@@ -1374,7 +1444,7 @@ def test_alternative_policy_failure_skipped_without_session(monkeypatch):
 
 
 def test_alternatives_all_blocked_return_last_without_upgrade():
-    first = Provider(status="failed")
+    first = Provider(status="failed", events=[frameless_observation()])
     second = Provider(answer={**ANSWER, "status": "blocked", "blocker": "Sold out"})
     result, _ = run(alternative_provider([first, second]),
                     task={**TASK, "alternatives": [dict(TASK)]})
@@ -1485,11 +1555,12 @@ def test_alternatives_share_overall_deadline(monkeypatch):
     assert sum(r.method == "POST" for r in provider.requests) == 1
 
 
-def test_only_first_two_alternatives_are_used():
-    providers = [Provider(status="failed") for _ in range(3)]
+def test_all_sequential_alternatives_are_used_until_ready():
+    providers = [Provider(status="failed", events=[frameless_observation()])
+                 for _ in range(3)] + [Provider()]
     result, _ = run(alternative_provider(providers),
                     task={**TASK, "alternatives": [dict(TASK)] * 3})
-    assert result["reason_code"] == "session_failed"
+    assert result["status"] == "ready_for_payment"
     assert all(sum(r.method == "POST" for r in p.requests) == 1 for p in providers)
 
 
@@ -2026,7 +2097,7 @@ def test_initial_browser_error_blocks_within_20_seconds(monkeypatch, url):
         return provider(request)
 
     monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
-    result, events = run(handle, {**TASK, "alternatives": [dict(TASK)]})
+    result, events = run(handle, timeout_s=20)
     assert now <= 20
     assert result["status"] == "blocked"
     assert result["reason_code"] == "provider_error"
@@ -2042,6 +2113,203 @@ def test_browser_error_after_reviewed_progress_is_not_initial_startup_failure():
     result, _ = run(Provider(events=[observation(), blank_observation("about:neterror")]))
     assert result["status"] == "ready_for_payment"
     assert "site_unreachable_in_h" not in result["steps"]
+
+
+def runtime_result(reason="provider_error", status="blocked", error=None):
+    return {"status": status, "reason_code": reason, "error": error,
+            "steps": [], "summary": "Preparation unavailable", "handoff_url": None}
+
+
+def runtime_attempts(monkeypatch, outcomes, *, alternatives=2, durations=None):
+    now, calls, waits, events = [0.0], [], [], []
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now[0])
+
+    class RuntimeRunner(HAgentRunner):
+        async def _attempt(self, task, on_event, timeout_s, queue_wait=None):
+            index = len(calls)
+            calls.append((task["site_name"], timeout_s))
+            result, framed = outcomes[index]
+            if framed:
+                await on_event({"type": "live_frame", "image": IMAGE})
+            if durations:
+                now[0] += durations[index]
+            return dict(result)
+
+    async def execute():
+        async def sleep(seconds):
+            waits.append(seconds)
+            now[0] += seconds
+
+        async def emit(event):
+            events.append(event)
+
+        task = {**TASK, "alternatives": [{**TASK, "site_name": f"alternate-{i}"}
+                                         for i in range(alternatives)]}
+        return await RuntimeRunner("test-key", sleep=sleep).run(task, emit)
+
+    return asyncio.run(execute()), calls, waits, events
+
+
+@pytest.mark.parametrize("reason,status", [("provider_error", "failed"),
+                                         ("provider_error", "blocked"),
+                                         ("no_site_coverage", "blocked"),
+                                         ("session_failed", "blocked")])
+def test_runtime_unframed_failure_switches_once(monkeypatch, reason, status):
+    ready = runtime_result(None, "ready_for_payment")
+    result, calls, waits, events = runtime_attempts(
+        monkeypatch, [(runtime_result(reason, status), False), (ready, True)],
+    )
+    assert result["status"] == "ready_for_payment"
+    assert len(calls) == 2 and not waits
+    assert [e["message"] for e in events if e["type"] == "step_progress"] == [
+        "Essai d’un autre site",
+    ]
+
+
+@pytest.mark.parametrize("reason,framed", [
+    ("captcha", False), ("consent_required", False), ("login_required", False),
+    ("policy_denied", False), ("checkpoint_unverified", False), ("unsafe_claim", False),
+    ("provider_error", True), ("session_failed", True), ("sold_out", True),
+])
+def test_runtime_safety_or_any_frame_prevents_switch(monkeypatch, reason, framed):
+    result, calls, waits, events = runtime_attempts(
+        monkeypatch, [(runtime_result(reason), framed)],
+    )
+    assert result["reason_code"] == reason
+    assert len(calls) == 1 and not waits
+    assert not any(e["type"] == "step_progress" for e in events)
+
+
+def test_browser_startup_retries_same_task_once_then_alternative(monkeypatch):
+    failed = runtime_result(error="Browser startup unavailable")
+    ready = runtime_result(None, "ready_for_payment")
+    result, calls, waits, events = runtime_attempts(
+        monkeypatch, [(failed, False), (failed, False), (ready, True)],
+    )
+    assert result["status"] == "ready_for_payment"
+    assert [item[0] for item in calls] == [TASK["site_name"], TASK["site_name"], "alternate-0"]
+    assert waits == [20]
+    assert sum(e.get("message") == "Essai d’un autre site" for e in events) == 1
+
+
+def test_runtime_900_second_budget_includes_retry_delay(monkeypatch):
+    failed = runtime_result(error="Browser startup unavailable")
+    result, calls, waits, _ = runtime_attempts(
+        monkeypatch, [(failed, False), (runtime_result(), False), (runtime_result(), False)],
+        durations=[400, 300, 180],
+    )
+    assert result["status"] == "blocked"
+    assert waits == [20]
+    assert [item[1] for item in calls] == [600, 480, 180]
+
+
+def test_runtime_ready_and_empty_alternatives_stop(monkeypatch):
+    ready = runtime_result(None, "ready_for_payment")
+    result, calls, waits, events = runtime_attempts(monkeypatch, [(ready, True)], alternatives=0)
+    assert result["status"] == "ready_for_payment" and len(calls) == 1
+    assert not waits and len(events) == 1
+
+
+@pytest.mark.parametrize("blocker", ["provider_error", "no_site_coverage"])
+def test_runtime_provider_answers_reach_alternative_loop(blocker):
+    first = Provider(events=[frameless_observation()], answer={
+        **ANSWER, "status": "blocked", "blocker": blocker,
+    })
+    second = Provider()
+    result, events = run(alternative_provider([first, second]),
+                         {**TASK, "alternatives": [dict(TASK)]})
+    assert result["status"] == "ready_for_payment"
+    assert sum(e.get("message") == "Essai d’un autre site" for e in events) == 1
+
+
+def test_page_identity_preserves_values_blanks_and_duplicate_order():
+    from runai.agents.hclient import _page_identity
+
+    original = "https://example.org/checkpoint?city=Paris&choice=1&choice=2&blank="
+    assert _page_identity(original) == _page_identity(
+        "https://example.org/checkpoint?blank=&choice=1&choice=2&city=Paris",
+    )
+    for changed in (original.replace("Paris", "Rome"), original.replace("blank=", "other="),
+                    original.replace("choice=1&choice=2", "choice=2&choice=1")):
+        assert _page_identity(original) != _page_identity(changed)
+
+
+R7_CHECKPOINT_CASES = json.loads((
+    Path(__file__).parent / "fixtures/h_checkpoint_observations.json"
+).read_text())["r7_cases"]
+_bb_checkpoint = dict(next(row for row in R7_CHECKPOINT_CASES
+                           if row["id"] == "hotel-bb-milan-room-list"))
+_bb_checkpoint.update(id="hotel-bb-milan-review", ready=True,
+                      url=_bb_checkpoint["url"].replace("/en/hotel/milano-sant-ambrogio",
+                                                        "/booking/review"))
+_bb_checkpoint.pop("gate")
+R7_CHECKPOINT_CASES.append(_bb_checkpoint)
+
+
+def r7_checkpoint_task(row):
+    builder = {"hotel": hotel_builder, "registration": registration_builder}[row["builder"]]
+    trip = {"race": {"name": row["race_name"], "city": row["city"], "country": row["country"],
+                     "race_date": row["race_date"], "distance_km": 42.195, "edition": "2027",
+                     "official_url": "https://www.wizzairmilanomarathon.it/",
+                     "registration_url": row.get("registration_url")},
+            "origin_city": "Paris", "arrival_date": row["arrival_date"],
+            "departure_date": row["departure_date"], "travelers": 1, "nights": 2}
+    task = builder.build_task(trip, today=date(2026, 11, 9))
+    task = next(candidate for candidate in [task, *task.get("alternatives", [])]
+                if candidate["site_name"] == row["site_name"])
+    return {key: value for key, value in task.items() if key != "alternatives"}
+
+
+@pytest.mark.parametrize("row", R7_CHECKPOINT_CASES, ids=lambda row: row["id"])
+@pytest.mark.parametrize("mutation", [None, "wrong_date", "missing_frame", "missing_selection",
+                                     "wrong_city", "wrong_party", "different_query"])
+def test_r7_builder_checkpoint_observations(row, mutation, monkeypatch):
+    monkeypatch.delitem(sys.modules, "runai.agents.site_policy")
+    task = r7_checkpoint_task(row)
+    verification = dict(row["verification"])
+    if mutation == "wrong_date":
+        verification["race_date" if row["builder"] == "registration" else "arrival_date"] = "2027-01-01"
+    if mutation == "missing_selection":
+        verification["selected"] = False
+    if mutation == "wrong_city" and row["builder"] == "hotel":
+        verification["city"] = "Berlin"
+    if mutation == "wrong_party" and row["builder"] == "hotel":
+        verification["travelers"] = 2
+    event = observation()
+    event["data"]["metadata"] = {"url": row["url"], "title": "Synthetic checkpoint"}
+    if mutation == "missing_frame":
+        event["data"].pop("image")
+    answer = {"status": "ready_for_payment", "handoff_url": row.get("answer_url", row["url"]),
+              "reached_step": "Safe public checkpoint", "blocker": None,
+              "verification": verification}
+    if mutation == "different_query":
+        answer["handoff_url"] += "&different=1"
+    result, _ = run(Provider(events=[event], answer=answer), task)
+    ready = row["ready"] and (mutation is None or (
+        row["builder"] == "registration" and mutation in {"wrong_city", "wrong_party"}
+    ))
+    assert (result["status"] == "ready_for_payment") is ready, result
+    if row.get("gate"):
+        assert row["gate"] in repr(result["steps"])
+    if mutation == "missing_frame":
+        assert "checkpoint_frame" in repr(result["steps"])
+
+
+@pytest.mark.parametrize("row", [row for row in R7_CHECKPOINT_CASES if "answer_url" in row],
+                         ids=lambda row: row["id"])
+def test_r7_query_order_reproduces_handoff_observed_gate(row, monkeypatch):
+    from runai.agents.scrub import scrub_url
+
+    monkeypatch.delitem(sys.modules, "runai.agents.site_policy")
+    monkeypatch.setattr("runai.agents.hclient._page_identity", scrub_url)
+    event = observation()
+    event["data"]["metadata"] = {"url": row["url"], "title": "Synthetic checkpoint"}
+    answer = {"status": "ready_for_payment", "handoff_url": row["answer_url"],
+              "reached_step": "Safe public checkpoint", "blocker": None,
+              "verification": row["verification"]}
+    result, _ = run(Provider(events=[event], answer=answer), r7_checkpoint_task(row))
+    assert result["status"] == "blocked"
+    assert 'verify_failed: ["handoff_observed"]' in result["steps"]
 
 
 @pytest.mark.parametrize("queued", [False, True])

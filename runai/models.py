@@ -1,5 +1,5 @@
 import re
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from ipaddress import ip_address
 from typing import Literal, get_args
@@ -46,6 +46,86 @@ class Model(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class RunnerProfile(Model):
+    full_name: str | None = Field(default=None, max_length=200)
+    given_name: str | None = Field(default=None, max_length=100)
+    family_name: str | None = Field(default=None, max_length=100)
+    email: str | None = Field(default=None, max_length=254)
+    phone: str | None = Field(default=None, max_length=40)
+    birth_date: str | None = Field(default=None, max_length=10)
+    gender: str | None = Field(default=None, max_length=40)
+    nationality: str | None = Field(default=None, max_length=2)
+    address_line: str | None = Field(default=None, max_length=300)
+    postal_code: str | None = Field(default=None, max_length=20)
+    city: str | None = Field(default=None, max_length=100)
+    country: str | None = Field(default=None, max_length=100)
+
+    @property
+    def complete(self):
+        return bool((self.full_name or (self.given_name and self.family_name)) and all(
+            getattr(self, key) for key in (
+                "email", "phone", "birth_date", "gender", "nationality",
+            )
+        ))
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def trim(cls, value):
+        return value.strip() or None if isinstance(value, str) else value
+
+    @field_validator("email", "phone", "birth_date", "nationality")
+    @classmethod
+    def valid_format(cls, value, info):
+        if value is None:
+            return value
+        if info.field_name == "email" and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value):
+            raise ValueError("Invalid email")
+        if info.field_name == "phone" and (
+            not re.fullmatch(r"\+?[0-9 ().-]+", value)
+            or not 7 <= len(re.sub(r"\D", "", value)) <= 15
+        ):
+            raise ValueError("Invalid phone")
+        if info.field_name == "birth_date":
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+                raise ValueError("Invalid ISO date")
+            date.fromisoformat(value)
+        if info.field_name == "nationality":
+            if value.upper() not in _COUNTRY_CODES:
+                raise ValueError("Invalid nationality")
+            return value.upper()
+        return value
+
+
+_COUNTRY_CODES = {
+    "AD", "AE", "AF", "AG", "AI", "AL", "AM", "AO", "AQ", "AR", "AS", "AT",
+    "AU", "AW", "AX", "AZ", "BA", "BB", "BD", "BE", "BF", "BG", "BH", "BI",
+    "BJ", "BL", "BM", "BN", "BO", "BQ", "BR", "BS", "BT", "BV", "BW", "BY",
+    "BZ", "CA", "CC", "CD", "CF", "CG", "CH", "CI", "CK", "CL", "CM", "CN",
+    "CO", "CR", "CU", "CV", "CW", "CX", "CY", "CZ", "DE", "DJ", "DK", "DM",
+    "DO", "DZ", "EC", "EE", "EG", "EH", "ER", "ES", "ET", "FI", "FJ", "FK",
+    "FM", "FO", "FR", "GA", "GB", "GD", "GE", "GF", "GG", "GH", "GI", "GL",
+    "GM", "GN", "GP", "GQ", "GR", "GS", "GT", "GU", "GW", "GY", "HK", "HM",
+    "HN", "HR", "HT", "HU", "ID", "IE", "IL", "IM", "IN", "IO", "IQ", "IR",
+    "IS", "IT", "JE", "JM", "JO", "JP", "KE", "KG", "KH", "KI", "KM", "KN",
+    "KP", "KR", "KW", "KY", "KZ", "LA", "LB", "LC", "LI", "LK", "LR", "LS",
+    "LT", "LU", "LV", "LY", "MA", "MC", "MD", "ME", "MF", "MG", "MH", "MK",
+    "ML", "MM", "MN", "MO", "MP", "MQ", "MR", "MS", "MT", "MU", "MV", "MW",
+    "MX", "MY", "MZ", "NA", "NC", "NE", "NF", "NG", "NI", "NL", "NO", "NP",
+    "NR", "NU", "NZ", "OM", "PA", "PE", "PF", "PG", "PH", "PK", "PL", "PM",
+    "PN", "PR", "PS", "PT", "PW", "PY", "QA", "RE", "RO", "RS", "RU", "RW",
+    "SA", "SB", "SC", "SD", "SE", "SG", "SH", "SI", "SJ", "SK", "SL", "SM",
+    "SN", "SO", "SR", "SS", "ST", "SV", "SX", "SY", "SZ", "TC", "TD", "TF",
+    "TG", "TH", "TJ", "TK", "TL", "TM", "TN", "TO", "TR", "TT", "TV", "TW",
+    "TZ", "UA", "UG", "UM", "US", "UY", "UZ", "VA", "VC", "VE", "VG", "VI",
+    "VN", "VU", "WF", "WS", "YE", "YT", "ZA", "ZM", "ZW",
+}
+
+
+class ProfileStatus(Model):
+    complete: bool = False
+    fields: list[str] = Field(default_factory=list)
+
+
 class Mode(StrEnum):
     demo = "demo"
     replay = "replay"
@@ -77,6 +157,8 @@ class StepResult(Model):
     error: str | None = None
     reason_code: ReasonCode | None = None
     checkpoint_reached: bool | None = None
+    prefilled: bool | None = None
+    stop_label: str | None = Field(default=None, max_length=100)
     blocked_url_host: str | None = None
     synthetic: bool
     payment_executed: Literal[False] = False
@@ -138,6 +220,7 @@ class Event(Model):
 
 
 class Mission(Model):
+    profile_status: ProfileStatus = Field(default_factory=ProfileStatus)
     id: str
     mode: Mode
     synthetic: bool

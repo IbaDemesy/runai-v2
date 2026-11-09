@@ -1,7 +1,7 @@
 """Remove contact details and credentials from provider-facing evidence."""
 
 import re
-from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, quote, quote_plus, unquote, urlencode, urlsplit, urlunsplit
 
 _SENSITIVE_PARAM = re.compile(
     r"token|session|sid|auth|key|signature|email|password|passwd|card|cvv|cvc|iban|phone|contact",
@@ -40,7 +40,9 @@ _PUBLIC_SLUG = re.compile(r"[A-Za-z]{1,23}(?:[-_](?:[A-Za-z]{1,23}|\d{1,20})){2,
 
 
 def _njuko_public_id(host, segments, index):
-    if host not in {"in.njuko.com", "www.njuko.net", "njuko.net", "njuko.com"}:
+    if host not in {"in.njuko.com", "www.njuko.net", "njuko.net", "njuko.com"} and not (
+        re.fullmatch(r"(?:[a-z0-9-]+\.)*[a-z0-9]+(?:-[a-z0-9]+)*-registrations\.com", host)
+    ):
         return False
     segment = segments[index]
     event = re.fullmatch(r"([a-z][a-z0-9-]*)-20\d{2}-?([12]\d{12})", segment, re.IGNORECASE)
@@ -115,4 +117,52 @@ def scrub_text(text: str | None) -> str:
         parts.append(scrub_url(match.group()) or "[private URL]")
         end = match.end()
     parts.append(_scrub_plain_text(value[end:]))
+    return "".join(parts)
+
+
+def public_profile_context(value):
+    if isinstance(value, dict):
+        return set().union(*(public_profile_context(item) for key, item in value.items()
+                             if key != "runner_profile"))
+    if isinstance(value, (list, tuple)):
+        return set().union(*(public_profile_context(item) for item in value))
+    return {value.casefold()} if isinstance(value, str) else set()
+
+
+def scrub_profile(value, profile, skip=None):
+    if isinstance(value, dict):
+        return {key: scrub_profile(item, profile, skip) for key, item in value.items()}
+    if isinstance(value, list):
+        return [scrub_profile(item, profile, skip) for item in value]
+    if not isinstance(value, str):
+        return value
+    identifying, quasi = set(), set()
+    skip = {item.casefold() for item in (skip or set())}
+    for key, item in profile.items():
+        if isinstance(item, str) and item:
+            target = quasi if key in {"gender", "nationality", "city", "country"} else identifying
+            if target is quasi and item.casefold() in skip:
+                continue
+            for variant in (item, item.casefold(), item.upper()):
+                target.update((variant, quote(variant, safe=""), quote_plus(variant)))
+
+    def redact(text, variants, boundaries=False):
+        for item in sorted(variants, key=len, reverse=True):
+            pattern = re.escape(item)
+            if boundaries:
+                pattern = r"(?<!\w)" + pattern + r"(?!\w)"
+            text = re.sub(pattern, "[redacted profile]", text, flags=re.IGNORECASE)
+        return text
+
+    def clean_url(url):
+        return None if redact(url, identifying) != url else url
+
+    if re.fullmatch(_URL, value):
+        return clean_url(value)
+    parts, end = [], 0
+    for match in _URL.finditer(value):
+        parts.append(redact(redact(value[end:match.start()], identifying), quasi, True))
+        parts.append(clean_url(match.group()) or "[private URL]")
+        end = match.end()
+    parts.append(redact(redact(value[end:], identifying), quasi, True))
     return "".join(parts)
