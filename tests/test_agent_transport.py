@@ -28,6 +28,12 @@ OMIO_START = (
     "&returnDate=2027-01-31&adults=1"
 )
 OMIO_RUNNABLE = hclient._public_https(hclient.scrub_url(OMIO_START))
+GOOGLE_SELECTED_URL = (
+    "https://www.google.com/travel/flights/booking?tfs="
+    "CBwQAhooEgoyMDI3LTAxLTI4agwIAhIIL20vMDVxdGpyDAgDEggvbS8wcjBsbRoo"
+    "EgoyMDI3LTAxLTMwagwIAxIIL20vMHIwbG1yDAgCEggvbS8wNXF0akABSAFwAYIB"
+    "Cwj___________8BmAEB&tfu=EgYIABAAGAA&hl=en"
+)
 GOOGLE_VERIFIED = {("Paris", city) for city in ("Milan", "Berlin", "Lisbon", "Valencia")} | {
     ("Geneva", "Barcelona"),
 }
@@ -39,7 +45,10 @@ def runnable_primary(origin, city, travelers=1):
     pair = (city_name(origin), city_name(city))
     if pair in GOOGLE_VERIFIED:
         return "google-travel-google-terms"
-    if OMIO_RUNNABLE:
+    if OMIO_RUNNABLE and pair[0] in {"Paris", "Lyon", "Geneva", "Brussels"} and pair[1] in {
+        "Milan", "Berlin", "Lisbon", "Zurich", "Madrid", "Barcelona", "Den Haag",
+        "Brunnen", "Stoos", "Lucerne", "Amsterdam", "Valencia",
+    }:
         return "omio-com"
     if travelers == 1 and pair in SBB_RUNNABLE:
         return "sbb-ch"
@@ -600,6 +609,116 @@ R7_DESTINATIONS = {
 R7_ORIGINS = ("Paris", "Lyon", "Brussels", "Geneva")
 
 
+def allow_public_omio_links(monkeypatch):
+    from runai.agents import scrub
+
+    original = scrub.scrub_url
+
+    def clean(url):
+        if isinstance(url, str) and url.startswith(
+            "https://www.omio.com/links/626fa8a9-f982-43d0-ace9-9a13f6b14612?",
+        ):
+            return url
+        return original(url)
+
+    monkeypatch.setattr(scrub, "scrub_url", clean)
+
+
+@pytest.mark.parametrize("origin", R7_ORIGINS)
+@pytest.mark.parametrize("city,country", R7_DESTINATIONS.items())
+def test_r8_historical_48_with_core_omio_exemption(origin, city, country, monkeypatch):
+    allow_public_omio_links(monkeypatch)
+    task = build_task(trip(origin_city=origin, city=city, country=country), today=TODAY)
+    assert coverage("transport", city=city, country=country, origin_city=origin,
+                    today=TODAY)["covered"]
+    assert task.get("alternatives")
+    for candidate in [task, *task["alternatives"]]:
+        assert site_policy.transport_url_runnable(candidate["start_url"])
+    selected = site_policy.select_adapters(
+        "transport", task["expected"], origin_country=site_policy.city_country(origin),
+        today=TODAY, modes=("rail", "flight"), url_filter=site_policy.transport_url_runnable,
+    )
+    assert selected[0][0]["h_render_verified_at"]
+
+
+def test_r8_without_core_exemption_omio_is_not_emitted(monkeypatch):
+    from runai.agents import scrub
+
+    original = scrub.scrub_url
+    monkeypatch.setattr(scrub, "scrub_url", lambda url: None if "/links/" in url else original(url))
+    with pytest.raises(ValueError, match="no policy-reviewed"):
+        build_task(trip(origin_city="Lyon", city="Zurich", country="CH"), today=TODAY)
+    assert not coverage("transport", city="Zurich", country="CH", origin_city="Lyon",
+                        today=TODAY)["covered"]
+    task = build_task(trip(origin_city="Paris", city="Valencia", country="ES"), today=TODAY)
+    assert all(t["site_name"] != "omio-com" for t in [task, *task.get("alternatives", [])])
+
+
+@pytest.mark.parametrize("days,blocked", [(90, False), (400, True)])
+def test_r8_booking_horizon(days, blocked):
+    from datetime import timedelta
+    from typing import get_args
+
+    from runai.models import ReasonCode
+
+    out = TODAY + timedelta(days=days)
+    task = build_task(trip(
+        origin_city="Paris", city="Valencia", country="ES",
+        arrival_date=out.isoformat(), departure_date=(out + timedelta(days=2)).isoformat(),
+        race_changes={"race_date": (out + timedelta(days=1)).isoformat(),
+                      "edition": str(out.year)},
+    ), today=TODAY)
+    assert ("preflight_block" in task) is blocked
+    if blocked:
+        reason = "not_yet_bookable" if "not_yet_bookable" in get_args(ReasonCode) else "no_inventory"
+        assert task["preflight_block"] == {
+            "reason_code": reason, "summary": "Billets pas encore en vente pour ces dates",
+            "handoff_url": task["start_url"],
+        }
+        assert site_policy.transport_url_runnable(task["preflight_block"]["handoff_url"])
+
+
+@pytest.mark.parametrize("value", [0, -1, True, "180", 1.5])
+def test_r8_invalid_horizon_fails_closed(value):
+    reg = registry(transport_entry())
+    reg["entries"][0]["adapters"][0]["booking_horizon_days"] = value
+    with pytest.raises(ValueError, match="invalid"):
+        build_task(trip(), today=TODAY, registry=reg)
+
+
+def test_r8_horizon_filter_precedes_candidate_cap_and_keeps_verified_primary():
+    items = [distinct_entry(i, "transport") for i in range(4)]
+    for index, item in enumerate(items):
+        item["adapters"][0]["booking_horizon_days"] = 60 if index < 3 else 180
+    task = build_task(trip(origin_city="Paris"), today=TODAY, registry=registry(*items))
+    assert task["site_name"] == "site3"
+    assert "preflight_block" not in task
+
+
+@pytest.mark.parametrize("alternative", [False, True])
+def test_r8_return_beyond_horizon_blocks_or_selects_longer_horizon(alternative):
+    from datetime import timedelta
+
+    primary = distinct_entry(0, "transport")
+    primary["adapters"][0]["booking_horizon_days"] = 90
+    items = [primary]
+    if alternative:
+        backup = distinct_entry(1, "transport")
+        backup["adapters"][0]["booking_horizon_days"] = 180
+        items.append(backup)
+    out, back = TODAY + timedelta(days=89), TODAY + timedelta(days=91)
+    task = build_task(trip(
+        origin_city="Paris", arrival_date=out.isoformat(), departure_date=back.isoformat(),
+        race_changes={"race_date": (out + timedelta(days=1)).isoformat()},
+    ), today=TODAY, registry=registry(*items))
+    if alternative:
+        assert task["site_name"] == "site1"
+        assert "preflight_block" not in task
+    else:
+        assert task["site_name"] == "site0"
+        assert task["preflight_block"]["summary"] == "Billets pas encore en vente pour ces dates"
+
+
 @pytest.mark.parametrize("origin", R7_ORIGINS)
 @pytest.mark.parametrize("city,country", R7_DESTINATIONS.items())
 @pytest.mark.parametrize("travelers", [1, 2, 3, 4])
@@ -825,7 +944,8 @@ def test_r7_swiss_gateway_start_urls_equal_rendered_zurich(origin):
         "/app/search-frontend/results/id/flight", "/app/search-frontend/results/id/bus",
     ]),
     ("google-travel-google-terms", "/travel/flights/booking?tfs=public&tfu=public", [
-        "/travel/flights", "/travel/flights/search",
+        "/travel/flights", "/travel/flights/search", "/travel/flights/booking?hl=en",
+        "/travel/flights/booking?tfs=", "/travel/flights/booking?notfs=public",
     ]),
     ("flytap-com", "/booking/review-your-trip", ["/booking/flights"]),
 ])
@@ -838,6 +958,38 @@ def test_r7_selected_checkpoints_exclude_observed_results(policy, summary, resul
             assert not any(re.search(p, path, re.IGNORECASE) for p in cp["url_patterns"])
         for path in ("/login", "/account", "/payment", "/passenger-details"):
             assert any(re.search(p, path, re.IGNORECASE) for p in cp["beyond_patterns"])
+
+
+def test_google_selected_checkpoint_with_realistic_long_tfs():
+    from runai.agents import scrub
+
+    item = next(e for e in site_policy.load_registry()
+                if e["id"] == "google-travel-google-terms")
+    for adapter in item["adapters"]:
+        checkpoint = hclient._checkpoint({"checkpoint": adapter["checkpoint"]})
+        assert hclient._checkpoint_matches(checkpoint, "url_patterns", GOOGLE_SELECTED_URL)
+        clean = scrub.scrub_url(GOOGLE_SELECTED_URL)
+        preserved = bool(parse_qs(urlsplit(clean).query).get("tfs"))
+        assert hclient._checkpoint_matches(checkpoint, "url_patterns", clean) is preserved
+        assert not hclient._checkpoint_matches(
+            checkpoint, "url_patterns", "https://www.google.com/travel/flights/booking?hl=en",
+        )
+
+
+@pytest.mark.parametrize("mode", ["train", "bus", "flight"])
+def test_omio_results_are_reviewed_navigation_never_selected_checkpoints(mode):
+    item = next(e for e in site_policy.load_registry() if e["id"] == "omio-com")
+    for suffix in ("", "/outbound-id/inbound"):
+        url = ("https://www.omio.com/app/search-frontend/results/"
+               f"12345678-abcd-4321-abcd-123456789abc/{mode}{suffix}")
+        decision = site_policy.evaluate_url(url, "transport", today=TODAY)
+        assert decision["allowed"]
+        assert decision["policy_id"] == item["id"]
+        assert item["automation"] == "allowed_owner_rule"
+        for adapter in item["adapters"]:
+            checkpoint = hclient._checkpoint({"checkpoint": adapter["checkpoint"]})
+            assert not hclient._checkpoint_matches(checkpoint, "url_patterns", url)
+            assert not hclient._checkpoint_matches(checkpoint, "beyond_patterns", url)
 
 
 @pytest.mark.parametrize("profile", [None, {}, [], {"email": ""}, {"email": "   "},

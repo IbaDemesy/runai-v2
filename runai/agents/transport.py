@@ -12,7 +12,7 @@ from math import isfinite
 from typing import Any
 from urllib.parse import urlsplit
 
-from runai.agents.scrub import scrub_text, scrub_url
+from runai.agents.scrub import scrub_text
 from runai.agents.site_policy import (
     city_country,
     city_key,
@@ -60,8 +60,28 @@ def build_task(
         KIND, expected, origin_country=origin_country(trip), today=today, registry=registry,
         modes=("rail", "flight"),
         url_filter=transport_url_runnable,
+        respect_horizon=False,
     )
     profile = trip.get("runner_profile")
+    try:
+        available = select_adapters(
+            KIND, expected, origin_country=origin_country(trip), today=today, registry=registry,
+            modes=("rail", "flight"), url_filter=transport_url_runnable,
+        )
+    except ValueError:
+        from typing import get_args
+
+        from runai import models
+
+        task = _candidate_task(expected.copy(), budget, *candidates[0], profile=profile)
+        reason = ("not_yet_bookable" if "not_yet_bookable" in get_args(models.ReasonCode)
+                  else "no_inventory")
+        task["preflight_block"] = {
+            "reason_code": reason, "summary": "Billets pas encore en vente pour ces dates",
+            "handoff_url": task["start_url"],
+        }
+        return task
+    candidates = available
     tasks = [_candidate_task(expected.copy(), budget, *candidate, profile=profile)
              for candidate in candidates]
     primary = tasks[0]
@@ -71,11 +91,13 @@ def build_task(
 
 
 def _keep_fragment(url):
+    from runai.agents import scrub
+
     parts = urlsplit(url)
     fragment_url = "https://fragment.example/" + parts.fragment.lstrip("/")
-    return bool(parts.fragment and scrub_url(fragment_url) == fragment_url
+    return bool(parts.fragment and scrub.scrub_url(fragment_url) == fragment_url
                 and scrub_text(parts.fragment) == parts.fragment
-                and scrub_url(url) == parts._replace(fragment="").geturl())
+                and scrub.scrub_url(url) == parts._replace(fragment="").geturl())
 
 
 def _candidate_task(expected, budget, adapter, url, decision, *, profile=None):

@@ -190,6 +190,9 @@ def _adapter(raw: Any, entry_id: str, scope_hosts: set[str]) -> dict[str, Any]:
     if type(last_resort) is not bool:
         raise PolicyError(f"{entry_id}: last_resort must be boolean")
     priority = raw.get("priority", 0)
+    horizon = raw.get("booking_horizon_days")
+    if horizon is not None and (type(horizon) is not int or horizon < 1):
+        raise PolicyError(f"{entry_id}: invalid booking_horizon_days")
     if type(priority) is not int or priority < 0:
         raise PolicyError(f"{entry_id}: priority must be a non-negative integer")
     query_encoding = raw.get("query_encoding", "percent")
@@ -283,6 +286,7 @@ def _adapter(raw: Any, entry_id: str, scope_hosts: set[str]) -> dict[str, Any]:
         "kind": raw["kind"],
         "last_resort": last_resort,
         "priority": priority,
+        "booking_horizon_days": horizon,
         "query_encoding": query_encoding,
         "prefill": prefill,
         "h_render_verified_at": render_date.isoformat() if render_date else None,
@@ -759,6 +763,7 @@ def select_adapters(
     kind: str, expected: Mapping[str, Any], *, origin_country: str | None = None,
     today: date | None = None, registry: Any = None, modes: Sequence[str] | None = None,
     url_filter: Callable[[str], bool] | None = None,
+    respect_horizon: bool = True,
 ) -> list[tuple[dict[str, Any], str, dict[str, Any]]]:
     """Up to three ordered, distinct reviewed policies, including the primary choice."""
     destination = country_code(expected.get("country"))
@@ -774,6 +779,7 @@ def select_adapters(
     for _, adapter, url, decision in _candidates(
         kind, expected, entries, origin_country=origin_country, today=today,
         registry=registry, modes=modes, reasons=reasons,
+        respect_horizon=respect_horizon,
     ):
         if url_filter is not None and not url_filter(url):
             reasons.append(f"{decision['policy_id']}: start URL is not runnable")
@@ -800,6 +806,7 @@ def select_adapters(
 def _candidates(
     kind, expected, entries, *, origin_country=None, today=None, registry=None,
     modes=None, reasons=None, partial=False,
+    respect_horizon=True,
 ):
     reasons = reasons if reasons is not None else []
     destination = country_code(expected.get("country"))
@@ -833,6 +840,13 @@ def _candidates(
     for entry, adapter in candidates:
         if adapter["kind"] != kind:
             continue
+        if kind == "transport" and respect_horizon and adapter["booking_horizon_days"]:
+            days = (max(_iso(expected.get("arrival_date"), "arrival_date"),
+                        _iso(expected.get("departure_date"), "departure_date"))
+                    - (today or datetime.now(UTC).date())).days
+            if days > adapter["booking_horizon_days"]:
+                reasons.append(f"{entry['id']}: outside booking horizon")
+                continue
         if (adapter["traveler_counts"] is not None
                 and expected.get("travelers") not in adapter["traveler_counts"]):
             reasons.append(f"{entry['id']}: party size not reviewed")
@@ -899,8 +913,10 @@ def _candidates(
 
 def transport_url_runnable(url: str) -> bool:
     try:
+        from runai.agents import scrub
+
         client = import_module("runai.agents.hclient")
-        return client._public_https(url) and client._public_https(client.scrub_url(url))
+        return client._public_https(url) and client._public_https(scrub.scrub_url(url))
     except Exception:  # noqa: BLE001
         return False
 
