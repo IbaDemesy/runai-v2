@@ -74,6 +74,8 @@ def _candidate_task(expected, budget, adapter, url, decision):
         f"1. DATE CHECK first: {expected['city']}, {expected['country']}, check-in {arrival}, "
         f"check-out {departure}, {adults} adults. For missing/wrong dates, city or party, "
         "report BLOCKED date_mismatch. Never change the dates or submit search forms.\n"
+        "IHG qCiMy/qCoMy use a zero-based month: 062027 means July 2027, not June. "
+        "Return verification dates as ISO YYYY-MM-DD, interpreted from the actual stay.\n"
         f"2. Allowed hosts: {', '.join(hosts)}. STOP on any other host and report BLOCKED "
         "unreviewed_redirect; do not interact with it. Cookie banners: reject or close only; "
         "never accept optional consent.\n"
@@ -103,6 +105,10 @@ def _candidate_task(expected, budget, adapter, url, decision):
         "session failure report BLOCKED session_failed; timeout report BLOCKED timeout; "
         "site error report BLOCKED provider_error. Never invent success: report BLOCKED "
         "unsafe_claim if selection evidence is incomplete. Include the last safe public URL."
+        " Return verification with exactly these keys: room, rate, arrival_date, departure_date, "
+        "travelers, total, city, selected, next_safe_boundary. Use selected=true only for an "
+        "actually selected room AND rate; next_safe_boundary describes the untouched guest "
+        "details/payment boundary. Never invent missing evidence."
     )
     return {
         "kind": KIND,

@@ -62,7 +62,7 @@ ReasonCode = Literal[
     "no_site_coverage", "policy_denied", "date_mismatch", "no_inventory", "sold_out",
     "registration_closed", "login_required", "captcha", "consent_required",
     "unreviewed_redirect", "over_budget", "step_limit", "session_failed", "timeout",
-    "unsafe_claim", "provider_error",
+    "unsafe_claim", "provider_error", "checkpoint_unverified",
 ]
 
 
@@ -76,6 +76,7 @@ class StepResult(Model):
     live_view_url: HttpUrl | None = None
     error: str | None = None
     reason_code: ReasonCode | None = None
+    checkpoint_reached: bool | None = None
     blocked_url_host: str | None = None
     synthetic: bool
     payment_executed: Literal[False] = False
@@ -123,7 +124,9 @@ class Event(Model):
     kind: Kind | None = None
     message: str
     synthetic: bool
-    observed_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    observed_at: datetime | None = Field(
+        default_factory=lambda: datetime.now(UTC), exclude_if=lambda value: value is None,
+    )
     recorded_at: datetime | None = None
     frame_id: str | None = None
     live_view_url: HttpUrl | None = None

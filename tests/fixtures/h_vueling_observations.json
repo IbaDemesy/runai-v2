@@ -1,6 +1,14 @@
 {
   "synthetic": true,
   "description": "Synthetic recorded-style startup sequence; not live evidence.",
+  "unreachable_changes": [
+    {"status": "running", "new_events": [
+      {"type": "AgentEvent", "data": {"kind": "observation_event", "metadata": {"url": "about:blank"}}}
+    ]},
+    {"status": "running", "new_events": [
+      {"type": "AgentEvent", "data": {"kind": "observation_event", "metadata": {"url": "chrome-error://chromewebdata/", "title": "Site cannot be reached"}}}
+    ]}
+  ],
   "changes": [
     {
       "status": "running",

@@ -1,0 +1,21 @@
+{
+  "synthetic": true,
+  "description": "Synthetic public IHG-shaped navigation; no live evidence or images",
+  "checkpoint": {
+    "url_patterns": ["/select-enhance-stay(?:[/?]|$)"],
+    "beyond_patterns": ["/guest-details|/payment|/pay(?:[/?]|$)"]
+  },
+  "expected": {"city": "Milan", "arrival_date": "2027-07-09", "departure_date": "2027-07-11", "travelers": 2},
+  "urls": [
+    "https://www.ihg.com/hotels/gb/en/find-hotels/hotel/list?qDest=Milan&qCiD=09&qCiMy=062027&qCoD=11&qCoMy=062027&qAdlt=2&qRms=1",
+    "https://www.ihg.com/holidayinn/hotels/gb/en/milan/example/hoteldetail?qCiD=09&qCiMy=062027&qCoD=11&qCoMy=062027&qAdlt=2",
+    "https://www.ihg.com/hotels/gb/en/reservation/select-enhance-stay?qCiD=09&qCiMy=062027&qCoD=11&qCoMy=062027&qAdlt=2&utm_source=synthetic&tracking=example"
+  ],
+  "answer": {
+    "status": "ready_for_payment",
+    "handoff_url": "https://www.ihg.com/hotels/gb/en/reservation/select-enhance-stay?qCiD=09&qCiMy=062027&qCoD=11&qCoMy=062027&qAdlt=2&utm_source=answer",
+    "reached_step": "Room and rate selected before untouched guest details",
+    "blocker": null,
+    "verification": {"city": "Milan", "arrival_date": "2027-07-09", "departure_date": "2027-07-11", "travelers": 2, "room": "Standard", "rate": "Flexible", "total": "240 EUR", "selected": true, "next_safe_boundary": "guest details"}
+  }
+}

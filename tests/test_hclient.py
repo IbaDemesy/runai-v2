@@ -3,6 +3,7 @@ import base64
 import json
 import sys
 from datetime import UTC, date, datetime, timedelta
+from itertools import pairwise
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1171,13 +1172,13 @@ def test_r3_affirmative_claims(text):
     ("Sold out", "sold_out"), ("Épuisé", "sold_out"), ("Ausverkauft", "sold_out"),
     ("Registration closed", "registration_closed"),
     ("Closed for the requested dates", "registration_closed"),
-    ("Verification not completed", "provider_error"),
+    ("Verification not completed", "unsafe_claim"),
     ("Inscripciones cerradas", "registration_closed"),
     ("No results for these dates", "no_inventory"), ("No trains", "no_inventory"),
     ("Aucun résultat", "no_inventory"), ("Nessun risultato", "no_inventory"),
     ("Sem resultados", "no_inventory"), ("Keine Zimmer verfügbar", "no_inventory"),
     ("Over budget", "over_budget"), ("Wrong date", "date_mismatch"),
-    ("", "provider_error"),
+    ("", "unsafe_claim"),
 ])
 def test_r3_completed_blocked_reasons(blocker, reason):
     result, _ = run(Provider(answer={**ANSWER, "status": "blocked", "blocker": blocker}))
@@ -1814,7 +1815,7 @@ def test_present_checkpoint_is_applied_to_alternative_not_primary():
     assert sum(r.url.path.endswith("/force_answer") for r in good.requests) == 1
 
 
-@pytest.mark.parametrize("url", ["about:srcdoc", "chrome://newtab", "chrome-error://chromewebdata/",
+@pytest.mark.parametrize("url", ["about:srcdoc", "chrome://newtab",
                                       "data:text/html,", "blob:https://race.example.org/id"])
 def test_browser_internal_urls_are_blank_not_redirects(url):
     provider = Provider(events=[blank_observation(url), observation()])
@@ -1832,3 +1833,187 @@ def test_step_progress_is_monotonic_and_uses_only_provider_metrics():
     assert [e["message"] for e in events if e.get("message", "").startswith("Étape")] == [
         "Étape 1", "Étape 3",
     ]
+
+
+def ihg_case():
+    fixture = json.loads((Path(__file__).parent / "fixtures/h_ihg_observations.json").read_text())
+    task = {**TASK, "kind": "hotel", "start_url": fixture["urls"][0],
+            "fallback_url": fixture["urls"][0], "expected": fixture["expected"],
+            "checkpoint": fixture["checkpoint"]}
+    events = []
+    for url in fixture["urls"]:
+        event = observation()
+        event["data"]["metadata"] = {"url": url, "title": "Hotel selection"}
+        events.append(event)
+    return fixture, task, events
+
+
+@pytest.mark.parametrize("field,value,gate", [
+    ("room", None, "missing_room"), ("rate", None, "missing_rate"),
+    ("total", None, "missing_total"), ("selected", False, "selected"),
+    ("next_safe_boundary", None, "next_safe_boundary"),
+    ("city", "Rotterdam", "expected_city"), ("travelers", 3, "expected_travelers"),
+])
+def test_ihg_unverified_checkpoint_is_honest_public_handoff(field, value, gate):
+    fixture, task, events = ihg_case()
+    answer = fixture["answer"]
+    answer["verification"][field] = value
+    result, emitted = run(Provider(events=events, answer=answer), task)
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == "checkpoint_unverified"
+    assert result["checkpoint_reached"] is True
+    assert result["handoff_url"] == scrub_url(fixture["urls"][-1])
+    diagnostic = next(step for step in result["steps"] if step.startswith("verify_failed:"))
+    assert gate in json.loads(diagnostic.split(": ", 1)[1])
+    assert all(word not in diagnostic for word in ["Rotterdam", "Milan", "240 EUR", "2027"])
+    assert not any("verify_failed" in repr(event) for event in emitted)
+
+
+def test_ihg_complete_checkpoint_ready_with_zero_based_july_and_tracking_noise():
+    fixture, task, events = ihg_case()
+    result, _ = run(Provider(events=events, answer=fixture["answer"]), task)
+    assert result["status"] == "ready_for_payment"
+    assert result["handoff_url"] == scrub_url(fixture["urls"][-1])
+
+
+def test_ihg_wrong_url_month_is_date_mismatch():
+    fixture, task, events = ihg_case()
+    for event in events:
+        event["data"]["metadata"]["url"] = event["data"]["metadata"]["url"].replace("062027", "052027")
+    fixture["answer"]["handoff_url"] = fixture["answer"]["handoff_url"].replace("062027", "052027")
+    result, _ = run(Provider(events=events, answer=fixture["answer"]), task)
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == "date_mismatch"
+
+
+@pytest.mark.parametrize("suffix", ["guest-details", "payment"])
+def test_ihg_beyond_checkpoint_never_ready(suffix):
+    fixture, task, events = ihg_case()
+    events.append(blank_observation("https://www.ihg.com/reservation/" + suffix))
+    result, _ = run(Provider(events=events, answer=fixture["answer"]), task)
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == "policy_denied"
+
+
+def test_ihg_checkpoint_without_frame_cannot_establish_p13_or_ready():
+    fixture, task, events = ihg_case()
+    for event in events:
+        event["data"].pop("image")
+    result, _ = run(Provider(events=events, answer=fixture["answer"]), task)
+    assert result["status"] == "blocked"
+    assert not result.get("checkpoint_reached")
+    assert "checkpoint_frame" in repr(result["steps"])
+
+
+@pytest.mark.parametrize("verification", [None, {}, [], "invalid JSON"])
+def test_ihg_empty_or_invalid_verification_is_checkpoint_unverified(verification):
+    fixture, task, events = ihg_case()
+    fixture["answer"]["verification"] = verification
+    result, _ = run(Provider(events=events, answer=fixture["answer"]), task)
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == "checkpoint_unverified"
+    assert result["checkpoint_reached"] is True
+
+
+def test_no_observations_heartbeat_is_spaced_monotonic_and_has_no_frames(monkeypatch):
+    now = 0
+    polls = iter([0, 21, 41, 61, 62])
+    initial = blank_observation(HANDOFF)
+    initial["data"].pop("image", None)
+    provider = CheckpointProvider([
+        batch(initial, metrics={"steps": 2}),
+        batch(metrics={"steps": 2}), batch(metrics={"steps": 1}),
+        batch(metrics={"steps": 4}), batch(state="completed", answer=ANSWER),
+    ])
+    emitted = []
+
+    def handle(request):
+        nonlocal now
+        if request.url.path.endswith("/changes"):
+            now = next(polls)
+        return provider(request)
+
+    async def execute():
+        async def emit(event):
+            emitted.append((now, event.copy()))
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
+            return await HAgentRunner("test-api-key", base_url=API, client=client, poll_s=0).run(
+                TASK, emit,
+            )
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    result = asyncio.run(execute())
+    heartbeats = [(at, event["message"]) for at, event in emitted
+                  if "l'agent lit la page" in event.get("message", "")]
+    assert [at for at, _ in heartbeats] == [21, 41, 61]
+    assert all(b[0] - a[0] >= 20 for a, b in pairwise(heartbeats))
+    numbers = [int(event["message"].split()[1]) for _, event in emitted
+               if event.get("message", "").startswith("Étape")]
+    assert numbers == sorted(numbers)
+    assert not any(event["type"] == "live_frame" for _, event in emitted)
+    assert all(not any(word in message for word in ["http", "JSON", "prompt"])
+               for _, message in heartbeats)
+    durations = [json.loads(step.split(": ", 1)[1]) for step in result["steps"]
+                 if step.startswith("h_step_duration:")]
+    assert durations == [
+        {"from_step": 0, "to_step": 2, "duration_s": 0},
+        {"from_step": 2, "to_step": 4, "duration_s": 61},
+    ]
+    assert not any("h_step_duration" in repr(event) for _, event in emitted)
+
+
+@pytest.mark.parametrize("url", ["chrome-error://chromewebdata/", "chrome://chromewebdata/",
+                                      "about:neterror?e=connectionFailure", "about:certerror"])
+def test_initial_browser_error_blocks_within_20_seconds(monkeypatch, url):
+    fixture = json.loads((Path(__file__).parent / "fixtures/h_vueling_observations.json").read_text())
+    changes = fixture["unreachable_changes"]
+    changes[-1]["new_events"][0]["data"]["metadata"]["url"] = url
+    provider = CheckpointProvider(changes)
+    now = 0
+
+    def handle(request):
+        nonlocal now
+        if request.url.path.endswith("/changes"):
+            now += 5
+        return provider(request)
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    result, events = run(handle, {**TASK, "alternatives": [dict(TASK)]})
+    assert now <= 20
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == "provider_error"
+    assert "site_unreachable_in_h" in result["steps"]
+    assert "site_unreachable_in_h" not in result["summary"]
+    assert not any("site_unreachable_in_h" in repr(event) for event in events)
+    assert not any(event["type"] == "live_frame" for event in events)
+    assert provider.cancelled
+    assert sum(request.url.path == "/api/v2/sessions" for request in provider.requests) == 1
+
+
+def test_browser_error_after_reviewed_progress_is_not_initial_startup_failure():
+    result, _ = run(Provider(events=[observation(), blank_observation("about:neterror")]))
+    assert result["status"] == "ready_for_payment"
+    assert "site_unreachable_in_h" not in result["steps"]
+
+
+@pytest.mark.parametrize("queued", [False, True])
+def test_heartbeat_waits_for_observation_gap_and_skips_queued_or_terminal(monkeypatch, queued):
+    now = 0
+    polls = iter([0, 19, 21, 42])
+    events = [] if queued else [blank_observation(HANDOFF)]
+    state = "queued" if queued else "running"
+    provider = CheckpointProvider([
+        batch(*events, state=state), batch(*events, state=state),
+        batch(state=state), batch(state="completed", answer=ANSWER),
+    ])
+
+    def handle(request):
+        nonlocal now
+        if request.url.path.endswith("/changes"):
+            now = next(polls)
+        return provider(request)
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    _, emitted = run(handle)
+    assert not any("l'agent lit la page" in event.get("message", "") for event in emitted)
