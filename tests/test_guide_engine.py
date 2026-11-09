@@ -1111,6 +1111,24 @@ def test_same_country_official_precedes_foreign_preparable(monkeypatch):
     assert turn.candidates[0].country == "Germany"
 
 
+@pytest.mark.parametrize("status", ["sold_out", "closed"])
+def test_domestic_unavailable_race_cannot_displace_foreign_open_default(monkeypatch, status):
+    covered_offline(monkeypatch)
+    monkeypatch.setitem(sys.modules, "runai.agents.registration", SimpleNamespace(
+        registration_coverage=lambda race: status if race["id"] == "domestic" else "covered"))
+
+    async def discover(query, hints):
+        return [{"id": race_id, "name": race_id + " Marathon", "country": country,
+                 "race_date": "2027-09-26", "distance_km": 42.195, "date_status": "official",
+                 "source_urls": ["https://race.example/" + race_id]}
+                for race_id, country in [("domestic", "Germany"), ("foreign", "Switzerland")]]
+
+    state, turn = run(engine(discover).start("a marathon in Germany"))
+    assert state.draft.race is None
+    assert turn.suggestions[0].value == "foreign"
+    assert next(s for s in turn.suggestions if s.value == "domestic").kind == "choose_race"
+
+
 @pytest.mark.parametrize("event_type", ["Relay", "Staffetta", "Relais"])
 def test_individual_verification_does_not_verify_same_distance_relay(event_type):
     async def discover(query, hints):

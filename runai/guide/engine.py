@@ -82,8 +82,9 @@ class GuideEngine:
 
     def _race_chips(self, state, races=None):
         choices = list(state.candidates if races is None else races)
-        choices.sort(key=lambda r: (not self._eligible(r), not self._same_country(state, r),
-                                    not self._default_race(state, r), self._preparation_rank(state, r)))
+        choices.sort(key=lambda r: (not self._default_race(state, r), not self._eligible(r),
+                                    self._unavailable(r), not self._same_country(state, r),
+                                    self._preparation_rank(state, r)))
         chips = [
             self._chip(
                 r.id,
@@ -316,7 +317,7 @@ class GuideEngine:
         elif state.stage == "choose_race":
             question = self._say(state, "Laquelle te tente ?", "Which one catches your eye?")
             chips = self._race_chips(state)
-            if not d.race and not any(self._eligible(r) and (
+            if not d.race and not any(self._eligible(r) and not self._unavailable(r) and (
                 not state.hints.get("prefer_requested_country") or self._same_country(state, r)
             ) for r in state.candidates):
                 chips = [self._chip("alternative", self._say(
