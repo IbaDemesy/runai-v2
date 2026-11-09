@@ -695,6 +695,30 @@ def test_r8_horizon_filter_precedes_candidate_cap_and_keeps_verified_primary():
     assert "preflight_block" not in task
 
 
+@pytest.mark.parametrize("alternative", [False, True])
+def test_r8_return_beyond_horizon_blocks_or_selects_longer_horizon(alternative):
+    from datetime import timedelta
+
+    primary = distinct_entry(0, "transport")
+    primary["adapters"][0]["booking_horizon_days"] = 90
+    items = [primary]
+    if alternative:
+        backup = distinct_entry(1, "transport")
+        backup["adapters"][0]["booking_horizon_days"] = 180
+        items.append(backup)
+    out, back = TODAY + timedelta(days=89), TODAY + timedelta(days=91)
+    task = build_task(trip(
+        origin_city="Paris", arrival_date=out.isoformat(), departure_date=back.isoformat(),
+        race_changes={"race_date": (out + timedelta(days=1)).isoformat()},
+    ), today=TODAY, registry=registry(*items))
+    if alternative:
+        assert task["site_name"] == "site1"
+        assert "preflight_block" not in task
+    else:
+        assert task["site_name"] == "site0"
+        assert task["preflight_block"]["summary"] == "Billets pas encore en vente pour ces dates"
+
+
 @pytest.mark.parametrize("origin", R7_ORIGINS)
 @pytest.mark.parametrize("city,country", R7_DESTINATIONS.items())
 @pytest.mark.parametrize("travelers", [1, 2, 3, 4])

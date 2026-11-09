@@ -841,7 +841,8 @@ def _candidates(
         if adapter["kind"] != kind:
             continue
         if kind == "transport" and respect_horizon and adapter["booking_horizon_days"]:
-            days = (_iso(expected.get("arrival_date"), "arrival_date")
+            days = (max(_iso(expected.get("arrival_date"), "arrival_date"),
+                        _iso(expected.get("departure_date"), "departure_date"))
                     - (today or datetime.now(UTC).date())).days
             if days > adapter["booking_horizon_days"]:
                 reasons.append(f"{entry['id']}: outside booking horizon")
