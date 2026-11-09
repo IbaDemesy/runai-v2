@@ -1,5 +1,80 @@
 # Registration path evidence (R2-02, supersedes R1-05 "assumed" claims)
 
+## R5-03 sequential live registration smokes — 2026-11-09 UTC
+
+Runtime: R5-01 PR #33 head `77fd6d5` in a detached, uncommitted throwaway worktree,
+overlaid with this ticket's registration builder, registry and tests. The ticket branch
+was subsequently rebased onto merged R5-01 at main `ee00d23`. Checkpoint matching uses
+the unquoted path + `?` + query, case-insensitively; ENDU/Madrid patterns no longer
+require a scheme or host. All four were strictly sequential, single-registration-agent
+runs. Harness disabled alternative attempts. Quota GET immediately before each run
+reported available slots 3, 2, 3, 2 respectively. No new session began without a slot.
+
+Read/prepare-only guardrails: no typing, accounts, consent, submission or payment
+authorized. Frames were counted from real `live_frame` callbacks and not written to disk.
+No private H URLs, session IDs, keys or site screenshots are recorded here. Host/path
+columns deliberately omit query strings. Checkpoint/beyond flags reflect actual H
+observation URLs evaluated by the R5-01 matcher, not the start URL alone. Steps are the
+maximum provider-reported step metric; each run issued one `force_answer` request.
+
+| UTC start–finish | Race | Start host/path | Frames | Final host/path | Checkpoint matched | Beyond matched | Status / reason_code | Steps | Honest note |
+|---|---|---|---:|---|---|---|---|---:|---|
+| 03:16:11–03:17:09 | Milan | in.njuko.com/wizz-air-milano-marathon-20271776152378557 | 4 | in.njuko.com/wizz-air-milano-marathon-20271776152378557 | yes | no | ready_for_payment / null | 8 | Njuko participant-form checkpoint matched; runtime accepted the forced structured answer. READY names a safe untouched-page stop, not a purchase or submitted registration. |
+| 03:17:14–03:20:40 | TCS Amsterdam | www.tcsamsterdammarathon.eu/registration | 1 | www.tcsamsterdammarathon.eu/registration | no | no | blocked / provider_error | 57 | Did not return the expected not-open verdict. Official GET observation remains not_open; live run establishes neither a participant page nor successful preparation. |
+| 03:20:48–03:25:24 | Stoos-Trail ST24 | my.raceresult.com/422182/registration | 6 | my.raceresult.com/422182/registration | no | no | blocked / provider_error | 57 | Stayed on the public registration route; no distinct personal-data URL established. Disabled checkpoint cannot certify the shell; actual personal-page reach is unverified. |
+| 03:25:28–03:25:47 | Movistar Madrid half | www.mediomaratonmadrid.es/en/web-form/34571-general-entry | 1 | www.mediomaratonmadrid.es/en/web-form/34571-general-entry | yes | no | blocked / session_failed | 1 | Observed known personal-data URL; force_answer requested, but session failed. No verified READY claim. |
+
+Outcome: **1 runtime-verified READY out of 4**; two checkpoint URLs matched, no observed
+beyond-pattern match. No manual screenshot review or integrated three-agent/UI acceptance
+was performed. A final quota GET after all runs reported active=0, available=3. No sessions
+from this ticket remain running. Do not reinterpret provider errors as availability verdicts.
+
+## R5-03 offline review — 2026-11-09
+
+Anonymous GETs only: no new H runs, screenshots, form interaction or prepared-registration
+claims. Existing live records below are historical and unchanged.
+
+- `movistar-madrid-half`: official organizer-hosted Deporticket form at
+  https://www.mediomaratonmadrid.es/en/web-form/34571-general-entry shows the 2027 half
+  marathon, 69.00 € and First name / Family name / Date of birth / Gender fields. This
+  observed untouched personal-data URL is the checkpoint and scrub-safe start; the long
+  `/web-evento/13064-movistar-madrid-medio-maraton-2027` slug does not survive local scrub.
+  Reviewed linked `/en/web-legal-notice` §§2–6, 9–10 and embedded processing/consent clauses:
+  private viewing permitted, no express automated-navigation ban found. Restricted to the
+  organizer-hosted form; this does not authorize external deporticket.com (GET returned 403).
+- `stoos-trail-raceresult`: `/anmeldung` embeds Race Result event 422182. Public
+  https://my.raceresult.com/422182/registration identifies Stoos Trail 2027 on July 10 in
+  Brunnen. Reviewed organizer imprint/privacy, race rules §§5/14, Race Result AGB and
+  https://my.raceresult.com/imprint/termsofuse §§1–6 (public event browsing §2;
+  submitting registration is a binding contractual offer under §3.4).
+  No express automated-navigation ban found; race submission would accept rules, so it is
+  forbidden. The JS shell has InStock metadata but no anonymously visible active entry
+  control: availability remains **unknown**, not open. Organizer course distances are
+  11, 25.6, 46.6 and 13 km. No distinct personal-data URL observed: checkpoint `(?!)` is
+  deliberately disabled rather than falsely treating the shell as a participant page.
+- `bijlmer-run-atleta-pending`: organizer homepage says “Inschrijving opent: 21 november
+  2026” (10K **not_open**). Organizer participation terms reviewed, but Atleta review is
+  incomplete. Ambiguous policy, no adapter, no permission to start.
+
+Fresh distance-scoped open observations also recorded for CPC 5/10K (official registration
+links; half remains sold_out), Geneva, Rome, Bologna, Padova and Prague. Together with Milan
+and Madrid these form eight named open races in five countries (NL, CH, IT, CZ, ES). Geneva
+starts on the organizer `/participate` page because its direct Njuko slug fails local scrub.
+Rome's page mixes older content: runtime date/edition verification remains mandatory.
+
+Amsterdam is **not_open** (2027 registration opens December 19; current short distance
+7.5K, not 8K). Vienna marathon/half are waitlist-only (**sold_out**); Freiburg has no remaining
+entry codes (**sold_out**). Jungfrau shows only closed 2026 entry (**unknown** for 2027).
+Seville's 2027 page still links a 2026 Njuko slug (**unknown**). Eiger E16 has an active
+2027 registration link (**open**, 16 km only), but the external byUTMB host remains
+unreviewed and must block navigation there. These are observations, not booking guarantees.
+
+Checkpoint limitations: Njuko shape is based on the historical untouched Milan URL, not a
+new event-specific visit. ENDU personal-page patterns are conservative **provisional**;
+anonymous catalog/book GETs do not expose the participant URL. Other non-Njuko platforms
+without an observed distinct personal-page URL use disabled `(?!)` patterns, explicitly
+not success-capable until validated. No provisional pattern is claimed to be observed.
+
 ## R4-03 live H registration smokes — 2026-11-09 (UTC 01:32–01:48)
 
 Harness: `runai.agents.registration.build_task` on the committed registry, then
