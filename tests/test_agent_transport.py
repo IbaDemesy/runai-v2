@@ -476,12 +476,18 @@ def test_transport_checkpoint_guesses_exclude_results_and_benign_party_queries(p
                      "/en?step=passenger_details", "/en?screen=payment&pax=A",
                      "/en/traintickets-v3/review/login", "/booking/review/login",
                      "/pt/resumo-compra?step=login",
-                     "/en/buying/pages/offerte/offerte.xhtml?screen=personal_details"):
+                     "/en/buying/pages/offerte/offerte.xhtml?screen=personal_details",
+                     "/en/offer?screen=personal_details", "/en/offer?step=login"):
             url = "https://example.test" + path
             assert hclient._checkpoint_matches(compiled, "beyond_patterns", url)
             assert not hclient._checkpoint_matches(compiled, "url_patterns", url)
     if policy == "sbb-ch":
         assert hclient._checkpoint_matches(
             compiled, "url_patterns",
-            "https://www.sbb.ch/en/buying/pages/offerte/offerte.xhtml?offer=synthetic",
+            "https://www.sbb.ch/en/offer?stops=public-stations&trip=synthetic&retTrip=synthetic",
         )
+        for path in ("/en?trip=synthetic", "/en/plan/return?trip=synthetic&retTrip=synthetic",
+                     "/en/buying/pages/offerte/offerte.xhtml", "/en/offers", "/en/offer/login"):
+            assert not hclient._checkpoint_matches(
+                compiled, "url_patterns", "https://www.sbb.ch" + path,
+            )

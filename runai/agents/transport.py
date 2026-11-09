@@ -91,8 +91,9 @@ def _candidate_task(expected, budget, adapter, url, decision):
         if budget is not None else "No budget given: choose the cheapest suitable full total."
     )
     sbb_hint = (
-        "SBB has no return-date or party URL parameters. Reject cookies or choose necessary-only; "
-        "never accept consent. If the UI defaults to Half-Fare or another reduction, set the "
+        "SBB start link has no return-date or party URL parameters. "
+        "Reject cookies or choose necessary-only; never accept consent. "
+        "If the UI defaults to Half-Fare or another reduction, set the "
         "traveller to 1 adult without reduction/Half-Fare, without personal data or form submission. "
         f"Choose outbound then add the return departing on {departure} using safe selection "
         "controls only; never submit a search form. Stop at the fare/ticket selection summary "

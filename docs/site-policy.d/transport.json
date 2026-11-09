@@ -23,7 +23,7 @@
       "reviewed_at": "2026-11-09",
       "expires_at": "2027-02-07",
       "reviewed_sections": "Restrictions on access; Use of SBB Websites",
-      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Official footer legal-information page fetched. No explicit automation clause found here; copying/public/commercial use restricted. R4-02 normal-browser check 2026-11-09: Individual pages may be saved; public/commercial reuse requires consent. No express robot prohibition found. Tested link did not show a round-trip fare list with party. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md. R6-02 2026-11-09 H showed dated outbound numeric fares for Paris-Milan, Lyon-Milan, Geneva-Milan and Geneva-Zurich under the default Half Fare display. Not proof of full-adult/round-trip preparation. Paris-Zurich had no numeric prices; Geneva-Lucerne retained a loading skeleton/consent banner. Ticket-offer checkpoint is guessed, not live verified.",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Official footer legal-information page fetched. No explicit automation clause found here; copying/public/commercial use restricted. R4-02 normal-browser check 2026-11-09: Individual pages may be saved; public/commercial reuse requires consent. No express robot prohibition found. Tested link did not show a round-trip fare list with party. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md. R6-02 2026-11-09 H showed dated outbound numeric fares for Paris-Milan, Lyon-Milan, Geneva-Milan and Geneva-Zurich under the default Half Fare display. Not proof of full-adult/round-trip preparation. Paris-Zurich had no numeric prices; Geneva-Lucerne retained a loading skeleton/consent banner. R6-02 step 5 observed the Geneva-Zurich fare/ticket selection surface at /en/offer; full selected round-trip evidence and runtime verification are still required. International ticket selection redirected to unreviewed shop.sbb.ch and was blocked; no scope expansion.",
       "automation": "allowed_owner_rule",
       "screenshot_scope": "in_session_only",
       "navigation_hosts": [],
@@ -54,11 +54,11 @@
               "station_code": "8301700"
             }
           },
-          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Ticket-offer checkpoint is an unverified guess; &trip= is only a connection preview, never READY.",
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
           "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))[^?]*/en/buying/pages/(?:offerte|angebot)/(?:offerte|angebot)\\.xhtml(?:\\?|$)"
+              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))/en/offer(?:\\?|$)"
             ],
             "beyond_patterns": [
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
@@ -93,11 +93,11 @@
               "station_code": "8301700"
             }
           },
-          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Ticket-offer checkpoint is an unverified guess; &trip= is only a connection preview, never READY.",
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
           "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))[^?]*/en/buying/pages/(?:offerte|angebot)/(?:offerte|angebot)\\.xhtml(?:\\?|$)"
+              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))/en/offer(?:\\?|$)"
             ],
             "beyond_patterns": [
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
@@ -132,11 +132,11 @@
               "station_code": "8301700"
             }
           },
-          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Ticket-offer checkpoint is an unverified guess; &trip= is only a connection preview, never READY.",
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
           "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))[^?]*/en/buying/pages/(?:offerte|angebot)/(?:offerte|angebot)\\.xhtml(?:\\?|$)"
+              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))/en/offer(?:\\?|$)"
             ],
             "beyond_patterns": [
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
@@ -171,11 +171,11 @@
               "station_code": "8503000"
             }
           },
-          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Ticket-offer checkpoint is an unverified guess; &trip= is only a connection preview, never READY.",
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
           "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))[^?]*/en/buying/pages/(?:offerte|angebot)/(?:offerte|angebot)\\.xhtml(?:\\?|$)"
+              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))/en/offer(?:\\?|$)"
             ],
             "beyond_patterns": [
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
@@ -210,11 +210,11 @@
               "station_code": "8503000"
             }
           },
-          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Ticket-offer checkpoint is an unverified guess; &trip= is only a connection preview, never READY.",
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
           "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))[^?]*/en/buying/pages/(?:offerte|angebot)/(?:offerte|angebot)\\.xhtml(?:\\?|$)"
+              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))/en/offer(?:\\?|$)"
             ],
             "beyond_patterns": [
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
@@ -248,11 +248,11 @@
               "station_code": "8505000"
             }
           },
-          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Ticket-offer checkpoint is an unverified guess; &trip= is only a connection preview, never READY.",
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
           "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))[^?]*/en/buying/pages/(?:offerte|angebot)/(?:offerte|angebot)\\.xhtml(?:\\?|$)"
+              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))/en/offer(?:\\?|$)"
             ],
             "beyond_patterns": [
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",

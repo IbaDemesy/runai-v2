@@ -1,3 +1,83 @@
+# R6-02 step 5 real-pipeline checkpoint smokes — 2026-11-09
+
+Each route used the real `trip -> transport.build_task -> hclient._policy ->
+HAgentRunner.run(task, event_cb)` pipeline. Travel January 9–11, 2027, race
+January 10, one adult, EUR800 budget; max_steps 60. Tasks and runner were not
+modified for probes: P7 alternatives/retries remained enabled. Each creation
+was quota-gated with available > 0, and each preceding own session had cleanup
+HTTP204 before the next creation. Shared organization active counts can include
+other sessions. Last frames and detailed harness results stayed outside the
+repository. No H URLs, session IDs, token values or screenshots are included.
+
+## Per-route results
+
+Frames are genuine deduplicated live-frame events, split by attempted provider.
+Status/reason below is the **final unmodified runner result**, not a relabelled
+visual assessment or a guessed per-attempt result.
+
+| Route / run | Provider attempts / frames | Final status / reason | Honest last visible state / stop | Checkpoint / beyond matched |
+| --- | --- | --- | --- | --- |
+| Paris–Milan | SBB 10; Vueling 0 | blocked / provider_error | SBB connection preview, 1 Full fare, Jan 9, 2nd class from CHF88; Select tickets visible. Navigation to unreviewed shop.sbb.ch blocked before a frame there. Vueling fallback produced no frame. No selected return/total. | no / no |
+| Paris–Amsterdam | NS 8 | blocked / provider_error | Inbound fare-selection panel, Jan 9/11, 1 passenger, EUR89 header; Continue to final check still visible. Not a verified final review/checkpoint. | no / no |
+| Geneva–Zurich, original guess | NS 10; SBB 15 | failed / timeout | NS Check your trip showed both Jan 9/11 Full-flex legs, 1 passenger, EUR179.60; Enter your details unclicked. SBB reached /en/offer, adult Jan 11 return offer CHF52, Total return journey CHF106.40; Continue unclicked. Old guessed checkpoint did not match. | no / no |
+| Lyon–Milan | SBB 8; Vueling 0 | blocked / provider_error | SBB Jan 9 direct Frecciarossa 09:31–14:11 preview, 2nd class from CHF73, Select tickets visible. Unreviewed shop redirect blocked before a frame there; Vueling fallback no frame. No selected return/total. | no / no |
+| Geneva–Zurich, corrected checkpoint, one rerun | NS 10; no fallback | failed / unsafe_claim | NS Check your trip: Jan 9 06:35–09:28 Genève–Zürich HB and Jan 11 06:32–09:25 return, 1 passenger, 2nd class Full-flex, EUR179.60. Enter your details remained unclicked. Unchanged results path; corrected SBB checkpoint not exercised. | no / no |
+
+International SBB redirects were to `shop.sbb.ch/customer/en/alw/onboarding`,
+with `su`/`cu` values redacted. That host is not in SBB's reviewed scopes. The
+runner's host gate blocks before rendering/interacting there, then its existing
+P7 path can replace the route's final result with Vueling's provider_error.
+The table does not claim a login/passenger page was reached: no frame there was
+retained. No scope was broadened and no onboarding URL was promoted to READY.
+
+## Observed path/query sequences (opaque values removed)
+
+- Paris/Lyon–Milan SBB: `/en?stops=<public mapped stops>&day=2027-01-09&time=08_00&moment=dep`
+  → same plus `reduction=[redacted]` → same plus `trip=[redacted]`
+  → `shop.sbb.ch/customer/en/alw/onboarding?su=[redacted]&cu=[redacted]`.
+  Vueling: no public observed URL/frame.
+- Both NS routes: `/en/traintickets-v3/` throughout. No distinct path/query was
+  observed, even when Geneva–Zurich displayed its selected-trip review pane.
+  Fragment changes are not a path/query checkpoint and were not retained.
+- Geneva–Zurich SBB fallback: `/en?...` → plus `reduction` → plus
+  `retDay`, `retMoment`, `retTime` → plus `trip` → `/en/plan/return?...`
+  (reversed public stations) → plus `retTrip` → `/en/offer?...`.
+  Query includes the public mapped stations, January 9 outbound date and times;
+  opaque trip/return-trip values and other retained values are redacted. This
+  is evidence of UI-generated return parameters, **not** validation of a new
+  direct-link contract. The configured start link still has no return/party
+  parameters; instructions now explicitly say *start link*.
+
+## Checkpoint correction and remaining safety limits
+
+SBB's guessed buying/pages/offerte path was replaced with the observed exact
+`/en/offer` path (query allowed). The initial last frame establishes that this
+is a fare/ticket-selection surface, not start/results or a connection preview.
+It does not alone establish all READY evidence. Tests exclude `/en`, `trip=`
+preview, `/en/plan/return`, old guessed paths, `/en/offers`, nested login and
+unsafe explicit query states; passenger/login/pay/checkout remain beyond-only.
+NS's distinct overview/review guess is unchanged: do not broaden it to its
+shared results path merely because a safe selected-trip pane is visible.
+
+The single authorized Geneva–Zurich rerun ended at NS with `failed/unsafe_claim`;
+the existing runner does not try P7 alternatives for that result. Therefore the
+corrected SBB pattern was **not live-matched on rerun**. It is grounded in the
+first run's observed /en/offer frame/path and offline tests, not a successful
+runtime READY. No extra SBB-only run was substituted for the real primary.
+The reason code is reported as returned; it does not prove a booking or payment
+occurred. The retained observations/frame establish a safe review surface, not
+a complete audit of actions or the model's answer.
+
+No beyond-pattern URL was observed in any of the five runs. Tasks forbid
+consent acceptance, personal data, submissions, login, booking and payment.
+The harness records observations and last frames, not a complete action audit;
+it cannot independently certify every runtime action. Visible passenger-detail
+entry/Continue buttons are not authorization to open the next page. Coverage
+still means route-scoped render evidence, not guaranteed checkout preparation.
+
+Eight session creations total, including automatic fallbacks; all cleaned up
+HTTP204. Final organization quota: `limit=3, active=0, available=3`.
+
 # R6-02 transport render gate — 2026-11-09
 
 This section supersedes historical coverage claims below. Owner-rule authorization
