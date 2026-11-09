@@ -26,7 +26,7 @@ from runai.guide.types import RaceOption, RegistrationAccess
 SEARCH_URL = "https://api.linkup.so/v1/search"
 HINT_KEYS = {
     "distance", "country", "city", "month_from", "month_to", "year", "race_name", "broaden",
-    "named", "retry_count", "depth", "official_date_required", "alternative_scope",
+    "named", "retry_count", "depth", "official_date_required", "alternative_scope", "official_domains",
 }
 DISTANCES = {
     "marathon": "marathon (42.195 km)",
@@ -36,11 +36,50 @@ DISTANCES = {
     "trail": "trail running race (any distance)",
     "ultra": "ultra-distance race (longer than 42.195 km)",
 }
+RACE_SEARCH_SEEDS = {
+    "Germany": ("Berlin Marathon", "Frankfurt Marathon", "Cologne Marathon",
+                "Munich Marathon", "Hamburg Marathon"),
+    "Italy": ("Milano Marathon", "Rome Marathon", "Florence Marathon"),
+    "France": ("Paris Marathon", "Nice Cannes Marathon", "Lyon Marathon"),
+    "Spain": ("Valencia Marathon", "Barcelona Marathon", "Seville Marathon"),
+    "Portugal": ("Lisbon Marathon", "Porto Marathon", "Lisbon Half Marathon",
+                 "Porto Half Marathon"),
+    "Switzerland": ("Lucerne Marathon", "Lausanne Marathon", "Geneva Marathon"),
+    "Netherlands": ("Amsterdam Marathon", "Rotterdam Marathon", "Eindhoven Marathon"),
+    "Austria": ("Vienna City Marathon", "Graz Marathon", "Wachau Marathon"),
+    "Belgium": ("Brussels Marathon", "Antwerp Marathon", "Ghent Marathon"),
+    "United Kingdom": ("London Marathon", "Manchester Marathon", "Chester Marathon",
+                       "Yorkshire Marathon", "Edinburgh Marathon"),
+}
 _OPTIONAL_ROW_FIELDS = ("distance_km", "official_url", "registration_url", "registration_source_url")
 CACHE_TTL_S = 1800
 CACHE_MAX_SIZE = 128
 CALL_BUDGET_S = 35
 _cache: OrderedDict[str, tuple[float, list[dict]]] = OrderedDict()
+
+
+def official_search_hint(name: str, distance: float | None = None, edition_year: int | None = None) -> dict:
+    if distance is not None and not 42 <= distance <= 42.3:
+        return {}
+    if edition_year is not None:
+        name = re.sub(rf"\b{edition_year}\b", "", name).strip()
+    slug = _slug(name)
+    words = set(slug.split("-"))
+    if "marathon" not in words or words & {"half", "semi"}:
+        return {}
+    if "berlin" in words:
+        canonical = slug in {"berlin-marathon", "bmw-berlin-marathon", "generali-berlin-marathon"}
+        return {"race_name": "Berlin Marathon" if canonical else name, "country": "Germany",
+                "official_domains": "bmw-berlin-marathon.com berlin-marathon.com generali-berlin-marathon.com"}
+    if words & {"milan", "milano"}:
+        canonical = slug in {"milan-marathon", "milano-marathon", "wizz-air-milano-marathon"}
+        return {"race_name": "Milano Marathon" if canonical else name, "country": "Italy",
+                "official_domains": "milanomarathon.it"}
+    for country, seeds in RACE_SEARCH_SEEDS.items():
+        for seed in seeds:
+            if set(_slug(seed).split("-")) <= words:
+                return {"race_name": name, "country": country, "official_domains": ""}
+    return {}
 
 
 def clear_cache() -> None:
@@ -102,7 +141,7 @@ class DiscoveryUnavailable(DiscoveryError):
     """No Linkup credential is configured."""
 
 
-class DiscoveryTimeout(DiscoveryError):
+class DiscoveryTimeout(DiscoveryError, TimeoutError):
     """The provider did not complete within the configured timeout."""
 
 
@@ -372,6 +411,8 @@ async def discover(
     host, not a provider-generated status label. Unknown dates stay unknown.
     A caller-provided client remains open. Each search has a 35-second wall-clock
     budget (or the caller's shorter timeout) and at most one transient retry.
+    The optional hints search_timeout_s budget bounds both parallel lookups and
+    returns completed sourced results when another lookup times out.
     """
     key = api_key if api_key is not None else os.getenv("LINKUP_API_KEY")
     if not key or not key.strip():
@@ -420,6 +461,30 @@ async def discover(
             f"{distance} {localized} {year} date officielle; "
             f"major {distance} editions in {country} {year} official date. "
             "Search main national editions and organizer calendars; return only sourced dates.")
+        search_terms["candidate_search_hints"] = {
+            "names": RACE_SEARCH_SEEDS.get(country, ()),
+            "window": [constraints.get("month_from"), constraints.get("month_to")],
+            "query": f"{country} {distance} {constraints.get('month_from', year)} "
+                     f"{constraints.get('month_to', '')} official organizer race calendar",
+            "instruction": "Names are search hints only, not evidence of dates, distances, "
+                           "availability or coverage. Search the requested season first; "
+                           "verify every edition and distance from returned sources.",
+        }
+    official_hint = official_search_hint(str(constraints.get("race_name", safe_query)))
+    if constraints.get("official_domains"):
+        official_hint = {"race_name": constraints.get("race_name", safe_query),
+                         "official_domains": constraints["official_domains"]}
+    if official_hint:
+        year = constraints.get("year", today.year + 1)
+        search_terms["official_edition"] = (
+            f"{official_hint['race_name']} {year} official edition date organizer "
+            f"{official_hint['official_domains']}. Retrieve the dated organizer announcement "
+            "from these domains, including it in sources with its exact edition date. "
+            "Set official_url to the actual sourced organizer host, including after redirects. "
+            "These are search hints only: a domain/name is not evidence of a date or distance.")
+    if constraints.get("country") and not constraints.get("named"):
+        search_terms["official_seed_sites"] = [official_search_hint(name)
+            for name in RACE_SEARCH_SEEDS.get(constraints["country"], ()) if official_search_hint(name)]
     intent_data = json.dumps({"query": safe_query, "hints": constraints,
                               "search_terms": search_terms}, ensure_ascii=True)
     intent_data = intent_data.replace("<", "\\u003c").replace(">", "\\u003e")
@@ -473,10 +538,25 @@ async def discover(
     try:
         focused = {**payload, "q": prompt + "\nPrioritize the organizers' official edition "
                    "and registration pages over calendars; keep the same requested constraints."}
-        results = await asyncio.gather(
-            *(_search(active_client, request, key, timeout_s) for request in (payload, focused)),
-            return_exceptions=True,
-        )
+        budget = (hints or {}).get("search_timeout_s")
+        bounded = isinstance(budget, (int, float)) and math.isfinite(budget) and budget >= 0
+        deadline = monotonic() + budget if bounded else None
+        tasks = [asyncio.create_task(_search(active_client, request, key, timeout_s))
+                 for request in (payload, focused)]
+        try:
+            if bounded:
+                done, pending = await asyncio.wait(tasks, timeout=budget)
+                results = [task.result() if not task.exception() else task.exception()
+                           for task in tasks if task in done]
+                if pending:
+                    results.insert(0, DiscoveryTimeout("Race discovery timed out. Please try again."))
+            else:
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
         rows = [row for result in results if isinstance(result, list) for row in result]
         errors = [result for result in results if isinstance(result, Exception)]
         if not rows and errors:
@@ -489,9 +569,14 @@ async def discover(
     for candidate in candidates:
         url = candidate["registration_url"] or candidate["official_url"]
         if url:
-            candidate["registration_access"] = await _registration_access(
-                url, registration_info or _site_registration_info
-            )
+            try:
+                async with asyncio.timeout(max(0, deadline - monotonic())
+                                           if deadline is not None else None):
+                    candidate["registration_access"] = await _registration_access(
+                        url, registration_info or _site_registration_info
+                    )
+            except TimeoutError:
+                candidate["registration_access"] = None
         RaceOption.model_validate(candidate)
     if cacheable and candidates and not errors:
         _cache[cache_key] = (monotonic() + CACHE_TTL_S, copy.deepcopy(candidates))

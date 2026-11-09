@@ -4,9 +4,12 @@ from datetime import date
 from types import SimpleNamespace
 
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 import runai.guide
+import runai.guide.engine as guide_engine
+from runai.app import create_app
 from runai.guide.engine import GuideEngine
 from runai.guide.fake import FakeDiscovery
 from runai.guide.types import GuideState, RaceOption
@@ -137,7 +140,10 @@ def test_preparation_registration_labels(monkeypatch, status, fr, en, lang):
     monkeypatch.setitem(sys.modules, "runai.agents.registration",
                         SimpleNamespace(registration_coverage=lambda race: status))
     _, turn = run(engine(preparation_discovery).start("un semi" if lang == "fr" else "a half"))
-    assert all((fr if lang == "fr" else en) in s.label for s in turn.suggestions)
+    race_chips = [s for s in turn.suggestions if s.kind == "choose_race"]
+    assert race_chips and all((fr if lang == "fr" else en) in s.label for s in race_chips)
+    if status == "closed":
+        assert turn.suggestions[0].kind != "choose_race"
 
 
 def test_package_public_api():
@@ -145,6 +151,102 @@ def test_package_public_api():
     assert runai.guide.GuideState is GuideState
     assert runai.guide.RaceOption is RaceOption
     assert all(hasattr(runai.guide, name) for name in runai.guide.__all__)
+
+
+def test_first_discovery_and_selected_verification_use_standard():
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        return [{"id": "unlisted", "name": "Unlisted Marathon", "distance_km": 42.195,
+                 "race_date": "2027-09-26", "source_urls": ["https://race.example/edition"],
+                 "date_status": "official" if hints.get("verification_only") else "unverified"}]
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon in Germany"))
+    assert calls and all(h["depth"] == "standard" for h in calls)
+    assert all(0 < h["search_timeout_s"] <= guide_engine.FIRST_DISCOVERY_TIMEOUT_S for h in calls)
+    assert not turn.ready_to_confirm
+    chip = next(s for s in turn.suggestions if s.kind == "choose_race")
+    state, turn = run(e.step(state, {"suggestion_id": chip.id}))
+    assert calls[-1]["depth"] == "standard" and calls[-1]["verification_only"]
+    assert state.draft.race.date_status == "official"
+
+
+@pytest.mark.parametrize("lang", ["fr", "en"])
+def test_first_discovery_timeout_is_bounded_and_recovery_queries_differ(monkeypatch, lang):
+    monkeypatch.setattr(guide_engine, "FIRST_DISCOVERY_TIMEOUT_S", 0.02)
+    calls, cancelled = [], []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        if len(calls) > 1:
+            return []
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.append(True)
+
+    async def scenario():
+        e = engine(discover)
+        began = asyncio.get_running_loop().time()
+        state, turn = await e.start("un marathon en Allemagne" if lang == "fr" else "a marathon in Germany")
+        assert asyncio.get_running_loop().time() - began < 0.5
+        assert cancelled and turn.error == "discovery_failed" and not turn.candidates
+        assert ("pas abouti à temps" if lang == "fr" else "did not finish in time") in turn.message
+        assert len(turn.suggestions) >= 2
+        for chip in turn.suggestions:
+            await e.step(state.model_copy(deep=True), {"suggestion_id": chip.id})
+        queries = [query for query, _ in calls]
+        assert len(queries) == len(set(queries))
+
+    run(asyncio.wait_for(scenario(), timeout=0.5))
+
+
+def test_first_discovery_preserves_partial_results_when_enrichment_times_out(monkeypatch):
+    monkeypatch.setattr(guide_engine, "FIRST_DISCOVERY_TIMEOUT_S", 0.02)
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        if len(calls) == 1:
+            return [{"id": "partial", "name": "Berlin Marathon", "date_status": "unverified",
+                     "source_urls": ["https://race.example/edition"], "distance_km": 42.195}]
+        await asyncio.Event().wait()
+
+    async def scenario():
+        began = asyncio.get_running_loop().time()
+        _, turn = await engine(discover).start("a marathon in Germany")
+        assert asyncio.get_running_loop().time() - began < 0.5
+        assert len(calls) == 2 and all(h["depth"] == "standard" for h in calls)
+        assert [r.id for r in turn.candidates] == ["partial"]
+        assert not turn.ready_to_confirm and turn.error is None
+        assert turn.suggestions[0].kind != "choose_race"
+
+    run(asyncio.wait_for(scenario(), timeout=0.5))
+
+
+def test_existing_progress_events_arrive_before_real_guide_discovery_completes():
+    release = asyncio.Event()
+    entered = asyncio.Event()
+    completed = []
+
+    async def discover(query, hints):
+        entered.set()
+        await release.wait()
+        completed.append(True)
+        return await preparation_discovery(query, hints)
+
+    with TestClient(create_app(guide=engine(discover))) as client:
+        response = client.post("/api/missions", json={"text": "a half marathon in Portugal", "background": True})
+        assert response.status_code == 202 and not completed
+        client.portal.call(entered.wait)
+        url = f"/api/missions/{response.json()['id']}"
+        events = client.get(url + "/events").json()
+        assert events[0]["type"] == "discovery_progress"
+        assert events[0]["message"] == "Race search started"
+        assert not completed
+        client.portal.call(release.set)
 
 
 @pytest.mark.parametrize("lang,travelers,label", [
@@ -397,7 +499,8 @@ def test_new_date_or_season_replaces_stale_date_hints(initial, followup, expecte
     assert not removed.intersection(calls[-1])
     assert [race.race_date for race in turn.candidates] == [date.fromisoformat(expected)]
     assert turn.error is None
-    state, turn = click(e, state, turn)
+    choice = next(s for s in turn.suggestions if s.kind == "choose_race")
+    state, turn = run(e.step(state, {"suggestion_id": choice.id}))
     assert state.draft.race.race_date == date.fromisoformat(expected)
 
 
@@ -420,9 +523,10 @@ def test_race_identifiers_remain_unique_and_select_correct_candidate(ids):
     if len(set(ids)) == len(ids):
         assert candidate_ids == ids
     assert len(set(candidate_ids)) == len(ids)
-    assert [chip.value for chip in turn.suggestions] == candidate_ids
-    assert len({chip.id for chip in turn.suggestions}) == len(ids)
-    for index, chip in enumerate(turn.suggestions):
+    choices = [s for s in turn.suggestions if s.kind == "choose_race"]
+    assert [chip.value for chip in choices] == candidate_ids
+    assert len({chip.id for chip in choices}) == len(ids)
+    for index, chip in enumerate(choices):
         selected, response = run(e.step(state, {"suggestion_id": chip.id}))
         assert response.error is None
         assert selected.draft.race.id == candidate_ids[index]
@@ -449,7 +553,7 @@ def test_sensitive_race_identifiers_remain_redacted_and_selectable(identifier):
     assert identifier not in turn.model_dump_json()
     assert all("[redacted" in race.id for race in state.candidates)
     assert len({race.id for race in state.candidates}) == 1
-    for chip in turn.suggestions:
+    for chip in [s for s in turn.suggestions if s.kind == "choose_race"]:
         selected, response = run(e.step(state, {"suggestion_id": chip.id}))
         assert response.error is None
         assert selected.draft.race.id == chip.value
@@ -550,7 +654,7 @@ def test_unsourced_official_dates_are_unverified_and_never_ready(sources, lang):
 ])
 def test_sourced_official_or_explicit_synthetic_date_can_be_ready(synthetic, sources):
     async def discover(query, hints):
-        return [{"id": "berlin", "name": "Berlin 10k", "race_date": "2027-04-10",
+        return [{"id": "berlin", "name": "Berlin 10k", "country": "Germany", "race_date": "2027-04-10",
                  "date_status": "official", "source_urls": sources, "synthetic": synthetic,
                  "distance_km": 10}]
 
@@ -577,7 +681,9 @@ def test_unverified_distance_race_keeps_valid_alternatives_visible(lang):
     query = ("un marathon depuis Lyon 2 nuits budget 800" if lang == "fr"
              else "a marathon from Lyon 2 nights budget 800")
     state, turn = run(e.start(query))
-    state, turn = click(e, state, turn)
+    assert turn.suggestions[0].value == "official-trail"
+    choice = next(s for s in turn.suggestions if s.value == "unverified-trail")
+    state, turn = run(e.step(state, {"suggestion_id": choice.id}))
     assert state.draft.race.id == "unverified-trail"
     assert state.stage == "choose_race"
     assert not turn.ready_to_confirm
@@ -836,6 +942,552 @@ def run(awaitable):
 
 def engine(discover=None):
     return GuideEngine(discover or FakeDiscovery(), today=date(2026, 1, 1))
+
+
+def covered_offline(monkeypatch):
+    monkeypatch.setitem(sys.modules, "runai.agents.registration", SimpleNamespace(
+        registration_coverage=lambda race: {"covered": True, "status": "open"}))
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(
+        coverage=lambda *args, **kwargs: {"covered": True}))
+
+
+def test_germany_autumn_first_chip_path_reaches_plan(monkeypatch):
+    covered_offline(monkeypatch)
+    e = engine()
+    state, turn = run(e.start("I'd love to run a big marathon in Germany next autumn"))
+    assert turn.candidates and all(r.source_urls for r in turn.candidates)
+    for _ in range(6):
+        if turn.ready_to_confirm:
+            break
+        state, turn = run(e.step(state, {"suggestion_id": turn.suggestions[0].id}))
+    assert turn.ready_to_confirm
+    assert state.draft.race.city in {"Berlin", "Frankfurt"}
+    assert state.draft.race.date_status == "official"
+
+
+@pytest.mark.parametrize("coverage_result", ["missing", "empty", "error"])
+def test_official_unknown_coverage_fallback_keeps_first_chip_flow(monkeypatch, coverage_result):
+    def unavailable(*args, **kwargs):
+        if coverage_result == "error":
+            raise RuntimeError("offline coverage unavailable")
+        return {}
+
+    for module, function in [("registration", "registration_coverage"), ("site_policy", "coverage")]:
+        monkeypatch.setitem(sys.modules, "runai.agents." + module,
+                            None if coverage_result == "missing" else
+                            SimpleNamespace(**{function: unavailable}))
+
+    async def discover(query, hints):
+        return [{"id": "official", "name": "Offline Official Half", "distance_km": 21.1,
+                 "race_date": "2027-10-03", "date_status": "official",
+                 "source_urls": ["https://race.example/edition"]},
+                {"id": "unverified", "name": "Offline Unverified Half", "distance_km": 21.1,
+                 "race_date": "2027-10-04", "date_status": "unverified",
+                 "source_urls": ["https://race.example/unverified"]}]
+
+    e = engine(discover)
+    state, turn = run(e.start("a half marathon in Portugal"))
+    assert turn.suggestions[0].value == "official"
+    assert state.candidates[0].preparation.registration == "unknown"
+    assert state.candidates[0].preparation.hotel is None
+    assert state.candidates[0].preparation.transport is None
+    assert "To check: registration, hotel, transport" in turn.message
+    assert not e._default_race(state, state.candidates[0])
+    for _ in range(6):
+        if turn.ready_to_confirm:
+            break
+        state, turn = run(e.step(state, {"suggestion_id": turn.suggestions[0].id}))
+    assert turn.ready_to_confirm and state.draft.race.id == "official"
+    assert state.draft.race.date_status == "official"
+    assert not any(s.kind == "choose_race" and s.value == "unverified"
+                   for s in turn.suggestions)
+
+
+def test_portugal_default_prefers_covered_official_race(monkeypatch):
+    covered_offline(monkeypatch)
+
+    async def discover(query, hints):
+        return [{"id": name, "name": name, "city": "Porto", "country": "Portugal",
+                 "distance_km": 21.1, "race_date": "2027-10-03",
+                 "date_status": status, "source_urls": ["https://race.example/edition"]}
+                for name, status in [("Funchal", "unverified"), ("Gaia", "unverified"),
+                                     ("Porto Half", "official")]]
+
+    e = engine(discover)
+    state, turn = run(e.start("a half marathon in Portugal"))
+    assert turn.suggestions[0].value == "Porto Half"
+    selected = []
+    for _ in range(6):
+        if turn.ready_to_confirm:
+            break
+        selected.append(turn.suggestions[0].value)
+        state, turn = run(e.step(state, {"suggestion_id": turn.suggestions[0].id}))
+    assert turn.ready_to_confirm and state.draft.race.name == "Porto Half"
+    assert "Funchal" not in selected and "Gaia" not in selected
+
+
+@pytest.mark.parametrize("outcome", ["empty", "error", "unverified"])
+def test_recovery_chip_removed_after_two_failures(monkeypatch, outcome):
+    covered_offline(monkeypatch)
+    calls = []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        if outcome == "error":
+            raise RuntimeError("offline")
+        if outcome == "empty":
+            return []
+        return [{"id": "unknown", "name": "Unknown Half", "date_status": "unverified"}]
+
+    e = engine(discover)
+    state, turn = run(e.start("a half marathon in Portugal"))
+    previous = None
+    for _ in range(2):
+        if not any(s.value == "In Switzerland" for s in turn.suggestions):
+            retry = next(s for s in turn.suggestions if s.kind == "retry")
+            state, turn = run(e.step(state, {"suggestion_id": retry.id}))
+        chip = next(s for s in turn.suggestions if s.value == "In Switzerland")
+        state, turn = run(e.step(state, {"suggestion_id": chip.id}))
+        assert turn.error != "unknown_suggestion"
+        signature = (turn.message, tuple(s.value for s in turn.suggestions))
+        assert signature != previous
+        previous = signature
+    assert all(s.value != "In Switzerland" for s in turn.suggestions)
+    assert state.recovery_failures["in switzerland"] == 2
+    assert len({query for query, _ in calls}) >= 3
+
+
+def test_two_failed_recoveries_offer_sourced_preparable_alternative(monkeypatch):
+    covered_offline(monkeypatch)
+
+    async def discover(query, hints):
+        if "preparable alternative" not in query:
+            return []
+        return [{"id": "official", "name": "Offline Official Half", "distance_km": 21.1,
+                 "country": "Portugal", "race_date": "2027-09-12", "date_status": "official",
+                 "source_urls": ["https://race.example/edition"]}]
+
+    e = engine(discover)
+    state, turn = run(e.start("a half marathon in Portugal"))
+    for _ in range(2):
+        chip = next(s for s in turn.suggestions if s.value == "In Switzerland")
+        state, turn = run(e.step(state, {"suggestion_id": chip.id}))
+    assert turn.candidates[0].name == "Offline Official Half"
+    assert turn.suggestions[0].value == "official"
+    assert "all three agents covered" in turn.message
+
+
+def test_unverified_selection_has_only_one_verification_attempt():
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(query)
+        return [{"id": name, "name": name, "date_status": "unverified"}
+                for name in ["Funchal", "Gaia"]]
+
+    e = engine(discover)
+    state, turn = run(e.start("a half marathon in Portugal"))
+    assert turn.suggestions[0].kind != "choose_race"
+    chip = next(s for s in turn.suggestions if s.value == "Funchal")
+    state, turn = run(e.step(state, {"suggestion_id": chip.id}))
+    before = len(calls)
+    state, turn = run(e.step(state, {"text": "what now?"}))
+    assert len(calls) == before
+    assert "cannot be confirmed" in turn.message
+    assert all(s.value != "Gaia" for s in turn.suggestions)
+
+
+def test_same_country_official_precedes_foreign_preparable(monkeypatch):
+    covered_offline(monkeypatch)
+
+    async def discover(query, hints):
+        return [{"id": "foreign", "name": "Geneva Marathon", "country": "Switzerland",
+                 "distance_km": 42.195, "race_date": "2027-05-09", "date_status": "official",
+                 "source_urls": ["https://race.example/foreign"]},
+                {"id": "domestic", "name": "Berlin Marathon", "country": "Germany",
+                 "distance_km": 42.195, "race_date": "2027-09-26", "date_status": "official",
+                 "source_urls": ["https://race.example/domestic"]}]
+
+    e = engine(discover)
+    _state, turn = run(e.start("a marathon in Germany"))
+    assert turn.suggestions[0].value == "domestic"
+    assert turn.candidates[0].country == "Germany"
+
+
+@pytest.mark.parametrize("status", ["sold_out", "closed"])
+def test_domestic_unavailable_race_cannot_displace_foreign_open_default(monkeypatch, status):
+    covered_offline(monkeypatch)
+    monkeypatch.setitem(sys.modules, "runai.agents.registration", SimpleNamespace(
+        registration_coverage=lambda race: status if race["id"] == "domestic" else "covered"))
+
+    async def discover(query, hints):
+        return [{"id": race_id, "name": race_id + " Marathon", "country": country,
+                 "race_date": "2027-09-26", "distance_km": 42.195, "date_status": "official",
+                 "source_urls": ["https://race.example/" + race_id]}
+                for race_id, country in [("domestic", "Germany"), ("foreign", "Switzerland")]]
+
+    state, turn = run(engine(discover).start("a marathon in Germany"))
+    assert state.draft.race is None
+    assert turn.suggestions[0].value == "foreign"
+    assert next(s for s in turn.suggestions if s.value == "domestic").kind == "choose_race"
+
+
+def test_organizer_verification_targets_unverified_domestic_before_foreign_official(monkeypatch):
+    covered_offline(monkeypatch)
+    calls = []
+    berlin = {"id": "berlin", "name": "Berlin Marathon", "country": "Germany",
+              "race_date": "2027-09-26", "distance_km": 42.195, "date_status": "unverified",
+              "source_urls": ["https://directory.example/berlin"]}
+    geneva = dict(berlin, id="geneva", name="Geneva Marathon", country="Switzerland",
+                  date_status="official", source_urls=["https://race.example/geneva"])
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        if hints.get("verification_only"):
+            return [dict(berlin, date_status="official") if hints["race_name"] == "Berlin Marathon" else geneva]
+        return [geneva, berlin]
+
+    state, turn = run(engine(discover).start("a marathon in Germany"))
+    assert calls[1]["race_name"] == "Berlin Marathon" and calls[1]["country"] == "Germany"
+    assert calls[1]["depth"] == "standard"
+    assert next(r for r in state.candidates if r.id == "berlin").date_status == "official"
+    assert turn.suggestions[0].value == "berlin"
+
+
+@pytest.mark.parametrize("country", [None, "", "Unspecified"])
+def test_unknown_country_cannot_suppress_domestic_verification(country):
+    calls = []
+    berlin = {"id": "berlin", "name": "Berlin Marathon", "country": "Germany",
+              "race_date": "2027-09-26", "distance_km": 42.195, "date_status": "unverified",
+              "source_urls": ["https://directory.example/berlin"]}
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        if hints.get("verification_only"):
+            return [dict(berlin, date_status="official")]
+        return [dict(berlin, id="unknown", name="Unknown Marathon", country=country, date_status="official"), berlin]
+
+    e = engine(discover)
+    state, _ = run(e.start("a marathon in Germany"))
+    assert len(calls) == 2 and calls[1]["race_name"] == "Berlin Marathon"
+    assert not e._same_country(state, next(r for r in state.candidates if r.id == "unknown"))
+
+
+@pytest.mark.parametrize("selected", [False, True])
+def test_organizer_domains_do_not_leak_from_berlin_verification_to_swiss_recovery(selected):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        if hints.get("country") == "Switzerland":
+            return []
+        return [{"id": "berlin", "name": "Berlin Marathon", "country": "Germany",
+                 "race_date": "2027-09-26", "distance_km": 42.195, "date_status": "unverified",
+                 "source_urls": ["https://directory.example/berlin"]}]
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon in Germany"))
+    if selected:
+        berlin = next(s for s in turn.suggestions if s.value == "berlin")
+        state, turn = run(e.step(state, {"suggestion_id": berlin.id}))
+    assert any("bmw-berlin-marathon.com" in h.get("official_domains", "") for h in calls)
+    assert "official_domains" not in state.hints and not state.hints.get("verification_only")
+    swiss = next(s for s in turn.suggestions if s.value == "In Switzerland")
+    state, _ = run(e.step(state, {"suggestion_id": swiss.id}))
+    swiss_calls = [h for h in calls if h.get("country") == "Switzerland"]
+    assert swiss_calls and all(not h.get("official_domains") for h in swiss_calls)
+    assert "official_domains" not in state.hints and not state.hints.get("verification_only")
+
+
+@pytest.mark.parametrize("event_type", ["Relay", "Staffetta", "Relais", "Relay 2027", "Staffetta 2027", "Relais 2027"])
+def test_individual_verification_does_not_verify_same_distance_relay(event_type):
+    async def discover(query, hints):
+        return [{"id": "individual", "name": "Wizz Air Milano Marathon", "country": "Italy",
+                 "distance_km": 42.195, "race_date": "2027-04-04", "date_status": "official",
+                 "official_url": "https://www.milanomarathon.it/",
+                 "source_urls": ["https://www.milanomarathon.it/individual"]},
+                {"id": "relay", "name": "Milano Marathon " + event_type, "country": "Italy",
+                 "distance_km": 42.195, "race_date": "2027-04-04", "date_status": "unverified",
+                 "official_url": "https://www.milanomarathon.it/",
+                 "source_urls": ["https://directory.example/relay"]}]
+
+    state, turn = run(engine(discover).start("a marathon in Italy"))
+    assert len(turn.candidates) == 2
+    relay = next(r for r in state.candidates if r.id == "relay")
+    assert relay.date_status == "unverified"
+    assert relay.source_urls == ["https://directory.example/relay"]
+
+
+@pytest.mark.parametrize("alias,canonical,country", [
+    ("BMW Berlin Marathon 2027", "Berlin Marathon", "Germany"),
+    ("2027 GENERALI BERLIN-MARATHON", "Berlin Marathon", "Germany"),
+    ("Berlin Marathon 2027", "Berlin Marathon", "Germany"),
+    ("Wizz Air Milano Marathon 2027", "Milano Marathon", "Italy"),
+    ("2027 Milan Marathon", "Milano Marathon", "Italy"),
+])
+def test_edition_year_sponsor_aliases_share_official_verification(alias, canonical, country):
+    async def discover(query, hints):
+        return [{"id": "alias", "name": alias, "country": country,
+                 "distance_km": 42.195, "race_date": "2027-09-26", "date_status": "unverified",
+                 "source_urls": ["https://directory.example/edition"]},
+                {"id": "official", "name": canonical, "country": country,
+                 "distance_km": 42.195, "race_date": "2027-09-26", "date_status": "official",
+                 "source_urls": ["https://organizer.example/edition"]}]
+
+    state, turn = run(engine(discover).start("a marathon in " + country))
+    assert len(turn.candidates) == 1
+    assert turn.candidates[0].date_status == "official"
+    assert set(turn.candidates[0].source_urls) == {
+        "https://directory.example/edition", "https://organizer.example/edition"}
+    assert len(state.verification_cache) == 1
+
+
+@pytest.mark.parametrize("alias,canonical,country", [
+    ("Berlin Marathon 2028", "Berlin Marathon", "Germany"),
+    ("BMW Berlin Marathon 2028", "Berlin Marathon", "Germany"),
+    ("Wizz Air Milano Marathon 2028", "Milano Marathon", "Italy"),
+])
+@pytest.mark.parametrize("official_first", [False, True])
+def test_contradictory_name_year_cannot_inherit_official_date(alias, canonical, country, official_first):
+    async def discover(query, hints):
+        rows = [{"id": "contradiction", "name": alias, "country": country,
+                 "distance_km": 42.195, "race_date": "2027-09-26", "date_status": "unverified",
+                 "source_urls": ["https://directory.example/edition"]},
+                {"id": "official", "name": canonical, "country": country,
+                 "distance_km": 42.195, "race_date": "2027-09-26", "date_status": "official",
+                 "source_urls": ["https://organizer.example/edition"]}]
+        return list(reversed(rows)) if official_first else rows
+
+    state, turn = run(engine(discover).start("a marathon in " + country))
+    assert len(turn.candidates) == 2
+    contradiction = next(r for r in state.candidates if r.id == "contradiction")
+    assert contradiction.date_status == "unverified"
+    assert contradiction.source_urls == ["https://directory.example/edition"]
+    assert next(r for r in state.candidates if r.id == "official").date_status == "official"
+
+
+@pytest.mark.parametrize("outcome", ["official", "empty", "error", "foreign"])
+def test_selected_unverified_edition_verifies_before_country_fallback(monkeypatch, outcome):
+    covered_offline(monkeypatch)
+    calls = []
+    initial = {"id": "berlin", "name": "Berlin Marathon", "country": "Germany", "city": "Berlin",
+               "distance_km": 42.195, "race_date": "2027-09-26", "date_status": "unverified",
+               "source_urls": ["https://directory.example/berlin"]}
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        if len(calls) <= 2:
+            return [initial.copy()]
+        assert hints["verification_only"] and hints["depth"] == "standard"
+        assert hints["search_timeout_s"] <= guide_engine.FIRST_DISCOVERY_TIMEOUT_S
+        assert "bmw-berlin-marathon.com" in hints["official_domains"]
+        if outcome == "error":
+            raise TimeoutError("offline")
+        if outcome == "empty":
+            return []
+        if outcome == "foreign":
+            return [dict(initial, id="geneva", name="Geneva Marathon", country="Switzerland",
+                         date_status="official")]
+        return [dict(initial, name="GENERALI BERLIN-MARATHON", date_status="official",
+                     source_urls=["https://www.bmw-berlin-marathon.com/en/"])]
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon in Germany"))
+    chip = next(s for s in turn.suggestions if s.value == "berlin")
+    state, turn = run(e.step(state, {"suggestion_id": chip.id}))
+    assert len(calls) == 3
+    assert state.draft.race and state.draft.race.country == "Germany"
+    assert state.draft.race.date_status == ("official" if outcome == "official" else "unverified")
+    assert not turn.ready_to_confirm
+    if outcome != "official":
+        assert turn.suggestions[0].value == "same_country"
+
+
+def test_recovery_prefers_requested_country_after_foreign_chip_failures(monkeypatch):
+    covered_offline(monkeypatch)
+    calls = []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        if "preparable alternative" not in query:
+            return []
+        return [{"id": "geneva", "name": "Geneva Marathon", "country": "Switzerland",
+                 "date_status": "official", "distance_km": 42.195, "race_date": "2027-05-09",
+                 "source_urls": ["https://race.example/geneva"]},
+                {"id": "berlin", "name": "Berlin Marathon", "country": "Germany",
+                 "date_status": "official", "distance_km": 42.195, "race_date": "2027-09-26",
+                 "source_urls": ["https://race.example/berlin"]}]
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon in Germany"))
+    for _ in range(2):
+        chip = next(s for s in turn.suggestions if s.value == "In Switzerland")
+        state, turn = run(e.step(state, {"suggestion_id": chip.id}))
+    assert calls[-1][1]["country"] == "Germany" and "Berlin" in calls[-1][0]
+    assert turn.suggestions[0].value == "berlin"
+    assert all(r.country == "Germany" for r in turn.candidates)
+
+
+@pytest.mark.parametrize("name,country", [("Geneva Marathon", "Switzerland"), ("Rome Marathon", "Italy")])
+def test_verification_of_selected_race_only_offers_different_official_race(name, country):
+    calls = []
+    chosen = {"id": "chosen", "name": "Unlisted Marathon", "country": "Italy", "distance_km": 42.195,
+              "date_status": "unverified", "race_date": "2027-04-11",
+              "source_urls": ["https://directory.example/chosen"]}
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        if hints.get("verification_only"):
+            return [dict(chosen, id="other", name=name, country=country, date_status="official",
+                         source_urls=["https://race.example/official"])]
+        return [chosen.copy()]
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon in Italy"))
+    choice = next(s for s in turn.suggestions if s.value == "chosen")
+    state, turn = run(e.step(state, {"suggestion_id": choice.id}))
+    assert len([h for h in calls if h.get("verification_only")]) == 1
+    assert state.draft.race.id == "chosen" and state.draft.race.date_status == "unverified"
+    assert state.stage == "choose_race" and not turn.ready_to_confirm
+    assert "cannot be confirmed" in turn.message
+    other = next(s for s in turn.suggestions if s.value == "other")
+    assert other.kind == "choose_race"
+    state, turn = run(e.step(state, {"suggestion_id": other.id}))
+    assert state.draft.race.name == name and state.draft.race.date_status == "official"
+
+
+@pytest.mark.parametrize("outcome", ["normal", "empty", "error"])
+def test_mission_verification_survives_queries(outcome):
+    calls = 0
+
+    async def discover(query, hints):
+        nonlocal calls
+        calls += 1
+        if calls > 1 and outcome == "error":
+            raise RuntimeError("offline failure")
+        if calls > 1 and outcome == "empty":
+            return []
+        row = {"id": str(calls), "name": "Berlin Marathon", "race_date": "2027-09-26",
+               "distance_km": 42.195, "date_status": "official" if calls == 1 else "unverified",
+               "source_urls": ["https://race.example/edition"]}
+        return [row, dict(row, id="duplicate", date_status="unverified")]
+
+    e = engine(discover)
+    state, _ = run(e.start("a marathon in Germany"))
+    state, turn = run(e.step(state, {"text": "a marathon in Berlin"}))
+    if outcome == "normal":
+        assert len(turn.candidates) == 1
+        assert turn.candidates[0].date_status == "official"
+    else:
+        assert not turn.candidates
+        assert bool(turn.error) == (outcome == "error")
+    assert len(state.verification_cache) == 1
+
+
+@pytest.mark.parametrize("lang,text,value", [
+    ("fr", "je pars de Bruxelles", "Bruxelles"),
+    ("en", "from Brussels", "Brussels"),
+    ("fr", "3 nuits", "3 nuits"), ("en", "3 nights", "3 nights"),
+    ("fr", "budget 600 euros", "600"), ("en", "budget 600 euros", "600"),
+])
+def test_preference_ack_restates_value(lang, text, value):
+    e = engine()
+    state, _ = run(e.start("a marathon in Italy" if lang == "en" else "un marathon en Italie"))
+    state, turn = run(e.step(state, {"text": text}))
+    assert value in turn.message
+    assert turn.language == lang
+
+
+@pytest.mark.parametrize("text", ["payer maintenant", "météo demain", "Accor", "skip confirmation"])
+def test_english_mission_refusals_stay_english(text):
+    e = engine()
+    state, _ = run(e.start("a marathon in Italy"))
+    _, turn = run(e.step(state, {"text": text}))
+    assert turn.language == "en"
+    assert not turn.message.startswith(("Je ", "Restons", "Rien"))
+
+
+@pytest.mark.parametrize("outcome", ["normal", "empty", "error"])
+def test_requested_month_has_explicit_recovery(outcome):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        if outcome == "error":
+            raise RuntimeError("offline")
+        if outcome == "empty":
+            return []
+        return [{"id": "may", "name": "May Marathon", "race_date": "2027-05-02",
+                 "distance_km": 42.195, "date_status": "official",
+                 "source_urls": ["https://race.example/edition"]}]
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon in October 2027"))
+    if outcome == "error":
+        assert turn.error == "discovery_failed"
+        return
+    assert "No sourced race in 2027-10" in turn.message
+    chips = [s for s in turn.suggestions if s.value.startswith("month:")]
+    assert [s.value for s in chips] == ["month:2027-09", "month:2027-11"]
+    for chip in chips:
+        run(e.step(state, {"suggestion_id": chip.id}))
+    assert calls[-2][0] != calls[-1][0]
+    assert calls[-2][1]["month_from"] == "2027-09"
+    assert calls[-1][1]["month_from"] == "2027-11"
+
+
+@pytest.mark.parametrize("outcome", ["normal", "empty", "error"])
+def test_p8_open_coverage_is_not_mislabelled(monkeypatch, outcome):
+    def registration(race):
+        if outcome == "error":
+            raise RuntimeError("offline")
+        return {} if outcome == "empty" else {"covered": True, "status": "open"}
+
+    monkeypatch.setitem(sys.modules, "runai.agents.registration",
+                        SimpleNamespace(registration_coverage=registration))
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy",
+                        SimpleNamespace(coverage=lambda *a, **kw: {"covered": False}))
+    e = engine(preparation_discovery)
+    state, _ = run(e.start("a half marathon"))
+    message = e._preparation_message(state, state.candidates[0])
+    assert "Not covered: hotel, transport." in message
+    if outcome == "normal":
+        assert "I can prepare registration" in message
+    else:
+        assert "To check: registration" in message
+
+
+@pytest.mark.parametrize("lang", ["fr", "en"])
+@pytest.mark.parametrize("verdict", ["prohibited", "uncovered"])
+def test_p9_negative_verdict_survives_unknown_availability(monkeypatch, lang, verdict):
+    def registration(race):
+        if race["id"] == "blocked":
+            return {"covered": False, "status": "unknown", "registration": verdict,
+                    "prohibited": verdict == "prohibited", "preparable_open": False}
+        return {"covered": True, "status": "open", "registration": "covered", "preparable_open": True}
+
+    async def discover(query, hints):
+        return [{"id": race_id, "name": race_id + " Marathon", "distance_km": 42.195,
+                 "race_date": "2027-04-11", "date_status": "official",
+                 "source_urls": ["https://race.example/" + race_id]}
+                for race_id in ["blocked", "open"]]
+
+    monkeypatch.setitem(sys.modules, "runai.agents.registration",
+                        SimpleNamespace(registration_coverage=registration))
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy",
+                        SimpleNamespace(coverage=lambda *args, **kwargs: {"covered": True}))
+    e = engine(discover)
+    state, turn = run(e.start("un marathon" if lang == "fr" else "I'd love to run a marathon"))
+    blocked = next(r for r in state.candidates if r.id == "blocked")
+    assert blocked.preparation.registration == verdict
+    assert not e._default_race(state, blocked)
+    assert turn.suggestions[0].value == "open"
+    message = e._preparation_message(state, blocked)
+    assert ("Non couverts : l'inscription" if lang == "fr" else "Not covered: registration") in message
+    assert ("À vérifier" if lang == "fr" else "To check") not in message
+    chip = next(s for s in turn.suggestions if s.value == "blocked")
+    assert (e._say(state, "préparation interdite", "preparation prohibited") if verdict == "prohibited"
+            else e._say(state, "inscription non couverte", "registration not covered")) in chip.label
 
 
 def test_delegated_empty_named_search_escalates_instead_of_repeating():
@@ -1175,7 +1827,7 @@ def test_optional_alternative_lookup_preserves_initial_results(secondary):
             return [{"id": "official", "name": "Other Marathon", "distance_km": 42.195,
                      "race_date": "2027-04-10", "date_status": "official",
                      "source_urls": ["https://race.example/official"]}]
-        return [{"id": "initial", "name": "Milan Marathon", "distance_km": 42.195,
+        return [{"id": "initial", "name": "Unlisted Marathon", "distance_km": 42.195,
                  "race_date": "2027-04-11", "date_status": "unverified",
                  "source_urls": ["https://race.example/initial"]}]
 
@@ -1223,7 +1875,7 @@ def invariant(turn):
     assert (turn.message + (turn.question or "")).count("?") <= 1
     assert turn.question or not turn.suggestions
     assert len({s.kind for s in turn.suggestions}) == 1 or {s.kind for s in turn.suggestions} <= {
-        "answer", "distance", "choose_race"
+        "answer", "distance", "choose_race", "retry"
     } or all(
         s.kind in {"confirm", "edit", "choose_race", "retry"} for s in turn.suggestions
     )
@@ -1372,7 +2024,7 @@ def test_blocked_dates_and_invalid_candidates(status, race_date):
     state, turn = run(e.start("a marathon"))
     assert len(turn.candidates) == 1
     state, turn = click(e, state, turn)
-    assert not turn.ready_to_confirm and any(s.kind == "retry" for s in turn.suggestions)
+    assert not turn.ready_to_confirm and any(s.kind in {"answer", "retry"} for s in turn.suggestions)
     assert not any(s.kind == "confirm" for s in turn.suggestions)
     invariant(turn)
     with pytest.raises(ValueError):
@@ -1403,6 +2055,7 @@ def test_official_date_edit_and_yes_confirmation():
                 "id": "paris",
                 "name": "Example race",
                 "city": "Paris",
+                "country": "France",
                 "distance_km": 42.195,
                 "race_date": "2027-04-01",
                 "date_status": "official",

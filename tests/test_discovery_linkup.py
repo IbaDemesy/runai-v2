@@ -9,6 +9,7 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
+import runai.guide.engine as guide_engine
 from runai.discovery import (
     DiscoveryError,
     DiscoveryProviderError,
@@ -18,6 +19,7 @@ from runai.discovery import (
     discover,
     linkup,
 )
+from runai.guide.engine import GuideEngine
 from runai.guide.types import RaceOption, RegistrationAccess
 
 KEY = "offline-test-secret-never-echo"
@@ -121,6 +123,34 @@ def test_named_query_enrichment_survives_app_hint_mapping():
                 "named": True, "race_name": "Milan Marathon", "city": "Milan",
                 "country": "Italy", "distance": "marathon", "year": 2027,
             }), api_key=KEY, client=client) == []
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("outcome", ["normal", "empty", "error"])
+def test_country_autumn_seeds_are_only_query_hints(outcome):
+    async def run():
+        def handler(request):
+            prompt = json.loads(request.content)["q"]
+            for name in ("Berlin Marathon", "Frankfurt Marathon", "Cologne Marathon",
+                         "Munich Marathon", "Hamburg Marathon"):
+                assert name in prompt
+            assert "2027-09" in prompt and "2027-11" in prompt
+            assert "Names are search hints only" in prompt
+            if outcome == "error":
+                return httpx.Response(400)
+            return httpx.Response(200, json={"candidates": [] if outcome == "empty" else [race()]})
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            kwargs = {"api_key": KEY, "client": client, "hints": {
+                "country": "Germany", "distance": "marathon", "month_from": "2027-09",
+                "month_to": "2027-11", "year": 2027}}
+            if outcome == "error":
+                with pytest.raises(DiscoveryProviderError):
+                    await discover("big marathon in Germany next autumn", **kwargs)
+            else:
+                result = await discover("big marathon in Germany next autumn", **kwargs)
+                assert [r["name"] for r in result] == ([] if outcome == "empty" else ["Example Marathon"])
 
     asyncio.run(run())
 
@@ -683,6 +713,150 @@ def test_per_call_wall_timeout_retries_once_and_closes_requests():
     asyncio.run(run())
     assert calls == finished == 4
     assert not linkup._cache
+
+
+@pytest.mark.parametrize("outcome", ["partial", "empty", "error"])
+def test_total_search_budget_returns_completed_results_and_cancels_pending(outcome):
+    calls, cancelled = [], []
+
+    async def handler(request):
+        calls.append(json.loads(request.content))
+        if len(calls) == 1:
+            if outcome == "error":
+                return httpx.Response(400)
+            return httpx.Response(200, json={"candidates": [race()] if outcome == "partial" else []})
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.append(True)
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            began = asyncio.get_running_loop().time()
+            if outcome == "partial":
+                rows = await discover("bounded", {"search_timeout_s": 0.02}, api_key=KEY, client=client)
+                assert len(rows) == 1 and rows[0]["date_status"] == "official"
+                assert rows[0]["source_urls"] and not rows[0]["synthetic"]
+            else:
+                with pytest.raises(DiscoveryTimeout):
+                    await discover("bounded", {"search_timeout_s": 0.02}, api_key=KEY, client=client)
+            assert asyncio.get_running_loop().time() - began < 0.5
+            assert not client.is_closed
+            assert cancelled and len(calls) == 2
+            assert all(payload["depth"] == "standard" for payload in calls)
+            assert not linkup._cache
+
+    asyncio.run(asyncio.wait_for(run(), timeout=0.5))
+
+
+def test_berlin_first_reply_keeps_linkup_partial_within_guide_cap(monkeypatch):
+    monkeypatch.setattr(guide_engine, "FIRST_DISCOVERY_TIMEOUT_S", 0.08)
+    calls = []
+
+    async def handler(request):
+        calls.append(json.loads(request.content))
+        if len(calls) > 1:
+            await asyncio.Event().wait()
+        return httpx.Response(200, json={"candidates": [race(
+            name="Berlin Marathon", city="Berlin", country="Germany")]})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            async def discovery(query, hints):
+                return await discover(query, hints, api_key=KEY, client=client, timeout_s=120)
+
+            began = asyncio.get_running_loop().time()
+            _, turn = await GuideEngine(discovery).start("Berlin marathon")
+            assert asyncio.get_running_loop().time() - began < 0.5
+            assert len(calls) == 2 and all(p["depth"] == "standard" for p in calls)
+            assert turn.error is None and len(turn.candidates) == 1
+            assert turn.candidates[0].name == "Berlin Marathon"
+            assert turn.candidates[0].date_status == "official"
+            assert turn.candidates[0].source_urls
+
+    asyncio.run(asyncio.wait_for(run(), timeout=0.5))
+
+
+def test_optional_registration_lookup_cannot_discard_partial_on_budget_expiry():
+    cancelled = []
+
+    async def registration_info(url):
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.append(True)
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(
+            lambda _: httpx.Response(200, json={"candidates": [race()]})
+        )) as client:
+            rows = await discover("bounded metadata", {"search_timeout_s": 0.02},
+                                  api_key=KEY, client=client, registration_info=registration_info)
+            assert len(rows) == 1 and rows[0]["date_status"] == "official"
+            assert rows[0]["registration_access"] is None and cancelled
+
+    asyncio.run(asyncio.wait_for(run(), timeout=0.5))
+
+
+@pytest.mark.parametrize("city,name,sponsor,domain,day", [
+    ("Berlin", "Berlin Marathon", "GENERALI BERLIN-MARATHON", "bmw-berlin-marathon.com", "09-26"),
+    ("Milan", "Milano Marathon", "Wizz Air Milano Marathon", "milanomarathon.it", "04-04"),
+])
+@pytest.mark.parametrize("outcome", ["official", "empty", "error", "undated", "conflicting"])
+def test_run1_third_party_dates_get_one_targeted_official_lookup(city, name, sponsor, domain, day, outcome):
+    calls = []
+    year = datetime.now(UTC).year + 1
+    iso = f"{year}-{day}"
+    country = "Germany" if city == "Berlin" else "Italy"
+
+    async def discovery(query, hints):
+        calls.append((query, hints.copy()))
+        url = f"https://www.{domain}/en/"
+        if hints.get("verification_only"):
+            assert hints["depth"] == "standard" and domain in hints["official_domains"]
+            assert hints["year"] == year and hints["country"] == country
+            if outcome == "empty":
+                return []
+            if outcome == "error":
+                raise DiscoveryTimeout("offline")
+            sources = [{"url": url, "race_date": None if outcome == "undated" else iso}]
+            if outcome == "conflicting":
+                sources.append({"url": url + "announcement", "race_date": f"{year}-{day[:-2]}25"})
+            row = race(name=sponsor, city=city, country=country, edition=str(year),
+                       official_url=url, sources=sources)
+        else:
+            row = race(name=name, city=city, country=country, edition=str(year),
+                       official_url=url, sources=[{"url": f"https://directory.example/{city}", "race_date": iso}])
+        return linkup._normalize(linkup._rows({"candidates": [row]}), datetime.now(UTC).date(),
+                                 datetime.now(UTC).isoformat().replace("+00:00", "Z"))
+
+    async def run():
+        engine = GuideEngine(discovery)
+        state, turn = await engine.start(f"the {name}")
+        assert len(calls) == 2
+        if outcome == "official":
+            assert len(turn.candidates) == 1 and turn.candidates[0].date_status == "official"
+            assert turn.candidates[0].race_date.isoformat() == iso
+            assert any(domain in source for source in turn.candidates[0].source_urls)
+            for _ in range(5):
+                if turn.ready_to_confirm:
+                    break
+                state, turn = await engine.step(state, {"suggestion_id": turn.suggestions[0].id})
+            assert turn.ready_to_confirm and state.draft.race.country == country
+        else:
+            assert not turn.ready_to_confirm
+            assert all(r.date_status != "official" for r in turn.candidates)
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("domain", ["bmw-berlin-marathon.com", "berlin-marathon.com", "milanomarathon.it"])
+def test_official_host_gate_accepts_actual_dated_host_not_a_domain_hint(domain):
+    url = f"https://www.{domain}/edition"
+    row = race(official_url=url, sources=[{"url": "https://directory.example/edition", "race_date": DAY}])
+    assert search([row])[0]["date_status"] == "unverified"
+    row["sources"].append({"url": url, "race_date": DAY})
+    assert search([row])[0]["date_status"] == "official"
 
 
 @pytest.mark.parametrize("failure", ["timeout", "connection", "429", "500", "503"])
