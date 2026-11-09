@@ -183,6 +183,32 @@ Not ≥8: polish is real, but most live journeys still end in grey
 | Guardrails (0 violations) | 10 | 10 |
 | UI design (7.5/10) | 20 | 15 |
 
+## Per-agent acceptance evidence
+
+Computed from each mission's event timestamps (`step_started` → first
+`live_frame` = queue/startup; max gap = longest interval between consecutive
+start/frame/finish events). Checkpoint = final `StepResult.status`/`reason_code`.
+The Portugal (Funchal/Gaia) variant never reached confirmation, so it has no agent rows.
+
+| Case | Agent | Queue → first frame | Max frame gap | Frames | Duration | Checkpoint status |
+|---|---|---|---|---|---|---|
+| Milan | registration | 10 s | 38 s | 12 | 131 s | `ready_for_payment` (verified) |
+| Milan | hotel | 13 s | 280 s | 13 | 352 s | `blocked` / `provider_error` |
+| Milan | transport | — (never opened) | — | 0 | 15 s | `blocked` / `provider_error` |
+| Swiss trail | registration | 11 s | 276 s | 8 | 618 s | `failed` / `timeout` |
+| Swiss trail | hotel | 11 s | 306 s | 4 | 333 s | `blocked` / `date_mismatch` |
+| Swiss trail | transport | — (never opened) | — | 0 | 16 s | `blocked` / `provider_error` |
+| Lisbon half | registration | 13 s | 76 s | 1 | 89 s | `failed` / `unsafe_claim` |
+| Lisbon half | hotel | 12 s | 328 s | 10 | 399 s | `blocked` / `provider_error` |
+| Lisbon half | transport | — (never opened) | — | 0 | 16 s | `blocked` / `provider_error` |
+| Berlin | registration | — (no H session) | — | 0 | 0 s | `blocked` / `policy_denied` |
+| Berlin | hotel | 12 s | 12 s | 8 | 70 s | `blocked` / `provider_error` |
+| Berlin | transport | — (no H session) | — | 0 | 0 s | `blocked` / `no_site_coverage` |
+
+No agent waited in the H queue beyond ~13 s (well under the 8-minute cap). Frame
+gaps of 4–5 minutes on hotel/registration mean the live view looks frozen for long
+stretches (P1).
+
 ## Method notes
 
 Cases ran sequentially (one mission at a time). Mission ids were read
