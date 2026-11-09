@@ -61,15 +61,17 @@ _cache: OrderedDict[str, tuple[float, list[dict]]] = OrderedDict()
 def official_search_hint(name: str, distance: float | None = None) -> dict:
     if distance is not None and not 42 <= distance <= 42.3:
         return {}
-    words = set(_slug(name).split("-"))
+    name = re.sub(r"\b\d{4}\b", "", name).strip()
+    slug = _slug(name)
+    words = set(slug.split("-"))
     if "marathon" not in words or words & {"half", "semi"}:
         return {}
     if "berlin" in words:
-        canonical = _slug(name) in {"berlin-marathon", "bmw-berlin-marathon", "generali-berlin-marathon"}
+        canonical = slug in {"berlin-marathon", "bmw-berlin-marathon", "generali-berlin-marathon"}
         return {"race_name": "Berlin Marathon" if canonical else name, "country": "Germany",
                 "official_domains": "bmw-berlin-marathon.com berlin-marathon.com generali-berlin-marathon.com"}
     if words & {"milan", "milano"}:
-        canonical = _slug(name) in {"milan-marathon", "milano-marathon", "wizz-air-milano-marathon"}
+        canonical = slug in {"milan-marathon", "milano-marathon", "wizz-air-milano-marathon"}
         return {"race_name": "Milano Marathon" if canonical else name, "country": "Italy",
                 "official_domains": "milanomarathon.it"}
     for country, seeds in RACE_SEARCH_SEEDS.items():

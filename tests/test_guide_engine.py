@@ -1199,7 +1199,7 @@ def test_organizer_domains_do_not_leak_from_berlin_verification_to_swiss_recover
     assert "official_domains" not in state.hints and not state.hints.get("verification_only")
 
 
-@pytest.mark.parametrize("event_type", ["Relay", "Staffetta", "Relais"])
+@pytest.mark.parametrize("event_type", ["Relay", "Staffetta", "Relais", "Relay 2027", "Staffetta 2027", "Relais 2027"])
 def test_individual_verification_does_not_verify_same_distance_relay(event_type):
     async def discover(query, hints):
         return [{"id": "individual", "name": "Wizz Air Milano Marathon", "country": "Italy",
@@ -1216,6 +1216,30 @@ def test_individual_verification_does_not_verify_same_distance_relay(event_type)
     relay = next(r for r in state.candidates if r.id == "relay")
     assert relay.date_status == "unverified"
     assert relay.source_urls == ["https://directory.example/relay"]
+
+
+@pytest.mark.parametrize("alias,canonical,country", [
+    ("BMW Berlin Marathon 2027", "Berlin Marathon", "Germany"),
+    ("2027 GENERALI BERLIN-MARATHON", "Berlin Marathon", "Germany"),
+    ("Berlin Marathon 2027", "Berlin Marathon", "Germany"),
+    ("Wizz Air Milano Marathon 2027", "Milano Marathon", "Italy"),
+    ("2027 Milan Marathon", "Milano Marathon", "Italy"),
+])
+def test_edition_year_sponsor_aliases_share_official_verification(alias, canonical, country):
+    async def discover(query, hints):
+        return [{"id": "alias", "name": alias, "country": country,
+                 "distance_km": 42.195, "race_date": "2027-09-26", "date_status": "unverified",
+                 "source_urls": ["https://directory.example/edition"]},
+                {"id": "official", "name": canonical, "country": country,
+                 "distance_km": 42.195, "race_date": "2027-09-26", "date_status": "official",
+                 "source_urls": ["https://organizer.example/edition"]}]
+
+    state, turn = run(engine(discover).start("a marathon in " + country))
+    assert len(turn.candidates) == 1
+    assert turn.candidates[0].date_status == "official"
+    assert set(turn.candidates[0].source_urls) == {
+        "https://directory.example/edition", "https://organizer.example/edition"}
+    assert len(state.verification_cache) == 1
 
 
 @pytest.mark.parametrize("outcome", ["official", "empty", "error", "foreign"])
