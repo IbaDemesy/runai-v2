@@ -337,6 +337,14 @@ _FIRST_PERSON_CLAIM = re.compile(
 )
 
 
+def _boundary_admission(text: str) -> bool:
+    return any(
+        not re.search(r"\b(?:before|prior to|until|without|not|never|no|avant|sans|pas|jamais)\b"
+                      r"|n't\b", text[:match.start()], re.IGNORECASE)
+        for match in _FIRST_PERSON_CLAIM.finditer(text)
+    )
+
+
 def _payment_claim(value: object) -> bool:
     if isinstance(value, dict):
         if any(value.get(key) is True for key in (
@@ -345,7 +353,7 @@ def _payment_claim(value: object) -> bool:
         )):
             return True
         return any(
-            bool(_FIRST_PERSON_CLAIM.search(str(item))) if key == "next_safe_boundary"
+            _boundary_admission(str(item)) if key == "next_safe_boundary"
             else _payment_claim(item)
             for key, item in value.items() if key != "stop_before"
         )
