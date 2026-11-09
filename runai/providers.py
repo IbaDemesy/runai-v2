@@ -165,7 +165,8 @@ class LiveRunner:
                 reason = block.get("reason_code")
                 handoff = scrub_url(block.get("handoff_url"))
                 try:
-                    if not _reviewed(handoff, _policy(task)):
+                    policy_task = {**task, "start_url": task.get("start_url") or handoff}
+                    if not _reviewed(handoff, _policy(policy_task)):
                         handoff = None
                 except Exception:  # noqa: BLE001 — policy failures close the handoff
                     handoff = None

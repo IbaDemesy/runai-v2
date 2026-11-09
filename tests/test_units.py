@@ -55,7 +55,8 @@ def test_public_itinerary_sanitizer_exemptions_remain_narrow(url):
 
 
 @pytest.mark.parametrize("reason,expected", [
-    ("not_yet_bookable", "not_yet_bookable"), ("unknown", "no_site_coverage"),
+    ("not_yet_bookable", "not_yet_bookable"), ("no_inventory", "no_inventory"),
+    ("unknown", "no_site_coverage"),
     (None, "no_site_coverage"),
 ])
 @pytest.mark.parametrize("handoff,allowed,expected_url", [
@@ -66,7 +67,8 @@ def test_public_itinerary_sanitizer_exemptions_remain_narrow(url):
     ("https://other.org/results", True, None),
     ("http://example.org/results", True, None), (None, True, None),
 ])
-def test_preflight_block_never_launches_h(monkeypatch, reason, expected,
+@pytest.mark.parametrize("has_start", [True, False])
+def test_preflight_block_never_launches_h(monkeypatch, reason, expected, has_start,
                                         handoff, allowed, expected_url):
     import runai.agents.hotel as builder
     from runai.agents import hclient
@@ -82,7 +84,7 @@ def test_preflight_block_never_launches_h(monkeypatch, reason, expected,
         **{**kwargs, "transport": httpx.MockTransport(transport)},
     ))
     monkeypatch.setattr(builder, "build_task", lambda trip: {
-        "kind": "hotel", "start_url": "https://example.org/",
+        "kind": "hotel", **({"start_url": "https://example.org/"} if has_start else {}),
         "preflight_block": {"reason_code": reason, "summary": "Réservation pas encore ouverte.",
                             "handoff_url": handoff},
     })
