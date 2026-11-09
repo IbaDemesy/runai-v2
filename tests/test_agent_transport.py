@@ -25,7 +25,7 @@ ROUTE_MATRIX = [
     ("Lyon", "Milan", "IT", "sbb-ch", None, None),
     ("Geneva", "Milan", "IT", "sbb-ch", None, None),
     ("Paris", "Amsterdam", "NL", "ns-international", None, None),
-    ("Geneva", "Zurich", "CH", "ns-international", "sbb-ch", None),
+    ("Geneva", "Zurich", "CH", "sbb-ch", "ns-international", None),
     *[("Paris", city, country, None, None, None) for city, country in [
         ("Lisbon", "PT"), ("Zurich", "CH"), ("Barcelona", "ES"), ("Madrid", "ES"),
         ("Valencia", "ES"), ("Seville", "ES"), ("Rome", "IT"), ("Den Haag", "NL"),
@@ -40,6 +40,8 @@ ROUTE_MATRIX = [
 
 def synthetic_gateway_registry():
     reg = json.loads(site_policy.REGISTRY_PATH.read_text())
+    fragment = site_policy.REGISTRY_PATH.parent / "site-policy.d" / "transport.json"
+    reg["entries"].extend(json.loads(fragment.read_text())["entries"])
     for item in reg["entries"]:
         if item["id"] == "ns-international":
             for adapter in item["adapters"]:
@@ -482,6 +484,17 @@ def test_transport_checkpoint_guesses_exclude_results_and_benign_party_queries(p
             assert hclient._checkpoint_matches(compiled, "beyond_patterns", url)
             assert not hclient._checkpoint_matches(compiled, "url_patterns", url)
     if policy == "sbb-ch":
+        for adapter in item["adapters"]:
+            boundary = hclient._checkpoint({"checkpoint": adapter["checkpoint"]})
+            for path in ("/customer/en/alw/onboarding",
+                         "/customer/en/alw/onboarding?su=redacted&cu=redacted"):
+                url = "https://shop.sbb.ch" + path
+                assert hclient._checkpoint_matches(boundary, "beyond_patterns", url)
+                assert not hclient._checkpoint_matches(boundary, "url_patterns", url)
+            for path in ("/customer/en/alw/onboarding-offers", "/en?guests=1&pax=A"):
+                assert not hclient._checkpoint_matches(
+                    boundary, "beyond_patterns", "https://shop.sbb.ch" + path,
+                )
         assert hclient._checkpoint_matches(
             compiled, "url_patterns",
             "https://www.sbb.ch/en/offer?stops=public-stations&trip=synthetic&retTrip=synthetic",

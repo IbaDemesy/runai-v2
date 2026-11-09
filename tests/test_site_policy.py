@@ -918,3 +918,15 @@ def test_expired_verified_primary_cannot_promote_unverified_fallback():
     with pytest.raises(ValueError, match="no policy-reviewed"):
         site_policy.select_adapters("transport", {**EXPECTED, "country": "IT"},
                                     origin_country="FR", today=TODAY, registry=reg)
+
+
+def test_sbb_same_operator_shop_review_is_exact_host_and_still_expires():
+    url = "https://shop.sbb.ch/customer/en/alw/onboarding?su=redacted&cu=redacted"
+    decision = evaluate_url(url, "transport", today=TODAY)
+    assert decision["allowed"] and decision["policy_id"] == "sbb-ch"
+    assert set(decision["allowed_hosts"]) == {"sbb.ch", "www.sbb.ch", "shop.sbb.ch"}
+    assert not evaluate_url("https://other.sbb.ch/en/offer", "transport", today=TODAY)["allowed"]
+    assert not evaluate_url("https://shop.sbb.ch.other.example/en/offer", "transport",
+                            today=TODAY)["allowed"]
+    assert not evaluate_url(url, "hotel", today=TODAY)["allowed"]
+    assert not evaluate_url(url, "transport", today=date(2027, 2, 7))["allowed"]

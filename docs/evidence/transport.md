@@ -1,3 +1,85 @@
+# R6-02 step 6 SBB-primary / reviewed shop smokes — 2026-11-09
+
+Only shop.sbb.ch was added as an explicitly owner-reviewed same-operator SBB
+host; restrictions/expiry unchanged. NS moved unchanged behind SBB into the
+transport fragment. Geneva–Zurich is SBB primary, NS P7 alternative through
+registry order, not a selection-code special case. Earlier runs below remain
+historical evidence; no core runtime files were edited.
+
+Real pipeline on the post-step-5 rebased runtime: trip → transport.build_task →
+hclient._policy → unmodified HAgentRunner.run/task, max_steps 60, 2027-01-09 to
+2027-01-11, one adult, EUR800. Four creations, including one automatic fallback,
+quota available>0 immediately before each; HTTP204 cleanup before next creation.
+
+| Route | Provider / frames | Final pipeline status / reason | Honest last visible stop state | Checkpoint / beyond matched during smoke |
+|---|---|---|---|---|
+| Geneva–Zurich | SBB 13; NS not attempted | blocked / date_mismatch | /en/offer, round-trip heading Jan 9/11, one full-price adult, 2nd class, outbound supersaver CHF54.40, 08:05–10:56. **Select return ticket** still visible; no selected-return fare/full-trip total established. | Yes / No |
+| Paris–Milan | SBB 36; Vueling fallback 0 | blocked / provider_error | Shop onboarding visibly **SwissPass login / Purchase as a guest**, with login and guest-choice controls. No distinct shop fare summary or selected round trip; fallback had no frames/observed URL. | No / No |
+| Lyon–Milan | SBB 47; no fallback | blocked / date_mismatch | Full-fare outbound Frecciarossa 09:31–14:11 preview, from CHF73; **Select tickets** visible. No return selection/round-trip total. | No / No |
+
+Status/reason are actual runner outputs, not relabelled visual interpretations.
+Geneva's heading visibly has the requested dates; date_mismatch does **not**
+establish a visibly incorrect date there. Checkpoint match is not READY: return
+fare was still pending. No run establishes completed round-trip preparation.
+
+Scrubbed observed path/query sequences; `same` carries preceding public state,
+all unlisted query values removed rather than inferred:
+
+```text
+Geneva–Zurich (www.sbb.ch):
+/en?stops=Genève_I8501008~Zürich+HB_I8503000&day=2027-01-09&time=08_00&moment=dep
+→ same + reduction=[redacted]
+→ same + retDay=[redacted]&retMoment=[redacted]&retTime=[redacted]
+→ same + trip=[redacted]
+→ /en/plan/return (reversed stops, day=2027-01-09, time=08_05, preceding opaque keys)
+→ same + retTrip=[redacted]
+→ /en/offer (original stops, day=2027-01-09, time=08_05, preceding opaque keys)
+
+Paris–Milan (www.sbb.ch unless noted):
+/en?stops=Paris+Gare+de+Lyon_I8768600~Milano+Centrale_I8301700&day=2027-01-09&time=08_00&moment=dep
+→ same + reduction=[redacted]
+→ same + day2=[redacted]&time2=[redacted]&moment2=[redacted]
+→ /en
+→ /en (original stops, day=2026-11-09, time=07_05, moment=dep)
+→ same with day=2027-01-09
+→ same + reduction=[redacted]
+→ same + trip=[redacted]
+→ shop.sbb.ch/customer/en/alw/onboarding?su=[redacted]&cu=[redacted]
+
+Lyon–Milan (www.sbb.ch):
+/en?stops=Lyon+Part+Dieu_I8772319~Milano+Centrale_I8301700&day=2027-01-09&time=08_00&moment=dep
+→ same + reduction=[redacted]
+→ same with stops reversed
+→ original stop order restored
+→ /en
+→ /en (original stops, day=2026-11-09, time=07_10, moment=dep)
+→ same with day=2027-01-09
+→ same + reduction=[redacted]
+→ same + return=[redacted]
+→ /en
+→ /en (original stops, day=2026-11-09, time=07_11, moment=dep)
+→ same with day=2027-01-09
+→ same + reduction=[redacted]
+→ same + trip=[redacted]
+```
+
+Paris/Lyon temporarily reset to today's date before restoring Jan 9; Lyon also
+temporarily reversed the route. Neither is accepted as requested-date/route
+preparation. The observer retained frames/locations, not a full action audit;
+instructions forbid forms, personal data, consent acceptance, booking/payment,
+but retained evidence does not independently certify every runtime action.
+
+No new shop fare-summary path, so /en/offer remains unchanged; the conditional
+offer-path rerun was not triggered. After classifying Paris's frame, exact
+`^/customer/en/alw/onboarding(?:[?;]|$)` became a SBB beyond boundary, not a
+checkpoint. This hardening is offline-tested only, not live-rerun; the table
+truthfully records the old pattern's non-match. No additional run forced success.
+
+All four creations received HTTP204 cleanup. Final organization quota:
+`limit=3, active=1, available=2` (organization-wide; ownership of the remaining
+active session is unknown). No claim of organization-wide active=0. Frames and
+scrubbed harness artifacts remain outside the repository; no private IDs/URLs.
+
 # R6-02 step 5 real-pipeline checkpoint smokes — 2026-11-09
 
 Each route used the real `trip -> transport.build_task -> hclient._policy ->

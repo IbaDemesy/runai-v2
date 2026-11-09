@@ -1,3 +1,31 @@
+# R6-02 step 6 same-operator SBB ticket-shop review — 2026-11-09
+
+Owner explicitly confirmed shop.sbb.ch is SBB's own ticket shop under the same
+operator/legal terms already reviewed for sbb-ch. Added **only shop.sbb.ch** to
+that entry's reviewed scopes and navigation hosts. Existing allowed_owner_rule,
+in_session_only screenshots and expiry 2027-02-07 remain unchanged. This is not
+permission for accounts, consent acceptance, personal data, submissions,
+bookings or payments, and does not grant any other subdomain/host.
+
+Step 5 Paris–Milan and Lyon–Milan ticket selection observed only
+`shop.sbb.ch/customer/en/alw/onboarding?su=[redacted]&cu=[redacted]` before the
+then-unreviewed-host gate blocked it. Opaque values are not retained here.
+No distinct shop offer/fare-summary path was observed, so onboarding is **not**
+a checkpoint; /en/offer remains the SBB checkpoint pending new live evidence.
+Path-based passenger/login/payment boundaries remain in force on the shop.
+
+Step 6 Paris–Milan then visually identified this onboarding page as **SwissPass
+login / Purchase as a guest**, not a fare summary. No subsequent login or
+passenger-detail URL was observed. Added exact
+`^/customer/en/alw/onboarding(?:[?;]|$)` to every SBB beyond_patterns after the
+smokes. This new guard is offline-tested, not live-rerun. /en/offer is unchanged;
+no shop path has been promoted to a fare checkpoint.
+
+The NS entry moved unchanged from the base registry to the transport fragment
+after SBB, so verified domestic SBB precedes NS via registry order, not a
+provider-specific selection-code exception. Paris–Amsterdam remains NS-only.
+No render dates were broadened and no unknown/expired/prohibited policy relaxed.
+
 # R6-02 transport render evidence gate — 2026-11-09
 
 SBB's existing `sbb-ch` entry is now in `docs/site-policy.d/transport.json`, with
