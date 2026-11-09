@@ -77,7 +77,7 @@ class Element {
 }
 const root = new Element('main'), ids = {};
 for (const id of ['mode', 'send', 'message', 'toast', 'thread', 'welcome', 'agents',
-  'workspace', 'composer', 'mode-badge', 'live-hint', 'history-toggle']) {
+  'workspace', 'composer', 'mode-badge', 'live-hint', 'history-toggle', 'mission-banner', 'coverage']) {
   ids[id] = new Element(id === 'message' ? 'textarea' : 'div'); root.append(ids[id]);
 }
 const footnote = new Element('p', 'agent-footnote'); root.append(footnote);
@@ -86,7 +86,7 @@ ids.toast.append(new Element('p'), new Element('button'));
 const kinds = ['registration', 'hotel', 'transport'];
 for (const kind of kinds) {
   const card = new Element('article', 'agent'); card.dataset.agent = kind;
-  for (const cls of ['status', 'preview', 'frame-meta', 'steps', 'handoff']) card.append(new Element('div', cls));
+  for (const cls of ['status', 'site', 'stepper', 'preview', 'live-badge', 'frame-meta', 'steps', 'handoff']) card.append(new Element('div', cls));
   ids.agents.append(card);
 }
 const document = {getElementById: id => { assert.ok(ids[id], id); return ids[id]; },
@@ -149,30 +149,35 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     assert.ok(inner.textContent.includes('🇵🇹')); assert.ok(inner.textContent.includes('days to go'));
     const hooks = context.__runai;
     for (const code of ['no_site_coverage', 'policy_denied', 'date_mismatch', 'no_inventory', 'sold_out', 'registration_closed', 'login_required', 'captcha', 'consent_required', 'unreviewed_redirect', 'over_budget', 'step_limit', 'session_failed', 'timeout', 'unsafe_claim', 'provider_error']) {
-      assert.equal(hooks.reasons[code].length, 2);
+      assert.equal(hooks.reasons[code].length, 4); assert.ok(hooks.reasons[code].every(x => x.length > 10));
       hooks.setLanguage('fr'); assert.equal(hooks.reason(code,'blocked'), hooks.reasons[code][0]);
       hooks.setLanguage('en');
       ui.event({kind:'hotel', status:'blocked', reason_code:code, summary:'RAW_JSON_LOG', handoff_url:'https://example.org/hotel'});
-      assert.equal(card('hotel').querySelector('.steps').textContent, hooks.reasons[code][1]);
+      assert.equal(card('hotel').querySelector('.steps').textContent, hooks.reasonCopy(code, 'blocked', 'hotel').join(''));
+      assert.ok(card('hotel').querySelector('.steps').textContent.includes(hooks.reasons[code][3]));
       assert.ok(card('hotel').querySelector('.handoff').textContent.includes('Continue on example.org'));
     }
     for (const status of ['blocked', 'failed', 'cancelled']) {
       ui.event({kind:'transport', status, reason_code:'unknown'});
-      assert.equal(card('transport').querySelector('.steps').textContent, hooks.reason('unknown', status));
+      assert.ok(card('transport').querySelector('.steps').textContent.startsWith(hooks.reason('unknown', status)));
       assert.ok(card('transport').textContent.includes('No verified site'));
       assert.ok(!card('transport').textContent.includes('Waiting for'));
     }
     ui.event({kind:'registration', type:'step_started'});
     ui.event(frame('registration','old',1)); await loaded(images.at(-1));
     now += 30000; ui.frameMeta('registration');
-    assert.ok(card('registration').querySelector('.frame-meta').textContent.includes('Agent working'));
+    assert.ok(card('registration').querySelector('.live-badge').textContent.includes('Agent working'));
     assert.ok(!card('registration').textContent.includes('interrupted'));
     ui.event({kind:'registration', status:'failed'});
-    assert.ok(card('registration').querySelector('.frame-meta').textContent.includes('tracking interrupted'));
+    assert.ok(card('registration').querySelector('.live-badge').textContent.includes('tracking interrupted'));
     assert.ok(!root.textContent.includes('RAW_JSON_LOG'));
     hooks.setLanguage('fr');
     assert.equal(hooks.reason('captcha','blocked'), hooks.reasons.captcha[0]);
     assert.notEqual(hooks.reason(null,'blocked'), hooks.reason(null,'failed'));
+    const titles = Object.keys(hooks.reasons).map(code => hooks.reason(code, 'blocked'));
+    assert.equal(new Set(titles).size, 16, 'Each reason code has a specific sentence');
+    assert.equal(hooks.reason('sold_out', 'blocked', 'registration'), 'Course complète.');
+    assert.equal(hooks.reason('no_inventory', 'blocked'), 'Plus de disponibilité à ces dates.');
   } else if (scenario === 'chronology') {
     await initial();
     const inner = root.querySelector('.assistant').querySelector('.message-content');
@@ -276,7 +281,8 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
         ui.event({kind,status:'ready_for_payment',summary:'RAW_RESULT',live_view_url:'https://agp.eu.hcompany.ai/share/api/v1/trajectories/last',handoff_url:'https://example.org/' + kind});
         assert.equal(card(kind).querySelector('img').src, '/api/frames/last-' + kind);
         assert.equal(card(kind).querySelector('.status').dataset.status, 'ready_for_payment');
-        assert.ok(card(kind).querySelector('.frame-meta').textContent.includes('Dernière capture'));
+        assert.ok(card(kind).querySelector('.live-badge').textContent.includes('Dernière capture'));
+        assert.ok(card(kind).querySelector('.handoff').textContent.includes('à vous de payer sur example.org'));
       }
       assert.equal(root.querySelectorAll('iframe').length, 0); assert.ok(!root.textContent.includes('RAW_'));
       assert.equal(calls.length,1, 'Share URLs are never fetched');
@@ -306,18 +312,94 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     ui.event(frame('hotel','valid',1)); await loaded(images.at(-1));
     respond('/api/missions/m1/events?after=1', []);
     respond('/api/missions/m1', {}, 500); await ui.poll(0);
-    assert.ok(!card('hotel').querySelector('.frame-meta').textContent.includes('interrompu'));
-    assert.ok(card('hotel').querySelector('.frame-meta').textContent.includes('travaille'));
+    assert.ok(!card('hotel').querySelector('.live-badge').textContent.includes('interrompu'));
+    assert.ok(card('hotel').querySelector('.live-badge').textContent.includes('travaille'));
   } else if (scenario === 'disconnect') {
     await initial(true); ui.event(frame('hotel','valid',1)); await loaded(images.at(-1));
     respond('/api/missions/m1/events?after=1', {}, 500); await ui.poll(0);
     assert.equal(card('hotel').querySelector('.preview').dataset.state,'stale');
-    assert.ok(card('hotel').querySelector('.frame-meta').textContent.includes('suivi interrompu'));
+    assert.ok(card('hotel').querySelector('.live-badge').textContent.includes('suivi interrompu'));
     assert.ok(root.querySelector('.retry'));
     respond('/api/missions/m1/events?after=1', [frame('hotel','reconnected',2)]);
     respond('/api/missions/m1',{results:kinds.map(kind=>({kind,status:'blocked'}))});
     root.querySelector('.retry').onclick(); await flush(); await loaded(images.at(-1));
     assert.equal(card('hotel').querySelector('img').src,'/api/frames/reconnected');
+  }
+  else if (scenario === 'welcome') {
+    const hooks = context.__runai; hooks.setLanguage('en');
+    assert.equal(hooks.translate('On prépare '), 'We handle '); assert.equal(hooks.translate(' le reste.'), ' the rest.');
+    hooks.setLanguage('fr'); assert.equal(hooks.translate('On prépare '), 'On prépare ');
+  } else if (scenario === 'fr-detect') {
+    const hooks = context.__runai; hooks.setLanguage('en');
+    let resolve; respond('/api/missions', new Promise(r => { resolve = r; }));
+    await submit('un marathon au printemps en Italie');
+    assert.ok(ids.thread.textContent.includes('VOTRE COPILOTE')); assert.ok(ids.thread.textContent.includes('dates officielles'));
+    assert.ok(!ids.thread.textContent.includes('YOUR COPILOT'));
+    for (const [text, expected] of [['le semi de Lisbonne', 'fr'], ['un trail en Suisse cet été', 'fr'], ['I want a half marathon in spring', 'en'], ['a trail race in Switzerland this summer', 'en']])
+      assert.equal(hooks.detectLanguage(text), expected, text);
+    resolve(mission(false)); await flush();
+  } else if (scenario === 'fresh') {
+    ids.mode.value = 'live'; ids.mode.onchange();
+    ui.event({kind:'hotel', type:'step_started'}); ui.event(frame('hotel', 'f1', 1)); await loaded(images.at(-1));
+    const badge = card('hotel').querySelector('.live-badge');
+    assert.equal(badge.textContent, 'EN DIRECT'); assert.equal(badge.hidden, false);
+    now += 14000; ui.frameMeta('hotel'); assert.equal(badge.textContent, 'EN DIRECT');
+    now += 2000; ui.frameMeta('hotel');
+    assert.equal(badge.textContent, 'L’agent travaille · image il y a 16 s');
+    assert.equal(card('hotel').querySelector('.preview').dataset.state, 'stale');
+    ui.event(frame('hotel', 'f2', 2)); await loaded(images.at(-1)); assert.equal(badge.textContent, 'EN DIRECT');
+    ids.mode.value = 'demo'; ids.mode.onchange();
+    ui.event({kind:'hotel', type:'step_started'}); ui.event(frame('hotel', 'd1', 1)); await loaded(images.at(-1));
+    assert.ok(!badge.textContent.includes('DIRECT')); assert.ok(badge.textContent.includes('SYNTHÉTIQUE'));
+    assert.ok(!card('hotel').textContent.includes('EN DIRECT'));
+  } else if (scenario === 'never-started') {
+    ui.event({kind:'hotel', type:'step_started'}); ui.event({kind:'hotel', status:'blocked', reason_code:'no_inventory'});
+    const meta = card('hotel').querySelector('.frame-meta').textContent;
+    assert.ok(meta.includes('Non démarré'), meta); assert.ok(!meta.includes('Durée 0'));
+    assert.ok(card('hotel').querySelector('.steps').textContent.includes('Plus de disponibilité'));
+    ui.event({kind:'transport', type:'step_started'}); ui.event({kind:'transport', type:'step_progress', message:'Browsing reviewed site'});
+    now += 65000; ui.frameMeta('transport'); assert.ok(card('transport').querySelector('.frame-meta').textContent.includes('Durée 1 min 05'));
+    assert.equal(ids.coverage.hidden, true);
+  } else if (scenario === 'coverage') {
+    await initial(true);
+    kinds.forEach(kind => ui.event({kind, type:'step_started'}));
+    kinds.forEach(kind => ui.event({kind, status:'failed', reason_code:'provider_error'}));
+    assert.equal(ids.coverage.hidden, true, 'Provider failures are not a coverage gap'); assert.equal(ids.agents.dataset.view, 'agents');
+    await initial(true);
+    kinds.forEach(kind => ui.event({kind, type:'step_started'}));
+    kinds.forEach(kind => { assert.equal(ids.coverage.hidden, true); ui.event({kind, status:'blocked', reason_code:'no_site_coverage', summary:'RAW_SUMMARY'}); });
+    assert.equal(ids.coverage.hidden, false); assert.equal(ids.agents.dataset.view, 'coverage');
+    assert.equal(ids['mission-banner'].hidden, true);
+    const chips = ids.coverage.querySelectorAll('.chip'); assert.equal(chips.length, 3);
+    assert.ok(!root.textContent.includes('RAW_SUMMARY'));
+    respond('/api/missions', mission(false)); await chips[0].onclick(); await flush();
+    assert.equal(calls.at(-1).path, '/api/missions'); assert.ok(calls.at(-1).body.text.includes('autre course'));
+    assert.ok(!ids.coverage.textContent.includes('autre ville que'));
+    assert.equal(ids.agents.hidden, true); assert.equal(ids.coverage.hidden, true);
+  } else if (scenario === 'success') {
+    await initial(true);
+    kinds.forEach(kind => { ui.event({kind, type:'step_started'}); ui.event({kind, type:'step_progress', message:'Browsing'}); });
+    ui.event({kind:'hotel', status:'ready_for_payment', summary:'Room total 312 € RAW', handoff_url:'https://example.org/hotel?checkin=2027-03-06'});
+    const cta = card('hotel').querySelector('.cta'); assert.equal(cta.href, 'https://example.org/hotel?checkin=2027-03-06');
+    assert.equal(cta.target, '_blank'); assert.ok(cta.textContent.includes('à vous de payer sur example.org'));
+    assert.ok(card('hotel').textContent.includes('312 €')); assert.ok(!card('hotel').textContent.includes('RAW'));
+    ui.event({kind:'registration', status:'ready_for_payment', handoff_url:'https://example.org/reg?token=abc'});
+    assert.equal(card('registration').querySelector('.cta'), null);
+    assert.equal(ids['mission-banner'].hidden, true);
+    ui.event({kind:'transport', status:'ready_for_payment', handoff_url:'https://example.org/train'});
+    assert.equal(ids['mission-banner'].hidden, false); assert.ok(ids['mission-banner'].textContent.includes('3/3') || ids['mission-banner'].textContent.includes('Tout est prêt'));
+    ui.event({kind:'registration', status:'ready_for_payment', handoff_url:'https://example.org/reg'});
+    assert.ok(ids['mission-banner'].textContent.includes('Tout est prêt avant paiement'));
+    assert.equal(card('transport').querySelector('.stepper').children.at(-1).dataset.state, 'done');
+  } else if (scenario === 'preparation') {
+    const result = mission(false);
+    result.turns[0].candidates = [{...race, id: 'a', preparation: {registration: {status: 'covered', site: 'example.org'}, hotel: true, transport: 'sold_out'}}, {...race, id: 'b'}];
+    respond('/api/missions', result); await submit('une course');
+    const cards = root.querySelectorAll('.candidate');
+    assert.equal(cards[0].querySelectorAll('.prep-badge').length, 3);
+    assert.ok(cards[0].textContent.includes('Inscription ✓')); assert.ok(cards[0].textContent.includes('Hôtel ✓'));
+    assert.equal(cards[1].querySelectorAll('.prep-badge').length, 0); assert.equal(cards[1].querySelector('.prep'), null);
+    assert.ok(cards[0].textContent.includes('🇵🇹'));
   }
   assert.equal(responses.length, 0, 'Consume expected responses');
 })().catch(error => { console.error(error); process.exitCode = 1; });
@@ -327,7 +409,7 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
 @pytest.mark.parametrize("scenario", [
     "chronology", "uncertain", "english", "pending", "background", "sync", "retry", "sensitive", "empty",
     "generation", "frames", "stale", "decode", "replay", "launch", "disconnect", "polish",
-    "snapshot-error",
+    "snapshot-error", "welcome", "fr-detect", "fresh", "never-started", "coverage", "success", "preparation",
 ])
 def test_executable_browser_states(scenario):
     result = subprocess.run(
