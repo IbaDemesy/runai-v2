@@ -360,15 +360,15 @@
     if (count >= 3) return translate('Confirmer le plan et lancer les 3 agents ↗');
     if (count === 2) return t('Confirmer et lancer les 2 agents disponibles ↗', 'Confirm and launch the 2 available agents ↗');
     if (count === 1) return t('Confirmer et lancer l’agent disponible ↗', 'Confirm and launch the available agent ↗');
-    return t('Confirmer le plan · liens officiels ↗', 'Confirm plan · official links ↗');
+    return t('Confirmer le plan · à préparer vous-même ↗', 'Confirm plan · prepare it yourself ↗');
   }
   function coverageNote(race) {
     const missing = uncoveredKinds(race), names = agentNames(), ready = 3 - missing.length;
     const note = node('p', 'plan-coverage'); note.dataset.covered = String(ready);
     if (!missing.length) { note.textContent = t('3 agents prêts à partir en parallèle.', '3 agents ready to start in parallel.'); return note; }
     const list = missing.map(kind => names[kind]).join(t(' et ', ' and '));
-    note.textContent = ready ? t(`${ready} agent${ready > 1 ? 's' : ''} prêt${ready > 1 ? 's' : ''} à partir · ${list} : pas encore de site couvert, on vous donne le lien officiel.`, `${ready} agent${ready > 1 ? 's' : ''} ready to start · ${list}: no covered site yet, we will give you the official link.`)
-      : t('Aucun site couvert pour ce voyage : on vous donne les liens officiels.', 'No covered site for this trip: we will give you the official links.');
+    note.textContent = ready ? t(`${ready} agent${ready > 1 ? 's' : ''} prêt${ready > 1 ? 's' : ''} à partir · ${list} : pas encore de site couvert, à préparer vous-même.`, `${ready} agent${ready > 1 ? 's' : ''} ready to start · ${list}: no covered site yet, to prepare yourself.`)
+      : t('Aucun site couvert pour ce voyage : à préparer vous-même.', 'No covered site for this trip: prepare it yourself.');
     return note;
   }
   const profileFields = () => [['full_name', 'Nom complet', 'text', 'name', true], ['email', 'E-mail', 'email', 'email', true], ['phone', 'Téléphone', 'tel', 'tel', true],
@@ -467,7 +467,7 @@
     for (const kind of kinds) {
       const site = prepSite(p.race.preparation?.[kind]) || (kind === 'registration' ? domainOf(p.race.registration_url || p.race.official_url) : ''), covered = !missing.includes(kind);
       const item = node('li'); item.dataset.covered = String(covered);
-      item.append(node('span', 'agent-icon', covered ? agentIcons[kind] : '–'), node('strong', '', names[kind]), node('span', '', covered ? site || t('site choisi au lancement', 'site picked at launch') : t('non couvert · lien officiel', 'not covered · official link')));
+      item.append(node('span', 'agent-icon', covered ? agentIcons[kind] : '–'), node('strong', '', names[kind]), node('span', '', covered ? site || t('site choisi au lancement', 'site picked at launch') : t('non couvert · à faire vous-même', 'not covered · do it yourself')));
       crew.append(item);
     }
     card.append(crew, coverageNote(p.race), node('p', 'plan-note', 'Départ, nuits et budget : préférences modifiables, pas des disponibilités réservées.'));
@@ -612,7 +612,7 @@
   function activityLine(kind) {
     const state = agentState[kind], a = state.activity || {};
     if (terminal.has(state.status)) return state.status === 'ready_for_payment' ? readyTitle(state) : reason(state.reason, state.status, kind, state.active);
-    if (state.uncovered && !state.active) return t('Pas de site couvert · lien officiel à suivre', 'No covered site · official link coming');
+    if (state.uncovered && !state.active) return t('Pas de site couvert · à préparer vous-même', 'No covered site · prepare it yourself');
     if (state.queued) return t('En attente d’un navigateur disponible', 'Waiting for a free browser');
     const fallback = state.status === 'running'
       ? {registration: t('Parcours d’inscription officiel', 'Official registration journey'), hotel: t('Recherche de chambre pour vos dates', 'Finding a room for your dates'), transport: t('Recherche de votre aller-retour', 'Finding your return journey')}[kind]
@@ -661,7 +661,7 @@
     } else if (parked) {
       if (!preview.querySelector('.parked')) {
         const box = node('div', 'terminal-state parked'); box.dataset.tone = 'coverage';
-        box.append(node('span', 'terminal-icon', '–'), node('strong', '', t('Pas de site couvert pour ce trajet', 'No covered site for this trip')), node('span', 'terminal-sub', t('Lien officiel dans le bilan', 'Official link in the summary')));
+        box.append(node('span', 'terminal-icon', '–'), node('strong', '', t('Pas de site couvert pour ce trajet', 'No covered site for this trip')), node('span', 'terminal-sub', t('Détails dans le bilan', 'Details in the summary')));
         preview.replaceChildren(box);
       }
     } else if (!state.image) {
@@ -727,11 +727,13 @@
     box.dataset.prefilled = String(Boolean(state.prefilled)); box.append(head);
     if (state.stopLabel) box.append(node('p', 'success-stop', state.stopLabel));
     if (facts.length) box.append(node('p', 'success-facts', facts.join(' · ')));
-    const milestones = node('ol', 'milestones'); milestones.setAttribute('aria-label', t('Jusqu’où l’agent est allé', 'How far the agent got'));
-    for (const [label, ok] of [[t('Site', 'Site'), true], [t('Sélection', 'Selection'), true], [t('Coordonnées', 'Details'), Boolean(state.prefilled)], [t('Paiement · vous', 'Payment · you'), false]]) {
-      const step = node('li', '', label); step.dataset.done = String(ok); milestones.append(step);
+    if (state.prefilled) {
+      const milestones = node('ol', 'milestones'); milestones.setAttribute('aria-label', t('Jusqu’où l’agent est allé', 'How far the agent got'));
+      for (const [label, ok] of [[t('Site', 'Site'), true], [t('Sélection', 'Selection'), true], [t('Coordonnées', 'Details'), true], [t('Paiement · vous', 'Payment · you'), false]]) {
+        const step = node('li', '', label); step.dataset.done = String(ok); milestones.append(step);
+      }
+      box.append(milestones);
     }
-    box.append(milestones);
     const cta = link(state.handoff, state.prefilled ? t(`Continuer sur ${domain} ↗`, `Continue on ${domain} ↗`) : t(`Prêt — à vous de payer sur ${domain} ↗`, `Ready — pay yourself on ${domain} ↗`), 'handoff-link cta');
     if (cta) box.append(cta);
     if ($('mode').value !== 'live') box.append(node('p', 'success-note', t('Démo synthétique : page d’accueil publique, aucun panier réel.', 'Synthetic demo: public homepage, no real checkout.')));

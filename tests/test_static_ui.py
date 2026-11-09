@@ -710,7 +710,7 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     assert.ok(success('transport').textContent.includes('Formulaire pré-rempli · prêt à payer'));
     assert.ok(success('transport').textContent.includes('Continuer sur example.net'));
     assert.ok(success('registration').textContent.includes('Prêt avant paiement'));
-    assert.deepEqual(success('registration').querySelectorAll('.milestones li').map(x => x.dataset.done), ['true', 'true', 'false', 'false']);
+    assert.equal(success('registration').querySelector('.milestones'), null);
     assert.equal(ids['mission-banner'].hidden, false);
   } else if (scenario === 'live-clean') {
     ids.agents.hidden = false;
