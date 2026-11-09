@@ -1057,6 +1057,22 @@ def test_initial_origin_and_country_reach_discovery():
     assert "city" not in calls[0][1]
 
 
+def test_named_official_alternative_outside_season_requires_explicit_selection():
+    async def discover(query, hints):
+        return [{"id": "edition", "name": "Milan Marathon", "distance_km": 42.195,
+                 "race_date": "2027-10-10" if hints.get("official_date_required") else None,
+                 "date_status": "official" if hints.get("official_date_required") else "unknown",
+                 "source_urls": ["https://race.example/edition"]}]
+
+    e = engine(discover)
+    state, turn = run(e.start("le marathon de Milan au printemps 2027"))
+    assert len(state.candidates) == 1
+    assert state.candidates[0].race_date == date(2027, 10, 10)
+    assert state.draft.race is None and state.stage == "choose_race"
+    assert not turn.ready_to_confirm
+    assert any(s.kind == "choose_race" and s.value == "edition" for s in turn.suggestions)
+
+
 def test_unverified_result_offers_available_official_alternative():
     async def discover(query, hints):
         if hints.get("official_date_required"):

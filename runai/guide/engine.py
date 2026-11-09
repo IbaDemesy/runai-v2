@@ -613,6 +613,8 @@ class GuideEngine:
                 state.candidates = []
                 await self._collect(state, alternatives, broadened=True)
                 official = [r for r in state.candidates if self._eligible(r)]
+                if official:
+                    broadened = "months" if hints.get("months") else "criteria"
                 state.candidates = official + [r for r in original_candidates
                                                if r.id not in {a.id for a in official}]
             if (not state.candidates and not flags["past"] and not flags["unsafe"]
