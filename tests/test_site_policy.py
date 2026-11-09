@@ -97,6 +97,10 @@ def assert_task_policy(task, monkeypatch, reg=None):
         for candidate in [task, *task.get("alternatives", [])]:
             if candidate["kind"] in ("hotel", "transport"):
                 checkpoint = candidate["checkpoint"]
+                assert isinstance(checkpoint["requires_selection"], bool)
+                if checkpoint["requires_selection"]:
+                    assert "safe-stop zone" in candidate["instructions"]
+                    assert "before selecting" in candidate["instructions"]
                 assert json.loads(json.dumps(checkpoint)) == checkpoint
                 for field in ("url_patterns", "beyond_patterns"):
                     assert checkpoint[field]
@@ -150,7 +154,7 @@ def test_checkpoint_optional_and_plain_patterns_retained():
     checkpoint = {"url_patterns": ["/review"], "beyond_patterns": ["payment"]}
     item["adapters"][0]["checkpoint"] = checkpoint
     parsed = parse_registry(registry(item))[0]["adapters"][0]["checkpoint"]
-    assert parsed == checkpoint and parsed is not checkpoint
+    assert parsed == {**checkpoint, "requires_selection": False} and parsed is not checkpoint
     assert re.search(parsed["url_patterns"][0], "https://example.test/REVIEW", re.IGNORECASE)
 
 
@@ -160,8 +164,9 @@ def test_all_committed_checkpoints_exclude_unsafe_urls():
             if adapter["kind"] not in ("hotel", "transport"):
                 continue
             checkpoint = adapter["checkpoint"]
-            assert set(checkpoint) == {"url_patterns", "beyond_patterns"}
-            for patterns in checkpoint.values():
+            assert set(checkpoint) == {"url_patterns", "beyond_patterns", "requires_selection"}
+            assert isinstance(checkpoint["requires_selection"], bool)
+            for patterns in (checkpoint["url_patterns"], checkpoint["beyond_patterns"]):
                 assert patterns and all(isinstance(p, str) for p in patterns)
                 for pattern in patterns:
                     re.compile(pattern, re.IGNORECASE)
@@ -170,6 +175,21 @@ def test_all_committed_checkpoints_exclude_unsafe_urls():
                 url = "https://example.test" + path
                 assert any(re.search(p, url, re.IGNORECASE) for p in checkpoint["beyond_patterns"])
                 assert not any(re.search(p, url, re.IGNORECASE) for p in checkpoint["url_patterns"])
+
+
+@pytest.mark.parametrize("value", [True, False, None, 0, 1, "true", [], {}])
+def test_checkpoint_requires_selection_boolean_only(value):
+    item = entry()
+    item["adapters"][0]["checkpoint"] = {
+        "url_patterns": ["/review"], "beyond_patterns": ["payment"],
+        "requires_selection": value,
+    }
+    if isinstance(value, bool):
+        parsed = parse_registry(registry(item))[0]["adapters"][0]["checkpoint"]
+        assert parsed["requires_selection"] is value
+    else:
+        with pytest.raises(PolicyError, match="requires_selection"):
+            parse_registry(registry(item))
 
 
 CITY_ALIAS_CASES = [

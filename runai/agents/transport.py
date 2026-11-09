@@ -68,6 +68,14 @@ def _candidate_task(expected, budget, adapter, url, decision):
     origin, city = expected["origin_city"], expected["city"]
     mode = {"rail": "train", "flight": "flight"}.get(adapter.get("mode"), "transport")
     checkpoint = task_checkpoint(adapter)
+    checkpoint_stop = (
+        "This checkpoint page is a safe-stop zone: select both legs and fares here; never "
+        "stop merely on arrival before selecting. As soon as both selected legs, fares, "
+        "dates, party and full round-trip total are visible, STOP and answer immediately. "
+        if checkpoint["requires_selection"] else
+        "When matched, STOP and answer immediately: READY if evidence is complete else "
+        "BLOCKED unsafe_claim. "
+    )
     place = adapter["places"].get(city_key(city), {})
     if place.get("via"):
         expected["gateway_city"] = gateway_city(place["via"])
@@ -109,8 +117,7 @@ def _candidate_task(expected, budget, adapter, url, decision):
         "7. STOP on the reviewed fare-selection page and report READY immediately when both "
         "outbound and return fares, dates, party and full round-trip total are selected and visible. "
         f"Checkpoint URL patterns: {checkpoint['url_patterns']}. Match with case-insensitive "
-        "re.search against the full current URL. When matched, STOP and answer immediately: "
-        "READY if evidence is complete else BLOCKED unsafe_claim. "
+        f"re.search against the full current URL. {checkpoint_stop}"
         f"Never navigate to a URL matching beyond patterns: {checkpoint['beyond_patterns']}. "
         "Stop before opening passenger details or payment. Never type personal data, log in, "
         "create accounts, tick terms, solve captchas or pay. For login/account walls report "

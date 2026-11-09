@@ -1,3 +1,45 @@
+# R5-02 step 2 browser observations — 2026-11-09
+
+**IHG Amsterdam, 20–22 March 2027, one adult:** selected Kimpton De Witt via
+public Select Hotel → first room View Prices → Flexible Saver Select. The selected
+room was 1 Double City Single. Observed www.ihg.com host/path progression:
+
+1. `/hotels/gb/en/find-hotels/hotel-search`
+2. `/hotels/gb/en/find-hotels/select-roomrate`
+3. `/hotels/gb/en/find-hotels/select-enhance-stay` (**Add Extras**)
+
+The last path confirms the existing IHG checkpoint expression. Stopped there;
+did not add extras, click No thanks/skip, open guest details or accept the cookie
+banner. The Add Extras page did not display a complete selected-room/date/party/
+full-stay-total summary in the visible content, so this is path verification,
+NOT complete READY evidence. Screenshot (in-session only):
+`/home/ubuntu/scratch/r5-ihg-rate-selection.png` (captured at Add Extras).
+
+**NH Lisbon, 20–22 March 2027, one adult:**
+www.nh-hotels.com `/es/booking/step1-rates` rendered six room categories for NH
+Collection Lisboa Liberdade. A blocking Cookie consent overlay had only **Yes,
+I accept** and Configuration. Configuration opened cookie categories with another
+Yes, I accept control and no visible reject/necessary-only/close control. Stopped
+without selecting room/rate or accepting consent. The guessed step2 extras/services
+checkpoint remains **unverified**. Screenshots (in-session only):
+`/home/ubuntu/scratch/r5-nh-rates.png`,
+`/home/ubuntu/scratch/r5-nh-consent-blocked.png`.
+
+**B&B Milan, 20–22 March 2027, one adult:** rejected optional cookies; selected
+the first Single Room FLEX public rate. The selection summary showed Single Room,
+one adult, FLEX, 2 nights, exact stay dates and full total EUR238.00. Stopped at
+the Book now boundary; did not click it or submit any form. Host/path remained
+www.hotel-bb.com `/en/hotel/milano-sant-ambrogio` before AND after selection, with
+no fragment change. The guessed `/booking/extras|review` path was not observed.
+Screenshot (in-session only): `/home/ubuntu/scratch/r5-bb-selected.png`.
+
+As with Vueling/NS, the B&B selected checkpoint is a state on the same URL as
+the initial unselected page. Per the follow-up decision, B&B hotel-page patterns
+now use requires_selection=true: only the selected state triggers the safe stop.
+The hotel-page pattern applies to existing properties, but selection behavior
+was verified only for Milano Sant'Ambrogio, not all B&B adapters.
+No account, personal data, consent acceptance, booking or payment occurred.
+
 # R5-02 offline checkpoint additions (2026-11-09)
 
 Every hotel adapter now carries checkpoint patterns. All are case-insensitive

@@ -1,3 +1,82 @@
+# R5-02 step 2 observations — 2026-11-09
+
+## Vueling: exactly one quota-gated H probe
+
+Terms reread in normal Chrome at www.vueling.com,
+`/en/customer-services/website-conditions-of-use`: all ten legal accordions.
+Section 1 still limits the stated Website to pages served by www.vueling.com;
+sections 2/7 restrict commercial copying/exploitation. No express robots/agents
+prohibition found. Existing owner-rule ambiguity remains, not express permission.
+No new company host was observed, so no navigation scope was widened.
+
+Probe script outside the repository: `/home/ubuntu/scratch/vueling_probe.py`.
+Used H API v2 with hclient GUARDRAILS, ORY–BCN, 20–22 March 2027, one adult;
+initial page read only, no clicks or typing, max_steps=3. Quota checked before
+creation; exactly one session created and deleted. Only scrubbed locations and
+operational status logged; no key, session ID, query or private URL logged:
+
+```text
+quota available 3
+observation host chromewebdata path withheld
+terminal completed
+cleanup HTTP 204
+```
+
+This is a Chrome-internal error location, NOT evidence of a new Vueling company
+host or of a bot/captcha wall. The browser network error subtype was not retained,
+so DNS/TLS/connection failures and bot denial cannot be distinguished. No second
+session was run. Normal Chrome loaded tickets.vueling.com `/booking/selectFlight`
+from the same ORY–BCN template and dates, without a bot wall. This countercheck
+disproves a universal same-template redirect/block in normal Chrome, not an H-only
+network or bot failure. Do not call the historical round-4 cause confirmed.
+
+Reachable classification chain in hclient: observation_event metadata.url is
+passed through clean_url/scrub_url; non-HTTP(S) returns None; _reviewed rejects it;
+_attempt raises unreviewed_redirect before the observation screenshot is emitted.
+An offline control confirmed internal Chrome error URLs are rejected while the
+normal Vueling selection URL is reviewed. This explains how the newly observed
+H error would produce unreviewed_redirect/zero frames. The original round-4 raw
+observation URLs were not available here, so identity with those failures remains
+unverified. No bot-wall evidence justifies making Vueling fallback-only yet.
+
+## Actual selected states in normal Chrome
+
+**Vueling:** tickets.vueling.com `/booking/selectFlight` remained unchanged from
+the initial list through outbound selection, return selection and Fly Light bundle
+selection. Outbound 20 March 2027 07:00 ORY–08:40 BCN; return 22 March 05:50
+BCN–07:40 ORY; selected Fly Light; full-party total EUR120.98. Stopped before the
+CONTINUE control; no passenger page opened. Public selection controls were buttons
+outside forms. The guessed selectFare/fareSelection/review URL was not observed.
+Screenshot (in-session only): `/home/ubuntu/scratch/r5-vueling-selected.png`.
+
+**NS International:** www.nsinternational.com `/en/traintickets-v3/` with public
+fragment route `#/search/FRPNO/NLASC/20270320/1055/1420` remained unchanged from
+outward selection through return selection and the final **Check your trip** pane.
+One adult, Paris Nord–Amsterdam Centraal 20 March 10:55–14:20, return 22 March
+07:10–10:35; both 2nd class Mid-flex, full total EUR90.00. Stopped before **Enter
+your details**. Cookie choice Decline only. No carrier-host navigation, personal
+data or form submission. Screenshot (in-session only):
+`/home/ubuntu/scratch/r5-ns-final-check.png`.
+
+There is NO distinct selected-review URL for either observed flow. URL-only
+immediate-stop matching would also stop an earlier unselected state. The NS
+fragment is moreover removed by scrub_url both at session startup and observation
+cleaning. Direct offline output for the observed NS URL:
+
+```text
+NS scrubbed host/path: https://www.nsinternational.com/en/traintickets-v3/
+NS retained fragment: False
+existing NS overview pattern matches cleaned: False
+```
+
+Matching only `/en/traintickets-v3/` cannot distinguish blank search, results,
+selected fare or final check. Preserving the fragment alone is insufficient:
+the final-check pane did not change the fragment. A state-aware checkpoint
+contract/runtime change is needed; hclient/scrub are outside this ticket's scope.
+The follow-up decision adds requires_selection=true and matches the observed
+selection-page paths for Vueling and NS. Selection-aware stopping is instructed
+in tasks; deterministic runtime enforcement remains with the hclient owner.
+
 # R5-02 offline checkpoint additions (2026-11-09)
 
 All transport adapters carry independent task/P7 checkpoint metadata; 60 steps.

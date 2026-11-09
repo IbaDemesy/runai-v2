@@ -1,3 +1,27 @@
+# P11 selection-aware checkpoints — 2026-11-09
+
+Optional checkpoint boolean `requires_selection` defaults to false; non-booleans
+fail closed. It is copied into primary and P7 alternative tasks alongside the two
+non-empty regex lists. Patterns use case-insensitive re.search on the full URL.
+
+False: stop immediately on arrival at the checkpoint, READY with complete evidence
+or BLOCKED unsafe_claim otherwise (IHG Add Extras). True: the matching URL is a
+safe-stop zone shared by unselected and selected states (Vueling selectFlight,
+NS traintickets-v3 and B&B hotel pages). Select using safe public controls only;
+do not stop solely because the unselected page matches. Stop and answer immediately
+once both selected legs/fares and round-trip total, or selected room/rate and
+full-stay total, plus dates and party, are visible. Safety boundaries always win:
+never submit forms, enter personal data, accept consent or navigate beyond_patterns.
+NH remains an unverified post-rates pattern; mandatory consent means stop with
+BLOCKED consent_required, never accept it to continue.
+
+**Runtime-owner note:** hclient currently ignores checkpoint metadata; these rules
+are instructions, not deterministic enforcement. Any P11 enforcement must honor
+requires_selection, not terminate all same-URL tasks at their first observation.
+NS fragments are stripped before navigation and observations; its observed final
+pane does not change the fragment anyway. Match the scrubbed path AND selection
+state. Observed paths are not proof of READY or inventory on other dates/properties.
+
 # R5-02 offline checkpoint contract (2026-11-09)
 
 Optional adapter `checkpoint` has non-empty string lists `url_patterns` and

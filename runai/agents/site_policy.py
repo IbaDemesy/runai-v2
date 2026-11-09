@@ -162,7 +162,11 @@ def _adapter(raw: Any, entry_id: str, scope_hosts: set[str]) -> dict[str, Any]:
                     re.compile(pattern, re.IGNORECASE)
             except re.error as exc:
                 raise PolicyError(f"{entry_id}: invalid checkpoint regex") from exc
+        requires_selection = checkpoint.get("requires_selection", False)
+        if not isinstance(requires_selection, bool):
+            raise PolicyError(f"{entry_id}: checkpoint requires_selection must be boolean")
         checkpoint = {key: list(checkpoint[key]) for key in ("url_patterns", "beyond_patterns")}
+        checkpoint["requires_selection"] = requires_selection
     traveler_counts = raw.get("traveler_counts")
     if traveler_counts is not None and (
         not isinstance(traveler_counts, list) or not traveler_counts
@@ -585,13 +589,16 @@ def hotel_search_city(expected: Mapping[str, Any]) -> str:
     return city
 
 
-def task_checkpoint(adapter: Mapping[str, Any]) -> dict[str, list[str]]:
+def task_checkpoint(adapter: Mapping[str, Any]) -> dict[str, Any]:
     """Legacy adapters without checkpoints cannot claim a URL-based ready boundary."""
     checkpoint = adapter.get("checkpoint") or {
         "url_patterns": [r"(?!)"],
         "beyond_patterns": [r"guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"],
     }
-    return {key: list(value) for key, value in checkpoint.items()}
+    return {
+        **{key: list(checkpoint[key]) for key in ("url_patterns", "beyond_patterns")},
+        "requires_selection": checkpoint.get("requires_selection", False),
+    }
 
 
 def _iso(value: Any, field: str) -> date:

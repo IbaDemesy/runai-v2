@@ -56,6 +56,14 @@ def _candidate_task(expected, budget, adapter, url, decision):
     if city_key(search_city) != city_key(expected["city"]):
         expected["gateway_city"] = search_city
     checkpoint = task_checkpoint(adapter)
+    checkpoint_stop = (
+        "This checkpoint page is a safe-stop zone: select a room and rate here; never stop "
+        "merely on arrival before selecting. As soon as the selected room, rate, dates, "
+        "party and full-stay total are visible, STOP and answer immediately. "
+        if checkpoint["requires_selection"] else
+        "When matched, STOP and answer immediately: READY if selected room, rate, dates, "
+        "party and full-stay total evidence is complete, else BLOCKED unsafe_claim. "
+    )
     arrival, departure, adults = (
         expected["arrival_date"], expected["departure_date"], expected["travelers"]
     )
@@ -83,9 +91,8 @@ def _candidate_task(expected, budget, adapter, url, decision):
         f"5. Site-specific success evidence: {adapter['success_evidence']}\n"
         f"6. Site-specific blocked evidence: {adapter['blocked_evidence']}\n"
         f"7. Checkpoint URL patterns: {checkpoint['url_patterns']}. Match with case-insensitive "
-        "re.search against the full current URL. When matched, STOP and answer immediately: "
-        "READY if selected room, rate, dates, party and full-stay total evidence is complete, "
-        "else BLOCKED unsafe_claim. Never add extras, navigate back or keep browsing. "
+        "re.search against the full current URL. "
+        f"{checkpoint_stop}Never add extras, navigate back or keep browsing after selection. "
         f"Never navigate to a URL matching beyond patterns: {checkpoint['beyond_patterns']}. "
         f"Hotel search city: {search_city}. Only the race city {expected['city']} or reviewed "
         f"gateway city {expected.get('gateway_city', expected['city'])} is acceptable; "
@@ -112,8 +119,7 @@ def _candidate_task(expected, budget, adapter, url, decision):
             f"READY only on the reviewed selection page where a selected room and rate show "
             f"check-in {arrival}, check-out {departure}, {adults} adults and the full-stay "
             "total for the whole party, before guest details, personal data or payment. "
-            f"Checkpoint patterns: {checkpoint['url_patterns']}; STOP and answer immediately "
-            "READY only with complete evidence, otherwise BLOCKED unsafe_claim. "
+            f"Checkpoint patterns: {checkpoint['url_patterns']}. {checkpoint_stop}"
             "Report that safe public URL. For incomplete evidence report BLOCKED unsafe_claim; "
             "for other stops use the exact BLOCKED reason from the instructions."
         ),
