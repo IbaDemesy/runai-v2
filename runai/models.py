@@ -47,6 +47,17 @@ class Model(BaseModel):
 
 
 class RunnerProfile(Model):
+    @model_validator(mode="before")
+    @classmethod
+    def canonical_address(cls, value):
+        if isinstance(value, dict) and "address" in value:
+            value = dict(value)
+            address = value.pop("address")
+            if "address_line" in value and value["address_line"] != address:
+                raise ValueError("Conflicting address fields")
+            value["address_line"] = address
+        return value
+
     full_name: str | None = Field(default=None, max_length=200)
     given_name: str | None = Field(default=None, max_length=100)
     family_name: str | None = Field(default=None, max_length=100)
@@ -142,7 +153,7 @@ ReasonCode = Literal[
     "no_site_coverage", "policy_denied", "date_mismatch", "no_inventory", "sold_out",
     "registration_closed", "login_required", "captcha", "consent_required",
     "unreviewed_redirect", "over_budget", "step_limit", "session_failed", "timeout",
-    "unsafe_claim", "provider_error", "checkpoint_unverified",
+    "unsafe_claim", "provider_error", "checkpoint_unverified", "not_yet_bookable",
 ]
 
 
@@ -157,6 +168,7 @@ class StepResult(Model):
     error: str | None = None
     reason_code: ReasonCode | None = None
     checkpoint_reached: bool | None = None
+    stale_frame: bool | None = None
     prefilled: bool | None = None
     stop_label: str | None = Field(default=None, max_length=100)
     blocked_url_host: str | None = None

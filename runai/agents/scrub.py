@@ -37,6 +37,10 @@ _PRIVATE_PATH = re.compile(
 )
 _OPAQUE_PATH = re.compile(r"(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9_-]{24,}|[a-fA-F0-9]{24,}")
 _PUBLIC_SLUG = re.compile(r"[A-Za-z]{1,23}(?:[-_](?:[A-Za-z]{1,23}|\d{1,20})){2,}")
+_OMIO_RESULT = re.compile(
+    r"/links/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+    re.IGNORECASE,
+)
 
 
 def _njuko_public_id(host, segments, index):
@@ -67,10 +71,13 @@ def scrub_url(url: str | None) -> str | None:
             host = f"[{host}]"
         netloc = host + (f":{parts.port}" if parts.port else "")
         path = re.sub(r";jsessionid=[^/;?]*", "", parts.path, flags=re.IGNORECASE)
+        omio_result = host in {
+            "omio.com", "www.omio.com", "omio.fr", "www.omio.fr", "omio.de", "www.omio.de",
+        } and _OMIO_RESULT.fullmatch(path)
         if host not in {"agp.eu.hcompany.ai", "agp.hcompany.ai"}:
             segments = unquote(path).split("/")
             for index, segment in enumerate(segments):
-                if _njuko_public_id(host, segments, index):
+                if _njuko_public_id(host, segments, index) or (omio_result and index == 2):
                     continue
                 if _PRIVATE_PATH.fullmatch(segment) or (
                     _OPAQUE_PATH.fullmatch(segment) and not _PUBLIC_SLUG.fullmatch(segment)

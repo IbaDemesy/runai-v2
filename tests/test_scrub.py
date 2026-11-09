@@ -4,6 +4,26 @@ import pytest
 
 from runai.agents.scrub import public_profile_context, scrub_profile, scrub_text, scrub_url
 
+OMIO = ("https://www.omio.com/links/626fa8a9-0000-4000-8000-000000000000"
+        "?departurePosTerm=Paris&arrivalPosTerm=Frankfurt&departureDate=2027-10-29"
+        "&returnDate=2027-11-01&adults=1")
+
+
+def test_public_omio_result_links():
+    assert scrub_url(OMIO) == OMIO
+    assert scrub_url(OMIO + "&utm_source=test&gclid=test&tracking=test") == OMIO
+    assert scrub_text(OMIO) == OMIO
+
+
+@pytest.mark.parametrize("url", [
+    OMIO.replace("www.omio.com", "example.org"),
+    OMIO.replace("/links/", "/private/"),
+    OMIO.replace("000000000000?", "00000000000z?"),
+    OMIO.replace("www.omio.com", "www.omio.com.evil.org"),
+])
+def test_omio_exception_is_scoped(url):
+    assert scrub_url(url) is None
+
 
 def test_profile_quasi_identifiers_preserve_urls_and_public_context():
     profile = {"city": "Paris", "nationality": "FR", "gender": "F", "country": "France"}

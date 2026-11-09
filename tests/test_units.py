@@ -1,7 +1,9 @@
 import asyncio
 import json
+import sys
 from types import SimpleNamespace
 
+import httpx
 import pytest
 from pydantic import ValidationError
 from test_api_guided import TRIP
@@ -11,11 +13,86 @@ from runai.models import Kind, StepResult
 from runai.providers import FIXTURE, FakeVoice, LiveRunner, LiveVoice, ReplayRunner
 
 
+@pytest.mark.parametrize("reason,expected", [
+    ("not_yet_bookable", "not_yet_bookable"), ("unknown", "no_site_coverage"),
+    (None, "no_site_coverage"),
+])
+@pytest.mark.parametrize("handoff,allowed,expected_url", [
+    ("https://example.org/results", True, "https://example.org/results"),
+    ("https://example.org/results?utm_source=test", True, "https://example.org/results"),
+    ("https://example.org/results", False, None),
+    ("https://example.org/private/a8f3k2q9z7x1m4n6b5v0c2l8p3w9e1t7", True, None),
+    ("https://other.org/results", True, None),
+    ("http://example.org/results", True, None), (None, True, None),
+])
+def test_preflight_block_never_launches_h(monkeypatch, reason, expected,
+                                        handoff, allowed, expected_url):
+    import runai.agents.hotel as builder
+    from runai.agents import hclient
+
+    requests = []
+
+    def transport(request):
+        requests.append(request)
+        return httpx.Response(500)
+
+    client = httpx.AsyncClient
+    monkeypatch.setattr(hclient.httpx, "AsyncClient", lambda **kwargs: client(
+        **{**kwargs, "transport": httpx.MockTransport(transport)},
+    ))
+    monkeypatch.setattr(builder, "build_task", lambda trip: {
+        "kind": "hotel", "start_url": "https://example.org/",
+        "preflight_block": {"reason_code": reason, "summary": "Réservation pas encore ouverte.",
+                            "handoff_url": handoff},
+    })
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(
+        evaluate_url=lambda url, kind: {
+            "allowed": allowed, "policy_id": "test", "screenshot_scope": True,
+            "allowed_hosts": ["example.org"], "allowed_paths": ["/"],
+        },
+    ))
+
+    async def emit(event):
+        pytest.fail("Preflight blocks must not emit launched-agent events")
+
+    result = asyncio.run(LiveRunner().run(Kind.hotel, TRIP, emit))
+    assert result.status == "blocked" and not result.synthetic
+    assert result.summary == "Réservation pas encore ouverte."
+    assert result.reason_code == expected
+    assert (str(result.handoff_url) if result.handoff_url else None) == expected_url
+    assert requests == []  # In particular, zero H POSTs.
+
+
+@pytest.mark.parametrize("block", [{}, None])
+def test_empty_preflight_block_is_uncovered(monkeypatch, block):
+    import runai.agents.hotel as builder
+
+    monkeypatch.setattr(builder, "build_task", lambda trip: {"preflight_block": block})
+
+    async def emit(event):
+        pytest.fail("No agent launched")
+
+    result = asyncio.run(LiveRunner().run(Kind.hotel, TRIP, emit))
+    assert result.status == "blocked"
+    assert result.reason_code == "no_site_coverage"
+    assert result.handoff_url is None
+
+
+@pytest.mark.parametrize("stale", [None, False, True])
+def test_p15_stale_frame_serialization(stale):
+    result = StepResult(kind="hotel", status="blocked", summary="Unavailable", synthetic=False,
+                        reason_code="not_yet_bookable", stale_frame=stale)
+    payload = sanitize_state(result).model_dump(mode="json")
+    assert payload["stale_frame"] is stale
+    assert payload["reason_code"] == "not_yet_bookable"
+
+
 def test_p13_survives_provider_and_api_serialization(monkeypatch):
     class Client:
         async def run(self, task, on_event):
             return {"status": "blocked", "summary": "Booking step reached — verify on the site",
                     "reason_code": "checkpoint_unverified", "checkpoint_reached": True,
+                    "stale_frame": True,
                     "handoff_url": "https://www.ihg.com/reservation/select-enhance-stay"}
 
     monkeypatch.setattr("runai.providers.importlib.import_module", lambda name: SimpleNamespace(
@@ -28,6 +105,7 @@ def test_p13_survives_provider_and_api_serialization(monkeypatch):
     result = asyncio.run(LiveRunner().run(Kind.hotel, TRIP, emit))
     payload = sanitize_state(result).model_dump(mode="json")
     assert payload["checkpoint_reached"] is True
+    assert payload["stale_frame"] is True
     assert payload["reason_code"] == "checkpoint_unverified"
     assert payload["status"] == "blocked"
     assert payload["handoff_url"] == "https://www.ihg.com/reservation/select-enhance-stay"

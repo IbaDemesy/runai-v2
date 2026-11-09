@@ -5,11 +5,11 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime
 from html import escape
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, get_args
 
 from pydantic import HttpUrl, TypeAdapter
 
-from runai.models import Kind, StepResult, public_url
+from runai.models import Kind, ReasonCode, StepResult, public_url
 
 FIXTURE = Path(__file__).resolve().parent.parent / "fixtures/synthetic-journey.json"
 Emit = Callable[[dict], Awaitable[None]]
@@ -156,6 +156,29 @@ class LiveRunner:
             fallback = _valid_url(task.get("fallback_url") if isinstance(task, dict) else getattr(
                 task, "fallback_url", None,
             ))
+            if isinstance(task, dict) and "preflight_block" in task:
+                from runai.agents.hclient import _policy, _reviewed
+                from runai.agents.scrub import scrub_profile, scrub_text, scrub_url
+
+                block = task["preflight_block"]
+                block = block if isinstance(block, dict) else {}
+                reason = block.get("reason_code")
+                handoff = scrub_url(block.get("handoff_url"))
+                try:
+                    if not _reviewed(handoff, _policy(task)):
+                        handoff = None
+                except Exception:  # noqa: BLE001 — policy failures close the handoff
+                    handoff = None
+                fields = scrub_profile({
+                    "summary": scrub_text(block.get("summary") or
+                                          "Aucun site disponible pour ce voyage."),
+                    "handoff_url": handoff,
+                }, trip.get("runner_profile", {}))
+                return StepResult(
+                    kind=kind, status="blocked", synthetic=False,
+                    reason_code=reason if reason in get_args(ReasonCode) else "no_site_coverage",
+                    **fields,
+                )
             client = importlib.import_module("runai.agents.hclient").HAgentRunner()
             if trip.get("runner_profile"):
                 task = {**task, "runner_profile": dict(trip["runner_profile"])}

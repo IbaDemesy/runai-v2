@@ -1,5 +1,29 @@
 # Generic guided-mission contract
 
+## P15 Preflight availability and frame freshness (round 8)
+
+Task builders may return `preflight_block: {reason_code, summary, handoff_url}`.
+`summary` is short French user-facing text; `handoff_url` is an HTTPS public URL
+or null. LiveRunner returns a non-synthetic `blocked` StepResult without creating
+an H session (zero H POSTs), emitting launch events or trying alternatives.
+These tasks are not launched agents and count as uncovered for CTA coverage,
+never as READY. `not_yet_bookable` is an additive ReasonCode for booking windows
+that have not opened; unknown/missing preflight reasons become `no_site_coverage`.
+The handoff is scrubbed and must pass the same public HTTPS, reviewed host/path
+policy gates as other handoffs; unavailable/denied policy or unsafe URLs yield
+null, never an unchecked fallback. Profile privacy applies to this result too.
+
+`StepResult.stale_frame: bool|null = null` is additive: old JSON remains valid.
+True means the agent is running and its newest genuine frame is older than
+60 seconds. False means it is not stale; null means freshness was not reported.
+Missing footage is unavailable, never simulated or asserted fresh. This metadata
+does not weaken P13 verification or turn blocked checkpoints into READY.
+
+RunnerProfile also accepts `address` as an input alias of `address_line` with
+the same validation. Matching duplicate keys are accepted; differing values
+return 422, as do unknown keys. `profile_status.fields` always uses canonical
+`address_line`; neither alias exposes profile values in missions/events/logs.
+
 ## P14 Runner profile prefill (round 7)
 
 `RunnerProfile` has twelve optional, length-capped strings: full_name, given_name,

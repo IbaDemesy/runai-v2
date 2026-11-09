@@ -325,11 +325,16 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
 
     async def prepare(mission):
         async def run(kind):
-            emit(mission, "step_started", "Preparation started; no purchases or submissions", kind)
+            started = False
 
             async def progress(data):
+                nonlocal started
                 if mission.id not in missions:
                     return
+                if not started:
+                    started = True
+                    emit(mission, "step_started",
+                         "Preparation started; no purchases or submissions", kind)
                 data = scrub_profile(data, profiles.get(mission.id, {}),
                                      public_profile_context(mission.trip))
                 event_type = data.get("type", "step_progress")
