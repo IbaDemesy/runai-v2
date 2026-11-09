@@ -556,8 +556,8 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     const badge = card('hotel').querySelector('.live-badge');
     for (const [id, observed, expected] of [
       ['old', now - 120000, 'IMAGE FIGÉE · il y a 2 min'], ['edge', now - 15000, 'IMAGE RÉCENTE'],
-      ['fresh', now - 14999, 'EN DIRECT'], ['future', now + 30000, 'IMAGE FIGÉE · il y a 0 min'],
-      ['missing', null, 'IMAGE FIGÉE · il y a 0 min']]) {
+      ['fresh', now - 14999, 'EN DIRECT'], ['future', now + 30000, 'IMAGE FIGÉE'],
+      ['missing', null, 'IMAGE FIGÉE']]) {
       ui.event({...frame('hotel',id,1), observed_at: observed === null ? null : new Date(observed).toISOString()});
       await loaded(images.at(-1)); assert.equal(badge.textContent, expected, id);
     }
@@ -713,6 +713,10 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     assert.ok(success('transport').textContent.includes('Continuer sur example.net'));
     assert.ok(success('registration').textContent.includes('Prêt avant paiement'));
     assert.equal(success('registration').querySelectorAll('.milestones li').length, 5);
+    assert.deepEqual(success('registration').querySelectorAll('.milestones li').map(x => x.dataset.done), ['true', 'true', 'true', 'false', 'true']);
+    assert.deepEqual(success('registration').querySelectorAll('.milestones li').map(x => x.dataset.skipped), ['false', 'false', 'false', 'true', 'false']);
+    assert.ok(success('registration').textContent.includes('non requis'));
+    assert.equal(success('registration').querySelector('.bilan-stat').textContent, '5/5 étapes');
     assert.equal(ids['mission-banner'].hidden, false);
   } else if (scenario === 'live-clean') {
     ids.agents.hidden = false;
@@ -750,8 +754,17 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     ui.event({...frame('hotel','fresh-r8',1), observed_at:new Date(now - 5000).toISOString()}); await loaded(images.at(-1));
     assert.equal(card('hotel').querySelector('.live-badge').textContent, 'EN DIRECT');
     ui.event({kind:'hotel', stale_frame:true});
-    assert.ok(card('hotel').querySelector('.live-badge').textContent.includes('IMAGE FIGÉE'));
+    assert.equal(card('hotel').querySelector('.live-badge').textContent, 'IMAGE FIGÉE');
+    assert.ok(!card('hotel').querySelector('.steps').textContent.includes('à l’instant'));
+    assert.ok(!card('hotel').querySelector('.frame-meta').textContent.includes('Durée 0 s'));
     assert.ok(!card('hotel').textContent.includes('EN DIRECT'));
+    ui.event({kind:'hotel', status:'ready_for_payment', handoff_url:'https://example.org/checkout'});
+    assert.equal(card('hotel').querySelector('.live-badge').textContent, 'Dernière capture · agent arrêté');
+    ui.event({kind:'hotel', status:'failed'});
+    assert.equal(card('hotel').querySelector('.live-badge').textContent, 'Image conservée · suivi interrompu');
+    ids.mode.value = 'demo'; ids.mode.onchange(); context.__runai.demo('running'); context.__runai.demo('stale');
+    assert.equal(card('hotel').querySelector('.live-badge').textContent, 'IMAGE FIGÉE · il y a 1 min');
+    assert.ok(!card('hotel').querySelector('.steps').textContent.includes('à l’instant'));
   } else if (scenario === 'r8-months') {
     for (const [lang, label] of [['fr','Novembre 2026'], ['en','November 2026']]) {
       ids.mode.onchange(); const value = mission(false); value.language = lang;

@@ -623,6 +623,9 @@
   const frameAge = state => Number.isFinite(frameTime(state)) ? Math.max(0, Math.floor((Date.now() - frameTime(state)) / 1000)) : null;
   const ageCopy = age => age < 2 ? t('image à l’instant', 'frame just now') : age < 60 ? t(`image il y a ${age} s`, `frame ${age} s ago`)
     : t(`image il y a ${Math.floor(age / 60)} min`, `frame ${Math.floor(age / 60)} min ago`);
+  const frozen = state => Boolean(state.image && (state.stale || state.staleFrame || frameAge(state) === null || frameAge(state) >= 60));
+  const frozenCopy = age => age === null || age < 60 ? t('IMAGE FIGÉE', 'FROZEN FRAME')
+    : t(`IMAGE FIGÉE · il y a ${Math.max(1, Math.floor(age / 60))} min`, `FROZEN FRAME · ${Math.max(1, Math.floor(age / 60))} min ago`);
   function activityLine(kind) {
     const state = agentState[kind], a = state.activity || {};
     if (!terminal.has(state.status) && (state.stale || state.staleFrame || (state.image && (frameAge(state) === null || frameAge(state) >= 60)))) return t('L’agent réfléchit…', 'The agent is thinking…');
@@ -641,17 +644,17 @@
     const state = agentState[kind], steps = cardFor(kind)?.querySelector('.steps'); if (!state || !steps || terminal.has(state.status)) return;
     const age = state.image ? frameAge(state) : null, line = node('span', 'activity', activityLine(kind));
     line.dataset.phase = phase(state);
-    steps.replaceChildren(line, ...(age === null ? [] : [node('span', 'frame-age', ` · ${ageCopy(age)}`)]));
+    steps.replaceChildren(line, ...(age === null && !frozen(state) ? [] : [node('span', 'frame-age', ` · ${frozen(state) ? frozenCopy(age) : ageCopy(age)}`)]));
   }
   function frameMeta(kind) {
     const state = agentState[kind], card = cardFor(kind); if (!state) return;
     const done = terminal.has(state.status), mode = $('mode').value, age = frameAge(state);
-    const stale = state.image && (state.stale || state.staleFrame || age === null || age >= 60);
+    const stale = frozen(state);
     const interrupted = state.pollFailed || ['failed', 'cancelled'].includes(state.status);
     const synthetic = mode !== 'live';
     const status = !state.image ? '' : interrupted ? t('Image conservée · suivi interrompu', 'Image retained · tracking interrupted')
-      : stale ? t(`IMAGE FIGÉE · il y a ${Math.floor((age || 0) / 60)} min`, `FROZEN FRAME · ${Math.floor((age || 0) / 60)} min ago`)
       : done ? t('Dernière capture · agent arrêté', 'Last screenshot · agent stopped')
+      : stale ? frozenCopy(age)
       : age * 1000 >= FRESH_MS ? t('IMAGE RÉCENTE', 'RECENT FRAME')
       : synthetic ? t(`SYNTHÉTIQUE · ${mode === 'replay' ? 'replay' : 'démo'}`, `SYNTHETIC · ${mode === 'replay' ? 'replay' : 'demo'}`) : t('EN DIRECT', 'LIVE');
     const badge = card.querySelector('.live-badge');
@@ -665,7 +668,7 @@
     const time = state.image ? (mode === 'replay' ? state.recorded : state.observed) : null;
     const clock = time && Number.isFinite(Date.parse(time)) ? `${mode === 'replay' ? t('heure originale', 'original time') : t('observée', 'observed')} ${new Intl.DateTimeFormat(locale(), {hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'UTC'}).format(new Date(time))} UTC` : '';
     const seconds = state.started ? Math.floor(((state.ended || Date.now()) - state.started) / 1000) : 0;
-    const elapsed = done && !state.active ? t('Non démarré', 'Not started') : !state.started ? '' : done ? seconds < 1 ? t('Terminé', 'Finished') : t(`Terminé en ${duration(seconds)}`, `Finished in ${duration(seconds)}`) : t(`Durée ${duration(seconds)}`, `Elapsed ${duration(seconds)}`);
+    const elapsed = done && !state.active ? t('Non démarré', 'Not started') : !state.started ? '' : done ? seconds < 1 ? t('Terminé', 'Finished') : t(`Terminé en ${duration(seconds)}`, `Finished in ${duration(seconds)}`) : seconds > 0 ? t(`Durée ${duration(seconds)}`, `Elapsed ${duration(seconds)}`) : '';
     const meta = [!state.image && !done && !parked ? state.queued ? t('En file d’attente', 'Queued') : t('En attente de la première capture', 'Waiting for the first screenshot') : '', clock, parked ? '' : elapsed].filter(Boolean).join(' · ');
     card.querySelector('.frame-meta').textContent = meta;
     if (!state.image && done) {
@@ -755,10 +758,15 @@
     const ready = state.status === 'ready_for_payment';
     const reached = ready ? 4 : state.prefilled ? 3 : state.checkpoint === 'selection' ? 2 : state.checkpoint === 'dates' ? 1 : state.active || state.image ? 0 : -1;
     const names = [t('Site ouvert', 'Site opened'), t('Dates', 'Dates'), t('Sélection', 'Selection'), t('Formulaire pré-rempli', 'Form prefilled'), t('Page de paiement', 'Payment page')];
-    box.append(node('strong', 'bilan-title', t('Bilan', 'Activity summary')));
+    const head = node('div', 'bilan-head');
+    head.append(node('strong', 'bilan-title', t('BILAN', 'ACTIVITY')), node('span', 'bilan-stat', t(`${reached + 1}/5 étapes`, `${reached + 1}/5 steps`)));
+    box.append(head);
     for (const [index, label] of names.entries()) {
       const step = node('li', '', label);
+      const skipped = ready && index === 3 && !state.prefilled;
       step.dataset.done = String(index <= reached && (index !== 3 || Boolean(state.prefilled)));
+      step.dataset.skipped = String(skipped);
+      if (skipped) { step.append(node('span', 'milestone-skip', t('non requis', 'not required'))); step.setAttribute('title', t('Pré-remplissage non requis pour atteindre cette page', 'Prefill not required to reach this page')); }
       list.append(step);
     }
     box.append(list);
@@ -767,6 +775,7 @@
   }
   function render(kind) {
     const state = agentState[kind], card = cardFor(kind); if (!state || !card) return;
+    if (card.dataset.status !== state.status && !globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) card.animate?.([{opacity: .72, transform: 'translateY(5px)'}, {opacity: 1, transform: 'translateY(0)'}], {duration: 260, easing: 'ease-out'});
     card.dataset.status = state.status; card.dataset.phase = phase(state);
     card.dataset.tone = ['not_yet_bookable', 'registration_closed', 'sold_out', 'no_site_coverage'].includes(state.reason) ? 'calm' : '';
     const pill = card.querySelector('.status'), key = state.queued && !terminal.has(state.status) ? 'queued' : state.status;
