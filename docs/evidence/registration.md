@@ -292,3 +292,66 @@ registration platforms beyond the listed CGU clauses. Valencia, Swiss Canyon Tra
 Paris, Lyon and Rotterdam are explicitly denied because their terms forbid automated extraction/bots.
 Lisbon half 2027 was observed sold out (Esgotada, waiting list) on 2026-11-08: the agent must report
 `sold_out`, not READY.
+
+## R7-03 offline registration coverage — 2026-11-09
+
+Owner-rule scope: docs/handoff/lift-site-exclusions.md overrides the historical
+exclusion table above, not any account/consent/submission/payment safety stop.
+New entries (reviewed 2026-11-09, expires 2027-02-07):
+- `r7-berlin-marathon`: official GENERALI organizer /en/registration/run,
+  including www BMW alias scope. Anonymous GET says lottery runs October 1 to
+  November 12, 2026, for September 26, 2027; a personal SCC account is required.
+  Linked public login URL: https://login.scc-events.com/s/login/?language=en_US.
+  Task stops BLOCKED login_required; no ballot, account or login action.
+- `r7-valencia-marathon-2026`: official
+  https://www.valenciaciudaddelrunning.com/en/marathon/info-registration-2026/.
+  Anonymous GET of its linked /en/marathon/faq-valencia-marathon-waiting-list/
+  says only unsuccessful ballot entrants are on the waiting list and new
+  waiting-list registrations are not accepted. Treat as sold_out, never join.
+- `r7-valencia-marathon-2027`: official /en/marathon/ information handoff.
+  No verified 2027 entry/platform was found; availability stays unknown, with
+  bounded no_inventory task rather than inheriting 2026 sold-out status.
+- `r7-lisbon-marathon-2027`: official organizer /maratona-de-lisboa/ handoff.
+  Organizer navigation still links the 2026 full marathon; no verified 2027
+  full-marathon platform/date was found. Unknown, bounded no_inventory task;
+  this does not assert that the full marathon is sold out.
+
+Lisbon HALF: anonymous GET of the existing prova_id=3769 registration URL
+again returned waitinglist.aspx, Lista de Espera, Esgotada, 07/03/2027. Bounded
+sold_out task checks availability within five steps (max_steps 12), not 60.
+
+CPC edition check: the old observation explicitly records rendered title 2027
+and date 14-03-2027 despite the 2026 slug. A new anonymous GET of official
+https://nncpcloopdenhaag.nl/inschrijven/10-km-loop/ still links that exact event
+with /w/6a58d147a44b09c924dbb429 and 2027 entry deadlines. Do not rewrite the
+slug based on its year. Current builder, evaluate_url, scrub and _policy gates
+allow it. The historical live denial is not reproduced; session redirect/task
+evidence is needed to identify its actual cause. Half remains sold_out;
+5/10 km observations remain separate.
+
+Frankfurt builder and _policy allow the reviewed white-label event. scrub_url
+still returns None; HAgentRunner cleans start_url then rejects a non-public
+result before session creation. Core scrub amendment belongs R7-01.
+
+Stoos anonymous GET still identifies Stoos Trail 2027, 2027-07-10, Brunnen.
+The existing observed participant checkpoint is retained; earlier required
+consent is an honest blocker, never consent acceptance or invented READY.
+
+All unavailable tasks retain safe official handoffs and bounded steps, but
+these are H tasks, NOT pre-H short-circuit results. Core support is required
+for a true pre-H result. Profile-bearing normal tasks emit P14 field names only;
+actual runtime prefill and new boundary enforcement need R7-01 integration.
+No H sessions, personal-data entry, submissions or visual checks performed.
+
+Offline checks after final code/policy edits:
+```
+uv run ruff check .
+All checks passed!
+uv run pytest -q
+2331 passed, 1 warning in 60.05s (0:01:00)
+uv run pytest -q tests/test_agent_hotel.py tests/test_agent_registration.py tests/test_site_policy.py
+798 passed in 8.27s
+```
+The warning is the existing Starlette httpx TestClient deprecation. All ten
+generated scenario tasks passed hclient._policy; Frankfurt separately fails
+scrub_url, as above. This is offline evidence, not successful preparation.

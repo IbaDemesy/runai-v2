@@ -304,7 +304,7 @@ def test_merged_registry_covers_showcase_races(race, start, platform):
     task = build_task(_race_trip(*race), today=MERGED_TODAY, registry=reg)
     assert task["start_url"] == start
     assert platform in task["allowed_hosts"]
-    assert task["max_steps"] == 60
+    assert task["max_steps"] == (12 if task["instructions"].startswith("AVAILABILITY FIRST") else 60)
     review = evaluate_url(start, "registration", today=MERGED_TODAY,
                           registry=policy_view(reg)[0])
     assert set(task["allowed_hosts"]) <= set(review["allowed_hosts"])  # H client subset check
@@ -902,8 +902,6 @@ def test_not_yet_open_registration_url_is_not_preparable():
 
 
 @pytest.mark.parametrize("race", [
-    ("BMW Berlin Marathon", "2027-09-26", 42.195, "Berlin", "Germany",
-     "https://www.bmw-berlin-marathon.com/"),
     ("Schneider Electric Marathon de Paris", "2027-04-11", 42.195, "Paris", "France",
      "https://www.asicsmarathondeparis.com/"),
     ("Run In Lyon", "2027-10-03", 42.195, "Lyon", "France", "https://www.runinlyon.com/"),
@@ -926,6 +924,117 @@ def test_next_edition_does_not_inherit_observed_2027_availability(race):
     trip = _race_trip(race[0], race[1].replace("2027", "2028"), *race[2:])
     coverage = registration_coverage(trip["race"], today=MERGED_TODAY, registry=_merged())
     assert coverage["status"] == "unknown" and coverage["preparable_open"] is False
+
+
+BERLIN = ("BMW Berlin Marathon", "2027-09-26", 42.195, "Berlin", "Germany",
+          "https://www.bmw-berlin-marathon.com/")
+VALENCIA_MARATHON = (
+    "Valencia Marathon Trinidad Alfonso", "2026-12-06", 42.195, "Valencia", "Spain",
+    "https://www.valenciaciudaddelrunning.com/en/marathon/info-registration-2026/",
+)
+LISBON_MARATHON = (
+    "EDP Lisbon Marathon", "2027-10-10", 42.195, "Lisboa", "Portugal",
+    "https://maratonaclubedeportugal.com/maratona-de-lisboa/",
+)
+R7_RACES = [BERLIN, FRANKFURT, DEN_HAAG, VALENCIA_MARATHON, MILAN, STOOS,
+            LISBON_HALF, LISBON_MARATHON]
+
+
+@pytest.mark.parametrize("race", R7_RACES, ids=lambda r: r[0])
+def test_r7_registration_build_and_current_policy(race):
+    task = build_task(_race_trip(*race, edition=race[1][:4]), today=MERGED_TODAY)
+    assert task["start_url"] and hclient._policy(task)
+    if race == FRANKFURT:
+        assert task["start_url"].startswith("https://in.motionevents-registrations.com/")
+    else:
+        assert scrub_url(task["start_url"]) == task["start_url"]
+    if race in (BERLIN, DEN_HAAG, VALENCIA_MARATHON, LISBON_HALF, LISBON_MARATHON):
+        for candidate in [task, *task["alternatives"]]:
+            assert candidate["max_steps"] == 12
+            assert candidate["instructions"].startswith("AVAILABILITY FIRST")
+            assert "first 5 steps" in candidate["instructions"].splitlines()[0]
+            assert candidate["checkpoint"]["url_patterns"] == ["(?!)"]
+            assert candidate["success_signal"].startswith("BLOCKED")
+        assert task["fallback_url"] in (task["start_url"], race[5])
+
+
+@pytest.mark.parametrize("name", ["BMW Berlin Marathon", "Generali Berlin-Marathon",
+                                  "Berlin Marathon"])
+def test_berlin_official_account_boundary_not_preparable(name):
+    trip = _race_trip(name, *BERLIN[1:])
+    trip["runner_profile"] = {"full_name": "Test Runner"}
+    task = build_task(trip, today=MERGED_TODAY)
+    assert task["start_url"] == "https://www.generali-berlin-marathon.com/en/registration/run"
+    assert task["fallback_url"] == task["start_url"]
+    assert "BLOCKED login_required" in task["instructions"].splitlines()[0]
+    assert "prefill_fields" not in task
+    assert not registration_coverage(trip["race"], today=MERGED_TODAY)["preparable_open"]
+
+
+def test_valencia_next_edition_is_unknown_not_inherited_sold_out():
+    trip = _race_trip(VALENCIA_MARATHON[0], "2027-12-05", *VALENCIA_MARATHON[2:5],
+                      "https://www.valenciaciudaddelrunning.com/en/marathon/")
+    task = build_task(trip, today=MERGED_TODAY)
+    assert task["start_url"].endswith("/en/marathon/")
+    assert task["max_steps"] == 12
+    assert "BLOCKED no_inventory" in task["instructions"].splitlines()[0]
+    assert registration_coverage(trip["race"], today=MERGED_TODAY)["status"] == "unknown"
+
+
+@pytest.mark.parametrize("race", [MILAN, STOOS, FRANKFURT])
+def test_registration_prefill_field_names_only(race):
+    trip = _race_trip(*race)
+    profile = {"full_name": "Test Runner", "email": "test.runner@example.com",
+               "phone": "+33 6 00 00 00 00", "birth_date": "1990-01-01",
+               "given_name": "Test", "family_name": "Runner", "gender": "unspecified",
+               "nationality": "Example nationality", "address_line": "Example address",
+               "postal_code": "Example postal", "city": "Example hometown",
+               "country": "Example country", "unexpected": "DO NOT INCLUDE"}
+    trip["runner_profile"] = profile
+    task = build_task(trip, today=MERGED_TODAY)
+    for value in [profile[k] for k in ("full_name", "email", "phone", "birth_date", "unexpected")]:
+        assert value not in json.dumps(task)
+    original_trip = {k: v for k, v in trip.items() if k != "runner_profile"}
+    original = build_task(original_trip, today=MERGED_TODAY)
+    for candidate in [task, *task["alternatives"]]:
+        assert set(candidate["prefill_fields"]) == set(profile) - {"unexpected"}
+        assert candidate["prefill_scope"] == "participant form"
+        assert candidate["checkpoint"]["prefill_patterns"] == original["checkpoint"]["url_patterns"]
+        assert "intermediate Next/Continue" in candidate["instructions"]
+        assert "Never tick terms/marketing" in candidate["instructions"]
+        assert "Never echo" in candidate["success_signal"]
+        assert STOP_FORM not in candidate["stop_before"]
+        for boundary in ("terms", "consent", "medical", "account", "login", "payment"):
+            assert _matches(candidate["checkpoint"]["url_patterns"],
+                            "https://example.test/" + boundary)
+
+
+STOP_FORM = "personal data form (name, email, phone, birth date, address, ID)"
+
+
+@pytest.mark.parametrize("profile", [None, {}, [], "bad", 1, {"email": []},
+                                     {"email": " "}, {"unknown": "Test Runner"}])
+def test_registration_invalid_profile_keeps_untouched_form_boundary(profile):
+    trip = _race_trip(*MILAN)
+    original = build_task(trip, today=MERGED_TODAY)
+    trip["runner_profile"] = profile
+    result = build_task(trip, today=MERGED_TODAY)
+    assert json.dumps(result) == json.dumps(original)
+    assert STOP_FORM in result["stop_before"]
+
+
+def test_registration_prefill_does_not_bypass_invalid_policy():
+    trip = _race_trip(*MILAN)
+    trip["runner_profile"] = {"full_name": "Test Runner"}
+    with pytest.raises(ValueError, match="not policy-reviewed"):
+        build_task(trip, today=MERGED_TODAY, registry={"schema_version": 1, "entries": []})
+
+
+def test_bad_early_stop_reason_fails_closed():
+    reg = _with_availability()
+    reg["entries"][0]["adapters"][0]["early_stop_reason"] = "ready"
+    with pytest.raises(ValueError, match="registry unavailable or invalid"):
+        build(_trip(), reg)
 
 
 def test_waiting_list_instruction_yields_hclient_sold_out_reason():
