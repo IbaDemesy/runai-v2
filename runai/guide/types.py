@@ -16,6 +16,15 @@ class RegistrationAccess(Model):
     note: str | None = None
 
 
+class RacePreparation(Model):
+    registration: Literal[
+        "covered", "sold_out", "not_open", "closed", "prohibited", "uncovered", "unknown"
+    ] = "unknown"
+    hotel: bool | None = None
+    transport: bool | None = None
+    origin_city: str | None = None
+
+
 class RaceOption(Model):
     id: str
     name: str
@@ -32,6 +41,7 @@ class RaceOption(Model):
     source_urls: list[str] = Field(default_factory=list)
     retrieved_at: datetime | None = None
     synthetic: bool = False
+    preparation: RacePreparation | None = None
 
 
 class Suggestion(Model):

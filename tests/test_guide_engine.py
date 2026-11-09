@@ -1,5 +1,7 @@
 import asyncio
+import sys
 from datetime import date
+from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
@@ -8,6 +10,134 @@ import runai.guide
 from runai.guide.engine import GuideEngine
 from runai.guide.fake import FakeDiscovery
 from runai.guide.types import GuideState, RaceOption
+
+
+async def preparation_discovery(query, hints):
+    return [
+        {"id": race_id, "name": name, "city": city, "country": "Portugal",
+         "race_date": "2027-04-11", "date_status": "official", "distance_km": distance,
+         "source_urls": ["https://race.example/edition"]}
+        for race_id, name, city, distance in [
+            ("sold", "Lisbon Half", "Lisbon", 21.1),
+            ("open", "Porto Half", "Porto", 21.1),
+            ("full", "Full Marathon", "Porto", 42.195),
+        ]
+    ]
+
+
+@pytest.mark.parametrize("text,delegation,label", [
+    ("un semi", "tu me conseilles", "Autre distance"),
+    ("a half marathon", "you choose", "Another distance"),
+])
+def test_delegation_never_auto_selects_other_distances(text, delegation, label):
+    async def discover(query, hints):
+        return [row for row in await preparation_discovery(query, hints) if row["id"] == "full"]
+
+    e = engine(discover)
+    state, turn = run(e.start(text))
+    assert state.draft.race is None
+    state, turn = run(e.step(state, {"text": delegation}))
+    assert state.draft.race is None and not turn.ready_to_confirm
+    assert state.stage == "choose_race"
+    assert [r.id for r in turn.candidates] == ["full"]
+    assert [s.group for s in turn.suggestions] == [label]
+    assert ("distance demandée" if label == "Autre distance" else "requested distance") in turn.message
+
+
+@pytest.mark.parametrize("lang,delegation", [
+    ("fr", "tu me conseilles"), ("en", "you choose"),
+])
+@pytest.mark.parametrize("shape", ["string", "status", "registration"])
+def test_preparation_ranking_labels_delegation_and_payload(monkeypatch, lang, delegation, shape):
+    calls = []
+
+    def registration(race):
+        assert "preparation" not in race
+        status = "sold_out" if race["id"] == "sold" else "covered"
+        return status if shape == "string" else {shape: status}
+
+    def coverage(kind, **kwargs):
+        calls.append((kind, kwargs))
+        return {"covered": kwargs["city"] == "Porto"}
+
+    monkeypatch.setitem(sys.modules, "runai.agents.registration",
+                        SimpleNamespace(registration_coverage=registration))
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(coverage=coverage))
+    e = engine(preparation_discovery)
+    text = "un semi depuis Lyon" if lang == "fr" else "a half marathon from Lyon"
+    state, turn = run(e.start(text))
+    assert [r.id for r in turn.candidates] == ["open", "sold", "full"]
+    assert turn.candidates[0].preparation.model_dump() == {
+        "registration": "covered", "hotel": True, "transport": True, "origin_city": "Lyon"}
+    sold = next(s for s in turn.suggestions if s.value == "sold")
+    assert ("complet (liste d'attente)" if lang == "fr" else "sold out (waitlist)") in sold.label
+    assert next(s for s in turn.suggestions if s.value == "full").group
+    assert all(k in {"hotel", "transport"} for k, _ in calls)
+    assert all(kwargs["origin_city"] == "Lyon" for _, kwargs in calls)
+    assert '"preparation"' in turn.model_dump_json()
+    state, turn = run(e.step(state, {"text": delegation}))
+    assert state.draft.race.id == "open" and turn.ready_to_confirm
+    payload = e.trip_payload(state)
+    assert "preparation" not in payload and "preparation" not in payload["race"]
+
+
+@pytest.mark.parametrize("failure", ["missing", "raises", "invalid", "empty"])
+def test_preparation_optional_modules_fail_closed(monkeypatch, failure):
+    def broken(*args, **kwargs):
+        if failure == "raises":
+            raise RuntimeError("unavailable")
+        return {"status": "invented", "covered": "yes"} if failure == "invalid" else {}
+
+    for module, function in [("registration", "registration_coverage"), ("site_policy", "coverage")]:
+        value = None if failure == "missing" else SimpleNamespace(**{function: broken})
+        monkeypatch.setitem(sys.modules, "runai.agents." + module, value)
+    e = engine(preparation_discovery)
+    _, turn = run(e.start("un semi"))
+    assert [r.id for r in turn.candidates] == ["sold", "open", "full"]
+    for race in turn.candidates:
+        assert race.preparation.registration == "unknown"
+        assert race.preparation.hotel is None and race.preparation.transport is None
+        assert race.preparation.origin_city == "Paris"
+    assert "waitlist" not in turn.model_dump_json()
+    assert '"registration":"unknown"' in turn.model_dump_json()
+
+
+@pytest.mark.parametrize("action", ["typed", "chip", "detached-race"])
+def test_origin_changes_refresh_candidate_and_selected_preparation(monkeypatch, action):
+    monkeypatch.setitem(sys.modules, "runai.agents.registration",
+                        SimpleNamespace(registration_coverage=lambda race: "covered"))
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(
+        coverage=lambda kind, **kwargs: {"covered": kwargs["origin_city"] == "Lyon"}))
+    e = engine()
+    state, turn = run(e.start("le semi de Lisbonne depuis Paris 2 nuits budget 450"))
+    assert state.draft.race.preparation.origin_city == "Paris"
+    assert state.draft.race.preparation.transport is False
+    if action == "chip":
+        edit = next(s for s in turn.suggestions if s.kind == "edit" and s.value == "origin")
+        state, turn = run(e.step(state, {"suggestion_id": edit.id}))
+        origin = next(s for s in turn.suggestions if s.value == "Lyon")
+        answer = {"suggestion_id": origin.id}
+    else:
+        if action == "detached-race":
+            state.candidates = []
+        answer = {"text": "Lyon"}
+    state, turn = run(e.step(state, answer))
+    assert state.draft.origin_city == "Lyon" and turn.ready_to_confirm
+    for race in [*state.candidates, state.draft.race, turn.draft.race]:
+        assert race.preparation.origin_city == "Lyon"
+        assert race.preparation.hotel is True and race.preparation.transport is True
+
+
+@pytest.mark.parametrize("status,fr,en", [
+    ("not_open", "inscriptions pas encore ouvertes", "registration not open yet"),
+    ("closed", "inscriptions closes", "registration closed"),
+])
+@pytest.mark.parametrize("lang", ["fr", "en"])
+def test_preparation_registration_labels(monkeypatch, status, fr, en, lang):
+    monkeypatch.setitem(sys.modules, "runai.agents.registration",
+                        SimpleNamespace(registration_coverage=lambda race: status))
+    _, turn = run(engine(preparation_discovery).start("un semi" if lang == "fr" else "a half"))
+    assert all((fr if lang == "fr" else en) in s.label for s in turn.suggestions)
 
 
 def test_package_public_api():
@@ -1058,7 +1188,8 @@ def test_r1_03_race_contract_and_hint_bridge():
         "retrieved_at": "2026-01-01T00:00:00Z",
         "synthetic": True,
     }
-    assert set(row) == set(RaceOption.model_fields)
+    assert set(row) | {"preparation"} == set(RaceOption.model_fields)
+    assert RaceOption.model_validate(row).preparation is None
     assert RaceOption.model_validate(row).distance_label == "Semi-marathon"
     observed = []
 
@@ -1141,7 +1272,8 @@ def test_origin_chips_rank_transport_covered_cities_first(monkeypatch):
         state, turn = run(engine().start("le semi de Lisbonne, 2 nuits, budget 800"))
     assert state.stage == "origin"
     assert [s.value for s in turn.suggestions][:2] == ["Lyon", "Genève"]
-    assert {c[0] for c in calls} == {"transport"} and all(c[2] == "Lisbon" for c in calls)
+    assert {c[0] for c in calls} == {"hotel", "transport"}
+    assert all(c[2] == "Lisbon" for c in calls)
     assert "couvert" not in turn.message + turn.question
     assert "coverage" not in (turn.message + turn.question).lower()
 
