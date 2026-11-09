@@ -1104,6 +1104,34 @@ def test_named_official_alternative_outside_season_requires_explicit_selection()
     assert any(s.kind == "choose_race" and s.value == "edition" for s in turn.suggestions)
 
 
+@pytest.mark.parametrize("secondary", ["empty", "error", "official"])
+def test_optional_alternative_lookup_preserves_initial_results(secondary):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        if hints.get("official_date_required"):
+            if secondary == "error":
+                raise RuntimeError("provider unavailable")
+            if secondary == "empty":
+                return []
+            return [{"id": "official", "name": "Other Marathon", "distance_km": 42.195,
+                     "race_date": "2027-04-10", "date_status": "official",
+                     "source_urls": ["https://race.example/official"]}]
+        return [{"id": "initial", "name": "Milan Marathon", "distance_km": 42.195,
+                 "race_date": "2027-04-11", "date_status": "unverified",
+                 "source_urls": ["https://race.example/initial"]}]
+
+    state, turn = run(engine(discover).start("le marathon de Milan"))
+    assert len(calls) == 2
+    assert turn.error is None
+    assert any(r.id == "initial" for r in state.candidates)
+    assert any(s.kind == "choose_race" and s.value == "initial" for s in turn.suggestions)
+    assert not turn.ready_to_confirm
+    if secondary == "official":
+        assert any(r.id == "official" for r in state.candidates)
+
+
 def test_unverified_result_offers_available_official_alternative():
     async def discover(query, hints):
         if hints.get("official_date_required"):

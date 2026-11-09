@@ -629,7 +629,10 @@ class GuideEngine:
                                     alternative_scope="official dated alternatives", broaden=True)
                 original_candidates = state.candidates
                 state.candidates = []
-                await self._collect(state, alternatives, broadened=True)
+                try:
+                    await self._collect(state, alternatives, broadened=True)
+                except Exception:  # noqa: BLE001 -- optional alternatives must not discard initial results
+                    state.candidates = []
                 official = [r for r in state.candidates if self._eligible(r)]
                 if official:
                     broadened = "months" if hints.get("months") else "criteria"
