@@ -114,7 +114,8 @@ class GuideEngine:
         if race.synthetic:
             return {}
         try:
-            hint = import_module("runai.discovery.linkup").official_search_hint(race.name, race.distance_km)
+            hint = import_module("runai.discovery.linkup").official_search_hint(
+                race.name, race.distance_km, race.race_date.year if race.race_date else None)
             if not hint and race.official_url:
                 hint = {"race_name": race.name, "country": race.country,
                         "official_domains": urlsplit(race.official_url).hostname or ""}

@@ -1242,6 +1242,30 @@ def test_edition_year_sponsor_aliases_share_official_verification(alias, canonic
     assert len(state.verification_cache) == 1
 
 
+@pytest.mark.parametrize("alias,canonical,country", [
+    ("Berlin Marathon 2028", "Berlin Marathon", "Germany"),
+    ("BMW Berlin Marathon 2028", "Berlin Marathon", "Germany"),
+    ("Wizz Air Milano Marathon 2028", "Milano Marathon", "Italy"),
+])
+@pytest.mark.parametrize("official_first", [False, True])
+def test_contradictory_name_year_cannot_inherit_official_date(alias, canonical, country, official_first):
+    async def discover(query, hints):
+        rows = [{"id": "contradiction", "name": alias, "country": country,
+                 "distance_km": 42.195, "race_date": "2027-09-26", "date_status": "unverified",
+                 "source_urls": ["https://directory.example/edition"]},
+                {"id": "official", "name": canonical, "country": country,
+                 "distance_km": 42.195, "race_date": "2027-09-26", "date_status": "official",
+                 "source_urls": ["https://organizer.example/edition"]}]
+        return list(reversed(rows)) if official_first else rows
+
+    state, turn = run(engine(discover).start("a marathon in " + country))
+    assert len(turn.candidates) == 2
+    contradiction = next(r for r in state.candidates if r.id == "contradiction")
+    assert contradiction.date_status == "unverified"
+    assert contradiction.source_urls == ["https://directory.example/edition"]
+    assert next(r for r in state.candidates if r.id == "official").date_status == "official"
+
+
 @pytest.mark.parametrize("outcome", ["official", "empty", "error", "foreign"])
 def test_selected_unverified_edition_verifies_before_country_fallback(monkeypatch, outcome):
     covered_offline(monkeypatch)

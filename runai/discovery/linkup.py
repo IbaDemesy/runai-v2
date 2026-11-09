@@ -58,10 +58,11 @@ CALL_BUDGET_S = 35
 _cache: OrderedDict[str, tuple[float, list[dict]]] = OrderedDict()
 
 
-def official_search_hint(name: str, distance: float | None = None) -> dict:
+def official_search_hint(name: str, distance: float | None = None, edition_year: int | None = None) -> dict:
     if distance is not None and not 42 <= distance <= 42.3:
         return {}
-    name = re.sub(r"\b\d{4}\b", "", name).strip()
+    if edition_year is not None:
+        name = re.sub(rf"\b{edition_year}\b", "", name).strip()
     slug = _slug(name)
     words = set(slug.split("-"))
     if "marathon" not in words or words & {"half", "semi"}:
