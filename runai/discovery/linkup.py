@@ -56,6 +56,14 @@ CACHE_TTL_S = 1800
 CACHE_MAX_SIZE = 128
 CALL_BUDGET_S = 35
 _cache: OrderedDict[str, tuple[float, list[dict]]] = OrderedDict()
+
+
+class DiscoveryResults(list):
+    def __init__(self, candidates, previous_edition_date=None):
+        super().__init__(candidates)
+        self.previous_edition_date = previous_edition_date
+
+
 MAJOR_ORGANIZERS = {
     "Valencia": "valenciaciudaddelrunning.com",
     "Paris": "schneiderelectricparismarathon.com",
@@ -71,15 +79,29 @@ MAJOR_ORGANIZERS = {
 }
 
 
-def official_search_hint(name: str, distance: float | None = None, edition_year: int | None = None) -> dict:
-    if distance is not None and not 42 <= distance <= 42.3:
-        return {}
+def official_search_hint(name: str, distance: float | None = None, edition_year: int | None = None,
+                         *, include_half: bool = False) -> dict:
     if edition_year is not None:
         name = re.sub(rf"\b{edition_year}\b", "", name).strip()
     slug = _slug(name)
     words = set(slug.split("-"))
+    if words & {"half", "semi"} or distance is not None and 20 <= distance <= 22:
+        if not include_half or distance is not None and not 20 <= distance <= 22:
+            return {}
+        for aliases, country, domain in [
+            ({"lisbon", "lisbonne", "lisboa"}, "Portugal", "maratonaclubedeportugal.com"),
+            ({"madrid"}, "Spain", "rocknrollmadridrun.com"),
+        ]:
+            if words & aliases:
+                return {"race_name": name, "country": country, "official_domains": domain}
+        return {}
+    if distance is not None and not 42 <= distance <= 42.3:
+        return {}
     if "marathon" not in words or words & {"half", "semi"}:
         return {}
+    if words & {"lisbon", "lisbonne", "lisboa"}:
+        return {"race_name": "Lisbon Marathon (EDP Maratona de Lisboa)",
+                "country": "Portugal", "official_domains": "maratonaclubedeportugal.com"}
     if "berlin" in words:
         canonical = slug in {"berlin-marathon", "bmw-berlin-marathon", "generali-berlin-marathon"}
         return {"race_name": "Berlin Marathon" if canonical else name, "country": "Germany",
@@ -114,7 +136,8 @@ def _cache_key(query, constraints, today):
             return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
         return value
 
-    query = constraints.get("race_name", query) if constraints.get("named") else query
+    named = bool(constraints.get("named") or constraints.get("race_name") and constraints.get("city"))
+    query = constraints.get("race_name", query) if named else query
     data = {"query": normalized(query), "hints": {
         name: normalized(value) for name, value in constraints.items()
     }, "day": today.isoformat()}
@@ -344,6 +367,7 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
                              and _host(_url(item.official_url)) in source_hosts))
         official_url = next(iter(official_urls), None)
         official_hosts = {_host(url) for url in official_urls}
+        official_hosts -= {"running-portugal.com"}
         official_host = _host(official_url)
         registration_url = next((
             _url(item.registration_url) for item in group
@@ -522,6 +546,10 @@ async def discover(
             "from these domains, including it in sources with its exact edition date. "
             "Set official_url to the actual sourced organizer host, including after redirects. "
             "These are search hints only: a domain/name is not evidence of a date or distance.")
+        if constraints.get("official_date_required"):
+            search_terms["targeted_organizer_query"] = (
+                f"site:{official_hint['official_domains'].split()[0]} "
+                f"{official_hint['race_name']} {year} date official edition") if official_hint.get("official_domains") else ""
     if constraints.get("country") and not constraints.get("named"):
         search_terms["official_seed_sites"] = [official_search_hint(name)
             for name in RACE_SEARCH_SEEDS.get(constraints["country"], ()) if official_search_hint(name)]
@@ -576,6 +604,7 @@ async def discover(
     }
     owned_client = client is None
     active_client = client if client is not None else httpx.AsyncClient()
+    previous_edition = None
     try:
         focused = {**payload, "q": prompt + "\nPrioritize the organizers' official edition "
                    "and registration pages over calendars; keep the same requested constraints."}
@@ -602,11 +631,51 @@ async def discover(
         errors = [result for result in results if isinstance(result, Exception)]
         if not rows and errors:
             raise errors[0]
+        normalized = _normalize(rows, today, "")
+        past_dates = [day for row in rows for source in row.sources
+                      if (day := _day(source.race_date)) and day < today]
+        followups = []
+        if (constraints.get("race_name") and not constraints.get("official_date_required")
+                and not normalized and past_dates):
+            previous_edition = max(past_dates)
+            year = max(today.year, previous_edition.year + 1)
+            domains = official_hint.get("official_domains", "") if official_hint else ""
+            followups.append(f"{constraints['race_name']} {year} date next edition "
+                             f"organizer {domains}. Prefer site:{domains.split()[0]} "
+                             "when available; preserve aggregator evidence as unverified."
+                             if domains else f"{constraints['race_name']} {year} date next edition")
+        if (constraints.get("country") == "Spain" and constraints.get("distance") == "marathon"
+                and constraints.get("month_from") and constraints.get("month_to")):
+            present = {row["city"] for row in normalized}
+            for city in ("Valencia", "Seville"):
+                if city not in present:
+                    followups.append(
+                        f"{city} Marathon official date {constraints['month_from']} through "
+                        f"{constraints['month_to']} site:{MAJOR_ORGANIZERS[city]}. "
+                        "Return only editions inside that window; include registration evidence.")
+        for term in followups:
+            request = {**payload, "depth": "standard", "q": prompt + "\nTargeted follow-up: " + term}
+            try:
+                async with asyncio.timeout(max(0, deadline - monotonic()) if deadline else None):
+                    recovered = await _search(active_client, request, key, timeout_s)
+                    for row in recovered:
+                        organizer = official_search_hint(row.name, row.distance_km)
+                        domains = organizer.get("official_domains", "").split()
+                        host = _host(_url(row.official_url))
+                        if domains and not any(host == domain or host and host.endswith("." + domain)
+                                               for domain in domains):
+                            row = row.model_copy(update={"official_url": None,
+                                                         "registration_source_url": None})
+                        rows.append(row)
+            except DiscoveryError:
+                pass
+            except TimeoutError:
+                break
     finally:
         if owned_client:
             await active_client.aclose()
     retrieved_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-    candidates = _normalize(rows, today, retrieved_at)
+    candidates = DiscoveryResults(_normalize(rows, today, retrieved_at), previous_edition)
     for candidate in candidates:
         url = candidate["registration_url"] or candidate["official_url"]
         if url:

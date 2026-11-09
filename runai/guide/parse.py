@@ -16,7 +16,7 @@ def normalize(text: str) -> str:
 
 
 def named_query(city: str, distance: str) -> str:
-    label = {"marathon": "Marathon", "half": "Half Marathon", "10k": "10K",
+    label = {"marathon": "Marathon", "half": "Half Marathon", "5k": "5K", "10k": "10K",
              "trail": "Trail", "ultra": "Ultra"}.get(distance, distance)
     return f"{city} {label}"
 
@@ -63,7 +63,7 @@ CITY_GROUPS = {
     "United Kingdom": ["London/Londres"],
     "Netherlands": ["Amsterdam", "Rotterdam", "The Hague/La Haye"],
     "Belgium": ["Brussels/Bruxelles"],
-    "Switzerland": ["Geneva/Geneve", "Zurich", "Lausanne", "Zermatt", "Interlaken"],
+    "Switzerland": ["Geneva/Geneve", "Zurich/Zürich/Zurigo", "Lausanne", "Zermatt", "Interlaken"],
     "Austria": ["Vienna/Vienne"],
     "Czechia": ["Prague"],
     "Denmark": ["Copenhagen/Copenhague"],
@@ -127,7 +127,7 @@ EN_CUES = (
     r"\b(?P<en>the|in|from|next|this|summer|spring|winter|autumn|fall|half|nights?|actually|"
     r"instead|i|i'?m|want|would|like|run|looking|for|and|with|without|please|thanks|tell|what|"
     r"which|hello|whatever|you|my|to|of|yes|but|ignore(?=\s+previous)|pay|create|accept|submit|"
-    r"bypass)\b"
+    r"bypass|give|recipe|lisbon)\b"
 )
 
 
@@ -159,7 +159,7 @@ def parse_intent(text: str, *, today: date) -> Intent:
     for wrong, right in {
         "marathn": "marathon", "marat+h?o+n+": "marathon", "itali": "italie",
         "printemp": "printemps", "semi+": "semi", "espagn+e*": "espagne", "spai+n+": "spain",
-        "lisbone": "lisbonne", "suise": "suisse", "trai+l+": "trail",
+        "lisbone": "lisbonne", "lisbonn": "lisbonne", "suise": "suisse", "trai+l+": "trail",
         "marahton": "marathon", "romme": "rome", "berln": "berlin", "amsterdm": "amsterdam",
     }.items():
         t = re.sub(r"\b" + wrong + r"\b", right, t)
@@ -187,6 +187,7 @@ def parse_intent(text: str, *, today: date) -> Intent:
         (r"\b(ultra)\b", "ultra"),
         (r"\btrail\b", "trail"),
         (r"\b(semi|half)\b", "half"),
+        (r"\b5\s?k(m)?\b", "5k"),
         (r"\b10\s?k(m)?\b", "10k"),
         (r"\bmarathon\b", "marathon"),
     ]:
@@ -284,7 +285,7 @@ def parse_intent(text: str, *, today: date) -> Intent:
         if match:
             setattr(result, field, int(match[1]))
     budget = re.search(r"\bbudget\s+(-?\d+)", t)
-    travelers = re.search(r"\ba\s+(\d+)\b", t)
+    travelers = re.search(r"\ba\s+(\d+)\b(?![.,]\d|\s*(?:km|k|mi|miles?|m)\b)", t)
     if budget:
         result.budget_eur = int(budget[1])
     if travelers:
@@ -307,7 +308,11 @@ def parse_intent(text: str, *, today: date) -> Intent:
         if not re.match(r"\s*(?:€|euros?\b|eur\b|nuits?\b|nights?\b)", t[match.end():])
         and not re.search(r"\bbudget\s*(?:de\s*)?$", t[:match.start()])
     }
-    if len(countries) > 1 or len(cities) > 1 or mismatched_city:
+    if re.search(r"\bmarathon\s+(?:de\s+|of\s+)?5\s*k(?:m)?\b", t):
+        result.problem = "distance_conflict"
+    elif result.city == "Amsterdam" and re.search(r"montagne|mountain", t):
+        result.problem = "terrain_conflict"
+    elif len(countries) > 1 or len(cities) > 1 or mismatched_city:
         result.problem = "destination_conflict"
     elif len(set(explicit_dates)) > 1 or season_count > 1 or len(years) > 1:
         result.problem = "date_conflict"

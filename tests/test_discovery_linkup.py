@@ -32,6 +32,24 @@ EXPECTED_KEYS = {
 }
 
 
+@pytest.mark.parametrize("name,km,domain", [
+    ("EDP Lisbon Half Marathon", 21.1, "maratonaclubedeportugal.com"),
+    ("semi de Lisbonne", None, "maratonaclubedeportugal.com"),
+    ("Madrid Half Marathon", 21.0975, "rocknrollmadridrun.com"),
+    ("Unknown Half Marathon", 21.1, None),
+    ("Berlin Half Marathon", 21.1, None),
+    ("Lisbon Half Marathon", 10, None),
+])
+def test_half_organizer_hints_do_not_reuse_unrelated_marathon_domains(name, km, domain):
+    hint = linkup.official_search_hint(name, km, include_half=True)
+    assert not linkup.official_search_hint(name, km)
+    if domain:
+        assert hint["official_domains"] == domain
+        assert hint["race_name"] == name
+    else:
+        assert not hint
+
+
 @pytest.fixture(autouse=True)
 def isolated_discovery_cache():
     linkup.clear_cache()
@@ -53,6 +71,164 @@ def race(**changes):
         "sources": [{"url": "https://race.example/edition", "race_date": DAY}],
     }
     return row | changes
+
+
+@pytest.mark.parametrize("outcome", ["official", "aggregator", "empty", "timeout"])
+def test_named_past_edition_searches_next_year_once(outcome):
+    from datetime import date
+
+    from runai.app import _discovery_hints
+
+    calls = []
+
+    async def handler(request):
+        payload = json.loads(request.content)
+        calls.append(payload)
+        future = "Targeted follow-up:" in payload["q"]
+        if future and outcome == "empty":
+            return httpx.Response(200, json={"candidates": []})
+        if future and outcome == "timeout":
+            raise DiscoveryTimeout("offline")
+        url = ("https://maratonaclubedeportugal.com/edition/" if outcome == "official" or not future
+               else "https://calendar.example/lisbon/marathon/")
+        return httpx.Response(200, json={"candidates": [race(
+            name="EDP Lisbon Marathon", city="Lisbon", country="Portugal",
+            edition="2027" if future else "2026", official_url=url,
+            sources=[{"url": url, "race_date": "2027-10-09" if future else "2026-10-10"}])]})
+
+    async def conversation():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            async def provider(query, hints):
+                return await discover(query, _discovery_hints(hints), api_key=KEY, client=client,
+                                      registration_info=lambda _: None)
+            state, turn = await GuideEngine(provider, today=date(2026, 11, 9)).start("le marathon de Lisbonne")
+            assert "2026-10-10" in turn.message and "passée" in turn.message
+            followups = [p for p in calls if "Targeted follow-up:" in p["q"]]
+            assert len({p["q"] for p in followups}) == 1
+            assert len(followups) == (2 if outcome == "timeout" else 1)
+            assert all(p["depth"] == "standard" for p in followups)
+            assert "Lisbon Marathon 2027 date" in followups[0]["q"]
+            if outcome in {"empty", "timeout"}:
+                assert not state.candidates and not turn.ready_to_confirm
+                return
+            assert any(r.race_date == date(2027, 10, 9) for r in state.candidates)
+            assert state.candidates[0].date_status == ("official" if outcome == "official" else "unverified")
+            if outcome == "aggregator":
+                assert "à confirmer" in turn.message
+
+    asyncio.run(conversation())
+
+
+@pytest.mark.parametrize("query", ["un marathon en Espagne cet hiver", "a marathon in Spain this winter"])
+@pytest.mark.parametrize("status", ["sold_out", "open", "unknown"])
+def test_spain_winter_finds_valencia_and_seville_and_defaults_in_window(query, status, monkeypatch):
+    from datetime import date
+
+    from runai.agents import registration
+    from runai.app import _discovery_hints
+
+    original = registration.registration_coverage
+
+    def coverage(race):
+        if race.get("city") == "Valencia":
+            return {"covered": True, "status": status}
+        return original(race)
+
+    monkeypatch.setattr(registration, "registration_coverage", coverage)
+
+    calls = []
+
+    async def handler(request):
+        payload = json.loads(request.content)
+        calls.append(payload)
+        targeted = "Targeted follow-up: Valencia Marathon" in payload["q"]
+        cities = [("Valencia", "2026-12-06", "valenciaciudaddelrunning.com")] if targeted else [
+            ("Seville", "2027-02-21", "zurichmaratonsevilla.es"),
+            ("Barcelona", "2027-03-14", "zurichmaratobarcelona.es")]
+        return httpx.Response(200, json={"candidates": [race(
+            name=city + " Marathon", city=city, country="Spain", edition=day[:4],
+            official_url=f"https://{host}/", sources=[{"url": f"https://{host}/", "race_date": day}])
+            for city, day, host in cities]})
+
+    async def conversation():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            async def provider(text, hints):
+                assert hints["months"] == ["2026-12", "2027-01", "2027-02"]
+                return await discover(text, _discovery_hints(hints), api_key=KEY, client=client,
+                                      registration_info=lambda _: None)
+            state, turn = await GuideEngine(provider, today=date(2026, 11, 9)).start(query)
+            assert state.draft.race.city == ("Seville" if status == "sold_out" else "Valencia")
+            assert state.draft.race.race_date == (date(2027, 2, 21) if status == "sold_out" else date(2026, 12, 6))
+            assert any(r.city == "Valencia" and r.race_date == date(2026, 12, 6) for r in state.candidates)
+            assert any(r.city == "Seville" and r.race_date == date(2027, 2, 21) for r in state.candidates)
+            assert all(r.city != "Barcelona" for r in state.candidates)
+            assert any(s.kind == "choose_race" and s.group == "Alternatives" for s in turn.suggestions)
+            if status == "sold_out":
+                assert any(("complet" if turn.language == "fr" else "sold out") in s.label
+                           for s in turn.suggestions if s.kind == "choose_race")
+            assert "Rien de sourcé" not in turn.message and "Nothing sourced" not in turn.message
+            assert len(turn.suggestions) <= 4
+            assert any(p["depth"] == "standard" and "Targeted follow-up: Valencia Marathon" in p["q"]
+                       for p in calls)
+
+    asyncio.run(conversation())
+
+
+@pytest.mark.parametrize("outcome", ["official", "empty", "timeout"])
+@pytest.mark.parametrize("initial", ["aggregator", "empty"])
+def test_lisbon_named_organizer_recovery_and_half(outcome, initial):
+    from runai.app import _discovery_hints
+
+    requests = []
+
+    async def handler(request):
+        payload = json.loads(request.content)
+        data = json.loads(payload["q"].split("<user_data>\n")[1].split("\n</user_data>")[0])
+        requests.append((payload, data))
+        hints = data["hints"]
+        half = hints.get("distance") == "half"
+        targeted = hints.get("official_date_required")
+        if targeted and outcome == "timeout":
+            raise httpx.ReadTimeout("offline")
+        if targeted and outcome == "empty" or not targeted and initial == "empty" and not half:
+            return httpx.Response(200, json={"candidates": []})
+        official = bool(targeted or half)
+        url = ("https://maratonaclubedeportugal.com/prova/edp-maratona-de-lisboa/"
+               if official else "https://www.running-portugal.com/lisbon/marathon/en/rules.html")
+        row = race(name="EDP Lisbon Half Marathon" if half else "EDP Lisbon Marathon",
+                   city="Lisboa", country="Portugal", distance_km=21.1 if half else 42.195,
+                   distance_label="Half marathon" if half else "Marathon",
+                   official_url="https://maratonaclubedeportugal.com/" if not official else url,
+                   registration_url=None, registration_source_url=None,
+                   sources=[{"url": url, "race_date": DAY}])
+        return httpx.Response(200, json={"candidates": [row]})
+
+    async def conversation():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            async def provider(query, hints):
+                return await discover(query, _discovery_hints(hints), api_key=KEY, client=client,
+                                      registration_info=lambda _: None)
+
+            engine = GuideEngine(provider)
+            state, turn = await engine.start("le marathon de Lisbonne")
+            assert requests[0][1]["query"] == "Lisbon Marathon"
+            assert requests[0][1]["hints"]["city"] == "Lisbon"
+            targeted = [(p, d) for p, d in requests if d["hints"].get("official_date_required")]
+            assert targeted and all(p["depth"] == "standard" for p, _ in targeted)
+            assert all("site:maratonaclubedeportugal.com" in d["search_terms"]["targeted_organizer_query"]
+                       for _, d in targeted)
+            if outcome == "official":
+                assert any(r.name == "EDP Lisbonne Marathon" and r.date_status == "official"
+                           for r in turn.candidates)
+            elif initial == "aggregator":
+                assert turn.candidates and all(r.date_status != "official" for r in turn.candidates)
+                assert "à confirmer" in turn.message + " ".join(s.label for s in turn.suggestions)
+            state, turn = await engine.step(state, {"text": "plutôt le semi"})
+            assert "souci" not in turn.message and turn.error is None
+            assert state.hints["city"] == "Lisbon" and state.hints["distance"] == "half"
+            assert any(r.distance_km == 21.1 for r in turn.candidates)
+
+    asyncio.run(conversation())
 
 
 def search(rows, **kwargs):
