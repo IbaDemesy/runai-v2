@@ -1032,3 +1032,74 @@ no additional H sessions were started and no old outcome was upgraded.
   alternative candidates passed exact P7 keys, complete expected fields, evaluate_url
   and the rebased hclient._policy. Existing coverage is unchanged:
   `{'covered': True, 'policy_ids': ['vueling-com']}` for Barcelona from Paris.
+
+## R7-02 — transport route render and selected checkpoints (2026-11-09)
+
+Owner-lifted `allowed_owner_rule` permits read/prepare-only research; it is not
+provider authorization or proof of checkout readiness. No private H URLs/IDs,
+screenshots, tokens or passenger values retained. Dates 2027-01-29 → 2027-01-31,
+one adult unless stated. Raw H research used one session at a time, checked quota
+before each, rejected cookies and deleted each session (HTTP204). Round two:
+18 completed sessions, maximum 11 actual steps; final quota active=0/available=3.
+Image-event counts are observations, not independently reviewed screenshots.
+
+| Route / site | H fares / steps | Observed result mode |
+|---|---|---|
+| Paris→Milan / Omio | yes / 5 (round one) | train, EUR99/EUR169 outbound |
+| Paris→Berlin / Omio | yes / 4 | train, EUR80/EUR89 |
+| Paris→Lisbon / Omio | yes / 5, plus 5 for flight tab | bus EUR60/EUR99; Ryanair BVA→LIS EUR48 outbound, round trip from EUR136 |
+| Paris→Zurich / Omio | yes / 6 | bus; Air France flight EUR70 outbound, round trip from EUR139 |
+| Paris→Madrid / Omio | yes / 4 | train EUR108/EUR116 |
+| Lyon→Milan / Omio | yes / 4 | train EUR78/EUR98 |
+| Brussels→Berlin / Omio | yes / 4 | train EUR70 |
+| Geneva→Barcelona / Omio | yes / 6 | bus; easyJet flight EUR41/EUR58 |
+| Paris→Milan, two adults / Omio | yes / 5 | UI showed 2 adults, EUR198/EUR338 versus one-adult EUR99/EUR169 |
+| Paris→The Hague / Omio | nearby only / 4 | train actually ends Rotterdam Centraal (+21km); NOT verified literal Hague coverage |
+| Paris→Milan / Google Flights | yes / 4 | round-trip lists EUR48/EUR49 |
+| Paris→Berlin / Google Flights | yes / 3 | round-trip lists EUR88/EUR89 |
+| PAR→LIS / Google Flights | yes / 2 | round-trip lists EUR136 Transavia / EUR159 TAP; IATA wording succeeds |
+| Paris→Valencia / Google Flights | yes / 3 (round one) | round-trip lists EUR45/EUR80 |
+| Geneva→Barcelona / Google Flights | yes / 2 | round-trip lists EUR68/EUR102 |
+| ORY→LIS / TAP | yes / 3 (round one) | outbound economy EUR87.47/EUR97.47 |
+| Paris→Berlin / corrected Trainline | no / 4 | error and temporary bot restriction; dropped |
+
+Omio public name-based entry:
+`https://www.omio.com/links/626fa8a9-f982-43d0-ace9-9a13f6b14612?departurePosTerm={origin}&arrivalPosTerm={destination}&departureDate={out_ISO}&returnDate={back_ISO}&adults={adults}`.
+The UUID is Omio's public published redirect identifier, not an H ID. All three
+mode tabs appeared. Results paths are
+`/app/search-frontend/results/{id}/train`, `/bus` or `/flight`.
+List prices are outbound or advertised round-trip-from prices, not selected totals.
+Airport substitutions such as Beauvais must be disclosed. The Hague is unverified;
+Den Haag Centraal is an untested next-probe search name. No Rotterdam gateway
+is approved by this change.
+
+| Deep flow | Observed paths in order | Selected total / safe stop |
+|---|---|---|
+| Omio Paris→Milan, 10 steps | `/app/search-frontend/results/{id}/train` → `/app/search-frontend/results/{id}/train/{id}/inbound` → `/app/search-frontend/journey/train/{id}/{id}/{id}/{id}` → `/app/search-frontend/booking/{id}/passenger-details` | EUR248 on Customise your trip (journey/train); EUR99 outbound + EUR149 return. Passenger page reached with no typing. |
+| Google Paris→Valencia, 5 steps | `/travel/flights` → `/travel/flights/search` → `/travel/flights/booking` | EUR45 selected round trip; stopped at booking options, no airline click-through. |
+| TAP ORY→LIS, 11 steps | `/booking/flights` through both selections → `/booking/review-your-trip` | EUR158.35 selected round trip; stopped at login/register or guest-continuation gate. Passenger path unobserved; login is not proven mandatory. |
+
+Only Omio **rail** summary shape is observed; bus/flight selected-summary shapes
+remain unverified. Its no-profile checkpoint is the selected journey prefix,
+never results or outbound-only inbound lists. Passenger prefill is opt-in,
+field-names-only P14 metadata; final post-prefill checkpoint remains `(?!)`
+until a permitted live probe observes it. No passenger values were entered in
+research. Google/TAP do not advertise prefill.
+
+Hosts observed: Omio **www.omio.com** only, including passenger page; Google
+**consent.google.com/m** (reject only) and **www.google.com**; TAP
+**booking.flytap.com**. Google selected search/booking query keys `tfs,tfu`;
+entry keys `hl,q`. No airline or booking-partner host was visited or authorized
+as a Google navigation target.
+
+New verified adapters are split by actual origin/destination observations.
+Paris→Brunnen/Stoos/Lucerne uses reviewed **Zurich gateway** evidence, excludes
+onward transfer and preserves race city. Google others and broad Omio inventory
+remain undated alternatives pending route probes. SBB/NS prior evidence remains
+unchanged. SBB must FIRST set 1 adult without reduction before reading fares;
+Top offers/travelcard/Half-Fare/GA purchase path tokens are blocked, ordinary
+`/en/offer` is not. Those purchase tokens are defensive boundaries, not new live
+path observations.
+
+Offline adapter construction does not establish product H READY or integrated
+live success. No product UI visual check or new H run was performed for code.

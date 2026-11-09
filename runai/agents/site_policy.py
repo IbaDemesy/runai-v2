@@ -96,6 +96,40 @@ _TEMPLATE_FIELDS = frozenset({
     "race_name",
     *(f"{d}_{v}" for d in ("arrival", "departure") for v in _DATE_VARIANTS),
 }) | _PLACE_FIELDS | _ORIGIN_FIELDS
+_PREFILL_FIELDS = frozenset({
+    "full_name", "given_name", "family_name", "email", "phone", "birth_date", "gender",
+    "nationality", "address_line", "postal_code", "city", "country",
+})
+
+
+def _patterns(value: Any, field: str) -> list[str]:
+    if not isinstance(value, list) or not value or not all(
+        isinstance(p, str) and p.strip() for p in value
+    ):
+        raise PolicyError(f"invalid {field}")
+    try:
+        for pattern in value:
+            re.compile(pattern, re.IGNORECASE)
+    except re.error as exc:
+        raise PolicyError(f"invalid {field} regex") from exc
+    return list(value)
+
+
+def _prefill(raw: Any) -> dict[str, Any]:
+    if not isinstance(raw, Mapping) or set(raw) != {
+        "fields", "scope", "prefill_patterns", "url_patterns", "beyond_patterns",
+    }:
+        raise PolicyError("invalid prefill object")
+    fields, scope = raw["fields"], raw["scope"]
+    if (not isinstance(fields, list) or not fields
+            or not all(isinstance(f, str) and f in _PREFILL_FIELDS for f in fields)
+            or len(set(fields)) != len(fields)
+            or not isinstance(scope, str) or not scope.strip()):
+        raise PolicyError("invalid prefill fields or scope")
+    return {"fields": list(fields), "scope": scope.strip(), **{
+        key: _patterns(raw[key], f"prefill {key}")
+        for key in ("prefill_patterns", "url_patterns", "beyond_patterns")
+    }}
 
 
 def _date_values(prefix: str, value: date) -> dict[str, str]:
@@ -148,6 +182,10 @@ def _adapter(raw: Any, entry_id: str, scope_hosts: set[str]) -> dict[str, Any]:
     """
     if not isinstance(raw, Mapping) or raw.get("kind") not in KINDS:
         raise PolicyError(f"{entry_id}: invalid adapter kind")
+    last_resort = raw.get("last_resort", False)
+    if type(last_resort) is not bool:
+        raise PolicyError(f"{entry_id}: last_resort must be boolean")
+    prefill = _prefill(raw["prefill"]) if "prefill" in raw else None
     render_date = None
     if "h_render_verified_at" in raw:
         value = raw["h_render_verified_at"]
@@ -233,6 +271,8 @@ def _adapter(raw: Any, entry_id: str, scope_hosts: set[str]) -> dict[str, Any]:
                       "countries": _codes(race_match.get("countries"), "race_match.countries")}
     return {
         "kind": raw["kind"],
+        "last_resort": last_resort,
+        "prefill": prefill,
         "h_render_verified_at": render_date.isoformat() if render_date else None,
         "checkpoint": checkpoint,
         "mode": mode,
@@ -722,7 +762,12 @@ def select_adapters(
         kind, expected, entries, origin_country=origin_country, today=today,
         registry=registry, modes=modes, reasons=reasons,
     ):
-        if kind == "transport" and not selected and not adapter["h_render_verified_at"]:
+        if not selected and adapter["last_resort"]:
+            reasons.append("last-resort adapters cannot be primary")
+            continue
+        if kind == "transport" and not selected and (
+            not adapter["h_render_verified_at"]
+        ):
             reasons.append("no H-render-verified primary covers this route")
             continue
         if decision["policy_id"] not in policies:
@@ -760,8 +805,10 @@ def _candidates(
     if modes is not None:
         candidates = [(e, a) for mode in [*dict.fromkeys(modes), None]
                       for e, a in candidates if a["mode"] == mode]
-    if kind == "transport":
-        candidates.sort(key=lambda candidate: not candidate[1]["h_render_verified_at"])
+    candidates.sort(key=lambda candidate: (
+        candidate[1]["last_resort"],
+        kind == "transport" and not candidate[1]["h_render_verified_at"],
+    ))
     for entry, adapter in candidates:
         if adapter["kind"] != kind:
             continue
@@ -850,8 +897,8 @@ def coverage(
             kind, expected, entries, origin_country=city_country(origin_city), today=today,
             registry=registry, partial=True,
         ))
-        if kind == "transport" and (
-            not candidates or not candidates[0][1]["h_render_verified_at"]
+        if not candidates or candidates[0][1]["last_resort"] or (
+            kind == "transport" and not candidates[0][1]["h_render_verified_at"]
         ):
             return empty
         policy_ids = list(dict.fromkeys(e["id"] for e, _, _, _ in candidates))

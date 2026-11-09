@@ -2,6 +2,433 @@
   "schema_version": 1,
   "entries": [
     {
+      "id": "omio-com",
+      "name": "omio.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "omio.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.omio.com",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.omio.com/terms-of-use"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "7. Intellectual Property",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Browser fetched official terms. Written-consent exception for automated access, scraping and direct API access. Owner-lifted allowed_owner_rule permits read/prepare-only automation; historical restrictions above are not a current denial. R7-02 public render and selected-path evidence: docs/evidence/transport.md.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": [
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "IT"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1,
+            2
+          ],
+          "url_template": "https://www.omio.com/links/626fa8a9-f982-43d0-ace9-9a13f6b14612?departurePosTerm={origin_place_code}&arrivalPosTerm={place_name}&departureDate={arrival_date}&returnDate={departure_date}&adults={travelers}",
+          "places": {
+            "milan": {
+              "place_name": "Milan"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_place_code": "Paris"
+            }
+          },
+          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute Rotterdam for The Hague. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified.",
+          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
+          "checkpoint": {
+            "url_patterns": [
+              "^/app/search-frontend/journey/"
+            ],
+            "beyond_patterns": [
+              "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09",
+          "prefill": {
+            "fields": [
+              "given_name",
+              "family_name",
+              "email",
+              "phone"
+            ],
+            "scope": "passenger details",
+            "prefill_patterns": [
+              "^/app/search-frontend/booking/[^/]+/passenger-details(?:[/?]|$)"
+            ],
+            "url_patterns": [
+              "(?!)"
+            ],
+            "beyond_patterns": [
+              "payment|/pay|checkout|login|log[-_]?in|register|account|/book(?:ing)?/confirm|seats?|extras?|insurance|terms|consent"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "DE",
+            "PT",
+            "CH",
+            "ES"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.omio.com/links/626fa8a9-f982-43d0-ace9-9a13f6b14612?departurePosTerm={origin_place_code}&arrivalPosTerm={place_name}&departureDate={arrival_date}&returnDate={departure_date}&adults={travelers}",
+          "places": {
+            "berlin": {
+              "place_name": "Berlin"
+            },
+            "lisbon": {
+              "place_name": "Lisbon"
+            },
+            "zurich": {
+              "place_name": "Zurich"
+            },
+            "madrid": {
+              "place_name": "Madrid"
+            },
+            "brunnen": {
+              "place_name": "Zurich",
+              "via": "Zurich"
+            },
+            "stoos": {
+              "place_name": "Zurich",
+              "via": "Zurich"
+            },
+            "lucerne": {
+              "place_name": "Zurich",
+              "via": "Zurich"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_place_code": "Paris"
+            }
+          },
+          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute Rotterdam for The Hague. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified.",
+          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
+          "checkpoint": {
+            "url_patterns": [
+              "^/app/search-frontend/journey/"
+            ],
+            "beyond_patterns": [
+              "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09",
+          "prefill": {
+            "fields": [
+              "given_name",
+              "family_name",
+              "email",
+              "phone"
+            ],
+            "scope": "passenger details",
+            "prefill_patterns": [
+              "^/app/search-frontend/booking/[^/]+/passenger-details(?:[/?]|$)"
+            ],
+            "url_patterns": [
+              "(?!)"
+            ],
+            "beyond_patterns": [
+              "payment|/pay|checkout|login|log[-_]?in|register|account|/book(?:ing)?/confirm|seats?|extras?|insurance|terms|consent"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "IT"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.omio.com/links/626fa8a9-f982-43d0-ace9-9a13f6b14612?departurePosTerm={origin_place_code}&arrivalPosTerm={place_name}&departureDate={arrival_date}&returnDate={departure_date}&adults={travelers}",
+          "places": {
+            "milan": {
+              "place_name": "Milan"
+            }
+          },
+          "origin_places": {
+            "lyon": {
+              "origin_place_code": "Lyon"
+            }
+          },
+          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute Rotterdam for The Hague. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified.",
+          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
+          "checkpoint": {
+            "url_patterns": [
+              "^/app/search-frontend/journey/"
+            ],
+            "beyond_patterns": [
+              "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09",
+          "prefill": {
+            "fields": [
+              "given_name",
+              "family_name",
+              "email",
+              "phone"
+            ],
+            "scope": "passenger details",
+            "prefill_patterns": [
+              "^/app/search-frontend/booking/[^/]+/passenger-details(?:[/?]|$)"
+            ],
+            "url_patterns": [
+              "(?!)"
+            ],
+            "beyond_patterns": [
+              "payment|/pay|checkout|login|log[-_]?in|register|account|/book(?:ing)?/confirm|seats?|extras?|insurance|terms|consent"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "DE"
+          ],
+          "origin_countries": [
+            "BE"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.omio.com/links/626fa8a9-f982-43d0-ace9-9a13f6b14612?departurePosTerm={origin_place_code}&arrivalPosTerm={place_name}&departureDate={arrival_date}&returnDate={departure_date}&adults={travelers}",
+          "places": {
+            "berlin": {
+              "place_name": "Berlin"
+            }
+          },
+          "origin_places": {
+            "brussels": {
+              "origin_place_code": "Brussels"
+            }
+          },
+          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute Rotterdam for The Hague. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified.",
+          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
+          "checkpoint": {
+            "url_patterns": [
+              "^/app/search-frontend/journey/"
+            ],
+            "beyond_patterns": [
+              "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09",
+          "prefill": {
+            "fields": [
+              "given_name",
+              "family_name",
+              "email",
+              "phone"
+            ],
+            "scope": "passenger details",
+            "prefill_patterns": [
+              "^/app/search-frontend/booking/[^/]+/passenger-details(?:[/?]|$)"
+            ],
+            "url_patterns": [
+              "(?!)"
+            ],
+            "beyond_patterns": [
+              "payment|/pay|checkout|login|log[-_]?in|register|account|/book(?:ing)?/confirm|seats?|extras?|insurance|terms|consent"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "ES"
+          ],
+          "origin_countries": [
+            "CH"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.omio.com/links/626fa8a9-f982-43d0-ace9-9a13f6b14612?departurePosTerm={origin_place_code}&arrivalPosTerm={place_name}&departureDate={arrival_date}&returnDate={departure_date}&adults={travelers}",
+          "places": {
+            "barcelona": {
+              "place_name": "Barcelona"
+            }
+          },
+          "origin_places": {
+            "geneva": {
+              "origin_place_code": "Geneva"
+            }
+          },
+          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute Rotterdam for The Hague. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified.",
+          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
+          "checkpoint": {
+            "url_patterns": [
+              "^/app/search-frontend/journey/"
+            ],
+            "beyond_patterns": [
+              "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09",
+          "prefill": {
+            "fields": [
+              "given_name",
+              "family_name",
+              "email",
+              "phone"
+            ],
+            "scope": "passenger details",
+            "prefill_patterns": [
+              "^/app/search-frontend/booking/[^/]+/passenger-details(?:[/?]|$)"
+            ],
+            "url_patterns": [
+              "(?!)"
+            ],
+            "beyond_patterns": [
+              "payment|/pay|checkout|login|log[-_]?in|register|account|/book(?:ing)?/confirm|seats?|extras?|insurance|terms|consent"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "destination_countries": [
+            "IT",
+            "DE",
+            "PT",
+            "CH",
+            "NL",
+            "ES"
+          ],
+          "origin_countries": [
+            "FR",
+            "BE",
+            "CH"
+          ],
+          "url_template": "https://www.omio.com/links/626fa8a9-f982-43d0-ace9-9a13f6b14612?departurePosTerm={origin_place_code}&arrivalPosTerm={place_name}&departureDate={arrival_date}&returnDate={departure_date}&adults={travelers}",
+          "places": {
+            "milan": {
+              "place_name": "Milan"
+            },
+            "berlin": {
+              "place_name": "Berlin"
+            },
+            "lisbon": {
+              "place_name": "Lisbon"
+            },
+            "zurich": {
+              "place_name": "Zurich"
+            },
+            "amsterdam": {
+              "place_name": "Amsterdam"
+            },
+            "madrid": {
+              "place_name": "Madrid"
+            },
+            "barcelona": {
+              "place_name": "Barcelona"
+            },
+            "valencia": {
+              "place_name": "Valencia"
+            },
+            "den haag": {
+              "place_name": "Den Haag Centraal"
+            },
+            "brunnen": {
+              "place_name": "Zurich",
+              "via": "Zurich"
+            },
+            "stoos": {
+              "place_name": "Zurich",
+              "via": "Zurich"
+            },
+            "lucerne": {
+              "place_name": "Zurich",
+              "via": "Zurich"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_place_code": "Paris"
+            },
+            "lyon": {
+              "origin_place_code": "Lyon"
+            },
+            "brussels": {
+              "origin_place_code": "Brussels"
+            },
+            "geneva": {
+              "origin_place_code": "Geneva"
+            }
+          },
+          "success_evidence": "Pick the mode tab with fares: prefer trains, otherwise bus or flight. Disclose actual airports including Beauvais and any reviewed gateway; never silently substitute Rotterdam for The Hague. Select outbound then return and stop at Customise your trip, the selected round-trip journey summary. Verify actual route, dates, adults and full party total. H 2026-11-09 observed Paris-Milan rail summary EUR248; flight/bus selected summary paths remain unverified.",
+          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
+          "checkpoint": {
+            "url_patterns": [
+              "^/app/search-frontend/journey/"
+            ],
+            "beyond_patterns": [
+              "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
+            ]
+          },
+          "prefill": {
+            "fields": [
+              "given_name",
+              "family_name",
+              "email",
+              "phone"
+            ],
+            "scope": "passenger details",
+            "prefill_patterns": [
+              "^/app/search-frontend/booking/[^/]+/passenger-details(?:[/?]|$)"
+            ],
+            "url_patterns": [
+              "(?!)"
+            ],
+            "beyond_patterns": [
+              "payment|/pay|checkout|login|log[-_]?in|register|account|/book(?:ing)?/confirm|seats?|extras?|insurance|terms|consent"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "id": "sbb-ch",
       "name": "sbb.ch",
       "purposes": [
@@ -61,7 +488,7 @@
             }
           },
           "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
-          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices. FIRST set 1 adult without reduction before reading any fare. Never open Top offers, travelcards, Half-Fare or GA purchase pages.",
           "checkpoint": {
             "url_patterns": [
               "(?!)"
@@ -70,7 +497,8 @@
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
               "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)",
-              "^/customer/en/alw/onboarding(?:[?;]|$)"
+              "^/customer/en/alw/onboarding(?:[?;]|$)",
+              "/(?:top[-_]offers|travelcards?|half[-_]fare|halbtax|ga[-_]travelcard)(?:[/.?_-]|$)"
             ]
           },
           "h_render_verified_at": "2026-11-09"
@@ -101,7 +529,7 @@
             }
           },
           "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
-          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices. FIRST set 1 adult without reduction before reading any fare. Never open Top offers, travelcards, Half-Fare or GA purchase pages.",
           "checkpoint": {
             "url_patterns": [
               "(?!)"
@@ -110,7 +538,8 @@
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
               "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)",
-              "^/customer/en/alw/onboarding(?:[?;]|$)"
+              "^/customer/en/alw/onboarding(?:[?;]|$)",
+              "/(?:top[-_]offers|travelcards?|half[-_]fare|halbtax|ga[-_]travelcard)(?:[/.?_-]|$)"
             ]
           },
           "h_render_verified_at": "2026-11-09"
@@ -141,7 +570,7 @@
             }
           },
           "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
-          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices. FIRST set 1 adult without reduction before reading any fare. Never open Top offers, travelcards, Half-Fare or GA purchase pages.",
           "checkpoint": {
             "url_patterns": [
               "(?!)"
@@ -150,7 +579,8 @@
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
               "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)",
-              "^/customer/en/alw/onboarding(?:[?;]|$)"
+              "^/customer/en/alw/onboarding(?:[?;]|$)",
+              "/(?:top[-_]offers|travelcards?|half[-_]fare|halbtax|ga[-_]travelcard)(?:[/.?_-]|$)"
             ]
           },
           "h_render_verified_at": "2026-11-09"
@@ -181,7 +611,7 @@
             }
           },
           "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
-          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices. FIRST set 1 adult without reduction before reading any fare. Never open Top offers, travelcards, Half-Fare or GA purchase pages.",
           "checkpoint": {
             "url_patterns": [
               "(?!)"
@@ -190,7 +620,8 @@
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
               "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)",
-              "^/customer/en/alw/onboarding(?:[?;]|$)"
+              "^/customer/en/alw/onboarding(?:[?;]|$)",
+              "/(?:top[-_]offers|travelcards?|half[-_]fare|halbtax|ga[-_]travelcard)(?:[/.?_-]|$)"
             ]
           },
           "h_render_verified_at": "2026-11-09"
@@ -221,7 +652,7 @@
             }
           },
           "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
-          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices. FIRST set 1 adult without reduction before reading any fare. Never open Top offers, travelcards, Half-Fare or GA purchase pages.",
           "checkpoint": {
             "url_patterns": [
               "(?!)"
@@ -230,7 +661,8 @@
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
               "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)",
-              "^/customer/en/alw/onboarding(?:[?;]|$)"
+              "^/customer/en/alw/onboarding(?:[?;]|$)",
+              "/(?:top[-_]offers|travelcards?|half[-_]fare|halbtax|ga[-_]travelcard)(?:[/.?_-]|$)"
             ]
           }
         },
@@ -260,7 +692,7 @@
             }
           },
           "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Observed Geneva-Zurich /en/offer is the fare/ticket selection surface; full selected round-trip evidence is still required; Only /en with &trip= is connection preview, never READY; /en/offer still requires selected outbound and return fares and total.",
-          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices. FIRST set 1 adult without reduction before reading any fare. Never open Top offers, travelcards, Half-Fare or GA purchase pages.",
           "checkpoint": {
             "url_patterns": [
               "(?!)"
@@ -269,7 +701,8 @@
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
               "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)",
-              "^/customer/en/alw/onboarding(?:[?;]|$)"
+              "^/customer/en/alw/onboarding(?:[?;]|$)",
+              "/(?:top[-_]offers|travelcards?|half[-_]fare|halbtax|ga[-_]travelcard)(?:[/.?_-]|$)"
             ]
           }
         }
@@ -539,6 +972,277 @@
               "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
               "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
               "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09"
+        }
+      ]
+    },
+    {
+      "id": "google-travel-google-terms",
+      "name": "Google Travel / Google Terms",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "google.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.google.com",
+          "path_prefix": "/travel/flights"
+        },
+        {
+          "host": "consent.google.com",
+          "path_prefix": "/m"
+        }
+      ],
+      "terms_urls": [
+        "https://policies.google.com/terms"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "Using Google services: respecting others; abuse restrictions",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: Google general Terms, not travel-specific terms. Automation prohibition is conditional on violating machine-readable instructions. robots.txt is not independently treated as authorization. Owner-lifted allowed_owner_rule permits read/prepare-only automation; historical restrictions above are not a current denial. R7-02 public render and selected-path evidence: docs/evidence/transport.md.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [
+        "consent.google.com"
+      ],
+      "registration_observations": [],
+      "adapters": [
+        {
+          "kind": "transport",
+          "mode": "flight",
+          "destination_countries": [
+            "IT",
+            "DE",
+            "PT",
+            "ES"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.google.com/travel/flights?hl=en&q=Round%20trip%20flights%20from%20{origin_iata}%20to%20{iata}%20on%20{arrival_date}%20returning%20{departure_date}%20for%20{travelers}%20adult",
+          "places": {
+            "milan": {
+              "iata": "MIL"
+            },
+            "berlin": {
+              "iata": "BER"
+            },
+            "lisbon": {
+              "iata": "LIS"
+            },
+            "valencia": {
+              "iata": "VLC"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_iata": "PAR"
+            }
+          },
+          "success_evidence": "Reject consent.google.com cookies only. Select outbound then return; stop on Google booking options with selected round-trip dates, party and total. Never click through to an airline or booking partner; those hosts are not allowed. H 2026-11-09 observed Paris-Valencia booking options EUR45. Disclose actual airports and reviewed gateway.",
+          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
+          "checkpoint": {
+            "url_patterns": [
+              "^/travel/flights/booking(?:[/?]|$)"
+            ],
+            "beyond_patterns": [
+              "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09"
+        },
+        {
+          "kind": "transport",
+          "mode": "flight",
+          "destination_countries": [
+            "ES"
+          ],
+          "origin_countries": [
+            "CH"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://www.google.com/travel/flights?hl=en&q=Round%20trip%20flights%20from%20{origin_iata}%20to%20{iata}%20on%20{arrival_date}%20returning%20{departure_date}%20for%20{travelers}%20adult",
+          "places": {
+            "barcelona": {
+              "iata": "BCN"
+            }
+          },
+          "origin_places": {
+            "geneva": {
+              "origin_iata": "GVA"
+            }
+          },
+          "success_evidence": "Reject consent.google.com cookies only. Select outbound then return; stop on Google booking options with selected round-trip dates, party and total. Never click through to an airline or booking partner; those hosts are not allowed. H 2026-11-09 observed Paris-Valencia booking options EUR45. Disclose actual airports and reviewed gateway.",
+          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
+          "checkpoint": {
+            "url_patterns": [
+              "^/travel/flights/booking(?:[/?]|$)"
+            ],
+            "beyond_patterns": [
+              "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09"
+        },
+        {
+          "kind": "transport",
+          "mode": "flight",
+          "destination_countries": [
+            "IT",
+            "DE",
+            "PT",
+            "CH",
+            "NL",
+            "ES"
+          ],
+          "origin_countries": [
+            "FR",
+            "BE",
+            "CH"
+          ],
+          "url_template": "https://www.google.com/travel/flights?hl=en&q=Round%20trip%20flights%20from%20{origin_iata}%20to%20{iata}%20on%20{arrival_date}%20returning%20{departure_date}%20for%20{travelers}%20adult",
+          "places": {
+            "milan": {
+              "iata": "MIL"
+            },
+            "berlin": {
+              "iata": "BER"
+            },
+            "lisbon": {
+              "iata": "LIS"
+            },
+            "zurich": {
+              "iata": "ZRH"
+            },
+            "amsterdam": {
+              "iata": "AMS"
+            },
+            "madrid": {
+              "iata": "MAD"
+            },
+            "barcelona": {
+              "iata": "BCN"
+            },
+            "valencia": {
+              "iata": "VLC"
+            },
+            "den haag": {
+              "iata": "AMS",
+              "via": "Amsterdam"
+            },
+            "brunnen": {
+              "iata": "ZRH",
+              "via": "Zurich"
+            },
+            "stoos": {
+              "iata": "ZRH",
+              "via": "Zurich"
+            },
+            "lucerne": {
+              "iata": "ZRH",
+              "via": "Zurich"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_iata": "PAR"
+            },
+            "lyon": {
+              "origin_iata": "LYS"
+            },
+            "brussels": {
+              "origin_iata": "BRU"
+            },
+            "geneva": {
+              "origin_iata": "GVA"
+            }
+          },
+          "success_evidence": "Reject consent.google.com cookies only. Select outbound then return; stop on Google booking options with selected round-trip dates, party and total. Never click through to an airline or booking partner; those hosts are not allowed. H 2026-11-09 observed Paris-Valencia booking options EUR45. Disclose actual airports and reviewed gateway.",
+          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
+          "checkpoint": {
+            "url_patterns": [
+              "^/travel/flights/booking(?:[/?]|$)"
+            ],
+            "beyond_patterns": [
+              "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "flytap-com",
+      "name": "flytap.com",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "flytap.com",
+          "path_prefix": "/"
+        },
+        {
+          "host": "booking.flytap.com",
+          "path_prefix": "/booking"
+        }
+      ],
+      "terms_urls": [
+        "https://www.flytap.com/en-ca/legal-info/terms-and-conditions"
+      ],
+      "reviewed_at": "2026-11-08",
+      "expires_at": "2027-02-06",
+      "reviewed_sections": "3. Copyright; Website use obligations",
+      "justification": "Reviewed terms restrict automated access/scraping or reuse of content (see quoted sections in docs/evidence/site-policy.md). Denied, including subdomains. Note: TAP Air Portugal official terms. Owner-lifted allowed_owner_rule permits read/prepare-only automation; historical restrictions above are not a current denial. R7-02 public render and selected-path evidence: docs/evidence/transport.md.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": [
+        {
+          "kind": "transport",
+          "mode": "flight",
+          "destination_countries": [
+            "PT"
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "traveler_counts": [
+            1
+          ],
+          "url_template": "https://booking.flytap.com/booking/flights/deeplink?market=FR&language=en&origin={origin_iata}&destination={iata}&depDate={arrival_dmy_dot}&retDate={departure_dmy_dot}&flightType=return&adt={travelers}&chd=0&inf=0",
+          "places": {
+            "lisbon": {
+              "iata": "LIS"
+            }
+          },
+          "origin_places": {
+            "paris": {
+              "origin_iata": "ORY"
+            }
+          },
+          "success_evidence": "Select outbound then return; stop at review-your-trip with selected round-trip dates, party and full total. H 2026-11-09 observed ORY-LIS EUR158.35. Login/register gates are blocked, never create an account.",
+          "blocked_evidence": "Block missing prices, no availability, wrong dates/party, one-way-only or timetable-only results, sold out, nearby unreviewed endpoints, captcha, required consent, login/account walls, payment, passenger forms or unreviewed redirects. Unselected lists are not READY.",
+          "checkpoint": {
+            "url_patterns": [
+              "^/booking/review-your-trip(?:[/?]|$)"
+            ],
+            "beyond_patterns": [
+              "passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm|/guests?(?:[/_-]|$)|login|log[-_]?in|sign[-_]?in|register|account",
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)"
             ]
           },
           "h_render_verified_at": "2026-11-09"
