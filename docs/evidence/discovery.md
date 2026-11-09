@@ -790,3 +790,11 @@ explicit alternatives and preserve negative P9 registration verdicts over
 observed "unknown" can have hidden a P9 "uncovered"/"prohibited" verdict and is
 not evidence of current unknown coverage. The review fixes have offline
 regressions, not another live batch. Date/source observations above are unchanged.
+
+Final post-review validation at `7208c2d`, after `git fetch && git rebase origin/main`
+(branch already up to date):
+```text
+All checks passed!
+2144 passed, 1 warning in 45.48s
+```
+No code changed after that check. Same baseline Starlette/httpx warning.
