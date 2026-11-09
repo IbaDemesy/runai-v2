@@ -27,6 +27,17 @@ freshness threshold are module constants; the total per-agent cap remains
 15 minutes. Step progress/frame events carry nullable `stale_frame` metadata;
 no frame means unknown, not fresh. A watchdog timeout does not try alternatives.
 
+Google Flights public itinerary query keys `tfs`/`tfu` survive opaque-token
+scrubbing only on google.com or google.<two-letter cc> (optionally www), at
+exact paths `/travel/flights/booking` and `/travel/flights/search`, with values
+matching `[A-Za-z0-9_-]{1,600}`. Invalid/oversized values there are dropped.
+Other keys/hosts/paths retain existing scrubbing; tracking is still stripped.
+Omio com/fr/de hosts (bare or www) also preserve redirected result paths exactly
+matching `/app/search-frontend/results/<id>/<train|bus|flight>`, where id is
+`[A-Za-z0-9_-]{1,64}`. Only that id segment is exempt from opaque-path rejection;
+other frontend subpaths/hosts remain unchanged. Travel dates/party survive
+normal query scrubbing and tracking is still removed.
+
 RunnerProfile also accepts `address` as an input alias of `address_line` with
 the same validation. Matching duplicate keys are accepted; differing values
 return 422, as do unknown keys. `profile_status.fields` always uses canonical

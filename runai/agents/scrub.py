@@ -41,6 +41,9 @@ _OMIO_RESULT = re.compile(
     r"/links/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
     re.IGNORECASE,
 )
+_OMIO_REDIRECT_RESULT = re.compile(
+    r"/app/search-frontend/results/[A-Za-z0-9_-]{1,64}/(?:train|bus|flight)",
+)
 
 
 def _njuko_public_id(host, segments, index):
@@ -71,13 +74,19 @@ def scrub_url(url: str | None) -> str | None:
             host = f"[{host}]"
         netloc = host + (f":{parts.port}" if parts.port else "")
         path = re.sub(r";jsessionid=[^/;?]*", "", parts.path, flags=re.IGNORECASE)
-        omio_result = host in {
+        omio_host = host in {
             "omio.com", "www.omio.com", "omio.fr", "www.omio.fr", "omio.de", "www.omio.de",
-        } and _OMIO_RESULT.fullmatch(path)
+        }
+        omio_result = omio_host and _OMIO_RESULT.fullmatch(path)
+        omio_redirect_result = omio_host and _OMIO_REDIRECT_RESULT.fullmatch(path)
+        google_flights = re.fullmatch(r"(?:www\.)?google\.(?:com|[a-z]{2})", host) and path in {
+            "/travel/flights/booking", "/travel/flights/search",
+        }
         if host not in {"agp.eu.hcompany.ai", "agp.hcompany.ai"}:
             segments = unquote(path).split("/")
             for index, segment in enumerate(segments):
-                if _njuko_public_id(host, segments, index) or (omio_result and index == 2):
+                if (_njuko_public_id(host, segments, index) or (omio_result and index == 2)
+                        or (omio_redirect_result and index == 4)):
                     continue
                 if _PRIVATE_PATH.fullmatch(segment) or (
                     _OPAQUE_PATH.fullmatch(segment) and not _PUBLIC_SLUG.fullmatch(segment)
@@ -92,10 +101,13 @@ def scrub_url(url: str | None) -> str | None:
             (name, value) for name, value in parse_qsl(parts.query, keep_blank_values=True)
             if not _SENSITIVE_PARAM.search(name)
             and not re.fullmatch(r"utm_.*|gclid|fbclid|cm_mmc|icdv|tracking", name, re.IGNORECASE)
-            and not _EMAIL.search(value) and not _KEY.search(value)
-            and not _IBAN.search(value) and not _JWT.search(value)
-            and not _FINANCIAL.search(value) and not _ASSIGNED_KEY.search(value)
-            and (not _PHONE.search(value) or _DATE.fullmatch(value))
+            and (re.fullmatch(r"[A-Za-z0-9_-]{1,600}", value)
+                 if google_flights and name in {"tfs", "tfu"} else (
+                     not _EMAIL.search(value) and not _KEY.search(value)
+                     and not _IBAN.search(value) and not _JWT.search(value)
+                     and not _FINANCIAL.search(value) and not _ASSIGNED_KEY.search(value)
+                     and (not _PHONE.search(value) or _DATE.fullmatch(value))
+                 ))
         ])
         return urlunsplit((parts.scheme, netloc, path, query, ""))
     except (ValueError, UnicodeError):

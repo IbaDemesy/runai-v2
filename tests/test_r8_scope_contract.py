@@ -3,10 +3,11 @@ import re
 from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parent.parent
-QUEUE = json.loads((ROOT / "docs/tickets/index.json").read_text())
-IDS = [f"R7-0{n}" for n in range(1, 6)]
+HISTORY = json.loads((ROOT / "docs/tickets/index.json").read_text())
+QUEUE = [ticket for ticket in HISTORY if ticket["round"] == 8]
+IDS = [f"R8-0{n}" for n in range(1, 6)]
 EXPECTED_FILES = {
-    "R7-01": [
+    "R8-01": [
         "runai/agents/hclient.py",
         "runai/agents/scrub.py",
         "runai/app.py",
@@ -21,10 +22,11 @@ EXPECTED_FILES = {
         "tests/test_units.py",
         "tests/test_journey_e2e.py",
         "tests/test_api_discovery_progress.py",
-        "tests/test_r6_scope_contract.py",
         "tests/test_r7_scope_contract.py",
+        "tests/test_r8_scope_contract.py",
         "tests/fixtures/h_checkpoint_observations.json",
         "tests/fixtures/h_prefill_observations.json",
+        "tests/fixtures/h_booking_observations.json",
         "docs/evidence/h-client.md",
         "AGENTS.md",
         "PLAN.md",
@@ -33,14 +35,14 @@ EXPECTED_FILES = {
         "HANDOFF.md",
         "docs/feedback/owner.md",
         "docs/tickets/index.json",
-        "docs/tickets/R7-01.md",
-        "docs/tickets/R7-02.md",
-        "docs/tickets/R7-03.md",
-        "docs/tickets/R7-04.md",
-        "docs/tickets/R7-05.md",
-        "docs/handoff/R7-01.md"
+        "docs/tickets/R8-01.md",
+        "docs/tickets/R8-02.md",
+        "docs/tickets/R8-03.md",
+        "docs/tickets/R8-04.md",
+        "docs/tickets/R8-05.md",
+        "docs/handoff/R8-01.md"
     ],
-    "R7-02": [
+    "R8-02": [
         "runai/agents/transport.py",
         "runai/agents/site_policy.py",
         "docs/site-policy.json",
@@ -48,9 +50,9 @@ EXPECTED_FILES = {
         "tests/test_agent_transport.py",
         "tests/test_site_policy.py",
         "docs/evidence/transport.md",
-        "docs/handoff/R7-02.md"
+        "docs/handoff/R8-02.md"
     ],
-    "R7-03": [
+    "R8-03": [
         "runai/agents/hotel.py",
         "runai/agents/registration.py",
         "docs/site-policy.d/hotel.json",
@@ -59,9 +61,9 @@ EXPECTED_FILES = {
         "tests/test_agent_registration.py",
         "docs/evidence/hotel.md",
         "docs/evidence/registration.md",
-        "docs/handoff/R7-03.md"
+        "docs/handoff/R8-03.md"
     ],
-    "R7-04": [
+    "R8-04": [
         "runai/guide/engine.py",
         "runai/guide/parse.py",
         "runai/guide/fake.py",
@@ -71,22 +73,22 @@ EXPECTED_FILES = {
         "tests/test_guide_parse.py",
         "tests/test_guide_adversarial.py",
         "tests/test_discovery_linkup.py",
-        "docs/handoff/R7-04.md"
+        "docs/handoff/R8-04.md"
     ],
-    "R7-05": [
+    "R8-05": [
         "static/index.html",
         "static/app.js",
         "static/styles.css",
         "tests/test_static_ui.py",
-        "docs/handoff/R7-05.md"
+        "docs/handoff/R8-05.md"
     ]
 }
 EXPECTED_TITLES = {
-    "R7-01": "R7-01: P0 core/integration: P14 runner-profile prefill (in-memory, scrubbed) + safety update, runtime fallback to task alternatives after provider_error/site_unreachable_in_h, P13 verification fixes for Njuko form_individual-form and hotel-bb room list, Njuko white-label scrub, stale docs (AGENTS.md Accor/personal-data/Milan), owner decision record, R7 queue",
-    "R7-02": "R7-02: P0 transport that covers every eval route from Paris and reaches a selected round-trip fare (and passenger page with prefill): big-site adapters (SNCF Connect, Trainline, Omio, Trenitalia, Google Flights/airline sites), demote Vueling, SBB Half-Fare drift fix, Brunnen/Stoos gateway",
-    "R7-03": "R7-03: P0 hotel + registration reach further: Booking.com/Accor/Hilton hotel adapters (Berlin, Den Haag, Brunnen/Stoos, Lisbon), correct hotel location/dates, guest-details prefill; registration for majors (Berlin, Lisbon, NN CPC, Frankfurt, Valencia) with participant-form prefill up to the pre-payment/terms stop",
-    "R7-04": "R7-04: P1 guide: fewest questions (auto-defaults, one-click confirm), origin correction never re-searches races (A04), nonexistent race said honestly (A05), Valencia/major races found (A03), dodge without failing re-search (A02), dedupe (A08/A09), runner-profile prompt once before confirm, clean synthetic labels, adversarial suite incl. R6 failures",
-    "R7-05": "R7-05: P0 design polish to >=9/10 (Strava-grade): secure runner-profile card (once, privacy note, fake-safe), three live agent cards that never look broken at launch, honest CTA per covered agents, 'advanced as far as possible' end states (prefilled/at payment), copy/placeholder fixes, mobile"
+    "R8-01": "R8-01: P0 core/integration: profile `address` alias (422 fix), Omio /links scrub exemption, P15 pre-H `preflight_block` + `not_yet_bookable`, stall watchdog (no 600 s silent timeouts), Booking/Njuko verification gate fixes from live answer shapes, R8 queue/docs, integrated 3-race live acceptance",
+    "R8-02": "R8-02: P0 transport reaches a SELECTED round-trip fare on every eval route: Omio runnable (after scrub exemption), Paris->Frankfurt and Lyon->Zurich covered, Google Flights handoff must carry the selected fare (tfs), booking-horizon `not_yet_bookable` preflight instead of fake no_inventory, re-verified h_render for Lisbon/Frankfurt/Zurich/Valencia",
+    "R8-03": "R8-03: P0 hotel + registration reach VERIFIED pre-payment stops: Booking room selection -> secure.booking.com guest details (prefill) reviewed and verified, Hilton/Accor fallback, Njuko checkpoint fields, Frankfurt bounded flow, Lisbon redirect host reviewed, Zurich/Valencia registration coverage",
+    "R8-04": "R8-04: P0 guide robustness: no discovery-timeout loops (A13), named races always found (A17 'le marathon de Lisbonne') and distance change works, Spain winter finds Valencia/Seville without contradiction, bookable-horizon-aware default race, FR replies stay FR and keep intent (A12), contradictions explained (A10/A14), localized relevant broadening pills, organiser-domain official dates, adversarial suite R7 rows",
+    "R8-05": "R8-05: P0 UI: profile card sends address_line (no more 'Profil non transmis'), honest stale-frame badge (no 'AGENT AU TRAVAIL' on a 2-min-old frame), hotel card footer consistent with the running site, 'not yet bookable' / preflight states, demo-able final summary of how far each agent got, Strava-grade polish to >=9/10"
 }
 OWNER_DECISION = (
     "OWNER DECISION (rounds 7-8, TOP PRIORITY, overrides older site-policy notes incl. "
@@ -111,13 +113,18 @@ OWNER_DECISION = (
 )
 
 
-def test_queue_has_exactly_the_five_r7_tickets_with_unique_ids():
+def test_queue_has_exactly_the_five_r8_tickets_with_unique_ids():
     ids = [ticket["id"] for ticket in QUEUE]
     assert ids == IDS
     assert len(set(ids)) == len(ids)
+    history_ids = [ticket["id"] for ticket in HISTORY]
+    assert len(history_ids) == len(set(history_ids))
+    assert [ticket["id"] for ticket in HISTORY if ticket["round"] == 7] == [
+        f"R7-0{n}" for n in range(1, 6)
+    ]
     for ticket in QUEUE:
-        assert ticket["round"] == 7
-        assert ticket["priority"] == ("P1" if ticket["id"] == "R7-04" else "P0")
+        assert ticket["round"] == 8
+        assert ticket["priority"] == "P0"
         assert ticket["title"] == EXPECTED_TITLES[ticket["id"]]
         assert ticket["spec"].strip() and ticket["acceptance"].strip()
         assert ticket["merge_note"].strip()
@@ -136,13 +143,13 @@ def test_file_lists_are_exact_unique_and_disjoint():
             assert path not in owner, f"{path} owned by {owner.get(path)} and {ticket['id']}"
             owner[path] = ticket["id"]
         assert f"docs/handoff/{ticket['id']}.md" in files
-    assert owner["docs/site-policy.json"] == "R7-02"
-    assert owner["runai/agents/site_policy.py"] == "R7-02"
+    assert owner["docs/site-policy.json"] == "R8-02"
+    assert owner["runai/agents/site_policy.py"] == "R8-02"
     for kind in ("hotel", "registration"):
-        assert owner[f"runai/agents/{kind}.py"] == "R7-03"
-        assert owner[f"docs/site-policy.d/{kind}.json"] == "R7-03"
-    assert owner["runai/guide/engine.py"] == "R7-04"
-    assert owner["runai/discovery/linkup.py"] == "R7-04"
+        assert owner[f"runai/agents/{kind}.py"] == "R8-03"
+        assert owner[f"docs/site-policy.d/{kind}.json"] == "R8-03"
+    assert owner["runai/guide/engine.py"] == "R8-04"
+    assert owner["runai/discovery/linkup.py"] == "R8-04"
 
 
 def test_dependencies_and_merge_order_are_valid_and_allow_any_order():
@@ -153,16 +160,16 @@ def test_dependencies_and_merge_order_are_valid_and_allow_any_order():
             assert dep in by_id and dep != ticket["id"]
             assert by_id[dep]["merge_order"] < ticket["merge_order"]
         assert ticket["depends_on"] == []
-        assert ticket["merge_order"] == 1
+        assert ticket["merge_order"] == (5 if ticket["id"] == "R8-01" else 1)
         assert "Any merge order" in ticket["merge_note"]
-        assert "R7-01" in ticket["merge_note"] and "rebases last" in ticket["merge_note"]
+        assert "R8-01" in ticket["merge_note"] and "rebases last" in ticket["merge_note"]
 
 
 def test_ticket_documents_match_queue():
     for ticket in QUEUE:
         text = (ROOT / f"docs/tickets/{ticket['id']}.md").read_text()
         assert text.startswith(f"# {ticket['title']}\n")
-        assert f"Round: 7 · Priority: {ticket['priority']}" in text
+        assert f"Round: 8 · Priority: {ticket['priority']}" in text
         section = text.split("## Allowed files", 1)[1].split("## Acceptance", 1)[0]
         listed = re.findall(r"^- `([^`]+)`$", section, re.MULTILINE)
         assert listed == ticket["files"]
@@ -183,11 +190,11 @@ def test_owner_feedback_records_round_seven_decision_verbatim_and_keeps_history(
     assert text.index("## Round 6") < text.index("## Round 5") < text.index("## Round 4")
 
 
-def test_shared_docs_reference_current_queue_and_p14_contract():
+def test_shared_docs_reference_current_queue_and_p15_contract():
     for name in ("AGENTS.md", "PLAN.md", "README.md", "HANDOFF.md"):
         text = (ROOT / name).read_text()
-        assert "R7-01" in text and "R7-05" in text, name
-        assert not re.search(r"\bR[1-6]-0[1-5]\b", text), name
+        assert "R8-01" in text and "R8-05" in text, name
+        assert not re.search(r"\bR[1-7]-0[1-5]\b", text), name
         assert not re.search(
             r"(?:Milan|Milano)[- ]only|frozen[- ]journey|round[- ]6 queue|round-six queue",
             text, re.IGNORECASE,
@@ -200,7 +207,8 @@ def test_shared_docs_reference_current_queue_and_p14_contract():
                    "checkpoint_unverified", "checkpoint_reached", "P14 Runner profile prefill",
                    "runner_profile", "profile_status", "prefill_fields", "prefill_scope",
                    "prefill_patterns", "personal_data_entered", "prefilled", "stop_label",
-                   "process memory", "Identifying fields", "Quasi-identifiers"):
+                   "process memory", "Identifying fields", "Quasi-identifiers", "P15",
+                   "preflight_block", "not_yet_bookable", "stale_frame"):
         assert marker in contract, marker
 
 
@@ -213,3 +221,9 @@ def test_agents_has_current_owner_approved_prefill_rules_not_stale_prohibitions(
                    "fake", "final forms", "unknown/expired", "allowed_owner_rule"):
         assert marker.casefold() in text.casefold()
     assert OWNER_DECISION in (ROOT / "docs/feedback/owner.md").read_text()
+
+
+def test_retired_scope_test_is_owned_for_deletion_not_required_to_exist():
+    assert "tests/test_r7_scope_contract.py" in EXPECTED_FILES["R8-01"]
+    assert not (ROOT / "tests/test_r7_scope_contract.py").exists()
+    assert "tests/test_r8_scope_contract.py" in EXPECTED_FILES["R8-01"]

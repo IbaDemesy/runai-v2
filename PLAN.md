@@ -34,22 +34,22 @@ not a substitute for design work.
 The conversation should feel natural in French and English, with chat bubbles,
 streaming-like replies, a bottom composer, one-click defaults and typed corrections.
 
-## Architecture and round-7 ownership
-- R7-01: core/integration, P14 profile privacy/safety, runtime alternatives,
-  verification gates, Njuko white-label scrub and shared docs/queue/contracts.
+## Architecture and round-8 ownership
+- R8-01: core/integration, P15 preflight blocks/freshness, P14 profile privacy, stall watchdog,
+  live-shape verification gates, Omio scrub and shared docs/queue/contracts.
   Owns integrated visible acceptance after all siblings merge; rebases last.
-- R7-02: transport coverage and selected round-trip fares, big-site adapters,
+- R8-02: transport coverage and selected round-trip fares, big-site adapters,
   SBB drift/gateway fixes, generic policy loader and base/transport registry.
   Existing hotel entries in the base registry are frozen.
-- R7-03: hotel + registration, their policy shards, major-site adapters and
+- R8-03: hotel + registration, their policy shards, major-site adapters and
   guest/participant prefill up to safe pre-payment/terms boundaries.
-- R7-04: guide/discovery, minimal questions, origin corrections, honest recovery,
+- R8-04: guide/discovery, minimal questions, origin corrections, honest recovery,
   profile prompt once and adversarial regressions.
-- R7-05: >=9/10 Strava-grade static UI, secure profile card, honest launch/live
+- R8-05: >=9/10 Strava-grade static UI, secure profile card, honest launch/live
   states, covered-agent CTAs, advanced-as-far-as-possible copy and mobile polish.
 
 Exact disjoint file lists in index.json take precedence; request amendments for
-cross-owner work. CONTRACTS.md (R7-01) pins additive P1–P14. Import siblings
+cross-owner work. CONTRACTS.md (R8-01) pins additive P1–P15. Import siblings
 lazily and fail closed; builders declare prefill only with runner_profile and
 UI hides the profile card on 404. All five tickets may merge in any order.
 
@@ -84,11 +84,11 @@ The exact live-success definition is in
 date, explicit confirmation, three overlapping live H agents, changing on-page
 screenshots and verified safe pre-payment stops for all three. An earlier
 mandatory safety stop is a blocker. Never quietly swap a named request to force
-a pass. Round-6 verdict: **38/100, 0/5 live successes**, design **8/10**
-(docs/eval/round-6.md). Round-7 target: advance as far as safely possible while
-minimizing client actions, with >=9/10 design. After siblings merge, R7-01
-coordinates visible integrated acceptance of at least Milan, Berlin and one
-other case using clearly fake profiles, one mission at a time. Record only
+a pass. Round-7 verdict: **33/100, 0/5 live successes**, design **7.5/10**
+(docs/eval/round-7.md). Round-8 target: advance as far as safely possible while
+minimizing client actions, with >=9/10 design. After siblings merge, R8-01
+coordinates visible integrated acceptance of Milan (April 2027), Valencia (6 December 2026) and one
+of Berlin/Lisbon/Frankfurt using clearly fake profiles, one mission at a time. Record only
 within its allowed evidence/handoff files. This is planned, not completed live
 evidence; individual backend smokes do not establish integrated readiness.
 
@@ -116,10 +116,10 @@ minutes.
 
 ## Continuous implementation loop
 Each ticket has one branch/PR and non-overlapping allowed files listed in
-docs/tickets/index.json (validated by tests/test_r7_scope_contract.py). Round
-7: R7-01..R7-05 merge in any order; R7-01 owns core + integration acceptance,
+docs/tickets/index.json (validated by tests/test_r8_scope_contract.py). Round
+8: R8-01..R8-05 merge in any order; R8-01 owns core + integration acceptance,
 shared docs and the queue, and rebases last after siblings merge.
-R6 and earlier ticket files are history and grant no current scope.
+R7 and earlier ticket files are history and grant no current scope.
 
 Keep main green: Python 3.12, `uv sync --frozen`,
 `uv run ruff check . && uv run pytest -q`, including the journey E2E tests.

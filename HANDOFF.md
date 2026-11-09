@@ -1,83 +1,77 @@
-# Handoff — round seven
+# Handoff — round eight
 
-## Current evidence boundary (2026-11-09)
-Round 6 recorded **38/100, 0/5 visible live successes, design 8/10**.
-See [round-6 evaluation](docs/eval/round-6.md). Only one of fifteen agents
-verified READY; transport blocked every complete mission. Reached Njuko/IHG
-screens were not verified success. Earlier hotel-only smokes in Milan, Zurich
-and Lisbon are backend evidence, not visible integrated acceptance; the original
-Lisbon differing query was not retained, so its historical cause is unresolved.
-See [hotel evidence](docs/evidence/hotel.md) and
-[runtime evidence](docs/evidence/h-client.md). Synthetic tests are not live proof.
+## Current evidence boundary
+Round 7 scored **33/100, 0/5 live successes**, with one unverified transport
+READY. Synthetic tests and backend smokes do not establish visible live success.
+Historical observations remain in [H evidence](docs/evidence/h-client.md).
+No round-eight live acceptance has run.
 
-## Round-seven queue
-Exact file ownership is authoritative in [index.json](docs/tickets/index.json).
+## Round-eight queue
+Exact disjoint file sets in [index.json](docs/tickets/index.json) are authoritative.
+Earlier queue entries are history, not current edit authority.
 
 | Ticket | Scope | Merge |
 | --- | --- | --- |
-| R7-01 | Core/P14, privacy/safety, runtime alternatives, verification, shared docs and integrated acceptance | Any order; rebases last |
-| R7-02 | Transport, big-site adapters, selected round-trip fares, generic policy/base and transport registry | Any order |
-| R7-03 | Hotel + registration, major-site adapters, guest/participant prefill and policy shards | Any order |
-| R7-04 | Guide/discovery, minimal questions, corrections/recovery, profile prompt and adversarial regressions | Any order |
-| R7-05 | >=9/10 static UI, profile card, honest launch/live/coverage states and mobile | Any order |
+| R8-01 | Core/P15, profile alias, scrub, watchdog, gates, shared docs and integrated acceptance | Last/integration; rebases after siblings |
+| R8-02 | Transport, booking horizons, policy loader/base and transport shard | Any sibling order |
+| R8-03 | Hotel + registration, safe checkpoints/prefill and policy shards | Any sibling order |
+| R8-04 | Guide/discovery, minimal questions and adversarial regressions | Any sibling order |
+| R8-05 | Static UI/profile, honest launch/coverage/freshness states and mobile | Any sibling order |
 
-The base registry/loader belongs to R7-02 (existing hotel base entries frozen);
-hotel and registration shards/builders belong to R7-03. R7-01 owns core and
-shared docs/contracts, not those builders. Import additive P1–P14 lazily and
-fail closed. Each ticket writes its own handoff; older tickets are history.
+The base registry/loader belongs to R8-02; existing hotel base entries are frozen.
+Hotel/registration builders and shards belong to R8-03. R8-01 owns core and shared
+docs/contracts, not those adapters. P1–P15 are additive; import siblings lazily
+and fail closed. Each ticket writes its own handoff.
 
-## Implemented core and remaining work
-See [R7-01 handoff](docs/handoff/R7-01.md) for profile storage/endpoints,
-contextual redaction, bounded runtime alternatives and synthetic checkpoint
-checks. Query-key ordering no longer causes handoff_observed failures;
-historical R6 cause remains unverified without the original H answer/observation.
-Hotel-BB room/rate lists remain blocked by the builder's checkpoint_pattern:
-its reviewed adapter requires a selected /booking/extras or /booking/review
-checkpoint. Do not weaken mandatory verification or call unselected rates READY.
-The legacy Frankfurt scrub assertion needs the registration owner's update.
+## Implemented core and remaining dependencies
+- Validated `address` alias for `address_line`; differing duplicates/unknown
+  fields return 422. Profile values never enter Mission JSON/events/logs.
+- Public Omio UUID results survive scrubbing with dates/party; tracking is
+  stripped and other opaque paths stay rejected.
+- P15 `preflight_block` returns blocked without H sessions or launch events;
+  unknown reasons become no_site_coverage, and not_yet_bookable is additive.
+- After a 150-second observation gap the watchdog checks for a terminal answer,
+  forces once if running, then cancels after 60 further seconds with blocked/
+  timeout and the last reviewed checkpoint-frame handoff when available. Total
+  agent cap remains 15 minutes. Nullable stale_frame reaches step events;
+  missing footage is unknown, never asserted fresh.
+- Synthetic Booking/Njuko fixtures cover stringified/mixed-case verification,
+  localized dates and formatted totals. City/dates/party, selection, checkpoint
+  frames and beyond-pattern gates remain mandatory; P13 unverified stays blocked.
+  Verification diagnostics contain gate names, not extracted values.
+- **R8-03 dependency:** r7-booking-hotel in docs/site-policy.d/hotel.json lists
+  only www.booking.com, with empty navigation_hosts. Add secure.booking.com to
+  the same reviewed entry before cross-host guest details can pass. Core
+  equivalence does not grant access to unreviewed hosts.
+- R8-02 owns the six known transport-matrix assertions exposed by Omio
+  scrubbing. R8-05 owns preflight/uncovered CTA coverage and canonical address
+  submission. Core did not change either sibling-owned file.
 
-## Owner decision and safety
-[Owner feedback](docs/feedback/owner.md), Round 7-8 first, supersedes earlier
-ToS exclusions: no site is excluded for that reason. Use allowed_owner_rule;
-unknown/expired reviews still block. Add major-site adapters where useful.
-Minimize questions/actions, ask for the runner profile once, and allow P14
-typing only into supplied participant/guest/passenger fields. Values live only
-in process memory, cleared at mission deletion/end, never in repo/logs/evidence/
-committed screenshots/eval reports. Use fake identities such as 'Test Runner'.
-Intermediate Continue/Next may only change pages; never pay/book, create
-accounts/log in, accept terms/medical consent, submit final forms or bypass
-captchas. Site frames stay in_session_only. P13 unverified stays blocked.
-Show only genuine changing frames and friendly copy, never raw prompts/logs.
+See [R8-01 handoff](docs/handoff/R8-01.md) for checks and the live placeholder.
 
-## Acceptance and checks
-After siblings merge, R7-01 rebases last and coordinates at least Milan, Berlin
-and one other visible live case with a fake profile. This is planned, not evidence
-already produced. Quota-check before each live smoke, one session per ticket;
-integrated acceptance runs one mission at a time with three agents parallel.
-Record H starts, queue time, frames/gaps, reason_code, checkpoint and READY.
-A complete success still requires sourced dates, explicit plan confirmation
-and three verified safe pre-payment stops visible live.
+## Safety and evidence
+The existing round 7-8 owner decision is unchanged. No site is excluded for ToS
+reasons; use allowed_owner_rule reviews and fail closed on unknown/expired
+reviews. P14 profile values live only in process memory until deletion/end and
+may enter only supplied participant/guest/passenger fields. Never store them
+in repo/logs/evidence/committed screenshots/eval reports. Intermediate Continue/
+Next may only change pages. Never pay/book, create accounts/log in, accept
+terms/medical consent, submit final forms or bypass captchas. Frames remain
+in_session_only; no private H URLs or secrets in evidence.
 
+## Live acceptance — pending
+After siblings merge, R8-01 rebases last and coordinates visible real-UI cases:
+**Milan (April 2027), Valencia (6 December 2026), and one of Berlin/Lisbon/Frankfurt**.
+Use a clearly fake profile through the UI card, explicit current-plan confirmation,
+one mission at a time with three parallel agents and quota checked before each
+run. Record H starts, frames/stale gaps, reason_code, checkpoint, READY and public
+handoff host/path in H evidence. Target one 3/3 verified READY case; never disguise
+safety stops or missing footage as success.
+
+## Checks
 Python 3.12: uv sync --frozen, then uv run ruff check . && uv run pytest -q,
-including tests/test_r7_scope_contract.py and journey/adversarial coverage.
-CI never calls live providers. Record dated scrubbed live evidence separately;
-never commit site frames. Merge only green reviewed PRs.
-
-## R7-01 integrated live acceptance (2026-11-09)
-
-One API-driven real Milan mission ran on `0d27080` after #47/#48, with a fake
-profile and explicit confirmation; quota was three available before launch.
-All three agents started in parallel. **0/3 READY**: Njuko registration timed
-out after 606.24 s (reported prefilled=true); Booking hotel blocked on an
-unreviewed redirect after 116.35 s; SBB transport blocked policy_denied after
-46.96 s. No additional mission/retry or safety bypass ran. This is not visual
-acceptance or a prepared-checkout success.
-
-Identifying-sentinel rg checks passed for Mission JSON, complete events and
-server logs; public French locale strings predated the profile, and Paris
-remains public route context. Profile metadata cleared at run end. No site
-screenshots were saved; the server was stopped after auditing. See the dated
-[H evidence section](docs/evidence/h-client.md) for public stop paths, exact
-flags, frame/step counts and limitations. Berlin and a third race remain
-pending R7-02/R7-04 merges. The old Frankfurt test blocker above is historical:
-the rebased full suite is green with its sibling-owned fix on main.
+including tests/test_r8_scope_contract.py and journey/adversarial coverage.
+Before this docs update: 3023 passed, six known transport failures, one
+Starlette/httpx deprecation warning; lint passed. Updated results are in the
+R8-01 handoff. CI is offline; merge only green reviewed PRs after sibling-owned
+failures are fixed. Live acceptance and visual verification remain pending.

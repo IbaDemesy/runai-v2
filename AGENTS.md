@@ -45,17 +45,17 @@
 
 ## Ticket loop and checks
 - Read CONTRACTS.md, your ticket and docs/tickets/index.json first. Current
-  queue: round 7, R7-01..R7-05. R6 and earlier tickets are history, not scope.
-- R7-01 owns core (app/models/providers, hclient/scrub), shared docs/contracts/
-  queue and integrated visible acceptance. R7-02 owns transport, generic policy
+  queue: round 8, R8-01..R8-05. R7 and earlier tickets are history, not scope.
+- R8-01 owns core (app/models/providers, hclient/scrub), shared docs/contracts/
+  queue and integrated visible acceptance. R8-02 owns transport, generic policy
   loader/base registry (existing hotel entries frozen) and transport shard.
-  R7-03 owns hotel + registration and their policy shards. R7-04 owns
-  guide/discovery + adversarial tests. R7-05 owns static UI and profile card.
+  R8-03 owns hotel + registration and their policy shards. R8-04 owns
+  guide/discovery + adversarial tests. R8-05 owns static UI and profile card.
 - Exact disjoint file lists are authoritative. Touch only allowed files;
   request scope amendments before cross-owner edits. Code against additive
-  P1–P14, import siblings lazily and fail closed; UI hides profile on 404.
-- Merge in any order; R7-01 rebases last and coordinates visible integrated
-  acceptance after siblings merge: at least three cases including Berlin,
+  P1–P15, import siblings lazily and fail closed; UI hides profile on 404.
+- Merge in any order; R8-01 rebases last and coordinates visible integrated
+  acceptance after siblings merge: Milan, Valencia and one of Berlin/Lisbon/Frankfurt,
   using fake profiles. One mission at a time, three agents parallel.
 - H organization concurrency is 3. Check quota before EACH live smoke; use at
   most one H session per ticket. Queue cap is eight minutes; total agent
@@ -63,7 +63,7 @@
 - One ticket = one branch = one PR from current main. Never push directly to
   main; merge only green reviewed CI, including tests/test_journey_e2e.py.
 - Each ticket writes docs/handoff/<id>.md with pasted checks, evidence,
-  blockers and next steps; only R7-01 edits shared HANDOFF.md.
+  blockers and next steps; only R8-01 edits shared HANDOFF.md.
 - Every behavior needs normal/empty/error coverage. CI never calls live
   providers; live verification requires separate dated scrubbed evidence.
   Preserve the FR/EN adversarial suite and fail-closed site-policy checks.
@@ -71,6 +71,6 @@
   frames must never be labelled fresh live footage.
 - Python 3.12: uv sync --frozen, then uv run ruff check . && uv run pytest -q.
   Run configured pre-commit hooks. Start: uv run uvicorn runai.app:app --reload.
-- Round 6 scored 38/100, 0/5 live successes; scoped smokes or synthetic tests
+- Round 7 scored 33/100, 0/5 live successes; scoped smokes or synthetic tests
   do not establish readiness. Evaluate multiple races and iterate from observed
   failures. The exact live-success definition is in docs/feedback/owner.md.

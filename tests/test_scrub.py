@@ -7,6 +7,78 @@ from runai.agents.scrub import public_profile_context, scrub_profile, scrub_text
 OMIO = ("https://www.omio.com/links/626fa8a9-0000-4000-8000-000000000000"
         "?departurePosTerm=Paris&arrivalPosTerm=Frankfurt&departureDate=2027-10-29"
         "&returnDate=2027-11-01&adults=1")
+GOOGLE_FLIGHTS = (
+    "https://www.google.com/travel/flights/booking?"
+    "tfs=CBwQAhooEgoyMDI3LTAxLTI4agwIAhIIL20vMDVxdGpyDAgDEggvbS8wcjBsbRooEgoyMDI3LTAxLTMw"
+    "agwIAxIIL20vMHIwbG1yDAgCEggvbS8wNXF0akABSAFwAYIBCwj___________8BmAEB&tfu=EgYIABAAGAA&hl=en"
+)
+OMIO_REDIRECT = OMIO.replace(
+    "/links/626fa8a9-0000-4000-8000-000000000000",
+    "/app/search-frontend/results/626fa8a9000040008000000000000000/train",
+)
+
+
+@pytest.mark.parametrize("host", ["www.omio.com", "omio.com", "www.omio.fr", "omio.fr",
+                                  "www.omio.de", "omio.de"])
+@pytest.mark.parametrize("mode", ["train", "bus", "flight"])
+def test_public_omio_redirect_result_links(host, mode):
+    url = OMIO_REDIRECT.replace("www.omio.com", host).replace("/train?", f"/{mode}?")
+    assert scrub_url(url) == url
+    assert scrub_url(url + "&utm_source=test&gclid=test&tracking=test") == url
+    assert scrub_text(url) == url
+
+
+@pytest.mark.parametrize("url", [
+    OMIO_REDIRECT.replace("www.omio.com", "example.org"),
+    OMIO_REDIRECT.replace("www.omio.com", "www.omio.com.evil.org"),
+    OMIO_REDIRECT.replace("/results/", "/private/"),
+    OMIO_REDIRECT.replace("/search-frontend/", "/other-frontend/"),
+    OMIO_REDIRECT.replace("/train?", "/taxi?"),
+    OMIO_REDIRECT.replace("/train?", "/train/extra?"),
+    OMIO_REDIRECT.replace("626fa8a9000040008000000000000000", "a1" * 33),
+])
+def test_omio_redirect_exception_is_strictly_scoped(url):
+    assert scrub_url(url) is None
+
+
+@pytest.mark.parametrize("result_id", ["x", "a1" * 32])
+def test_omio_redirect_id_length_boundaries(result_id):
+    url = OMIO_REDIRECT.replace("626fa8a9000040008000000000000000", result_id)
+    assert scrub_url(url) == url
+
+
+@pytest.mark.parametrize("host", ["www.google.com", "google.com", "www.google.fr", "google.de"])
+@pytest.mark.parametrize("path", ["booking", "search"])
+def test_public_google_flights_itinerary_tokens(host, path):
+    url = GOOGLE_FLIGHTS.replace("www.google.com", host).replace("/booking?", f"/{path}?")
+    assert scrub_url(url) == url
+    assert scrub_url(url + "&utm_source=test&gclid=test") == url
+    assert scrub_text(url) == url
+
+
+@pytest.mark.parametrize("url", [
+    GOOGLE_FLIGHTS.replace("www.google.com", "example.org"),
+    GOOGLE_FLIGHTS.replace("www.google.com", "www.google.com.evil.org"),
+    GOOGLE_FLIGHTS.replace("/booking?", "/other?"),
+    GOOGLE_FLIGHTS.replace("/booking?", "/booking/extra?"),
+    GOOGLE_FLIGHTS.replace("tfs=", "other="),
+])
+def test_google_itinerary_exception_does_not_widen_other_urls_or_keys(url):
+    clean = scrub_url(url)
+    assert "CBwQAhoo" not in clean
+
+
+@pytest.mark.parametrize("key", ["tfs", "tfu"])
+@pytest.mark.parametrize("value", ["", "abc+", "abc/", "abc=", "x" * 601])
+def test_invalid_google_itinerary_tokens_are_dropped(key, value):
+    url = "https://www.google.com/travel/flights/booking"
+    assert scrub_url(url + f"?{key}=" + quote(value, safe="") + "&hl=en") == url + "?hl=en"
+
+
+@pytest.mark.parametrize("value", ["x", "x" * 600])
+def test_google_itinerary_token_length_boundaries(value):
+    url = "https://www.google.com/travel/flights/search?tfs=" + value
+    assert scrub_url(url) == url
 
 
 def test_public_omio_result_links():
