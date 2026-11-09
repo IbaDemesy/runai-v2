@@ -201,7 +201,7 @@ class _Race(BaseModel):
     edition: str
     distance_km: float | None
     distance_label: str
-    city: str
+    city: str = ""
     country: str
     official_url: str | None
     registration_url: str | None
@@ -304,7 +304,7 @@ def _distance(value: float | None) -> float | None:
 
 
 def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
-    groups: dict[tuple[str, str, str], list[_Race]] = {}
+    groups: dict[tuple[str, ...], list[_Race]] = {}
     for row in rows:
         row = row.model_copy(update={
             field: _data_text(getattr(row, field))
@@ -315,7 +315,10 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
         edition = _edition_key(row.edition, row.sources)
         name = re.sub(rf"\b{re.escape(edition)}\b", "", row.name)
         key = (_slug(name), edition, _slug(row.city))
-        if all(key):
+        if not key[2]:
+            key += ("_".join(sorted({day.isoformat() for source in row.sources
+                                    if (day := _day(source.race_date))})),)
+        if key[0] and key[1]:
             groups.setdefault(key, []).append(row)
 
     candidates = []

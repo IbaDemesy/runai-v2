@@ -242,6 +242,20 @@ def test_conflicting_official_dates_remain_unconfirmed():
     assert results[0]["date_status"] == "conflicting" and results[0]["race_date"] is None
 
 
+@pytest.mark.parametrize("omit_city", [False, True])
+def test_review_sourced_candidates_without_city_are_preserved(omit_city):
+    first = race(city="")
+    if omit_city:
+        first.pop("city")
+    other_day = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
+    rows = [first, dict(first), dict(first, sources=[{
+        "url": "https://race.example/other-edition", "race_date": other_day}])]
+    result = search(rows)
+    assert len(result) == 2
+    assert {r["race_date"] for r in result} == {DAY, other_day}
+    assert all(not r["city"] and r["source_urls"] for r in result)
+
+
 @pytest.mark.parametrize("city,domain", [
     ("Valencia", "valenciaciudaddelrunning.com"),
     ("Paris", "schneiderelectricparismarathon.com"),
