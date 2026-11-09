@@ -26,6 +26,11 @@ UI_FILES = [
     "static/app.js", "static/index.html", "static/styles.css", "tests/test_static_ui.py",
     "docs/evidence/R6-05-ui.md", "docs/handoff/R6-05.md",
 ]
+REGISTRATION_FILES = [
+    "runai/agents/registration.py", "docs/site-policy.d/registration.json",
+    "tests/test_agent_registration.py", "docs/evidence/registration.md",
+    "docs/handoff/R6-03.md",
+]
 OWNER_FEEDBACK = (
     "(a) Suggestions must be redesigned like ChatGPT/OpenAI suggestion UI: elegant, clear, "
     "clickable suggestion pills/cards under the assistant reply, not raw buttons. "
@@ -72,8 +77,11 @@ def test_file_lists_are_exact_unique_and_disjoint():
     by_id = {ticket["id"]: ticket["files"] for ticket in QUEUE}
     assert by_id["R6-01"] == INTEGRATION_FILES
     assert by_id["R6-05"] == UI_FILES
+    assert by_id["R6-03"] == REGISTRATION_FILES
     assert owner["docs/site-policy.json"] == "R6-02"
-    assert owner["docs/site-policy.d/registration.json"] == "R6-04"
+    assert owner["docs/site-policy.d/registration.json"] == "R6-03"
+    assert owner["runai/guide/engine.py"] == "R6-04"
+    assert owner["runai/discovery/linkup.py"] == "R6-04"
 
 
 def test_dependencies_and_merge_order_are_valid_and_allow_any_order():
@@ -96,8 +104,12 @@ def test_ticket_documents_match_queue_and_identify_inferred_specs():
         listed = re.findall(r"^- `([^`]+)`$", section, re.MULTILINE)
         assert listed == ticket["files"]
         assert ticket["spec"] in text and ticket["acceptance"] in text
-        if ticket["id"] in {"R6-02", "R6-03", "R6-04"}:
+        if ticket["id"] in {"R6-02", "R6-04"}:
             assert INFERRED in ticket["spec"] and INFERRED in text
+        elif ticket["id"] == "R6-03":
+            assert INFERRED not in ticket["spec"] and INFERRED not in text
+            assert "Actual registration ticket" in ticket["spec"]
+            assert "PR #41" in ticket["spec"]
 
 
 def test_owner_feedback_records_round_six_requirements_verbatim():

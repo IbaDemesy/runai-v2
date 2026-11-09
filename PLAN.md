@@ -40,15 +40,18 @@ streaming-like replies, a bottom composer, one-click defaults and typed correcti
   validated observed_at. Hotel-only live evidence is not integrated acceptance.
 - R6-02: transport provider ordering, Vueling site_unreachable_in_h recovery
   coordination, reviewed rail/air coverage, generic policy/base registry.
-- R6-03: guide/discovery dead ends, chip ping-pong, unconfirmed-date proposals,
-  mind/origin changes and >=130 FR/EN adversarial conversations.
-- R6-04: registration safe stops, honest waiting-list/closed/policy boundaries
-  and reviewed preparable coverage using its registration policy shard.
+- R6-03 (actual, merged PR #41): Stoos registration checkpoint, reviewed
+  Germany/Portugal/Spain/NL alternatives, sold-out/waiting-list detection and
+  verified live-stop target using its registration policy shard. Live smokes
+  were not run; the registration handoff records unresolved blockers.
+- R6-04 (inferred): guide/discovery dead ends, chip ping-pong, unconfirmed-date
+  proposals, mind/origin changes and >=130 FR/EN adversarial conversations;
+  consume R6-03's additive P9 registration/preparable_open fields correctly.
 - R6-05: >=8.5/10 Strava-grade design, SVG flags, energetic opening, honest
   EN DIRECT, friendly P13 states, ChatGPT-style pills, chronological questions,
   mobile density and live-view-only stage.
 
-R6-02..R6-04 specs are inferred from round-5 evaluation; planner may amend.
+Only R6-02/R6-04 specs are inferred from round-5 evaluation; planner may amend.
 Exact disjoint file lists in index.json take precedence. Legacy base registry
 amendments go through R6-02; core retry/timestamp changes through R6-01.
 CONTRACTS.md (owned by R6-01) pins P1–P13. Import sibling modules lazily and

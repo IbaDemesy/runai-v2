@@ -20,7 +20,9 @@ a bottom composer and one-click defaults or free-text corrections.
 targets IHG verification/P13 reached-to-verify states, honest frame timestamps
 and heartbeats, transport alternatives, no-loop sourced guide recovery,
 registration boundaries and >=8.5/10 Strava-grade UI. R6-01 owns core integration
-and shared docs; sibling specs R6-02..R6-04 are inferred, planner may amend.
+and shared docs. R6-03 is the actual registration ticket merged in PR #41;
+its live-stop acceptance remains unmet. R6-05 UI merged in PR #40.
+Only R6-02 transport/R6-04 guide specs are inferred; planner may amend.
 R6-01 hotel-only smokes returned READY in three cities, not a visible three-agent
 acceptance. No complete live success is claimed. Read [HANDOFF.md](HANDOFF.md)
 for the evidence boundary. Milan is one evaluation case only.

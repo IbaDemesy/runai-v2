@@ -60,9 +60,10 @@
   (app/models/providers and hclient/scrub), hotel, CONTRACTS.md and shared docs:
   IHG verification, P13 checkpoint_unverified, heartbeat/browser-error diagnosis
   and validated frame timestamps. R6-02 owns transport and generic policy/base
-  registry; R6-03 guide/discovery and adversarial conversations; R6-04 registration
-  and its policy shard; R6-05 UI. R6-02..R6-04 specs are inferred from round-5
-  evaluation, not planner-confirmed. Respect exact disjoint file ownership;
+  registry; R6-03 registration and its policy shard (actual ticket, merged PR #41);
+  R6-04 guide/discovery and adversarial conversations; R6-05 UI (merged PR #40).
+  Only R6-02/R6-04 specs are inferred from round-5 evaluation, not planner-confirmed.
+  Respect exact disjoint file ownership;
   coordinate legacy registry/core retry changes rather than editing siblings.
   R6-01 coordinates final visible integrated acceptance on a rebased branch
   after all tickets merge, recording within its allowed evidence/handoff files.

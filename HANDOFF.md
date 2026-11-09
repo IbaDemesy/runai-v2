@@ -29,11 +29,17 @@ Exact file ownership is authoritative in [index.json](docs/tickets/index.json).
 | --- | --- | --- |
 | R6-01 | Core integration + hotel, P13, heartbeats/timestamps, browser diagnostics, shared docs | Any order |
 | R6-02 | Transport ordering/working rail-air alternatives; generic policy/base registry | Any order |
-| R6-03 | Guide/discovery dead ends, unverified dates, chip ping-pong, >=130 adversarial cases | Any order |
-| R6-04 | Registration safe stops, waiting-list/closed/policy boundaries, reviewed coverage | Any order |
+| R6-03 | Actual registration: Stoos checkpoint, DE/PT/ES/NL alternatives, sold-out detection, verified live-stop target | Merged PR #41 |
+| R6-04 | Inferred guide/discovery dead ends, unverified dates, chip ping-pong, >=130 adversarial cases | Any order |
 | R6-05 | >=8.5/10 Strava UI: SVG flags, energetic opening, honest live/P13, pills/thread/mobile | Any order |
 
-R6-02..R6-04 are explicitly inferred from round-5 evaluation; planner may amend.
+Only R6-02 transport and R6-04 guide/discovery are inferred from round-5
+evaluation; planner may amend. R6-03 is the actual registration ticket from
+merged PR #41, with exactly five files and docs/handoff/R6-03.md. R6-05 UI
+merged in PR #40. Neither merge establishes complete visible live success.
+R6-03 ran no H live smokes (missing keys); Stoos checkpoint/availability work
+is offline/read-only evidence. Frankfurt's scrub restriction and Portugal's
+no-open-permitted-option remain blockers. See its handoff, not an inferred spec.
 The legacy docs/site-policy.json, loader and policy tests belong only R6-02;
 registration owns its existing fragment, transport a new transport fragment,
 hotel its allowed hotel fragment. Duplicate IDs across fragments/base fail closed.
@@ -48,7 +54,8 @@ checks and dated scrubbed evidence. Only R6-01 edits shared docs/queue/contracts
 R5/R4/R3/R2/R1/T tickets are history, not current scope.
 
 ## Acceptance and next steps
-After R6-02..R6-05 merge, R6-01 coordinates rebased visible integrated acceptance:
+After remaining R6-02/R6-04 merge (R6-03/R6-05 already merged), R6-01 coordinates
+rebased visible integrated acceptance:
 >=5 UI-driven live cases, recording only within allowed evidence/handoff paths.
 This is planned, not evidence already produced. Evaluate the Milan
 marathon, Lisbon/Porto, a Barcelona/Spain half, a Swiss trail and a Netherlands
