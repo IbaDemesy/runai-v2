@@ -685,6 +685,10 @@ class GuideEngine:
                 FIRST_DISCOVERY_TIMEOUT_S * 0.75, remaining * 0.8))
         async with asyncio.timeout_at(deadline):
             rows = await self.discover(state.query, hints)
+        previous_edition = getattr(rows, "previous_edition_date", None)
+        if isinstance(previous_edition, date):
+            state.hints["_previous_edition_date"] = previous_edition.isoformat()
+            flags["past"] = True
         for row in rows:
             row = self._scrub_data(row)
             if self._source_instruction(row):
@@ -859,6 +863,14 @@ class GuideEngine:
                 state, "Chercher une course préparable", "Find a preparable race"), "retry")]
         state.pending_suggestions = turn.suggestions
         state.history[-1]["text"] = turn.message
+        if (state.hints.get("country") == "Spain" and state.hints.get("distance") == "marathon"
+                and state.hints.get("months") and not state.draft.race
+                and any(self._eligible(r) for r in state.candidates)):
+            state, turn = await self._recommend(state, allow_search=False)
+            alternatives = self._race_chips(state)
+            for chip in alternatives:
+                chip.group = self._say(state, "Alternatives", "Alternatives")
+            turn.suggestions += alternatives
         return state, turn
 
     async def _preparable_alternative(self, state, turn):
@@ -1076,7 +1088,15 @@ class GuideEngine:
             "Voici les options sourcées correspondant à ta recherche.",
             "Here are sourced options matching your search.",
         )
-        if broadened == "months":
+        in_period = [r for r in state.candidates if r.race_date
+                     and r.race_date.strftime("%Y-%m") in state.hints.get("months", [])]
+        if any(self._eligible(r) for r in in_period):
+            broadened = None
+        if broadened == "months" and in_period:
+            found = self._say(
+                state, "Une option dans la période reste à confirmer ; voici aussi des éditions officielles à d'autres dates.",
+                "An option in the period is still to be confirmed; here are official editions on other dates too.")
+        elif broadened == "months":
             found = self._say(
                 state,
                 "Rien de sourcé sur la période demandée ; voici des éditions sourcées à d'autres dates.",
@@ -1296,6 +1316,44 @@ class GuideEngine:
         return self._turn(state, message)
 
     async def step(self, state: GuideState, action: dict):
+        state, turn = await self._step(state, action)
+        unique = []
+        seen = set()
+        for chip in turn.suggestions:
+            if re.fullmatch(r"\d{4}-\d{2}", chip.label):
+                chip.label = self._month_label(state, date.fromisoformat(chip.label + "-01"))
+            key = (chip.kind, chip.value)
+            if key not in seen:
+                seen.add(key)
+                unique.append(chip)
+        if len(unique) > 4:
+            races = [s for s in unique if s.kind == "choose_race"]
+            distances = [s for s in unique if s.kind == "distance"]
+            months = [s for s in unique if s.value.startswith("month:")]
+            if turn.ready_to_confirm:
+                essential = [s for s in unique if s.kind == "confirm"
+                             or s.value == "continue_without_profile"] + races[:1]
+            elif distances:
+                essential = distances[:3] + races[:1]
+            elif months:
+                essential = months[:2] + races[:2]
+            elif races:
+                essential = races
+            else:
+                essential = months
+            selected = (essential + [s for s in unique if s not in essential])[:4]
+            unique = [s for s in unique if s in selected]
+        turn.suggestions = unique
+        state.pending_suggestions = unique.copy()
+        previous = state.hints.get("_previous_edition_date")
+        if previous and not any(str(previous) in row.get("text", "") for row in state.history[:-1]
+                                if row.get("role") == "assistant"):
+            turn.message = self._say(state, f"L'édition du {previous} est passée. ",
+                                     f"The {previous} edition is over. ") + turn.message
+            state.history[-1]["text"] = turn.message
+        return state, turn
+
+    async def _step(self, state: GuideState, action: dict):
         original = state
         state = GuideState.model_validate(self._scrub_data(state.model_dump()))
         raw_text = action.get("text", "") or ""

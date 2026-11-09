@@ -56,6 +56,14 @@ CACHE_TTL_S = 1800
 CACHE_MAX_SIZE = 128
 CALL_BUDGET_S = 35
 _cache: OrderedDict[str, tuple[float, list[dict]]] = OrderedDict()
+
+
+class DiscoveryResults(list):
+    def __init__(self, candidates, previous_edition_date=None):
+        super().__init__(candidates)
+        self.previous_edition_date = previous_edition_date
+
+
 MAJOR_ORGANIZERS = {
     "Valencia": "valenciaciudaddelrunning.com",
     "Paris": "schneiderelectricparismarathon.com",
@@ -585,6 +593,7 @@ async def discover(
     }
     owned_client = client is None
     active_client = client if client is not None else httpx.AsyncClient()
+    previous_edition = None
     try:
         focused = {**payload, "q": prompt + "\nPrioritize the organizers' official edition "
                    "and registration pages over calendars; keep the same requested constraints."}
@@ -611,11 +620,51 @@ async def discover(
         errors = [result for result in results if isinstance(result, Exception)]
         if not rows and errors:
             raise errors[0]
+        normalized = _normalize(rows, today, "")
+        past_dates = [day for row in rows for source in row.sources
+                      if (day := _day(source.race_date)) and day < today]
+        followups = []
+        if (constraints.get("race_name") and not constraints.get("official_date_required")
+                and not normalized and past_dates):
+            previous_edition = max(past_dates)
+            year = max(today.year, previous_edition.year + 1)
+            domains = official_hint.get("official_domains", "") if official_hint else ""
+            followups.append(f"{constraints['race_name']} {year} date next edition "
+                             f"organizer {domains}. Prefer site:{domains.split()[0]} "
+                             "when available; preserve aggregator evidence as unverified."
+                             if domains else f"{constraints['race_name']} {year} date next edition")
+        if (constraints.get("country") == "Spain" and constraints.get("distance") == "marathon"
+                and constraints.get("month_from") and constraints.get("month_to")):
+            present = {row["city"] for row in normalized}
+            for city in ("Valencia", "Seville"):
+                if city not in present:
+                    followups.append(
+                        f"{city} Marathon official date {constraints['month_from']} through "
+                        f"{constraints['month_to']} site:{MAJOR_ORGANIZERS[city]}. "
+                        "Return only editions inside that window; include registration evidence.")
+        for term in followups:
+            request = {**payload, "depth": "standard", "q": prompt + "\nTargeted follow-up: " + term}
+            try:
+                async with asyncio.timeout(max(0, deadline - monotonic()) if deadline else None):
+                    recovered = await _search(active_client, request, key, timeout_s)
+                    for row in recovered:
+                        organizer = official_search_hint(row.name, row.distance_km)
+                        domains = organizer.get("official_domains", "").split()
+                        host = _host(_url(row.official_url))
+                        if domains and not any(host == domain or host and host.endswith("." + domain)
+                                               for domain in domains):
+                            row = row.model_copy(update={"official_url": None,
+                                                         "registration_source_url": None})
+                        rows.append(row)
+            except DiscoveryError:
+                pass
+            except TimeoutError:
+                break
     finally:
         if owned_client:
             await active_client.aclose()
     retrieved_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-    candidates = _normalize(rows, today, retrieved_at)
+    candidates = DiscoveryResults(_normalize(rows, today, retrieved_at), previous_edition)
     for candidate in candidates:
         url = candidate["registration_url"] or candidate["official_url"]
         if url:

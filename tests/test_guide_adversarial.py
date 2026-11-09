@@ -357,7 +357,14 @@ class OfflineDiscovery:
         return rows
 
 
+def assert_pills(turn):
+    assert len(turn.suggestions) <= 4
+    assert len({(s.kind, s.value) for s in turn.suggestions}) == len(turn.suggestions)
+    assert all(not re.fullmatch(r"\d{4}-\d{2}", s.label) for s in turn.suggestions)
+
+
 def assert_safe(state, turn, discovery, lang):
+    assert_pills(turn)
     serialized = json.dumps({"state": state.model_dump(mode="json"),
                              "turn": turn.model_dump(mode="json"), "calls": discovery.calls})
     assert all(sentinel not in serialized for sentinel in SENTINELS)
@@ -443,7 +450,9 @@ def assert_immediate(case, state, turn, discovery):
         assert len(re.findall(r"Je pars sur|Let's plan on", turn.message)) == 1
         assert state.draft.race.source_urls and state.draft.race.date_status == "official"
         assert turn.ready_to_confirm
-        assert {s.value for s in turn.suggestions if s.kind == "edit"} == {"origin", "nights", "budget"}
+        assert {s.value for s in turn.suggestions if s.kind == "edit"} == (
+            {"origin", "nights"} if any(s.value == "continue_without_profile" for s in turn.suggestions)
+            else {"origin", "nights", "budget"})
     elif expected in {"empty", "source-rejected", "past-source"}:
         assert not turn.candidates and state.draft.race is None and not turn.ready_to_confirm
         assert any(word in turn.message for word in ["trouvé", "trouve", "find", "passée", "sources"])
@@ -508,7 +517,9 @@ def assert_immediate(case, state, turn, discovery):
         assert state.draft.provenance["distance_km"] == "suggested_default"
         assert turn.ready_to_confirm and state.stage == "confirm"
         assert any(s.kind == "confirm" for s in turn.suggestions)
-        assert {s.value for s in turn.suggestions if s.kind == "edit"} == {"origin", "nights", "budget"}
+        assert {s.value for s in turn.suggestions if s.kind == "edit"} == (
+            {"origin", "nights"} if any(s.value == "continue_without_profile" for s in turn.suggestions)
+            else {"origin", "nights", "budget"})
         assert all(s.provenance == "suggested_default" for s in turn.suggestions)
     elif expected == "mind-3":
         assert turn.ready_to_confirm and state.draft.race.city == "Lisbon"
@@ -593,6 +604,7 @@ class RegressionDiscovery:
 
 
 def assert_regression_safe(state, turn, transcript):
+    assert_pills(turn)
     transcript.append(turn.model_dump(mode="json"))
     serialized = json.dumps({"state": state.model_dump(mode="json"), "turns": transcript})
     assert all(sentinel not in serialized for sentinel in SENTINELS)
