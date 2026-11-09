@@ -731,7 +731,7 @@ def test_injected_registration_providers_bypass_cached_access(monkeypatch):
             default = await discover("same race", api_key=KEY, client=client)
             assert default[0]["registration_access"] is None and calls == 2
             for required in [True, False, True]:
-                def registry(url):
+                def registry(url, required=required):
                     return access(account_required=required)
                 result = await discover("same race", api_key=KEY, client=client,
                                         registration_info=registry)
