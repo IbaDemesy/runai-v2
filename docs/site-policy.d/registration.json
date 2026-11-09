@@ -87,15 +87,90 @@
     "source": "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566", "observed_at": "2026-11-09",
     "note": "Chrome: event title 2027 and 14-03-2027 despite 2026 in slug; NN Halve Marathon EUR 49.50, uitverkocht; 10/5 km have INSCHRIJVEN buttons. Declined cookies (Nee), no login or captcha on selection page. Sold-out half prevents personal-data-page verification; no other race selected."
    }],
-   "adapters": [{
-    "kind": "registration",
-    "race_match": {"name_patterns": ["(?=.*\\b2027\\b).*(?:nn\\s+cpc|cpc\\s+loop|den\\s+haag\\s+half|hague\\s+half)"], "countries": ["NL"]},
-    "url_template": "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566",
-    "success_evidence": "NN CPC Loop Den Haag 2027, 14 March 2027: select only the confirmed race distance if publicly available, stop untouched at the first participant information page. Do not interpret 5/10 km inventory as half-marathon availability.",
-    "blocked_evidence": "Half marathon observed uitverkocht (sold_out). Also block on closed, not open, waiting list, login, captcha, mandatory consent, unreviewed redirect, or date/distance mismatch. The URL slug contains 2026; visible edition and date must both match 2027.",
-    "platform_hosts": ["in.njuko.com"],
-    "availability": {"status": "sold_out", "distances_km": [21, 21.0975, 21.1], "observed_at": "2026-11-09", "source": "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566", "note": "NN Halve Marathon, 14-03-2027, EUR 49.50: uitverkocht. Applies to half marathon only, not shorter races."}
-   }]
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "(?=.*\\b2027\\b).*(?:nn\\s+cpc|cpc\\s+loop|den\\s+haag\\s+half|hague\\s+half)"
+      ],
+      "countries": [
+       "NL"
+      ],
+      "distances_km": [
+       21,
+       21.0975,
+       21.1
+      ]
+     },
+     "url_template": "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566",
+     "checkpoint": {
+      "url_patterns": [
+       "(?i)[?&#]currentPage=form(?:_individual(?:-form)?)?(?:[&#]|$)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
+     "success_evidence": "NN CPC Loop Den Haag 2027, 14 March 2027: select only the confirmed race distance if publicly available, stop untouched at the first participant information page. Do not interpret 5/10 km inventory as half-marathon availability.",
+     "blocked_evidence": "Half marathon observed uitverkocht (sold_out). Also block on closed, not open, waiting list, login, captcha, mandatory consent, unreviewed redirect, or date/distance mismatch. The URL slug contains 2026; visible edition and date must both match 2027.",
+     "platform_hosts": [
+      "in.njuko.com"
+     ],
+     "availability": {
+      "status": "sold_out",
+      "distances_km": [
+       21,
+       21.0975,
+       21.1
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566",
+      "note": "NN Halve Marathon, 14-03-2027, EUR 49.50: uitverkocht. Applies to half marathon only, not shorter races."
+     },
+     "checkpoint_note": "Njuko currentPage=form_individual-form was observed untouched in the prior Milan run (2026-11-09). Shared platform URL shape, not a claim that this event's personal-data page has been reached."
+    },
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "(?=.*\\b2027\\b).*(?:nn\\s+cpc|cpc\\s+loop|den\\s+haag\\s+half|hague\\s+half)"
+      ],
+      "countries": [
+       "NL"
+      ],
+      "distances_km": [
+       5,
+       10
+      ]
+     },
+     "url_template": "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566",
+     "checkpoint": {
+      "url_patterns": [
+       "(?i)[?&#]currentPage=form(?:_individual(?:-form)?)?(?:[&#]|$)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
+     "success_evidence": "NN CPC Loop Den Haag 2027, 14 March 2027: select only the confirmed race distance if publicly available, stop untouched at the first participant information page. Do not interpret 5/10 km inventory as half-marathon availability.",
+     "blocked_evidence": "Select only the requested 5 km or 10 km. Half marathon is sold out; never substitute it. Stop on login, captcha, consent, sold out or date mismatch.",
+     "platform_hosts": [
+      "in.njuko.com"
+     ],
+     "availability": {
+      "status": "open",
+      "distances_km": [
+       5,
+       10
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://nncpcloopdenhaag.nl/inschrijven/10-km-loop/",
+      "note": "Anonymous GET of official 10 KM Loop and 5 KM Loop pages: each displays 'Inschrijven' registration link for 14 March 2027; half marathon separately UITVERKOCHT. Existing reviewed Njuko observation records active INSCHRIJVEN buttons for 5/10 km; no form interaction."
+     },
+     "checkpoint_note": "Njuko currentPage=form_individual-form was observed untouched in the prior Milan run (2026-11-09). Shared platform URL shape, not a claim that this event's personal-data page has been reached."
+    }
+   ]
   },
   {
    "id": "milanomarathon-it",
@@ -151,6 +226,14 @@
       ]
      },
      "url_template": "https://in.njuko.com/wizz-air-milano-marathon-20271776152378557",
+     "checkpoint": {
+      "url_patterns": [
+       "(?i)[?&#]currentPage=form(?:_individual(?:-form)?)?(?:[&#]|$)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
      "success_evidence": "njuko event page shows the 2027 (4 April 2027) edition, the Marathon 42.195 km competition can be selected with public buttons and the next page is the participant information form (left untouched).",
      "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition.",
      "platform_hosts": [
@@ -160,8 +243,12 @@
       "status": "open",
       "observed_at": "2026-11-09",
       "source": "https://in.njuko.com/wizz-air-milano-marathon-20271776152378557",
-      "note": "Chrome: 04/04/2027, two entry categories at EUR 114. Declined cookies; selected the foreign non-competitive category using its public registration button and reached the blank participant form without login or captcha. No data entered or form submitted. Some qualification guidance still mentions 2026; verify edition again at runtime."
-     }
+      "note": "Chrome: 04/04/2027, two entry categories at EUR 114. Declined cookies; selected the foreign non-competitive category using its public registration button and reached the blank participant form without login or captcha. No data entered or form submitted. Some qualification guidance still mentions 2026; verify edition again at runtime.",
+      "distances_km": [
+       42.195
+      ]
+     },
+     "checkpoint_note": "Njuko currentPage=form_individual-form was observed untouched in the prior Milan run (2026-11-09). Shared platform URL shape, not a claim that this event's personal-data page has been reached."
     }
    ]
   },
@@ -226,6 +313,14 @@
       ]
      },
      "url_template": "https://meia-maratona.inscricoes.maratonaportugal.com/default.aspx?prova_id=3769",
+     "checkpoint": {
+      "url_patterns": [
+       "(?!)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
      "success_evidence": "Registration page for EDP Meia Maratona de Lisboa 2027 (7 March 2027), 21 km selected; the next page is the participant data form (left untouched).",
      "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. Observed 2026-11-08: Esgotada with a waiting-list form (report sold_out).",
      "platform_hosts": [],
@@ -234,7 +329,8 @@
       "observed_at": "2026-11-08",
       "source": "https://meia-maratona.inscricoes.maratonaportugal.com/default.aspx?prova_id=3769",
       "note": "Existing anonymous observation: Esgotada; redirected to waitinglist.aspx. Waiting-list availability is not a race entry."
-     }
+     },
+     "checkpoint_note": "Checkpoint disabled with (?!) until a distinct first personal-data URL is observed. Anonymous GET did not expose it; do not mistake registration options or a login wall for a participant page."
     }
    ]
   },
@@ -288,9 +384,27 @@
       ]
      },
      "url_template": "https://mein-freiburgmarathon.de/lauf/halbmarathon/anmeldung/",
+     "checkpoint": {
+      "url_patterns": [
+       "(?!)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
      "success_evidence": "Embedded registration for the 2027 Freiburg half marathon (21.0975 km) shows the first participant data step (left untouched).",
      "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. Observed 2026-11-08: entry only with an allocated code (report registration_closed).",
-     "platform_hosts": []
+     "platform_hosts": [],
+     "availability": {
+      "status": "sold_out",
+      "distances_km": [
+       21.0975
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://mein-freiburgmarathon.de/lauf/halbmarathon/anmeldung/",
+      "note": "Anonymous GET: 'Save the Date 4. April 2027'; 'Anmeldung nur noch mit bestehendem Code möglich. Alle verfügbaren Codes sind bereits vollständig vergeben.' No additional codes available; not an open public entry."
+     },
+     "checkpoint_note": "Checkpoint disabled with (?!) until a distinct first personal-data URL is observed. Anonymous GET did not expose it; do not mistake registration options or a login wall for a participant page."
     },
     {
      "kind": "registration",
@@ -304,9 +418,27 @@
       ]
      },
      "url_template": "https://mein-freiburgmarathon.de/lauf/marathon/anmeldung/",
+     "checkpoint": {
+      "url_patterns": [
+       "(?!)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
      "success_evidence": "Embedded registration for the 2027 Freiburg marathon (42.195 km) shows the first participant data step (left untouched).",
      "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. Observed 2026-11-08: entry only with an allocated code (report registration_closed).",
-     "platform_hosts": []
+     "platform_hosts": [],
+     "availability": {
+      "status": "sold_out",
+      "distances_km": [
+       42.195
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://mein-freiburgmarathon.de/lauf/marathon/anmeldung/",
+      "note": "Anonymous GET: 'Save the Date 4. April 2027'; 'Anmeldung nur noch mit bestehendem Code möglich. Alle verfügbaren Codes sind bereits vollständig vergeben.' No additional codes available; not an open public entry."
+     },
+     "checkpoint_note": "Checkpoint disabled with (?!) until a distinct first personal-data URL is observed. Anonymous GET did not expose it; do not mistake registration options or a login wall for a participant page."
     }
    ]
   },
@@ -359,9 +491,27 @@
       ]
      },
      "url_template": "https://www.jungfrau-marathon.ch/de/anmeldung.html",
+     "checkpoint": {
+      "url_patterns": [
+       "(?!)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
      "success_evidence": "Anmeldung page offers the 2027 Jungfrau-Marathon entry and the next page is the participant data form (left untouched).",
      "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. Observed 2026-11-08: 2026 registration closed, 2027 not yet open (report registration_closed).",
-     "platform_hosts": []
+     "platform_hosts": [],
+     "availability": {
+      "status": "unknown",
+      "distances_km": [
+       42.195
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://www.jungfrau-marathon.ch/de/anmeldung.html",
+      "note": "Anonymous GET: 'Die Online-Anmeldung 2026 ist geschlossen'. No 2027 registration shown; cannot infer 2027 availability from the closed 2026 page."
+     },
+     "checkpoint_note": "Checkpoint disabled with (?!) until a distinct first personal-data URL is observed. Anonymous GET did not expose it; do not mistake registration options or a login wall for a participant page."
     }
    ]
   },
@@ -408,9 +558,27 @@
       ]
      },
      "url_template": "https://eiger.utmb.world/registration",
+     "checkpoint": {
+      "url_patterns": [
+       "(?!)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
      "success_evidence": "Registration page shows the 2027 edition and the chosen distance entry; any jump to an unreviewed registration host is reported as unreviewed_redirect.",
      "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. Lottery distances (E101/E51/E35) and the unreviewed in.ch.byutmb.world host are blocked.",
-     "platform_hosts": []
+     "platform_hosts": [],
+     "availability": {
+      "status": "open",
+      "distances_km": [
+       16
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://eiger.utmb.world/registration",
+      "note": "Anonymous GET: 14-18 July 2027; 'REGISTER HERE - E250, E16 & Trail Surprise'; registration opens '15 Oct 2026 ... for all runners'. E16 race page confirms 16 KM. Applies to E16 only, not E101/E51/E35 lottery. in.ch.byutmb.world remains unreviewed: stop on that redirect."
+     },
+     "checkpoint_note": "Checkpoint disabled with (?!) until a distinct first personal-data URL is observed. Anonymous GET did not expose it; do not mistake registration options or a login wall for a participant page."
     }
    ]
   },
@@ -466,11 +634,29 @@
       ]
      },
      "url_template": "https://www.zurichmaratonsevilla.es/zms-inscripciones",
+     "checkpoint": {
+      "url_patterns": [
+       "(?i)[?&#]currentPage=form(?:_individual(?:-form)?)?(?:[&#]|$)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
      "success_evidence": "The 2027 (21 Feb 2027) marathon entry on Njuko is selected and the next page is the participant information form (left untouched).",
      "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. A 2026 Njuko event must be reported as date_mismatch.",
      "platform_hosts": [
       "in.njuko.com"
-     ]
+     ],
+     "availability": {
+      "status": "unknown",
+      "distances_km": [
+       42.195
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://www.zurichmaratonsevilla.es/zms-inscripciones",
+      "note": "Anonymous GET: 'INSCRIPCIONES 2027', phases from 9/13/17 April, but linked marathon Njuko slug still says 2026. Conditional 'Si todavía quedan dorsales disponibles' is not evidence of remaining inventory; keep unknown."
+     },
+     "checkpoint_note": "Njuko currentPage=form_individual-form was observed untouched in the prior Milan run (2026-11-09). Shared platform URL shape, not a claim that this event's personal-data page has been reached."
     }
    ]
   },
@@ -517,12 +703,34 @@
        "CH"
       ]
      },
-     "url_template": "https://in.njuko.com/generali-geneve-marathon-2027-1782304695994",
+     "url_template": "https://www.generaligenevemarathon.com/participate",
+     "checkpoint": {
+      "url_patterns": [
+       "(?i)[?&#]currentPage=form(?:_individual(?:-form)?)?(?:[&#]|$)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
      "success_evidence": "njuko event page shows the 2027 (8-9 May 2027) edition, the selected competition can be selected with public buttons and the next page is the participant information form (left untouched).",
      "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition.",
      "platform_hosts": [
       "in.njuko.com"
-     ]
+     ],
+     "availability": {
+      "status": "open",
+      "distances_km": [
+       42.195,
+       21.0975,
+       21.1,
+       10,
+       5
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://www.generaligenevemarathon.com/participate",
+      "note": "Anonymous GET: 'Les inscriptions 2027 sont officiellement ouvertes !', 8-9 mai 2027; individual registration links to Njuko. Course tiles include stale 2025 dates: verify selected edition/date at runtime."
+     },
+     "checkpoint_note": "Njuko currentPage=form_individual-form was observed untouched in the prior Milan run (2026-11-09). Shared platform URL shape, not a claim that this event's personal-data page has been reached."
     }
    ]
   },
@@ -569,11 +777,29 @@
       ]
      },
      "url_template": "https://rrtm.endu.net/",
+     "checkpoint": {
+      "url_patterns": [
+       "(?i)^/(?:[^?#]*/)?(?:participant|personal[-_]?data|individual[-_]?form)(?:[/?#]|$)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
      "success_evidence": "ENDU page for RUN ROME THE MARATHON 2027 (14 March 2027) with the event selected; the next page asks for participant data or login (left untouched).",
      "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition.",
      "platform_hosts": [
       "rrtm.endu.net"
-     ]
+     ],
+     "availability": {
+      "status": "open",
+      "distances_km": [
+       42.195
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://www.runromethemarathon.com/",
+      "note": "Anonymous GET: '14 marzo 2027', '42,195KM', 'Assicurati il tuo pettorale! ISCRIVITI ORA'; reviewed rrtm.endu.net shows 'Edizione 2027'. Mixed older 2026 content elsewhere: verify date before selecting."
+     },
+     "checkpoint_note": "PROVISIONAL conservative ENDU personal-page path; anonymous GET exposes edition/catalog only, not the personal-data URL. /book alone is not a checkpoint. Requires live validation; no success from the landing page."
     }
    ]
   },
@@ -619,11 +845,31 @@
       ]
      },
      "url_template": "https://www.endu.net/events/bologna-marathon/book",
+     "checkpoint": {
+      "url_patterns": [
+       "(?i)^/(?:[^?#]*/)?(?:participant|personal[-_]?data|individual[-_]?form)(?:[/?#]|$)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
      "success_evidence": "ENDU book page for the 2027 Bologna Marathon (7 March 2027) with the distance selected; the next page asks for participant data or login (left untouched). /book is not a booking.",
      "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition.",
      "platform_hosts": [
       "www.endu.net"
-     ]
+     ],
+     "availability": {
+      "status": "open",
+      "distances_km": [
+       42.195,
+       30,
+       21.097
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://www.bolognamarathon.run/",
+      "note": "Anonymous GET: '7 MARZO 2027'; 'Iscrizioni aperte' separately on MARATONA 42.195 KM, 30K DEI PORTICI 30 KM and RUN TUNE UP 21.097 KM. ENDU book page confirms 07/03/2027."
+     },
+     "checkpoint_note": "PROVISIONAL conservative ENDU personal-page path; anonymous GET exposes edition/catalog only, not the personal-data URL. /book alone is not a checkpoint. Requires live validation; no success from the landing page."
     }
    ]
   },
@@ -669,11 +915,29 @@
       ]
      },
      "url_template": "https://www.endu.net/events/padovamarathon/book",
+     "checkpoint": {
+      "url_patterns": [
+       "(?i)^/(?:[^?#]*/)?(?:participant|personal[-_]?data|individual[-_]?form)(?:[/?#]|$)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
      "success_evidence": "ENDU book page for Padova Marathon 2027 (18 April 2027) with the distance selected; the next page asks for participant data or login (left untouched). /book is not a booking.",
      "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition.",
      "platform_hosts": [
       "www.endu.net"
-     ]
+     ],
+     "availability": {
+      "status": "open",
+      "distances_km": [
+       42.195
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://padovamarathon.com/maratona/",
+      "note": "Anonymous GET: '18 aprile 2027', '42,195 km', 'ISCRIVITI ONLINE' active link; 2027 registration fee schedule and deadline 04.04.2027. ENDU book page confirms 18/04/2027."
+     },
+     "checkpoint_note": "PROVISIONAL conservative ENDU personal-page path; anonymous GET exposes edition/catalog only, not the personal-data URL. /book alone is not a checkpoint. Requires live validation; no success from the landing page."
     }
    ]
   },
@@ -774,9 +1038,28 @@
       ]
      },
      "url_template": "https://events.vienna-marathon.com/events/c0af0e08b2f9d796d7fd/registration_options",
+     "checkpoint": {
+      "url_patterns": [
+       "(?!)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
      "success_evidence": "Registration options for the 2027 Vienna City Marathon (18 April 2027) with the chosen distance selected; the next page is the participant data form (left untouched).",
      "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. Observed 2026-11-08: waiting list for marathon and half (report sold_out).",
-     "platform_hosts": []
+     "platform_hosts": [],
+     "availability": {
+      "status": "sold_out",
+      "distances_km": [
+       42.195,
+       21.0975
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://events.vienna-marathon.com/events/c0af0e08b2f9d796d7fd/registration_options",
+      "note": "Anonymous GET: 'WARTELISTE' for Marathon, Wiener Städtische Halbmarathon and relay; only Tchibo Coffee Run 10K and Vienna 5K have Einzelanmeldung. Waiting list is not a race entry."
+     },
+     "checkpoint_note": "Checkpoint disabled with (?!) until a distinct first personal-data URL is observed. Anonymous GET did not expose it; do not mistake registration options or a login wall for a participant page."
     }
    ]
   },
@@ -836,9 +1119,27 @@
       ]
      },
      "url_template": "https://register.runczech.com/2027/vodafone-prague-marathon-2027",
+     "checkpoint": {
+      "url_patterns": [
+       "(?!)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
      "success_evidence": "2027 Vodafone Prague Marathon race selection with the distance chosen; the next page asks for participant data (left untouched).",
      "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. RunnersID login or account creation is required (report login_required).",
-     "platform_hosts": []
+     "platform_hosts": [],
+     "availability": {
+      "status": "open",
+      "distances_km": [
+       42.195
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://www.runczech.com/en/events/vodafone-prague-marathon-2027",
+      "note": "Anonymous GET: 'Vodafone Prague Marathon', 'Distance: 42.195km', 'Sunday 2. 5. 2027', 'From EUR 120', active 'Register'. Bambini run is sold out, not the marathon. RunnersID login remains a hard stop."
+     },
+     "checkpoint_note": "Checkpoint disabled with (?!) until a distinct first personal-data URL is observed. Anonymous GET did not expose it; do not mistake registration options or a login wall for a participant page."
     }
    ]
   },
@@ -893,9 +1194,29 @@
       ]
      },
      "url_template": "https://www.tcsamsterdammarathon.eu/registration",
+     "checkpoint": {
+      "url_patterns": [
+       "(?!)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
      "success_evidence": "Registration page for the 2027 edition (30-31 Oct 2027) with the distance chosen; the next page is the participant data form (left untouched).",
      "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. Observed 2026-11-08: 2027 entry opens 19 December 2026 (report registration_closed).",
-     "platform_hosts": []
+     "platform_hosts": [],
+     "availability": {
+      "status": "not_open",
+      "distances_km": [
+       42.195,
+       21.0975,
+       7.5
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://www.tcsamsterdammarathon.eu/registration",
+      "note": "Anonymous GET: 'Registration for all distances ... 2026 is closed. Registration for the 2027 edition will open on Saturday, December 19.' Current shorter distance is 7.5K, not 8K. No 2027 entry available on review date."
+     },
+     "checkpoint_note": "Checkpoint disabled with (?!) until a distinct first personal-data URL is observed. Anonymous GET did not expose it; do not mistake registration options or a login wall for a participant page."
     }
    ]
   },
@@ -1205,6 +1526,204 @@
    "navigation_hosts": [],
    "registration_observations": [],
    "adapters": []
+  }
+,
+  {
+   "id": "movistar-madrid-half",
+   "name": "Movistar Madrid Half Marathon — hosted Deporticket form",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "www.mediomaratonmadrid.es",
+     "path_prefix": "/"
+    },
+    {
+     "host": "mediomaratonmadrid.es",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.mediomaratonmadrid.es/en/web-legal-notice",
+    "https://www.mediomaratonmadrid.es/en/web-form/34571-general-entry"
+   ],
+   "reviewed_at": "2026-11-09",
+   "expires_at": "2027-02-07",
+   "reviewed_sections": "General terms of use §§2–6, 9–10; embedded Deporticket processing/consent clauses on the hosted registration form.",
+   "justification": "Anonymous GET review of the actual organizer-hosted Deporticket form and its linked site terms: §6 permits viewing and private personal copying; commercial reproduction/distribution is restricted. No express automated-navigation prohibition found in these terms. Allow only read-only navigation on this host to the untouched public form; no typing, consent, submission or external Deporticket navigation. This does NOT authorize deporticket.com, whose public homepage/services returned 403; any such redirect must stop.",
+   "automation": "allowed_read_only",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "(?:movistar.*madrid.*(?:medio|half)|madrid.*(?:medio|half).*mara)"
+      ],
+      "countries": [
+       "ES"
+      ],
+      "distances_km": [
+       21.097,
+       21.0975,
+       21.1
+      ]
+     },
+     "platform_hosts": [],
+     "url_template": "https://www.mediomaratonmadrid.es/en/web-form/34571-general-entry",
+     "checkpoint": {
+      "url_patterns": [
+       "(?i)^/en/web-form/34571-general-entry(?:[?]|$)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
+     "checkpoint_note": "OBSERVED by anonymous GET: /en/web-form/34571-general-entry shows First name, Family name, Date of birth and Gender, edition 2027. Do not type or tick consent. This is the personal-data page, not the /web-evento landing page.",
+     "success_evidence": "2027 half marathon selected; untouched First name/Family name form at /en/web-form/34571-general-entry. STOP and answer immediately.",
+     "blocked_evidence": "Stop before any typing, account, captcha, consent, payment or submission; stop on a different edition/date or any external Deporticket redirect.",
+     "availability": {
+      "status": "open",
+      "distances_km": [
+       21.097,
+       21.0975,
+       21.1
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://www.mediomaratonmadrid.es/en/web-evento/13064-movistar-madrid-medio-maraton-2027",
+      "note": "Anonymous GET: 'Movistar Madrid Medio Maratón 2027', 'REGISTRATION', active 'General entry' link to /en/web-form/34571-general-entry; public form displays 69.00 € and personal-data fields. No interaction or submission."
+     }
+    }
+   ]
+  },
+  {
+   "id": "stoos-trail-raceresult",
+   "name": "Stoos-Trail — Race Result",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "stoos-trail.ch",
+     "path_prefix": "/"
+    },
+    {
+     "host": "www.stoos-trail.ch",
+     "path_prefix": "/"
+    },
+    {
+     "host": "stoostrail.ch",
+     "path_prefix": "/"
+    },
+    {
+     "host": "www.stoostrail.ch",
+     "path_prefix": "/"
+    },
+    {
+     "host": "my.raceresult.com",
+     "path_prefix": "/422182"
+    },
+    {
+     "host": "events1.raceresult.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://stoos-trail.ch/impressum",
+    "https://stoos-trail.ch/datenschutz",
+    "https://www.raceresult.com/en/company/agb.php",
+    "https://my.raceresult.com/imprint/termsofuse",
+    "https://cdn.prod.website-files.com/67f65f3a3cf96f3dce8743cd/68d409acbf013b181b7c870f_63a6ad22c4ab3381bd066dcd403d43e2_26-05-27-reglement-stoos-trail-v1.12%20deutsch.pdf"
+   ],
+   "reviewed_at": "2026-11-09",
+   "expires_at": "2027-02-07",
+   "reviewed_sections": "Organizer imprint/privacy, race rules §§5/14; my.raceresult Terms of Use §§1–6 and Race Result AGB §§1–9.",
+   "justification": "Anonymous GET review: Stoos race rules govern participant entry/fees and privacy; registration would automatically accept rules (§5), so never submit or register. my.raceresult Terms of Use §2 describe public event browsing and registration; §3.4 states that submitting registration makes a binding offer. No express bot/scraping prohibition found in the fetched platform or organizer terms. Allow only this event's public read-only entry preparation, no credentials, consent or submission. Embedded configuration identifies event 422182 and events1.raceresult.com. No distinct participant-page URL observed; checkpoint remains disabled pending validation.",
+   "automation": "allowed_read_only",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "stoos[- ]?trail"
+      ],
+      "countries": [
+       "CH"
+      ]
+     },
+     "platform_hosts": [],
+     "url_template": "https://my.raceresult.com/422182/registration",
+     "checkpoint": {
+      "url_patterns": [
+       "(?!)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"
+      ]
+     },
+     "checkpoint_note": "PROVISIONAL/DISABLED: public /422182/registration is a JS shell, and organizer embeds RRReg for Einzel-Anmeldung. No distinct first personal-data URL observed anonymously. (?!) cannot falsely certify the shell as a reached checkpoint. Live validation is required.",
+     "success_evidence": "Only the untouched participant-data page for Stoos Trail on 10 July 2027, never the public registration shell. Stop immediately without entering data.",
+     "blocked_evidence": "Stop at consent, registration submission, payment, captcha or account login; public shell alone is not success. Checkpoint URL not yet established.",
+     "availability": {
+      "status": "unknown",
+      "distances_km": [
+       11,
+       25.6,
+       46.6,
+       13
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://my.raceresult.com/422182/registration",
+      "note": "Anonymous GET: 'Stoos Trail 2027', date 2027-07-10; event metadata reports InStock and organizer embeds Einzel-Anmeldung, but JS shell does not display an active register control or explicit open status. Cannot certify open without rendering. Distances come from official organizer course pages, not the ST10/ST24 marketing labels."
+     }
+    }
+   ]
+  },
+  {
+   "id": "bijlmer-run-atleta-pending",
+   "name": "Bijlmer Run — Atleta review pending",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "bijlmerrun.nl",
+     "path_prefix": "/"
+    },
+    {
+     "host": "www.bijlmerrun.nl",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.bijlmerrun.nl/terms-and-conditions"
+   ],
+   "reviewed_at": "2026-11-09",
+   "expires_at": "2027-02-07",
+   "reviewed_sections": "Organizer participant terms only; Atleta platform review incomplete.",
+   "justification": "Organizer terms cover participation/liability/privacy without an express automation prohibition found. Atleta platform terms have not been successfully reviewed; no adapter and no navigation permission. Official homepage says 'Inschrijving opent: 21 november 2026'. Keep blocked pending platform review.",
+   "automation": "ambiguous",
+   "screenshot_scope": "none",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": [],
+   "availability_observations": [
+    {
+     "status": "not_open",
+     "distances_km": [
+      10
+     ],
+     "observed_at": "2026-11-09",
+     "source": "https://www.bijlmerrun.nl/",
+     "note": "Anonymous GET: 'Inschrijving opent: 21 november 2026'. Linked Atleta registration is unreviewed and is not authorized here."
+    }
+   ]
   }
  ]
 }

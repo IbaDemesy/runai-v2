@@ -1,17 +1,29 @@
 import json
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
 from test_site_policy import TODAY, registration_entry, registry
 
-from runai.agents import site_policy
-from runai.agents.registration import build_task, policy_view, registration_coverage
+from runai.agents import hclient, site_policy
+from runai.agents.registration import (
+    NJUKO_CHECKPOINT,
+    _distance_matches,
+    build_task,
+    policy_view,
+    registration_coverage,
+)
+from runai.agents.scrub import scrub_url
 from runai.agents.site_policy import evaluate_url
 
 KEYS = {"kind", "site_name", "start_url", "instructions", "stop_before", "success_signal",
-        "fallback_url", "max_steps", "expected", "allowed_hosts", "alternatives"}
+        "fallback_url", "max_steps", "expected", "allowed_hosts", "alternatives", "checkpoint"}
+
+
+def _matches(patterns, url):
+    checkpoint = {"url_patterns": [re.compile(p, re.IGNORECASE) for p in patterns]}
+    return hclient._checkpoint_matches(checkpoint, "url_patterns", url)
 
 
 def _trip(**race):
@@ -37,7 +49,7 @@ def test_reviewed_registration_url():
     assert task["kind"] == "registration"
     assert task["start_url"] == "https://in.njuko.com/example-marathon-2027"
     assert task["fallback_url"] == task["start_url"]
-    assert task["max_steps"] == 40
+    assert task["max_steps"] == 60
     assert task["allowed_hosts"] == ["in.njuko.com", "www.example-marathon.test"]
     assert task["expected"]["race_date"] == "2027-04-11"
     assert task["expected"]["race_name"] == "Example Marathon"
@@ -140,6 +152,7 @@ def _organizer(**changes):
             "success_evidence": "Participant form for the 2027 marathon.",
             "blocked_evidence": "Registrations closed or sold out.",
             "platform_hosts": ["in.njuko.com"],
+            "checkpoint": NJUKO_CHECKPOINT,
         }],
     )
     base.update(changes)
@@ -160,7 +173,7 @@ def test_adapter_first_and_platform_hosts():
     assert task["start_url"] == "https://in.njuko.com/example-marathon-2027?d=2027-04-11"
     assert task["allowed_hosts"] == ["in.njuko.com"]
     assert "Participant form for the 2027 marathon." in task["instructions"]
-    assert task["max_steps"] < 40 + 1
+    assert task["max_steps"] == 60
 
 
 def test_organizer_official_url_navigates_to_platform():
@@ -231,7 +244,7 @@ def test_instructions_prevent_false_booking_verdict():
     for text in ("/book, /checkout or /register is NOT a booking",
                  "no payment, booking or submission was made", "registration_closed",
                  "sold_out", "login_required", "consent_required", "Iscriviti", "Inscrições",
-                 "Inscriptions", "under 40 steps"):
+                 "Inscriptions", "under 60 steps"):
         assert text in task["instructions"]
     assert "no payment, booking or submission was made" in task["success_signal"]
 
@@ -281,7 +294,7 @@ SHOWCASE = [
       "https://www.runromethemarathon.com/"), "https://rrtm.endu.net/", "rrtm.endu.net"),
     (("Generali Genève Marathon", "2027-05-09", 42.195, "Genève", "Switzerland",
       "https://www.generaligenevemarathon.com/"),
-     "https://in.njuko.com/generali-geneve-marathon-2027-1782304695994", "in.njuko.com"),
+     "https://www.generaligenevemarathon.com/participate", "in.njuko.com"),
 ]
 
 
@@ -291,7 +304,7 @@ def test_merged_registry_covers_showcase_races(race, start, platform):
     task = build_task(_race_trip(*race), today=MERGED_TODAY, registry=reg)
     assert task["start_url"] == start
     assert platform in task["allowed_hosts"]
-    assert task["max_steps"] <= 40
+    assert task["max_steps"] == 60
     review = evaluate_url(start, "registration", today=MERGED_TODAY,
                           registry=policy_view(reg)[0])
     assert set(task["allowed_hosts"]) <= set(review["allowed_hosts"])  # H client subset check
@@ -467,16 +480,52 @@ def test_malformed_availability_object_fails_closed():
 def test_platform_adapter_with_organizer_path_lists_alternatives():
     task = build(_trip(), registry(_organizer(), _njuko()))
     assert task["start_url"].startswith("https://in.njuko.com/example-marathon-2027?d=")
-    assert task["alternatives"] == ["https://in.njuko.com/example-marathon-2027",
-                                    "https://www.example-marathon.test/"]
+    assert [a["start_url"] for a in task["alternatives"]] == [
+        "https://in.njuko.com/example-marathon-2027", "https://www.example-marathon.test/"]
     assert "https://www.example-marathon.test/" in task["instructions"]
-    for url in task["alternatives"]:
+    for alternative in task["alternatives"]:
+        url = alternative["start_url"]
+        assert alternative["checkpoint"] == task["checkpoint"]
         assert evaluate_url(url, "registration", today=TODAY,
                             registry=registry(_organizer(), _njuko()))["allowed"]
 
 
 def test_no_adapter_means_no_alternatives():
     assert build(_trip())["alternatives"] == []
+
+
+@pytest.mark.parametrize("checkpoint", [None, {}, {"url_patterns": []},
+    {"url_patterns": ["("], "beyond_patterns": ["payment"]},
+    {"url_patterns": ["form"], "beyond_patterns": []},
+    {"url_patterns": [False], "beyond_patterns": ["login"]}])
+def test_malformed_checkpoint_fails_closed(checkpoint):
+    organizer = _organizer()
+    organizer["adapters"][0]["checkpoint"] = checkpoint
+    reg = registry(organizer, _njuko())
+    with pytest.raises(ValueError, match="registry unavailable or invalid"):
+        build(_trip(), reg)
+    assert _coverage(reg=reg)["covered"] is False
+
+
+def test_missing_checkpoint_fails_closed():
+    organizer = _organizer()
+    del organizer["adapters"][0]["checkpoint"]
+    with pytest.raises(ValueError, match="registry unavailable or invalid"):
+        build(_trip(), registry(organizer, _njuko()))
+
+
+@pytest.mark.parametrize("page", ["form", "form_individual", "form_individual-form"])
+def test_njuko_personal_page_checkpoint_on_every_attempt(page):
+    task = build(_trip(), registry(_organizer(), _njuko()))
+    for attempt in [task, *task["alternatives"]]:
+        checkpoint = attempt["checkpoint"]
+        url = f"https://in.njuko.com/example?currentPage={page}"
+        assert _matches(checkpoint["url_patterns"], url)
+        assert _matches(checkpoint["url_patterns"], url.replace("_", "%5F").upper())
+        assert "STOP and answer immediately without typing anything" in attempt["instructions"]
+        for boundary in ("payment", "summary", "cart", "login", "signin"):
+            assert _matches(checkpoint["beyond_patterns"],
+                            f"https://in.njuko.com/example/{boundary}")
 
 
 UNCOVERED = {"covered": False, "status": "unknown", "policy_id": None, "observed_at": None,
@@ -564,7 +613,7 @@ def test_merged_den_haag_builds_on_reviewed_njuko_with_sold_out_first():
     task = build_task(_race_trip(*DEN_HAAG), today=MERGED_TODAY, registry=reg)
     assert task["start_url"].startswith("https://in.njuko.com/nn-cpc-loop-den-haag-")
     assert task["instructions"].startswith("AVAILABILITY FIRST")
-    assert "https://nncpcloopdenhaag.nl/" in task["alternatives"]
+    assert "https://nncpcloopdenhaag.nl/" in [a["start_url"] for a in task["alternatives"]]
     assert _merged_coverage(DEN_HAAG)["status"] == "sold_out"
 
 
@@ -577,8 +626,8 @@ def test_den_haag_availability_is_scoped_to_half_marathon(distance):
     half = distance in (21, 21.0975, 21.1)
     assert coverage["covered"] is True
     assert coverage["prohibited"] is False
-    assert coverage["status"] == ("sold_out" if half else "unknown")
-    assert coverage["observed_at"] == ("2026-11-09" if half else None)
+    assert coverage["status"] == ("sold_out" if half else "open")
+    assert coverage["observed_at"] == "2026-11-09"
     task = build_task(trip, today=MERGED_TODAY, registry=_merged())
     assert task["instructions"].startswith("AVAILABILITY FIRST") is half
 
@@ -603,7 +652,143 @@ def test_merged_every_start_and_alternative_url_passes_policy():
     view = policy_view(reg)[0]
     for race in [MILAN, LISBON_HALF, DEN_HAAG] + [r for r, _, _ in SHOWCASE]:
         task = build_task(_race_trip(*race), today=MERGED_TODAY, registry=reg)
-        for url in [task["start_url"], *task["alternatives"]]:
+        for url in [task["start_url"], *[a["start_url"] for a in task["alternatives"]]]:
             assert evaluate_url(url, "registration", today=MERGED_TODAY,
                                 registry=view)["allowed"], url
         assert _merged_coverage(race)["covered"] is True
+
+
+FRESH_OPEN_RACES = [
+    MILAN,
+    ("NN CPC Loop Den Haag 10K", "2027-03-14", 10, "Den Haag", "Netherlands",
+     "https://nncpcloopdenhaag.nl/"),
+    ("Generali Genève Marathon", "2027-05-09", 42.195, "Genève", "Switzerland",
+     "https://www.generaligenevemarathon.com/"),
+    ("Run Rome The Marathon", "2027-03-14", 42.195, "Roma", "Italy",
+     "https://www.runromethemarathon.com/"),
+    ("Bologna Marathon", "2027-03-07", 42.195, "Bologna", "Italy",
+     "https://www.bolognamarathon.run/"),
+    ("Padova Marathon", "2027-04-18", 42.195, "Padova", "Italy",
+     "https://padovamarathon.com/"),
+    ("Vodafone Prague Marathon", "2027-05-02", 42.195, "Prague", "Czech Republic",
+     "https://www.runczech.com/en/events/vodafone-prague-marathon-2027"),
+    ("Movistar Madrid Medio Maratón", "2027-04-04", 21.0975, "Madrid", "Spain",
+     "https://www.mediomaratonmadrid.es/en/"),
+]
+
+
+def test_named_fresh_open_matrix_spans_required_countries():
+    assert len({r[0] for r in FRESH_OPEN_RACES}) >= 8
+    countries = {r[4] for r in FRESH_OPEN_RACES}
+    assert len(countries) >= 5
+    assert {"Netherlands", "Switzerland", "Spain"} <= countries
+    assert any(r[4] == "Spain" and r[3] != "Sevilla" for r in FRESH_OPEN_RACES)
+
+
+@pytest.mark.parametrize("race", FRESH_OPEN_RACES, ids=lambda r: r[0])
+def test_named_fresh_open_matrix_builds_scrubbed_policy_checked_tasks(race, monkeypatch):
+    today = date(2026, 11, 9)
+    reg = _merged()
+    trip = _race_trip(*race)
+    coverage = registration_coverage(trip["race"], today=today, registry=reg)
+    assert coverage["covered"] is True
+    assert coverage["status"] == "open"
+    assert coverage["observed_at"] == today.isoformat()
+    task = build_task(trip, today=today, registry=reg)
+
+    class ReviewClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 11, 9, tzinfo=tz)
+
+    monkeypatch.setattr(hclient, "datetime", ReviewClock)
+    monkeypatch.setattr(site_policy, "evaluate_url", lambda url, kind: evaluate_url(
+        url, kind, today=today, registry=reg))
+    for attempt in [task, *task["alternatives"]]:
+        assert scrub_url(attempt["start_url"]) == attempt["start_url"]
+        assert scrub_url(attempt["fallback_url"]) == attempt["fallback_url"]
+        assert hclient._policy(attempt)
+        checkpoint = attempt["checkpoint"]
+        assert checkpoint["url_patterns"] and checkpoint["beyond_patterns"]
+        assert hclient._checkpoint(attempt) is not None
+        for pattern in checkpoint["url_patterns"] + checkpoint["beyond_patterns"]:
+            re.compile(pattern)
+        for boundary in ("payment", "summary", "login"):
+            assert _matches(checkpoint["beyond_patterns"], f"https://example.test/{boundary}")
+
+
+def test_madrid_checkpoint_matches_observed_form_not_event_landing():
+    task = build_task(_race_trip(*FRESH_OPEN_RACES[-1]), today=MERGED_TODAY, registry=_merged())
+    form = "https://www.mediomaratonmadrid.es/en/web-form/34571-general-entry"
+    landing = ("https://www.mediomaratonmadrid.es/en/web-evento/"
+               "13064-movistar-madrid-medio-maraton-2027")
+    for attempt in [task, *task["alternatives"]]:
+        assert _matches(attempt["checkpoint"]["url_patterns"], form)
+        assert _matches(attempt["checkpoint"]["url_patterns"],
+                        form.replace("/en/web-form", "/EN/WEB%2DFORM"))
+        assert not _matches(attempt["checkpoint"]["url_patterns"], landing)
+
+
+@pytest.mark.parametrize("race", FRESH_OPEN_RACES[3:6], ids=lambda r: r[0])
+def test_provisional_endu_checkpoint_uses_path_query_not_host(race):
+    task = build_task(_race_trip(*race), today=MERGED_TODAY, registry=_merged())
+    patterns = task["checkpoint"]["url_patterns"]
+    assert _matches(patterns, "https://www.endu.net/events/example/personal-data?edition=2027")
+    assert not _matches(patterns, task["start_url"])
+    assert not _matches(patterns, "https://participant.endu.net/events/example/book")
+
+
+@pytest.mark.parametrize("distances", [[], "10", [True], [0], [float("nan")]])
+def test_malformed_adapter_distance_scope_fails_closed(distances):
+    reg = _with_availability()
+    reg["entries"][0]["adapters"][0]["race_match"]["distances_km"] = distances
+    assert _coverage(reg=reg)["covered"] is False
+    with pytest.raises(ValueError, match="registry unavailable or invalid"):
+        build(_trip(), reg)
+
+
+def test_fresh_observation_does_not_assert_an_unobserved_distance_open():
+    trip = _race_trip(*FRESH_OPEN_RACES[-1])
+    trip["race"]["distance_km"] = 10
+    assert registration_coverage(trip["race"], today=MERGED_TODAY,
+                                 registry=_merged())["status"] == "unknown"
+
+
+def test_stoos_shell_is_not_a_personal_data_checkpoint_or_open_evidence():
+    trip = _race_trip("Stoos-Trail ST24", "2027-07-10", 25.6, "Brunnen", "Switzerland",
+                      "https://stoos-trail.ch/")
+    task = build_task(trip, today=MERGED_TODAY, registry=_merged())
+    assert task["start_url"] == "https://my.raceresult.com/422182/registration"
+    assert scrub_url(task["start_url"]) == task["start_url"]
+    assert registration_coverage(trip["race"], today=MERGED_TODAY,
+                                 registry=_merged())["status"] == "unknown"
+    assert not _matches(task["checkpoint"]["url_patterns"], task["start_url"])
+
+
+def test_bologna_rounded_half_distance_has_fresh_open_coverage():
+    trip = _race_trip(*FRESH_OPEN_RACES[4])
+    trip["race"]["distance_km"] = 21.1
+    coverage = registration_coverage(trip["race"], today=date(2026, 11, 9), registry=_merged())
+    assert coverage["covered"] is True
+    assert coverage["status"] == "open"
+
+
+@pytest.mark.parametrize(("observed", "requested", "status"), [
+    (21.097, 21.1, "open"), (42.195, 42.2, "open"), (5, 10, "unknown"),
+])
+def test_distance_tolerance_in_adapter_matching_and_availability(observed, requested, status):
+    reg = _with_availability(distances_km=[observed])
+    reg["entries"][0]["adapters"][0]["race_match"]["distances_km"] = [observed]
+    coverage = _coverage(_trip(distance_km=requested)["race"], reg=reg)
+    assert coverage["covered"] is True
+    assert coverage["status"] == status
+
+
+@pytest.mark.parametrize("distance", [None, "21.1", True, 0, float("inf"), float("nan")])
+def test_distance_tolerance_rejects_invalid_distance(distance):
+    assert not _distance_matches(distance, [21.097])
+
+
+def test_distance_tolerance_does_not_match_empty_scope_or_different_race():
+    assert not _distance_matches(21.1, [])
+    assert not _distance_matches(10, [5])
