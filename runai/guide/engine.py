@@ -647,6 +647,15 @@ class GuideEngine:
             return self._turn(state, self._say(
                 state, "Aucune date future vérifiée ; il faut une nouvelle source.",
                 "No verified future date is available; we need a new source."))
+        months = state.hints.get("months")
+        if months and not state.draft.race:
+            suitable = [r for r in suitable if r.race_date.strftime("%Y-%m") in months]
+            if not suitable:
+                return self._turn(state, self._say(
+                    state, "Rien de sourcé sur la période demandée ; voici des éditions sourcées "
+                    "à d'autres dates, à toi de choisir.",
+                    "Nothing sourced in the requested period; here are sourced editions on "
+                    "other dates for you to choose from."))
         race = suitable[0]
         host = None
         for url in race.source_urls:
