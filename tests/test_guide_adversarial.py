@@ -667,7 +667,13 @@ def test_round4_quoted_regressions(case, initial, actions, mode):
             assert state.draft.race.city == "Valencia"
             assert state.hints["distance"] == "half" and turn.error is None
         if case == "A11":
-            assert not discovery.calls and "profil" in turn.message
+            assert "profil" in turn.message
+            serialized = json.dumps({"calls": discovery.calls,
+                                     "state": state.model_dump(mode="json"),
+                                     "turn": turn.model_dump(mode="json")})
+            for value in ["SentinelRunnerName", "runner-sentinel@example.test",
+                          "+33 6 12 34 56 78", "1990-01-01", "1 rue de Test"]:
+                assert value not in serialized
             state, turn = await engine.step(state, {"text": "le semi de Barcelone"})
             assert_regression_safe(state, turn, transcript)
             retry = next(s for s in turn.suggestions if s.kind == "retry")

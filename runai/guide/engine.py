@@ -526,7 +526,8 @@ class GuideEngine:
                                      " Distance is unknown in the sources.")
         if d.race and d.race.date_status == "unverified":
             message += self._say(
-                state, " Attention : date non vérifiée.", " Warning: unverified date."
+                state, " Attention : date non vérifiée, à confirmer sur le site officiel.",
+                " Warning: unverified date, to be confirmed on the official site."
             )
         profile = getattr(state, "profile_status", None)
         complete = profile.get("complete") is True if isinstance(profile, dict) else (
@@ -974,8 +975,22 @@ class GuideEngine:
                 if "year" not in state.hints:
                     broad.pop("year", None)
                 broad["broaden"] = True
+                if hints.get("named"):
+                    try:
+                        organizer = import_module("runai.discovery.linkup").official_search_hint(state.query)
+                    except (ImportError, AttributeError):
+                        organizer = {}
+                    if organizer.get("official_domains"):
+                        broad.update(organizer, depth="standard", official_date_required=True)
+                        broad.pop("broaden", None)
                 broadened = "months" if state.hints.get("months") else "criteria"
+                if hints.get("named") and not broad.get("broaden"):
+                    broadened = None
                 flags = await self._collect(state, broad, broadened=True, deadline=deadline)
+                if not state.candidates and not broad.get("broaden"):
+                    broad = dict(hints, broaden=True)
+                    broadened = "criteria"
+                    flags = await self._collect(state, broad, broadened=True, deadline=deadline)
             past_found, unsafe_source = flags["past"], flags["unsafe"]
             unsourced_date_found = flags["unsourced"]
         except Exception as exc:  # noqa: BLE001 -- provider failures are returned as scrubbed turns
@@ -1681,7 +1696,8 @@ class GuideEngine:
             previous_city = (state.draft.race.city if state.draft.race else None) or state.hints.get("city")
             previous_country = (state.draft.race.country if state.draft.race else None) or state.hints.get("country")
             if (intent.same_place or intent.correction and intent.distance) and not intent.city and not intent.country:
-                intent.city, intent.country = previous_city, previous_country
+                intent.city = bare_city(previous_city) or previous_city if previous_city else None
+                intent.country = previous_country
                 intent.named = bool(intent.city and intent.distance)
             recovery = normalize(text) in {
                 "en suisse", "in switzerland", "en juillet", "in july", "un marathon",

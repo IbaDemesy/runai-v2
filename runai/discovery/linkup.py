@@ -80,6 +80,9 @@ def official_search_hint(name: str, distance: float | None = None, edition_year:
     words = set(slug.split("-"))
     if "marathon" not in words or words & {"half", "semi"}:
         return {}
+    if words & {"lisbon", "lisbonne", "lisboa"}:
+        return {"race_name": "Lisbon Marathon (EDP Maratona de Lisboa)",
+                "country": "Portugal", "official_domains": "maratonaclubedeportugal.com"}
     if "berlin" in words:
         canonical = slug in {"berlin-marathon", "bmw-berlin-marathon", "generali-berlin-marathon"}
         return {"race_name": "Berlin Marathon" if canonical else name, "country": "Germany",
@@ -114,7 +117,8 @@ def _cache_key(query, constraints, today):
             return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
         return value
 
-    query = constraints.get("race_name", query) if constraints.get("named") else query
+    named = bool(constraints.get("named") or constraints.get("race_name") and constraints.get("city"))
+    query = constraints.get("race_name", query) if named else query
     data = {"query": normalized(query), "hints": {
         name: normalized(value) for name, value in constraints.items()
     }, "day": today.isoformat()}
@@ -523,6 +527,10 @@ async def discover(
             "from these domains, including it in sources with its exact edition date. "
             "Set official_url to the actual sourced organizer host, including after redirects. "
             "These are search hints only: a domain/name is not evidence of a date or distance.")
+        if constraints.get("official_date_required"):
+            search_terms["targeted_organizer_query"] = (
+                f"site:{official_hint['official_domains'].split()[0]} "
+                f"{official_hint['race_name']} {year} date official edition") if official_hint.get("official_domains") else ""
     if constraints.get("country") and not constraints.get("named"):
         search_terms["official_seed_sites"] = [official_search_hint(name)
             for name in RACE_SEARCH_SEEDS.get(constraints["country"], ()) if official_search_hint(name)]
