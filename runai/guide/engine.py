@@ -1572,7 +1572,7 @@ class GuideEngine:
             r"submit|soumettre|envoyer|bypass|contourner)\b|"
             r"(?:create|creer|cree|ouvre|open).*(?:account|compte)|"
             r"(?:accept|accepter|accepte).*(?:terms|conditions|consent|cgu)|"
-            r"(?:print|reveal|show|affiche|donne).*(?:system prompt|prompt system|api_key)|"
+            r"(?:print|reveal|show|affiche|donne).*(?:system prompt|prompt system|instructions? syst[eè]me|api_key)|"
             r"\b(?:hai_api_key|linkup_api_key|gladia_api_key)\b",
             normalize(text),
         )
@@ -1635,9 +1635,11 @@ class GuideEngine:
             intent.city = intent.country = None
         if text.isdecimal() and state.stage in {"nights", "budget"}:
             setattr(intent, "nights" if state.stage == "nights" else "budget_eur", int(text))
-        if intent.nights is not None and not 1 <= intent.nights <= 14:
+        if (intent.nights is not None and not 1 <= intent.nights <= 14
+                and intent.problem not in {"distance_conflict", "terrain_conflict"}):
             intent.problem = "nights_range"
-        if intent.budget_eur is not None and intent.budget_eur <= 0:
+        if (intent.budget_eur is not None and intent.budget_eur <= 0
+                and intent.problem not in {"distance_conflict", "terrain_conflict"}):
             intent.problem = "budget_range"
         self._update(state, intent)
         if intent.problem and intent.problem != "exact_date":

@@ -127,7 +127,7 @@ EN_CUES = (
     r"\b(?P<en>the|in|from|next|this|summer|spring|winter|autumn|fall|half|nights?|actually|"
     r"instead|i|i'?m|want|would|like|run|looking|for|and|with|without|please|thanks|tell|what|"
     r"which|hello|whatever|you|my|to|of|yes|but|ignore(?=\s+previous)|pay|create|accept|submit|"
-    r"bypass)\b"
+    r"bypass|give|recipe|lisbon)\b"
 )
 
 
@@ -159,7 +159,7 @@ def parse_intent(text: str, *, today: date) -> Intent:
     for wrong, right in {
         "marathn": "marathon", "marat+h?o+n+": "marathon", "itali": "italie",
         "printemp": "printemps", "semi+": "semi", "espagn+e*": "espagne", "spai+n+": "spain",
-        "lisbone": "lisbonne", "suise": "suisse", "trai+l+": "trail",
+        "lisbone": "lisbonne", "lisbonn": "lisbonne", "suise": "suisse", "trai+l+": "trail",
         "marahton": "marathon", "romme": "rome", "berln": "berlin", "amsterdm": "amsterdam",
     }.items():
         t = re.sub(r"\b" + wrong + r"\b", right, t)
