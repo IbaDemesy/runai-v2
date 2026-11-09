@@ -562,6 +562,18 @@ def test_no_page_stop_label_distinguishes_site_from_agent_failure(site_failed):
     assert result["stop_label"] == ("site unavailable" if site_failed else "agent unavailable")
 
 
+@pytest.mark.parametrize("kind", ["registration", "hotel", "transport"])
+@pytest.mark.parametrize("blocker", [
+    "provider_error", "site_unreachable_in_h", "Browser startup unavailable",
+])
+def test_ambiguous_frameless_provider_answer_omits_stop_label(kind, blocker):
+    task = {**TASK, "kind": kind, "runner_profile": {"full_name": "Test Runner"},
+            "prefill_fields": ["full_name"]}
+    answer = {**ANSWER, "status": "blocked", "blocker": blocker}
+    result, _ = run(Provider(events=[], answer=answer), task)
+    assert "stop_label" not in result
+
+
 @pytest.mark.parametrize("url,unsafe", [
     ("https://secure.booking.com/book.html?checkin=2027-04-04&checkout=2027-04-06", False),
     ("https://secure.booking.com/book.html?checkout=2027-04-06&checkin=2027-04-04", False),

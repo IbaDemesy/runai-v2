@@ -666,6 +666,7 @@ class HAgentRunner:
             raise HUnavailable("HAI_API_KEY is required for live H runs")
         client = self.client or httpx.AsyncClient()
         session_id = None
+        session_creation_failed = False
         frame_seen = None
         last_frame_hash = None
         last_progress = None
@@ -1273,6 +1274,7 @@ class HAgentRunner:
             if not stopped:
                 result["error"] += "; cancellation failed"
         except httpx.HTTPError as exc:
+            session_creation_failed = session_id is None
             stopped = await asyncio.shield(stop())
             code = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
             result["error"] = f"H HTTP {code}" if code else "H network request failed"
@@ -1308,6 +1310,6 @@ class HAgentRunner:
             elif not frame_seen and not result.get("final_url"):
                 if "site_unreachable_in_h" in result["steps"]:
                     result["stop_label"] = "site unavailable"
-                elif result.get("reason_code") == "provider_error":
+                elif session_creation_failed:
                     result["stop_label"] = "agent unavailable"
         return scrub_profile(result, profile, profile_skip)
