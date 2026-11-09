@@ -210,11 +210,11 @@
    "scopes": [
     {
      "host": "maratonaclubedeportugal.com",
-     "path_prefix": "/maratona-de-lisboa/"
+     "path_prefix": "/"
     },
     {
      "host": "www.maratonaclubedeportugal.com",
-     "path_prefix": "/maratona-de-lisboa/"
+     "path_prefix": "/"
     }
    ],
    "terms_urls": [
@@ -227,7 +227,17 @@
    "automation": "allowed_owner_rule",
    "screenshot_scope": "in_session_only",
    "navigation_hosts": [],
-   "registration_observations": [],
+   "registration_observations": [
+    {
+     "host": "maratonaclubedeportugal.com",
+     "path_prefix": "/maratona-de-lisboa/",
+     "account_required": null,
+     "captcha": null,
+     "source": "https://maratonaclubedeportugal.com/maratona-de-lisboa/",
+     "observed_at": "2026-11-09",
+     "note": "Normal Chrome 2026-11-09: /maratona-de-lisboa/ redirected to /en/ under an English locale and stayed on /maratona-de-lisboa/ under Portuguese; both on maratonaclubedeportugal.com. Visible INSCREVA-SE links go to meia-maratona.inscricoes.maratonaportugal.com prova_id 3765-3768 (March 2027 half/10k/7k) and 3769 waiting list; no 2027 full-marathon entry link found."
+    }
+   ],
    "adapters": [
     {
      "kind": "registration",
@@ -252,7 +262,7 @@
       ]
      },
      "success_evidence": "No READY claim: stop at the recorded unavailable or account-gated registration boundary.",
-     "blocked_evidence": "Anonymous GET 2026-11-09: organizer navigation exposes EDP Maratona de Lisboa 2026, not a verified 2027 marathon registration. Check requested edition first; if unavailable report no_inventory within five steps. Do not confuse the sold-out March 2027 half marathon with the full marathon.",
+     "blocked_evidence": "Normal Chrome 2026-11-09: organizer page (redirects /maratona-de-lisboa/ -> /en/ by locale, same host) lists March 2027 half-marathon/10k/7k entries (prova_id 3765-3768) and a half waiting list (3769), but no verified 2027 full-marathon entry. Check requested edition first; if unavailable report no_inventory within five steps.",
      "early_stop_reason": "no_inventory",
      "availability": {
       "status": "unknown",
@@ -261,7 +271,7 @@
       ],
       "observed_at": "2026-11-09",
       "source": "https://maratonaclubedeportugal.com/maratona-de-lisboa/",
-      "note": "Anonymous GET 2026-11-09: organizer navigation exposes EDP Maratona de Lisboa 2026, not a verified 2027 marathon registration. Check requested edition first; if unavailable report no_inventory within five steps. Do not confuse the sold-out March 2027 half marathon with the full marathon."
+      "note": "Normal Chrome 2026-11-09: organizer page (redirects /maratona-de-lisboa/ -> /en/ by locale, same host) lists March 2027 half-marathon/10k/7k entries (prova_id 3765-3768) and a half waiting list (3769), but no verified 2027 full-marathon entry. Check requested edition first; if unavailable report no_inventory within five steps."
      }
     }
    ]
@@ -2101,7 +2111,8 @@
       "race_dates": [
        "2027-10-31"
       ]
-     }
+     },
+     "max_steps": 15
     }
    ]
   },
@@ -2142,6 +2153,93 @@
      "observed_at": "2026-11-09",
      "source": "https://www.bijlmerrun.nl/",
      "note": "Anonymous GET: 'Inschrijving opent: 21 november 2026'. Linked Atleta registration is unreviewed and is not authorized here."
+    }
+   ]
+  },
+  {
+   "id": "r8-zurich-marathon-goactive",
+   "name": "OCHSNER SPORT Zürich Marathon 2027 (GoActive)",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "www.zuerichmarathon.ch",
+     "path_prefix": "/"
+    },
+    {
+     "host": "zuerichmarathon.ch",
+     "path_prefix": "/"
+    },
+    {
+     "host": "www.goactive.ch",
+     "path_prefix": "/event/ochsner-sport-zurich-marathon-2027-138"
+    }
+   ],
+   "terms_urls": [
+    "https://www.goactive.ch/terms",
+    "https://www.zuerichmarathon.ch/infos/faq-reglement",
+    "https://www.zuerichmarathon.ch/impressum"
+   ],
+   "reviewed_at": "2026-11-09",
+   "expires_at": "2027-02-07",
+   "reviewed_sections": "Organizer home (Jetzt anmelden / ZUR ANMELDUNG links), Impressum, FAQ & Reglement link; GoActive event page and Teilnahmebedingungen (/terms).",
+   "justification": "Read/prepare-only by owner decision in docs/handoff/lift-site-exclusions.md, not site-granted authorization. Normal Chrome 2026-11-09: all organizer registration buttons link to the GoActive event page; GoActive Anmeldung/login (/login) is outside scope. No login, accounts, waiting list, consent, submission or payment. In-session screenshots only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "registration_observations": [
+    {
+     "host": "www.goactive.ch",
+     "path_prefix": "/event/ochsner-sport-zurich-marathon-2027-138",
+     "account_required": null,
+     "captcha": null,
+     "source": "https://www.goactive.ch/event/ochsner-sport-zurich-marathon-2027-138",
+     "observed_at": "2026-11-09",
+     "note": "Marathon 42.2 km and Halbmarathon 21.1 km shown Sold Out; account requirement for other categories not verified."
+    }
+   ],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "(?=.*\\b2027\\b).*z(?:ü|ue|u)rich.*marat(?:hon|on)"
+      ],
+      "countries": [
+       "CH"
+      ],
+      "distances_km": [
+       42.195,
+       42.2,
+       21.0975,
+       21.1
+      ]
+     },
+     "url_template": "https://www.goactive.ch/event/ochsner-sport-zurich-marathon-2027-138",
+     "checkpoint": {
+      "url_patterns": [
+       "(?!)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in|consent|terms)"
+      ]
+     },
+     "success_evidence": "No READY claim while sold out: stop at the GoActive event page showing the sold-out marathon/half categories.",
+     "blocked_evidence": "Normal Chrome 2026-11-09: GoActive 'OCHSNER SPORT Zürich Marathon 2027' shows Marathon 42.2 km and Halbmarathon 21.1 km as Sold Out. Report sold_out; never join a waiting list or log in.",
+     "early_stop_reason": "sold_out",
+     "availability": {
+      "status": "sold_out",
+      "distances_km": [
+       42.195,
+       42.2,
+       21.0975,
+       21.1
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://www.goactive.ch/event/ochsner-sport-zurich-marathon-2027-138",
+      "note": "Normal Chrome 2026-11-09: Marathon 42.2 km and Halbmarathon 21.1 km Sold Out on the official GoActive event page linked by zuerichmarathon.ch."
+     }
     }
    ]
   }

@@ -34,17 +34,37 @@ STOP_BEFORE = [
 ]
 
 DIRECT_SITES = ("r7-booking-hotel", "r7-hilton-hotel", "r7-accor-hotel")
-GUEST_FIELDS = ("full_name", "given_name", "family_name", "email", "phone")
+GUEST_FIELDS = ("full_name", "given_name", "family_name", "email", "phone", "nationality")
+BOOKING = "r7-booking-hotel"
+VERIFY_KEYS = (
+    "hotel_name, room, rate, arrival_date, departure_date (ISO YYYY-MM-DD), travelers "
+    "(adults), rooms, total, currency, city, selected, next_safe_boundary"
+)
+PREFILL_BEYOND = (
+    r"passenger|/pax|payment|/pay(?:[/?#]|$)|/checkout|/book/confirm|/booking/confirm|"
+    r"/confirmation|card[-_]?details"
+)
+GUEST_PATTERN = r"/(?:enter[-_])?guest(?:[-_/]?(?:details|info|form))?(?:[/?]|$)"
 
 
 def _prefill(task, fields, budget):
     checkpoint = task["checkpoint"]
+    booking = task["site_name"] == BOOKING
+    # Booking guest details and Final details share /book.html: the prefill pattern keeps
+    # hclient from forcing an answer before the guest fields are typed.
     checkpoint["prefill_patterns"] = (
-        [r"^/book\.html(?:[/?]|$)"] if task["site_name"] == "r7-booking-hotel"
-        else [r"/(?:enter[-_])?guest(?:[-_/]?(?:details|info|form))?(?:[/?]|$)"]
+        checkpoint["url_patterns"].copy() if booking
+        else [GUEST_PATTERN, *checkpoint["url_patterns"]]
     )
-    checkpoint["url_patterns"] = [r"/(?:[^?]*/)?(?:payment|card[-_]?details)(?:[/?]|$)"]
-    checkpoint["beyond_patterns"] = [r"/(?:[^?]*/)?(?:confirm|confirmation|complete)(?:[/?]|$)"]
+    checkpoint["beyond_patterns"] = [PREFILL_BEYOND]
+    flow = (
+        "Booking flow: on secure.booking.com/book.html (Your details) type only the provided "
+        "guest name/email/phone/country, then click only 'Next: Final details'. On the Final "
+        "details page (payment form visible) STOP and answer; never click 'Complete booking'. "
+        if booking else
+        "Open guest details, type only the provided guest fields, use only intermediate "
+        "Continue/Next buttons and stop on the reviewed review page before card entry. "
+    )
     task["prefill_fields"] = fields.copy()
     task["prefill_scope"] = "guest details"
     task["stop_before"] = [s for s in STOP_BEFORE if s != "guest details / personal data form"]
@@ -53,7 +73,7 @@ def _prefill(task, fields, budget):
         f"Allowed hosts: {', '.join(task['allowed_hosts'])}. "
         f"Whole-stay budget EUR: {budget}; if exceeded report BLOCKED over_budget. "
         "Cookie banners: reject or necessary-only; never accept optional consent. "
-        "Open guest details and type only the provided guest name/email/phone into guest fields. "
+        f"{flow}"
         "Never tick terms/marketing, submit forms, log in, create accounts, solve captchas or pay. "
         "Stop before payment or card entry; never type payment details. "
         f"Guest-details prefill patterns (do not force an answer): {checkpoint['prefill_patterns']}. "
@@ -61,8 +81,8 @@ def _prefill(task, fields, budget):
         "Match case-insensitively against unquoted path + '?' + query. "
         "READY only with selected room/rate, correct dates/party/city and full-stay total evidence; "
         "otherwise BLOCKED unsafe_claim. Missing fields stay blank; required consent, submission, "
-        "login or captcha is BLOCKED, never bypassed. Return verification: room, rate, arrival_date, "
-        "departure_date, travelers, total, city, selected, next_safe_boundary and last safe public URL."
+        "login or captcha is BLOCKED, never bypassed. Never echo guest values. Return verification "
+        f"with keys {VERIFY_KEYS}, personal_data_entered and the last safe public URL."
     )
     task["success_signal"] = (
         "READY only after selected room/rate and provided guest details, with verified stay dates, "
@@ -99,7 +119,7 @@ def build_task(
     candidates = [
         (adapter, url.replace(quote(hotel_search_city(expected), safe=""),
                               quote(city_name(expected["city"]), safe=""), 1), decision)
-        if decision["policy_id"] == "r7-booking-hotel" else (adapter, url, decision)
+        if decision["policy_id"] == BOOKING else (adapter, url, decision)
         for adapter, url, decision in candidates
     ]
     tasks = [_candidate_task(expected.copy(), budget, *candidate) for candidate in candidates]
@@ -116,7 +136,7 @@ def build_task(
 
 
 def _candidate_task(expected, budget, adapter, url, decision):
-    search_city = (expected["city"] if decision["policy_id"] == "r7-booking-hotel"
+    search_city = (expected["city"] if decision["policy_id"] == BOOKING
                    else hotel_search_city(expected))
     if city_key(search_city) != city_key(expected["city"]):
         expected["gateway_city"] = search_city
@@ -148,8 +168,9 @@ def _candidate_task(expected, budget, adapter, url, decision):
         "sales-horizon message (see blocked evidence), report BLOCKED no_inventory immediately "
         "— do not wander until the step limit. If the selected room/rate is sold out, "
         "report BLOCKED sold_out.\n"
-        f"4. {budget_hint} Use public links only to select one room AND rate with the "
-        "full-stay total for the whole party. Never fill or submit any form. "
+        f"4. {budget_hint} Pick a well-rated property (review score 8+ when available) and the "
+        "cheapest refundable room x1 for the whole party, using public links/buttons only. "
+        "Never fill or submit any form. "
         "Search results without a selected room and rate are NOT ready.\n"
         f"5. Site-specific success evidence: {adapter['success_evidence']}\n"
         f"6. Site-specific blocked evidence: {adapter['blocked_evidence']}\n"
@@ -160,7 +181,8 @@ def _candidate_task(expected, budget, adapter, url, decision):
         f"Hotel search city: {search_city}. Only the race city {expected['city']} or reviewed "
         f"gateway city {expected.get('gateway_city', expected['city'])} is acceptable; "
         "outside both, report BLOCKED date_mismatch. Any onward local transfer is not included. "
-        "Do not continue to guest details. Stop before opening guest details or payment. "
+        "Open the guest-details page only with the room's reserve button (Booking: 'I'll "
+        "reserve' -> secure.booking.com/book.html) and STOP there untouched; never go further. "
         "Never type personal data, log in, "
         "create accounts, tick terms, solve captchas or pay. For login/account walls report "
         "BLOCKED login_required; for captcha report BLOCKED captcha; for required consent "
@@ -170,8 +192,7 @@ def _candidate_task(expected, budget, adapter, url, decision):
         "session failure report BLOCKED session_failed; timeout report BLOCKED timeout; "
         "site error report BLOCKED provider_error. Never invent success: report BLOCKED "
         "unsafe_claim if selection evidence is incomplete. Include the last safe public URL."
-        " Return verification with exactly these keys: room, rate, arrival_date, departure_date, "
-        "travelers, total, city, selected, next_safe_boundary. Use selected=true only for an "
+        f" Return verification with exactly these keys: {VERIFY_KEYS}. Use selected=true only for an "
         "actually selected room AND rate; next_safe_boundary describes the untouched guest "
         "details/payment boundary. Never invent missing evidence."
     )
@@ -185,7 +206,8 @@ def _candidate_task(expected, budget, adapter, url, decision):
         "success_signal": (
             f"READY only on the reviewed selection page where a selected room and rate show "
             f"check-in {arrival}, check-out {departure}, {adults} adults and the full-stay "
-            "total for the whole party, before guest details, personal data or payment. "
+            "total for the whole party, at the untouched guest-details page, before typing "
+            "personal data or payment. "
             f"Checkpoint patterns: {checkpoint['url_patterns']}. {checkpoint_stop}"
             "Report that safe public URL. For incomplete evidence report BLOCKED unsafe_claim; "
             "for other stops use the exact BLOCKED reason from the instructions."
