@@ -811,12 +811,14 @@ class GuideEngine:
                 if target:
                     alternatives.update(self._official_hint(target), depth="standard", verification_only=True,
                                         named=True, year=target.race_date.year if target.race_date else self.today.year + 1)
-                    state.hints["official_domains"] = alternatives["official_domains"]
                     state.hints["prefer_requested_country"] = True
                 original_candidates = state.candidates
                 state.candidates = []
                 try:
-                    await self._collect(state, alternatives, broadened=True, deadline=deadline)
+                    verification_deadline = deadline
+                    if target and verification_deadline is None:
+                        verification_deadline = asyncio.get_running_loop().time() + FIRST_DISCOVERY_TIMEOUT_S
+                    await self._collect(state, alternatives, broadened=True, deadline=verification_deadline)
                 except Exception:  # noqa: BLE001 -- optional alternatives must not discard initial results
                     state.candidates = []
                 official = [r for r in state.candidates if self._eligible(r)]
@@ -1199,7 +1201,11 @@ class GuideEngine:
                                            year=race.race_date.year if race.race_date else self.today.year + 1)
                         state.hints.update(self._official_hint(race))
                         state.hints["prefer_requested_country"] = True
-                        state, turn = await self._discover(state)
+                        try:
+                            state, turn = await self._discover(state)
+                        finally:
+                            state.hints.pop("official_domains", None)
+                            state.hints.pop("verification_only", None)
                         selected = next((r for r in state.candidates
                                          if self._race_identity(r) == self._race_identity(race)
                                          and (self._dedupe_distance(race) is None
@@ -1466,6 +1472,8 @@ class GuideEngine:
                     state.hints.pop("city", None)
                     state.hints.pop("race_name", None)
                     state.hints.pop("named", None)
+                    state.hints.pop("official_domains", None)
+                    state.hints.pop("verification_only", None)
             if intent.named:
                 state.hints["race_name"] = state.query
             if intent.problem == "exact_date":

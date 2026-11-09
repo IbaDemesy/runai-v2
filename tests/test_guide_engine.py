@@ -654,7 +654,7 @@ def test_unsourced_official_dates_are_unverified_and_never_ready(sources, lang):
 ])
 def test_sourced_official_or_explicit_synthetic_date_can_be_ready(synthetic, sources):
     async def discover(query, hints):
-        return [{"id": "berlin", "name": "Berlin 10k", "race_date": "2027-04-10",
+        return [{"id": "berlin", "name": "Berlin 10k", "country": "Germany", "race_date": "2027-04-10",
                  "date_status": "official", "source_urls": sources, "synthetic": synthetic,
                  "distance_km": 10}]
 
@@ -1171,6 +1171,32 @@ def test_unknown_country_cannot_suppress_domestic_verification(country):
     state, _ = run(e.start("a marathon in Germany"))
     assert len(calls) == 2 and calls[1]["race_name"] == "Berlin Marathon"
     assert not e._same_country(state, next(r for r in state.candidates if r.id == "unknown"))
+
+
+@pytest.mark.parametrize("selected", [False, True])
+def test_organizer_domains_do_not_leak_from_berlin_verification_to_swiss_recovery(selected):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        if hints.get("country") == "Switzerland":
+            return []
+        return [{"id": "berlin", "name": "Berlin Marathon", "country": "Germany",
+                 "race_date": "2027-09-26", "distance_km": 42.195, "date_status": "unverified",
+                 "source_urls": ["https://directory.example/berlin"]}]
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon in Germany"))
+    if selected:
+        berlin = next(s for s in turn.suggestions if s.value == "berlin")
+        state, turn = run(e.step(state, {"suggestion_id": berlin.id}))
+    assert any("bmw-berlin-marathon.com" in h.get("official_domains", "") for h in calls)
+    assert "official_domains" not in state.hints and not state.hints.get("verification_only")
+    swiss = next(s for s in turn.suggestions if s.value == "In Switzerland")
+    state, _ = run(e.step(state, {"suggestion_id": swiss.id}))
+    swiss_calls = [h for h in calls if h.get("country") == "Switzerland"]
+    assert swiss_calls and all(not h.get("official_domains") for h in swiss_calls)
+    assert "official_domains" not in state.hints and not state.hints.get("verification_only")
 
 
 @pytest.mark.parametrize("event_type", ["Relay", "Staffetta", "Relais"])
@@ -1981,6 +2007,7 @@ def test_official_date_edit_and_yes_confirmation():
                 "id": "paris",
                 "name": "Example race",
                 "city": "Paris",
+                "country": "France",
                 "distance_km": 42.195,
                 "race_date": "2027-04-01",
                 "date_status": "official",
