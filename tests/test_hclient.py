@@ -1653,6 +1653,26 @@ def test_completed_checkpoint_consumes_existing_answer_without_restarting_browse
     assert not any(r.url.path.endswith("/force_answer") for r in provider.requests)
 
 
+def test_step_limit_tightens_prior_checkpoint_answer_wait_to_45_seconds(monkeypatch):
+    now, polls = 0, 0
+    provider = CheckpointProvider([
+        batch(observation()), batch(metrics={"steps": 77}), batch(metrics={"steps": 78}),
+    ])
+
+    def handle(request):
+        nonlocal now, polls
+        if request.url.path.endswith("/changes"):
+            now = [0, 10, 46][polls]
+            polls += 1
+        return provider(request)
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    result, _ = run(handle, {**TASK, "checkpoint": CHECKPOINT})
+    assert result["reason_code"] == "step_limit"
+    assert sum(r.url.path.endswith("/force_answer") for r in provider.requests) == 1
+    assert provider.cancelled and now == 46
+
+
 @pytest.mark.parametrize("verification,ready", [
     (json.dumps(ANSWER["verification"]), True),
     ("not JSON", False), ("[]", False), ("null", False), ([], False), (42, False),

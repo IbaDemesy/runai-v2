@@ -604,6 +604,9 @@ class HAgentRunner:
 
         async def force_answer(window):
             nonlocal forced_at, force_window
+            if forced_at is not None:
+                force_window = min(force_window, window)
+                return
             if forced_at is None:
                 forced_at, force_window = time.monotonic(), window
                 try:
