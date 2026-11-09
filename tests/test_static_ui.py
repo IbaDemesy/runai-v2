@@ -780,6 +780,12 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     }
     ui.event({kind:'hotel', stale_frame:true});
     ui.event({kind:'hotel', type:'step_progress', stale_frame:null});
+    assert.equal(card('hotel').querySelector('.live-badge').textContent, 'IMAGE FIGÉE');
+    ui.event({kind:'hotel', type:'step_progress'});
+    assert.equal(card('hotel').querySelector('.live-badge').textContent, 'IMAGE FIGÉE');
+    ui.event({kind:'hotel', type:'live_frame'});
+    assert.equal(card('hotel').querySelector('.live-badge').textContent, 'IMAGE FIGÉE');
+    ui.event({kind:'hotel', type:'step_progress', stale_frame:false});
     assert.equal(card('hotel').querySelector('.live-badge').textContent, 'EN DIRECT');
     ui.event({kind:'hotel', stale_frame:true});
     ui.event({kind:'hotel', status:'ready_for_payment', handoff_url:'https://example.org/checkout'});
