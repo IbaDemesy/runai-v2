@@ -19,6 +19,8 @@ def test_static_safety_and_accessibility():
     assert "live_view_url" not in JS
     assert "innerHTML" not in JS
     assert "console." not in JS
+    for leak in ("localStorage", "sessionStorage", "pushState", "replaceState", "document.cookie"):
+        assert leak not in JS
     assert 'role="log"' in HTML
     assert 'role="alert"' in HTML
     assert 'aria-expanded="false"' in HTML
@@ -119,9 +121,15 @@ class MockImage extends Element {
   decode() { return this.decodeResult || Promise.resolve(); }
 }
 const respond = (path, data, status = 200) => responses.push({path, data, status});
+const leaks = [];
+const storage = name => ({setItem: (...args) => leaks.push([name, ...args]), getItem: () => null, removeItem() {}, clear() {}});
+const spy = name => (...args) => leaks.push([name, ...args]);
 respond('/api/health', {mode: 'demo', live_ready: {linkup: false, h: false}});
 const context = {document, URL, Intl, Date: Clock, AbortController, Image: MockImage, addEventListener: (type, fn) => { listeners[type] = fn; },
   location: {href: 'https://runai.example/', origin: 'https://runai.example'},
+  localStorage: storage('localStorage'), sessionStorage: storage('sessionStorage'),
+  history: {pushState: spy('pushState'), replaceState: spy('replaceState')},
+  console: {log: spy('console'), info: spy('console'), warn: spy('console'), error: spy('console'), debug: spy('console')},
   setTimeout: (fn, ms) => { timers.set(++timerId, {fn, ms}); return timerId; },
   clearTimeout: id => timers.delete(id),
   fetch: async (path, options) => {
@@ -583,10 +591,151 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     kinds.forEach(kind => ui.event({kind, type:'step_started'}));
     for (const kind of kinds) {
       assert.equal(card(kind).querySelector('.preview').dataset.state, 'starting');
-      assert.ok(card(kind).querySelector('.waiting-copy').textContent.includes('Ouverture du site'));
+      assert.ok(card(kind).querySelector('.waiting-copy').textContent.includes('Connexion au site'));
+      assert.equal(card(kind).querySelector('.waiting-time').textContent, '0 s écoulées');
+      assert.ok(!card(kind).textContent.includes('Aucun site ouvert'));
       assert.ok(card(kind).querySelector('.browser-skeleton'));
       assert.equal(card(kind).querySelector('.live-badge').hidden, true);
     }
+  } else if (scenario.startsWith('profile')) {
+    await initial(true);
+    const profileCard = root.querySelector('.profile-card');
+    assert.ok(profileCard); assert.equal(profileCard.dataset.state, 'open');
+    assert.ok(profileCard.textContent.includes('Gardé en mémoire pour cette mission uniquement'));
+    assert.ok(profileCard.textContent.includes('jamais enregistré'));
+    const inner = root.querySelectorAll('.assistant').at(-1).querySelector('.message-content');
+    assert.deepEqual(inner.children.map(x => x.className).slice(-2), ['profile-card', 'confirm-area']);
+    const inputs = profileCard.querySelectorAll('.profile-input'), field = key => inputs.find(x => x.dataset.field === key);
+    assert.deepEqual(inputs.map(x => x.dataset.field), ['full_name', 'email', 'phone', 'birth_date', 'gender', 'nationality', 'address']);
+    assert.equal(field('address').getAttribute('aria-required'), undefined);
+    if (scenario === 'profile-skip') {
+      root.querySelector('.profile-skip').onclick();
+      assert.equal(profileCard.dataset.state, 'skipped'); assert.ok(profileCard.textContent.includes('Sans profil'));
+      assert.ok(!calls.some(x => x.path.endsWith('/profile')));
+      respond('/api/missions/m1/messages', mission(true)); await submit('3 nuits');
+      assert.equal(root.querySelectorAll('.profile-card[data-state="open"]').length, 0);
+    } else {
+      await root.querySelector('.profile-save').onclick(); await flush();
+      assert.ok(!calls.some(x => x.path.endsWith('/profile'))); assert.equal(field('email').getAttribute('aria-invalid'), 'true');
+      root.querySelector('.profile-fill').onclick();
+      assert.equal(field('full_name').value, 'Test Runner'); assert.equal(field('gender').value, 'F');
+      const status = scenario === 'profile' ? 200 : Number(scenario.slice(-3));
+      respond('/api/missions/m1/profile', status === 200 ? {profile_status: {full_name: true, email: true, phone: true, birth_date: true, gender: true, nationality: true, address: 'ECHO 1 rue de Test'},
+        profile: {full_name: 'ECHO Test Runner', email: 'echo.runner@example.com'}} : {detail: 'Profile endpoint unavailable'}, status);
+      await root.querySelector('.profile-save').onclick(); await flush();
+      const call = calls.find(x => x.path === '/api/missions/m1/profile');
+      assert.deepEqual(call.body, {full_name: 'Test Runner', email: 'test.runner@example.com', phone: '+33 6 00 00 00 00', birth_date: '1990-01-01', gender: 'F', nationality: 'FR', address: '1 rue de Test, 75001 Paris'});
+      for (const value of ['Test Runner', 'test.runner', '+33 6 00', '1990-01-01', 'rue de Test', 'ECHO', 'echo.runner']) {
+        assert.ok(!root.textContent.includes(value), value);
+        assert.ok(!JSON.stringify(leaks).includes(value), value);
+        assert.ok(!context.location.href.includes(value), value);
+        assert.ok(calls.every(x => !x.path.includes(encodeURIComponent(value)) && !x.path.includes(value)), value);
+      }
+      assert.equal(leaks.length, 0);
+      assert.ok(inputs.every(x => x.value === ''));
+      if (status === 200) {
+        assert.equal(profileCard.dataset.state, 'done');
+        assert.deepEqual(profileCard.querySelectorAll('.profile-checks li').map(x => x.textContent), ['Nom complet ✓', 'E-mail ✓', 'Téléphone ✓', 'Date de naissance ✓', 'Genre ✓', 'Nationalité ✓']);
+      } else {
+        assert.equal(root.querySelector('.profile-card'), null);
+        assert.ok(root.querySelector('.confirm'));
+      }
+      respond('/api/missions/m1/messages', mission(true)); await submit('3 nuits');
+      assert.equal(root.querySelectorAll('.profile-card[data-state="open"]').length, 0);
+      assert.equal(root.querySelectorAll('.profile-card').length, status === 200 ? 1 : 0);
+    }
+  } else if (scenario === 'cta-coverage') {
+    const partial = mission(true); partial.turns[0].draft.race = {...race, preparation: {registration: 'covered', hotel: true, transport: false}};
+    respond('/api/missions', partial); await submit('un semi au printemps');
+    const button = () => root.querySelectorAll('.confirm').at(-1);
+    assert.equal(button().textContent, 'Confirmer et lancer les 2 agents disponibles ↗'); assert.equal(button().dataset.agents, '2');
+    const crew = root.querySelectorAll('.plan-agents li').slice(-3);
+    assert.deepEqual(crew.map(x => x.dataset.covered), ['true', 'true', 'false']);
+    const note = root.querySelectorAll('.plan-coverage').at(-1).textContent;
+    assert.ok(note.startsWith('2 agents prêts à partir') && note.includes('Transport'), note);
+    assert.ok(!note.includes('3 agents'));
+    const full = mission(true); full.turns[0].draft.race = {...race, preparation: {registration: 'covered', hotel: true, transport: true}};
+    respond('/api/missions/m1/messages', full); await submit('ok');
+    assert.equal(button().textContent, 'Confirmer le plan et lancer les 3 agents ↗');
+    assert.equal(root.querySelectorAll('.plan-coverage').at(-1).textContent, '3 agents prêts à partir en parallèle.');
+    respond('/api/missions/m1/messages', partial); await submit('sans transport');
+    respond('/api/missions/m1/confirm', {...partial, status: 'running'}, 202);
+    respond('/api/missions/m1/events?after=0', []);
+    respond('/api/missions/m1', {...partial, status: 'running'});
+    await button().onclick(); await flush();
+    assert.equal(card('transport').querySelector('.preview').dataset.state, 'uncovered');
+    assert.ok(card('transport').querySelector('.preview').textContent.includes('Pas de site couvert pour ce trajet'));
+    for (const kind of ['registration', 'hotel']) {
+      assert.equal(card(kind).querySelector('.preview').dataset.state, 'starting');
+      assert.ok(card(kind).querySelector('.browser-skeleton'));
+      assert.equal(card(kind).querySelector('.waiting-time').textContent, '0 s écoulées');
+    }
+    now += 7000;
+    respond('/api/missions/m1/events?after=0', []);
+    respond('/api/missions/m1', {...partial, status: 'running', results: [{kind: 'transport', status: 'blocked', reason_code: 'no_site_coverage'}]});
+    await tick(1000);
+    assert.equal(card('hotel').querySelector('.waiting-time').textContent, '7 s écoulées');
+    assert.ok(card('transport').querySelector('.preview').textContent.includes('Pas de site couvert pour ce trajet'));
+    assert.ok(!root.textContent.includes('Aucun site ouvert'));
+    timers.clear();
+  } else if (scenario === 'replay-chips') {
+    ids.mode.value = 'replay'; ids.mode.onchange();
+    const replayRace = {...race, name: '[Synthétique / Synthetic] Lisbonne 21,1 km'};
+    const replay = {...mission(false), mode: 'replay'};
+    replay.turns[0].candidates = [replayRace];
+    replay.turns[0].suggestions = [{id: 'choose_race:race', label: '[Synthétique / Synthetic] Lisbonne 21,1 km', kind: 'choose_race', value: 'race', provenance: 'synthetic'}];
+    respond('/api/missions', replay); await submit('un semi au printemps');
+    assert.ok(!root.textContent.includes('[Synth'), root.textContent);
+    assert.ok(root.querySelector('.chip').textContent.startsWith('Lisbonne 21,1 km'));
+    assert.equal(root.querySelector('.chips .synthetic-badge').textContent, 'Synthétique');
+    ids.mode.value = 'live'; ids.mode.onchange();
+    const live = {...mission(false), mode: 'live'};
+    live.turns[0].candidates = [{...race, synthetic: false}];
+    live.turns[0].suggestions = [{id: 'choose_race:race', label: 'Lisbonne', kind: 'choose_race', value: 'race', provenance: 'source'}];
+    respond('/api/missions', live); await submit('un semi au printemps');
+    assert.equal(root.querySelector('.synthetic-badge'), null);
+  } else if (scenario === 'prefilled') {
+    ids.agents.hidden = false;
+    kinds.forEach(kind => ui.event({kind, type: 'step_started'}));
+    ui.event({kind: 'hotel', status: 'ready_for_payment', prefilled: true, stop_label: 'Récapitulatif avant paiement {"raw":1}', handoff_url: 'https://example.org/hotel/checkout'});
+    ui.event({kind: 'transport', status: 'prefilled', stop_label: 'Page passager remplie', handoff_url: 'https://example.net/trip'});
+    ui.event({kind: 'registration', status: 'ready_for_payment', handoff_url: 'https://example.com/race'});
+    const success = kind => card(kind).querySelector('.success');
+    assert.ok(success('hotel').textContent.includes('Formulaire pré-rempli · prêt à payer'));
+    assert.ok(success('hotel').textContent.includes('Récapitulatif avant paiement'));
+    assert.ok(!success('hotel').textContent.includes('{'));
+    assert.equal(success('hotel').querySelector('.handoff-link').textContent, 'Continuer sur example.org ↗');
+    assert.deepEqual(success('hotel').querySelectorAll('.milestones li').map(x => x.dataset.done), ['true', 'true', 'true', 'false']);
+    assert.equal(card('transport').dataset.status, 'ready_for_payment');
+    assert.ok(success('transport').textContent.includes('Formulaire pré-rempli · prêt à payer'));
+    assert.ok(success('transport').textContent.includes('Continuer sur example.net'));
+    assert.ok(success('registration').textContent.includes('Prêt avant paiement'));
+    assert.equal(success('registration').querySelector('.milestones'), null);
+    assert.equal(ids['mission-banner'].hidden, false);
+  } else if (scenario === 'live-clean') {
+    ids.agents.hidden = false;
+    kinds.forEach(kind => ui.event({kind, type: 'step_started'}));
+    ui.event({kind: 'hotel', type: 'step_progress', message: '{"task": "RAW_PROMPT You are a browser agent. Task: book"}'});
+    ui.event({kind: 'transport', type: 'step_progress', message: 'Traceback (most recent call last): RAW_LOG', data: {prompt: 'RAW_PROMPT'}});
+    ui.event({kind: 'registration', type: 'step_progress', message: 'Essai d\'un autre site', alternative: true});
+    for (const raw of ['RAW_PROMPT', 'RAW_LOG', '{"', 'Traceback', 'Task:', 'You are']) assert.ok(!ids.agents.textContent.includes(raw), raw);
+    assert.equal(card('registration').dataset.alternative, 'true');
+    assert.equal(card('registration').querySelector('.preview').dataset.alt, 'Essai d’un autre site…');
+    assert.equal(card('registration').querySelector('.waiting-copy').textContent, 'Essai d’un autre site…');
+    for (const kind of kinds) assert.ok(card(kind).querySelector('.steps').children.length <= 2);
+    ui.event({kind: 'registration', status: 'blocked', reason_code: 'no_site_coverage'});
+    assert.equal(card('registration').dataset.alternative, 'false');
+    assert.ok(card('registration').querySelector('.preview').textContent.includes('L’agent vous passe le relais'));
+  } else if (scenario === 'placeholder') {
+    assert.equal(ids.message.getAttribute('placeholder'), 'Quelle course vous fait envie ?');
+    await initial(false);
+    assert.equal(ids.message.getAttribute('placeholder'), 'Choisissez une course ou précisez votre envie…');
+    const ready = mission(true); ready.turns[0].question = 'Ça te va comme point de départ ?';
+    respond('/api/missions/m1/messages', ready); await submit('celle-ci');
+    assert.equal(ids.message.getAttribute('placeholder'), 'Modifier le plan… (ex. départ de Lyon, 3 nuits)');
+    const question = root.querySelectorAll('.question').at(-1).textContent;
+    assert.ok(!question.includes('point de départ') && question.startsWith('Tout est bon ?'), question);
+    ids.mode.onchange(); assert.equal(ids.message.getAttribute('placeholder'), 'Quelle course vous fait envie ?');
   } else if (scenario === 'focus') {
     ids.agents.hidden = false; const hooks = context.__runai;
     kinds.forEach(kind => ui.event({kind, type:'step_started'}));
@@ -610,7 +759,8 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     "generation", "frames", "stale", "decode", "replay", "launch", "disconnect", "polish",
     "snapshot-error", "welcome", "fr-detect", "fresh", "never-started", "coverage", "success", "preparation",
     "crossfade", "activity", "blocked-summary", "ready-ctas", "hero", "cities", "focus",
-    "flags", "observed-age", "checkpoints", "opening",
+    "flags", "observed-age", "checkpoints", "opening", "profile", "profile-404", "profile-501", "profile-skip",
+    "cta-coverage", "replay-chips", "prefilled", "live-clean", "placeholder",
 ])
 def test_executable_browser_states(scenario):
     result = subprocess.run(
