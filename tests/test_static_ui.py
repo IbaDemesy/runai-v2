@@ -397,6 +397,8 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     assert.ok(!card('hotel').textContent.includes('EN DIRECT'));
   } else if (scenario === 'never-started') {
     ui.event({kind:'hotel', type:'step_started'}); ui.event({kind:'hotel', status:'blocked', reason_code:'no_inventory'});
+    assert.ok(card('hotel').querySelector('.handoff').textContent.includes('Pas de site vérifié'));
+    assert.ok(!card('hotel').querySelector('.handoff').textContent.includes('Site en cours d’ouverture'));
     const meta = card('hotel').querySelector('.frame-meta').textContent;
     assert.ok(meta.includes('Non démarré'), meta); assert.ok(!meta.includes('Durée 0'));
     assert.ok(card('hotel').querySelector('.steps').textContent.includes('Plus de disponibilité'));

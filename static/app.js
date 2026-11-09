@@ -802,7 +802,7 @@
         handoff.append(bilan(state));
       }
       if (next) handoff.append(next);
-      else if (state.site || state.started || state.active) handoff.append(node('p', 'site-footer', state.site || t('Site en cours d’ouverture', 'Opening the site')));
+      else if (state.site || (!terminal.has(state.status) && (state.started || state.active))) handoff.append(node('p', 'site-footer', state.site || t('Site en cours d’ouverture', 'Opening the site')));
       else if (terminal.has(state.status)) handoff.append(node('p', 'no-site', t('Pas de site vérifié pour cette étape', 'No verified site for this step')));
     }
     frameMeta(kind);
