@@ -1608,6 +1608,9 @@ class GuideEngine:
         if chip and chip.value.startswith("resolve_distance:"):
             intent.distance = chip.value.removeprefix("resolve_distance:")
             intent.correction = True
+            intent.city = state.hints.get("city")
+            intent.country = state.hints.get("country")
+            intent.named = bool(intent.city)
         if introduction and not intent.fr_cues and not intent.en_cues:
             intent.switch_language = introduced_language
         if re.search(r"\b(?:meteo|weather|poeme?|poetry)\b", normalize(text)) and not (
@@ -1680,6 +1683,8 @@ class GuideEngine:
                 state.stage = "discover"
             state, turn = self._turn(state, " ".join(dict.fromkeys(messages)), intent.problem)
             if intent.problem == "distance_conflict":
+                state.hints.update({key: value for key, value in intent.model_dump().items()
+                                    if key in {"city", "country"} and value})
                 turn.question = self._say(state, "Un marathon de 42,2 km ou une course de 5 km ?",
                                           "A 42.2 km marathon or a 5 km race?")
                 turn.suggestions = [self._chip("resolve_distance:marathon", self._say(
