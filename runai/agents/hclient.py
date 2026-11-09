@@ -854,7 +854,7 @@ class HAgentRunner:
                 checkpoint, "prefill_patterns", result.get("final_url"),
             ):
                 return
-            nonlocal forced_at, force_window
+            nonlocal forced_at, force_window, answer
             if forced_at is not None:
                 force_window = min(force_window, window)
                 return
@@ -863,7 +863,10 @@ class HAgentRunner:
                 try:
                     await request("POST", f"/sessions/{session_id}/force_answer")
                 except httpx.HTTPStatusError:
-                    if not stall_forced:
+                    if prefill_limit and answer is None:
+                        session = (await request("GET", f"/sessions/{session_id}")).json()
+                        answer = session.get("latest_answer")
+                    if not stall_forced and answer is None:
                         raise _StepLimit from None
 
         def session_state(value):
@@ -1229,12 +1232,16 @@ class HAgentRunner:
                                                     result.get("final_url"))
                             and (max_observed_steps >= max(1, max_steps - PREFILL_STEP_MARGIN)
                                  or prefill_observations >= PREFILL_OBSERVATION_LIMIT)):
-                        session = (await request("GET", f"/sessions/{session_id}")).json()
-                        terminal_state = session_state(session)
-                        if terminal_state in _TERMINAL:
-                            state = terminal_state
-                            answer = session.get("latest_answer", answer)
+                        terminal_state = None
+                        if answer is None:
+                            session = (await request("GET", f"/sessions/{session_id}")).json()
+                            terminal_state = session_state(session)
+                            answer = session.get("latest_answer")
+                        if terminal_state in _TERMINAL or answer is not None:
+                            state = terminal_state if terminal_state in _TERMINAL else "completed"
                             events = []
+                            if answer is not None:
+                                await stop()
                         else:
                             await force_answer(60, prefill_limit=True)
                     if (state not in _TERMINAL | {"queued", "pending"}

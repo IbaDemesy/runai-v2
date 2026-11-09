@@ -253,7 +253,8 @@ def test_prefill_limits_force_once_and_preserve_verification(
             provider.requests.append(request)
             terminal_checks.append(provider.polls)
             return httpx.Response(200, json={
-                "status": "completed" if terminal else "running", "latest_answer": answer,
+                "status": "completed" if terminal else "running",
+                "latest_answer": answer if terminal else None,
             })
         if request.url.path.endswith("/changes"):
             provider.requests.append(request)
@@ -284,6 +285,49 @@ def test_prefill_limits_force_once_and_preserve_verification(
         assert result["handoff_url"] == url
     else:
         assert any("verify_failed" in step for step in result["steps"])
+
+
+@pytest.mark.parametrize("source", ["changes", "session", "rejected_force"])
+@pytest.mark.parametrize("valid", [False, True])
+def test_prefill_threshold_uses_available_answer_before_forcing(source, valid):
+    answer = {**ANSWER, "verification": {**ANSWER["verification"]}}
+    if not valid:
+        answer["verification"]["race_date"] = "2027-04-05"
+    provider = Provider(answer=answer)
+    forces = []
+    task = {**TASK, "max_steps": 60, "runner_profile": {"full_name": "Test Runner"},
+            "prefill_fields": ["full_name"], "checkpoint": {
+                "url_patterns": ["registration"], "beyond_patterns": [],
+                "prefill_patterns": ["registration"],
+            }}
+
+    def handle(request):
+        if request.url.path.endswith("/force_answer"):
+            provider.requests.append(request)
+            forces.append(request)
+            return httpx.Response(409)
+        if request.method == "GET" and request.url.path == "/api/v2/sessions/test-session":
+            provider.requests.append(request)
+            return httpx.Response(200, json={
+                "status": "running", "latest_answer": (
+                    answer if source == "session" or forces else None
+                ),
+            })
+        if request.url.path.endswith("/changes"):
+            provider.requests.append(request)
+            provider.polls += 1
+            return httpx.Response(200, json=batch(
+                observation(), state="running" if provider.polls == 1 else "completed",
+                answer=answer if source == "changes" or provider.polls > 1 else None,
+                metrics={"steps": 50},
+            ))
+        return provider(request)
+
+    result, _ = run(handle, task)
+    assert result["status"] == ("ready_for_payment" if valid else "blocked"), result
+    assert len(forces) == (1 if source == "rejected_force" else 0)
+    assert provider.polls == 1
+    assert provider.cancelled
 
 
 @pytest.mark.parametrize("prefill", [False, True])
