@@ -1162,3 +1162,52 @@ def test_dodge_applies_all_defaults_in_one_sentence(monkeypatch):
     assert all(part in sentences[0] for part in ["départ de Lyon", "2 nuits", "budget de 450 €"])
     assert state.draft.origin_city == "Lyon"
     assert state.draft.provenance["origin_city"] == "suggested_default"
+
+
+@pytest.mark.parametrize("answer", ["oui", "yes"])
+def test_affirmative_reply_accepts_single_recommended_distance(answer):
+    async def discover(query, hints):
+        return [{"id": "trail", "name": "Trail", "race_date": "2027-06-04",
+                 "date_status": "official", "source_urls": ["https://race.example/edition"],
+                 "distance_label": "16–111 km"}]
+
+    e = engine(discover)
+    state, turn = run(e.start("un trail depuis Lyon 2 nuits budget 800"))
+    state, turn = click(e, state, turn)
+    state, turn = run(e.step(state, {"text": "peu importe"}))
+    assert [chip.value for chip in turn.suggestions] == ["16 km"]
+    state, turn = run(e.step(state, {"text": answer}))
+    assert turn.ready_to_confirm and state.draft.race.distance_km == 16
+
+
+def test_affirmative_reply_does_not_pick_among_standard_distances():
+    async def discover(query, hints):
+        return [{"id": "race", "name": "Race", "race_date": "2027-06-04",
+                 "date_status": "official", "source_urls": ["https://race.example/edition"]}]
+
+    e = engine(discover)
+    state, turn = run(e.start("un trail depuis Lyon 2 nuits budget 800"))
+    state, turn = click(e, state, turn)
+    assert len([s for s in turn.suggestions if s.kind == "distance"]) == 4
+    state, turn = run(e.step(state, {"text": "oui"}))
+    assert not turn.ready_to_confirm and state.draft.race.distance_km is None
+
+
+@pytest.mark.parametrize("text", ["un marathon en Italie en juillet, choisis pour moi",
+                                  "a marathon in Italy in July, you choose"])
+def test_delegated_month_choice_never_auto_selects_broadened_other_month(text):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(hints)
+        if not hints.get("broaden"):
+            return []
+        return [{"id": "april", "name": "April Marathon", "race_date": "2027-04-11",
+                 "date_status": "official", "distance_km": 42.195,
+                 "source_urls": ["https://race.example/edition"]}]
+
+    state, turn = run(engine(discover).start(text))
+    assert len(calls) == 2 and calls[-1]["broaden"] is True
+    assert state.draft.race is None and not turn.ready_to_confirm
+    assert [r.id for r in turn.candidates] == ["april"]
+    assert {s.kind for s in turn.suggestions} == {"choose_race"}

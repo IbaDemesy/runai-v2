@@ -722,8 +722,10 @@ class GuideEngine:
                 turn.suggestions = original.pending_suggestions.copy()
                 return original, turn
         elif normalize(text) in {"oui", "ok", "parfait", "yes", "sounds good"}:
+            distances = [s for s in state.pending_suggestions if s.kind == "distance"]
             chip = next(
-                (s for s in state.pending_suggestions if s.kind in {"answer", "confirm"}), None
+                (s for s in state.pending_suggestions if s.kind in {"answer", "confirm"}),
+                distances[0] if len(distances) == 1 else None,
             )
         if chip:
             if chip.kind == "retry":
