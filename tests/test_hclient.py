@@ -496,6 +496,19 @@ def test_trip_dates_survive_url_scrubbing():
     assert scrub_url(url) == "https://hotel.example.org/stay?checkin=2027-04-04&checkout=2027-04-06"
 
 
+def test_prefill_prompt_explicitly_overrides_legacy_personal_data_ban():
+    provider = Provider()
+    run(provider, {**TASK, "instructions": "Never enter personal data.",
+                   "runner_profile": {"full_name": "Test Runner"},
+                   "prefill_fields": ["full_name"], "prefill_scope": "participant form"})
+    body = json.loads(provider.requests[0].content)
+    prompt = body["messages"][0]["message"]
+    assert "may be typed into the participant form fields despite any older" in prompt
+    assert "All other safety rules remain in force" in prompt
+    assert "Never type names" not in body["overrides"]["agent.instructions"]
+    assert "Never pay, book, submit a final form" in body["overrides"]["agent.instructions"]
+
+
 @pytest.mark.parametrize("url,unsafe", [
     ("https://secure.booking.com/book.html?checkin=2027-04-04&checkout=2027-04-06", False),
     ("https://secure.booking.com/book.html?checkout=2027-04-06&checkin=2027-04-04", False),
