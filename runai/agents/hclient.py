@@ -453,6 +453,8 @@ class HAgentRunner:
             if remaining <= 0:
                 break
             result = await self._attempt(alternative, on_event, remaining)
+            if result["status"] == "blocked" and not result.get("handoff_url"):
+                result["handoff_url"] = scrub_url(alternative.get("fallback_url"))
         return result
 
     async def _attempt(self, task, on_event, timeout_s):

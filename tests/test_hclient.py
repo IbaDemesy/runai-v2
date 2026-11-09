@@ -1370,8 +1370,21 @@ def test_alternatives_all_blocked_return_last_without_upgrade():
                     task={**TASK, "alternatives": [dict(TASK)]})
     assert result["status"] == "blocked"
     assert result["reason_code"] == "sold_out"
-    assert result["handoff_url"] is None
+    assert result["handoff_url"] == TASK["fallback_url"]
     assert first.cancelled and second.cancelled
+
+
+def test_blocked_alternative_uses_its_own_policy_checked_fallback():
+    first = Provider(events=[blank_observation("https://evil.example/")])
+    second = Provider(answer={**ANSWER, "status": "blocked", "blocker": "Sold out"})
+    fallback = "https://alternative.example/registration"
+    result, _ = run(alternative_provider([first, second]), task={
+        **TASK, "alternatives": [{**TASK, "fallback_url": fallback}],
+    })
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == "sold_out"
+    assert result["handoff_url"] == fallback
+    assert result["handoff_url"] != TASK["fallback_url"]
 
 
 @pytest.mark.parametrize("alternatives", [None, {}, "invalid", [], [None, {},
