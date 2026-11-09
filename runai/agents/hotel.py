@@ -12,7 +12,7 @@ from datetime import date
 from math import isfinite
 from typing import Any
 
-from runai.agents.site_policy import select_adapter, trip_expected
+from runai.agents.site_policy import select_adapters, trip_expected
 
 KIND = "hotel"
 MAX_STEPS = 40
@@ -37,7 +37,15 @@ def build_task(
 ) -> dict[str, Any]:
     expected = trip_expected(trip, KIND, today=today)
     budget = _budget(trip)
-    adapter, url, decision = select_adapter(KIND, expected, today=today, registry=registry)
+    candidates = select_adapters(KIND, expected, today=today, registry=registry)
+    tasks = [_candidate_task(expected.copy(), budget, *candidate) for candidate in candidates]
+    primary = tasks[0]
+    if len(tasks) > 1:
+        primary["alternatives"] = tasks[1:]
+    return primary
+
+
+def _candidate_task(expected, budget, adapter, url, decision):
     arrival, departure, adults = (
         expected["arrival_date"], expected["departure_date"], expected["travelers"]
     )
@@ -64,7 +72,14 @@ def build_task(
         "Search results without a selected room and rate are NOT ready.\n"
         f"5. Site-specific success evidence: {adapter['success_evidence']}\n"
         f"6. Site-specific blocked evidence: {adapter['blocked_evidence']}\n"
-        "7. Stop before opening guest details or payment. Never type personal data, log in, "
+        "7. On the reviewed selection/review page (IHG: Add Extras / select-enhance-stay), "
+        "STOP and report READY immediately only "
+        "when the selected room, rate, dates, party and full-stay total are visible. "
+        "For IHG, /select-enhance-stay is a terminal checkpoint: inspect its selection summary "
+        "once, then finish READY if all required evidence is present, otherwise finish "
+        "BLOCKED unsafe_claim immediately. Never add extras, navigate back or keep browsing. "
+        "Do not continue to guest details. Stop before opening guest details or payment. "
+        "Never type personal data, log in, "
         "create accounts, tick terms, solve captchas or pay. For login/account walls report "
         "BLOCKED login_required; for captcha report BLOCKED captcha; for required consent "
         "report BLOCKED consent_required. Safety rules override site evidence.\n"
@@ -84,6 +99,8 @@ def build_task(
             f"READY only on the reviewed selection page where a selected room and rate show "
             f"check-in {arrival}, check-out {departure}, {adults} adults and the full-stay "
             "total for the whole party, before guest details, personal data or payment. "
+            "For IHG this is the Add Extras / select-enhance-stay page: STOP there and report "
+            "READY immediately when all selection evidence is visible. "
             "Report that safe public URL. For incomplete evidence report BLOCKED unsafe_claim; "
             "for other stops use the exact BLOCKED reason from the instructions."
         ),

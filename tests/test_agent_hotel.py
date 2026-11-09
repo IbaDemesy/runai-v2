@@ -3,7 +3,7 @@ from datetime import date
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from test_site_policy import TODAY, entry, registry
+from test_site_policy import TODAY, assert_task_policy, distinct_entry, entry, registry
 
 from runai.agents.hotel import build_task
 from runai.agents.site_policy import evaluate_url, load_registry
@@ -109,9 +109,10 @@ def test_committed_seven_city_exact_date_links(city, country, travelers):
         assert query["nadults1"] == [str(travelers)]
         assert "fini=09%2F01%2F2027&fout=11%2F01%2F2027" in url
     elif task["site_name"] == "hotel-bb-com":
-        assert city == "Freiburg im Breisgau" and travelers == 1
+        assert city in {"Freiburg im Breisgau", "Milan"} and travelers == 1
+        destination = "Freiburg-Nord" if city == "Freiburg im Breisgau" else "milano-sant-ambrogio"
         assert query == {"arrival_date": ["01/09/2027"], "departure_date": ["01/11/2027"],
-                         "rooms": ["1"], "destination": ["Freiburg-Nord"]}
+                         "rooms": ["1"], "destination": [destination]}
         assert "arrival_date=01%2F09%2F2027&departure_date=01%2F11%2F2027" in url
     else:
         assert task["site_name"] == "ihg-com"
@@ -246,3 +247,51 @@ def test_numbered_prompt_p4_reasons_and_early_inventory_stop():
 def test_budget_caps_selected_rate():
     task = build_task(trip(city="Lisbon", country="Portugal"), today=TODAY)
     assert "EUR 600" in task["instructions"] and "over_budget" in task["instructions"]
+
+@pytest.mark.parametrize("city,country", [
+    ("Milan", "IT"), ("Barcelona", "ES"), ("Lisbon", "PT"), ("Valencia", "ES"),
+    ("Seville", "ES"), ("Zurich", "CH"), ("Geneva", "CH"), ("Amsterdam", "NL"),
+    ("Den Haag", "NL"), ("Rome", "IT"), ("Savognin", "CH"), ("Grindelwald", "CH"),
+    ("Sierre", "CH"), ("Brussels", "BE"), ("Vienna", "AT"), ("Prague", "CZ"),
+    ("Paris", "FR"), ("London", "GB"), ("Birmingham", "GB"),
+])
+def test_r4_committed_hotel_matrix_and_policy(city, country, monkeypatch):
+    task = build_task(trip(city=city, country=country, travelers=1, budget_eur=450,
+                          arrival_date="2027-01-09", departure_date="2027-01-11",
+                          race_changes={"race_date": "2027-01-10"}), today=TODAY)
+    assert_task_policy(task, monkeypatch)
+    assert task["expected"]["city"] == city
+    alternatives = task.get("alternatives", [])
+    assert len(alternatives) <= 2
+    assert len({t["site_name"] for t in [task, *alternatives]}) == 1 + len(alternatives)
+    assert set(task) - {"alternatives"} == KEYS
+    for alternative in alternatives:
+        assert set(alternative) == KEYS
+        assert alternative["expected"] == task["expected"]
+    if city in {"Milan", "Lisbon", "Brussels", "Vienna", "Prague", "Paris", "Birmingham"}:
+        assert alternatives
+    if city in {"Amsterdam", "Den Haag", "London"}:
+        assert "alternatives" not in task
+    for candidate in [task, *alternatives]:
+        if candidate["site_name"] == "ihg-com":
+            assert "select-enhance-stay" in candidate["success_signal"]
+            assert "STOP" in candidate["instructions"] and "READY immediately" in candidate["instructions"]
+            assert "terminal checkpoint" in candidate["instructions"]
+            assert "otherwise finish BLOCKED unsafe_claim immediately" in candidate["instructions"]
+            assert "no hotel in the confirmed city" in candidate["instructions"]
+
+
+def test_hotel_alternatives_limit_skip_denied_expired_and_do_not_mutate(monkeypatch):
+    items = [distinct_entry(n) for n in range(6)]
+    items[1]["automation"] = "prohibited"
+    items[2]["expires_at"] = "2026-11-08"
+    items[0]["adapters"] *= 2
+    reg = registry(*items)
+    task = build(trip(), reg)
+    assert [a["site_name"] for a in task["alternatives"]] == ["site3", "site4"]
+    assert all(set(a) == KEYS for a in task["alternatives"])
+    assert_task_policy(task, monkeypatch, reg)
+    task["alternatives"][0]["expected"]["city"] = "Changed"
+    assert task["expected"]["city"] == "Milan"
+    one = build(trip(), registry(items[0], items[1], items[2]))
+    assert set(one) == KEYS

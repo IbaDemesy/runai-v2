@@ -193,3 +193,140 @@ https://www.nh-hotels.com/es/booking/step1-rates?destinationId={place_name}&fini
 
 NH/IHG/Meliá review dates refreshed to 2026-11-09, expiry 2027-02-07. No prohibited
 chain was relaxed. Accor remains denied. No H sessions were created in this research.
+
+## R4-02 normal-Chrome research — 2026-11-09 (offline, no H)
+
+Public deep-link checks used 2027-01-09 to 2027-01-11, one adult, one room.
+Terms and authorization caveats are recorded in site-policy.md. No selected
+room/rate, guest-details boundary or new READY state was reached in this research.
+
+### IHG extension
+
+Verified the existing public template (values URL-encoded):
+`https://www.ihg.com/hotels/gb/en/find-hotels/hotel/list?qDest={city},%20{country}&qCiD=09&qCiMy=002027&qCoD=11&qCoMy=002027&qAdlt=1&qChld=0&qRms=1`.
+It redirects to /hotel-search. January is month 00, not 01. Rendered date/party
+controls were inspected as well as result text, not inferred from URL parameters.
+
+| Query | Rendered result | Decision |
+| --- | --- | --- |
+| Amsterdam, NL | 16 hotels, public From prices | Add NL search coverage; check actual property city |
+| Den Haag, NL | 10 hotels, public From prices | Search coverage, not every result in Den Haag |
+| Brussels, BE | 16 hotels, public From prices | Add BE |
+| Vienna, AT | 10 hotels, public From prices | Add AT |
+| Prague, CZ | 2 hotels, public From prices | Add CZ |
+| Paris, FR | 21 hotels, public From prices | Add FR |
+| London, GB | 93 hotels, public From prices | Add GB |
+| Barcelona, ES | 10 hotels with prices | Existing country, reviewed query |
+| Rome, IT | 8 hotels with prices | Existing country, reviewed query |
+| Seville, ES | 10 results; first Jerez de la Frontera 79.37 km away, neighboring-country warning | NO demonstrated in-city inventory; must block if no matching city property |
+| Savognin, CH | AlpenGold Davos Dorf, 30.92 km away, From USD541 | NO demonstrated in-city inventory |
+| Grindelwald, CH | 31 results; first Kriens 48.92 km away, neighboring-country warning | NO demonstrated in-city inventory |
+| Sierre, CH | Crans-Montana 5.44 km and Sion 14.64 km; one link leaves IHG | NO demonstrated in-city inventory; unreviewed external host remains forbidden |
+
+These are all search-list observations, not selected full-stay totals or promises
+of availability within EUR450. A successful offline build for a mountain town or Seville
+does not permit a distant hotel to pass the unchanged strict city check.
+
+### B&B fixed-property extension (one adult ONLY)
+
+Public pattern:
+`https://www.hotel-bb.com/en/hotel/{literal-property-slug}?arrival_date=01%2F09%2F2027&departure_date=01%2F11%2F2027&rooms=1&destination={reviewed-name}`.
+Property slugs are literal paths, not user-filled path parameters. Each adapter is
+restricted to its reviewed city aliases and country. Existing Freiburg-Nord stays intact.
+Two-adult encoding remains unverified; no larger party is added.
+
+| Property slug | Destination value | Exact-date, one-adult result |
+| --- | --- | --- |
+| milano-sant-ambrogio | milano-sant-ambrogio | Milan public room/rate list and Select controls |
+| paris-porte-des-lilas | Paris | Paris public room/rate list and Select controls |
+| bruxelles-centre-gare-midi | bruxelles-centre-gare-midi | Brussels public room/rate list and Select controls |
+| wien-hbf | wien-hbf | Vienna public room/rate list, Room Only public EUR110 / cancellable EUR130 displayed |
+| prague-city | prague-city | Prague public room/rate list, CZK3264 displayed |
+| birmingham-centre | birmingham-centre | Birmingham public room/rate list and Select controls |
+| valencia-ciudad-de-las-ciencias | same slug | Guessed property returned 404; NOT wired |
+
+Each successful property showed `1 room | 1 adult | From 09 Jan. 2027 to 11 Jan. 2027`.
+Displayed prices are observations of public rate cards, not verified whole-stay
+selected totals. Member prices/sign-in were not used; Select forms were not submitted.
+B&B supplies a second site for sampled IT/FR/BE/AT/CZ/GB cities, not all cities in
+those countries. Birmingham is NOT a London hotel. No NL second-site link verified.
+B&B country/city directories were read to identify properties (Netherlands, Vienna,
+Prague, Brussels, Birmingham); directory pages alone were not made executable.
+
+### Rejected hotel trials
+
+All attempts below used the same January dates and one adult unless noted.
+
+- NH /es/booking/step1-rates with `destinationId={city}&fini=09/01/2027&fout=11/01/2027&gvoucher=false&hotelId={id}&nadults1=1&nbabies1=0&nchilds1=0&pcode=`:
+  Barcelona ESBA.CALDE, Valencia ESVL.COVAL, Seville ESSE.CONSE, Amsterdam NLAM.ZUID,
+  The Hague NLZH.DENHA, Rome ITRM.LEONA, Brussels BEBR.ATL, Vienna AT09.WIEN,
+  Prague CZPR.PRAGU, Paris FR75.CHAMP, London GBLO.WLOND.
+  All showed `Lo sentimos, no hay disponibilidad para estas fechas`; some did show
+  the named property and Jan 9–Jan 11/one adult, others only an empty shell.
+  No rate-list proof: none of these guessed mappings added. Existing Lisbon remains.
+- Radisson /en-us/search?searchTerm=Amsterdam&checkInDate=2027-01-09&checkOutDate=2027-01-11&adults[]=1&children[]=0:
+  not-found/search UI rather than applied-date rates; no adapter.
+- Meininger public booking attempt on mmb.meininger-hotels.com: ERR_TOO_MANY_REDIRECTS;
+  no challenge bypass or cookie manipulation; no adapter.
+- Scandic /en/book?checkin=2027-01-09&checkout=2027-01-11&adults=1&city=Amsterdam:
+  PAGE NOT FOUND and default Nov 9–10 controls; no adapter.
+- H10 attempted booking route redirected /en/not-found (Error 404); no adapter.
+- Catalonia /en/search?destination=Barcelona&arrival=2027-01-09&departure=2027-01-11&adults=1:
+  login/cookie UI, no verified exact-date public rate list; commercial hyperlink
+  permission also unresolved; no adapter.
+- Leonardo /amsterdam?arrival=2027-01-09&departure=2027-01-11&adults=1:
+  city hotel list/prices, but Nov 9–10 and 1 Room, 2 Guests remained in controls.
+  Query ignored, not an exact-date adapter; no adapter.
+- Barceló attempted booking URL returned 404; no verified public pattern retained.
+
+### IHG READY instruction correction
+
+The R3 navigation reached Add Extras / select-enhance-stay after room/rate selection
+and then ran out of steps; it did NOT prove a completed READY stop. The new registry
+evidence and hotel task instructions say to STOP and report READY immediately on that
+review page ONLY when selected room AND rate, matching city, exact dates, party and
+full-stay total are all visible, before guest details. Earliest safety boundary still
+wins. A page title, result list or partial summary is insufficient. Other hotels use
+their own selected-room review boundary, not an invented IHG page.
+
+## Authorized live smoke — 2026-11-09
+
+Direct app runner: `runai.agents.hclient.HAgentRunner` (also used by
+`providers.LiveRunner`). Dates 2027-01-15 to 2027-01-17, one adult, EUR450, origin Paris.
+The secret was bound only through exec env, never printed. Read/prepare-only instructions
+forbid payment, booking, form submission, login, personal data, consent and captcha bypass.
+Steps are maximum reported provider `metrics.steps`; frames are deduplicated emitted
+`live_frame` events, counted in memory then discarded, not saved screenshots.
+No private H session/share URLs, tokens or screenshots were recorded. Frames were not
+independently visually reviewed.
+
+| Date | Adapter/policy | Public requested start URL | Final status | Reason code | Last observed stage/page | Provider steps | Emitted frames |
+|---|---|---|---|---|---|---:|---:|
+| 2026-11-09 | ihg-com / Barcelona free-text | https://www.ihg.com/hotels/gb/en/find-hotels/hotel/list?qDest=Barcelona%2C%20ES&qCiD=15&qCiMy=002027&qCoD=17&qCoMy=002027&qAdlt=1&qChld=0&qRms=1 | failed | step_limit | Add Extras: https://www.ihg.com/hotels/gb/en/find-hotels/select-enhance-stay | 40 | 10 |
+
+The returned error was `H step limit reached`, not READY. The observed URL and
+coarse answer-stage category indicated Add Extras. This proves reaching the checkpoint,
+NOT a successful stop, matching room/rate/city/dates/party/total, or a verified handoff.
+
+Follow-up instruction refinement in hotel.py and IHG success_evidence: select-enhance-stay
+is terminal; inspect the selection summary once, then finish READY only with all required
+evidence, otherwise BLOCKED unsafe_claim immediately. Never add extras, navigate back or
+keep browsing. This is not a demonstrated fix; why the agent did not finish at the
+checkpoint is not established from retained safe metadata. No rerun: all three allowed
+sessions were exhausted. Post-refinement user-facing behavior remains visually unverified.
+
+## Rebased R4-01 integration review — 2026-11-09 (offline only)
+
+No additional live runs. The failed/step_limit result above remains unchanged.
+R4-01 HAgentRunner.run now consumes P7 alternatives; our hotel tasks already match
+the exact ten base fields, at most two distinct-policy alternatives and no nesting.
+A generated Milan hotel task was passed through the actual run consumer with synthetic
+_attempt responses and the real alternative policy gate: blocked/no_inventory primary
+advanced to its IHG alternative, emitted Essai d'un autre site and returned the synthetic
+ready result without network calls. This is compatibility evidence, NOT hotel live success.
+
+R4-01 converts failed/interrupted sessions after reviewed progress to blocked/
+session_failed and preserves the last reviewed public URL. That condition can now
+trigger P7 alternatives. It does not change the historical IHG step_limit result into
+READY, nor verify the refined Add Extras stop instruction. No applicable new live
+evidence or independent visual check was obtained.

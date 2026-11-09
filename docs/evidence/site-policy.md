@@ -151,3 +151,71 @@ Machine-readable registry: `docs/site-policy.json`, enforced by `runai/agents/si
 
 Unknown → denied rows are terms that could not be fetched (bot walls, timeouts, or not located), so no policy exists for them.
 Full quotes and fetch notes: research log kept outside the repo; quotes above are copied verbatim from the fetched pages.
+
+## R4-02 offline review — 2026-11-09
+
+Authority: direct owner-assigned R4-02 brief (queue update is a separate PR).
+Normal Chrome, CDP localhost:29229; public navigation/read-only DOM inspection.
+No H runs, accounts, personal data, bookings, payment, consent acceptance, captcha bypass
+or search-form submissions. No screenshots committed. Rate lists are not READY.
+
+All requested candidate IDs already exist in the main registry. No duplicate IDs or
+new scopes/fragments were needed; registration.json is untouched. Existing prohibited
+policies, including SNCF Connect, Trainline, Omio, Eurostar, Air France, easyJet,
+Ryanair, KLM, Accor and Booking, were not relaxed. A train sold on allowed NS pages
+may name Eurostar, but that does not authorize navigating to Eurostar's prohibited host.
+
+### Current terms checked
+
+Official URLs remain in each entry's terms_urls. The following are dated observations,
+not a finding that silence about robots constitutes permission. Owner-rule entries
+retain their existing narrowly read-only authority and in-session-only screenshots.
+For readable reviews below, reviewed_at is 2026-11-09 and expires_at is 2027-02-07;
+the three incomplete reviews explicitly do NOT renew prior authorization.
+
+| Policy | Official section read / result |
+| --- | --- |
+| ihg-com | /content/gb/en/customer-care/tc.html: Authorised Users, LIMITED LICENCE TO VIEW AND COPY, PROHIBITED CONDUCT, IP. Non-commercial individual use; copying/retransmission restricted. No express robot/agent prohibition found. |
+| nh-hotels-com | /en/legal-notice: User Responsibilities, Monitoring, IP. Copying/commercial use restricted; no express robot prohibition found. |
+| hotel-bb-com | /fr/conditions-utilisation: 5 Access, 7 Services, 15 IP. Reproduction/code downloading/commercial exploitation restricted; no express robot prohibition found. |
+| radissonhotels-com | /en-us/site-usage: contents, restricted use. Copying/commercial reuse and damaging access restricted; no express robot prohibition found. |
+| meininger-hotels-com | /en/imprint/: Copyright and trademark rights. Rights reserved; no express robot prohibition found in this imprint (not comprehensive express automation permission). |
+| scandichotels-com | /en/customer-service/policies/website-terms: 2 IP, 6 Automatically gathered information. Printing individual pages allowed; other copying needs written permission. No express robot prohibition found. |
+| h10hotels-com | /en/legal-notice: IP and unlawful use. Rights reserved; no express robot prohibition found. |
+| cataloniahotels-com | /en/legal/disclaimer: 3 IP. Personal/private use only; commercial third-party hyperlinks need consent. No express robot prohibition found, but commercial deep-link authority unresolved: no adapter. |
+| leonardo-hotels | Linked Disclaimer 2026.pdf produced no readable browser text; /terms checked but no complete current authorization established. Prior review NOT renewed, no adapter. |
+| barcelo-com | /en-us/general-information/legal-notice/: IP. Content use/exploitation needs prior authorization; no express robot prohibition found. No adapter. |
+| trenitalia-com | /it/informazioni/termini-e-condizioni-di-utilizzo-sito-trenitalia.html: Utilizzo del Sito/Divieti and IP. Hidden accordion text also read. Personal/non-commercial access, saving extracts permitted; copying/distribution restricted. No express robot prohibition found. |
+| italotreno-com | /en/copyright-legal-notes: 3 Access, 7 Site Restrictions, 8 Copyright, 13 Links; accordion text read. Personal/non-commercial access, downloading/copying restricted. No express robot prohibition found. |
+| sbb-ch | /en/meta/legallines/legal-information.html: Restrictions on access, Use. Individual pages may be saved; public/commercial use needs written consent. No express robot prohibition found. |
+| renfe-com | grupo.renfe.com/es/es/informacion-legal/renfe---operadora/nuestra-web: IP. Use/reproduction restricted except authorized or contracted services. No express robot prohibition found. |
+| ouigo-france | /infos-legales: credits/reproduction, 5 IP. Reproduction and unauthorized downloading restricted. No express robot prohibition found. |
+| ouigo-espana | /es/informacion-legal: IP and use. Copying restricted, third-party profit-making use excluded. No express robot prohibition found. |
+| ns-international | /en/disclaimer-ns: information, availability, copyright, third-party links, reference to transport conditions. Copyright reserved; no express robot prohibition found. Not a comprehensive express automation licence. |
+| sncb-nmbs | /en/support/customer-service/copyright-declaration: use/reproduction/display requires written permission. No express robot prohibition found in notice. Public booking visit hit robot challenge: no adapter. |
+| alsa-com | /en/legal-notice: use/IP. Restrictions remain; no express robot prohibition found. No adapter. |
+| swiss-com | /ch/en/terms-conditions/copyright: content use/duplication/reproduction needs written permission. No express robot prohibition found in this copyright page, not express authorization. No adapter. |
+| volotea-com | /en/legal-conditions/terms-of-use/: IP, prohibited/non-permitted use. Reuse restrictions; no express robot prohibition found. No adapter. |
+| iberia-com | /us/informacion-legal/: responsibility/IP (including additional page text inspection). Rights reserved; no express robot prohibition found in inspected content. No adapter. |
+| aegean | /conditions-notices/conditions-notices/ mainly carriage/baggage conditions, not complete current website-use authorization. Prior review NOT renewed, no adapter. |
+| aerlingus-com | /localized/en/modals/terms-of-use.html rendered only worldwide booking-facility availability. Complete current terms unverified; prior review NOT renewed, no adapter. |
+| vueling-com | /en/customer-services/website-conditions-of-use: existing ten-section review retained. Copyright/commercial-copying limits and www-versus-tickets scope ambiguity remain; existing owner rule, not express authorization. New exact-date airport-pair checks below. |
+
+No newly inspected text established an express robots/automation prohibition. This
+does not relax any prohibited host or erase copying/commercial-use restrictions.
+Unwired sites remain unwired even when their owner-rule review remains valid.
+Other candidate chains not listed here (e.g. a&o, Novum, RIU, Iberostar, Eurostars)
+were not newly researched or wired; their existing reviews were not refreshed.
+
+### Coverage semantics and limitations
+
+Coverage means a reviewed executable search URL, NOT local inventory or a safe selected
+checkout. IHG can build small-town searches which return only distant hotels; the
+existing city-verification gate is unchanged and those results cannot qualify READY.
+NS Den Haag explicitly routes via Amsterdam Centraal; no onward transfer is included.
+The via field is reviewed routing metadata, never a change to expected.city.
+
+select_adapters reuses the same fail-closed candidate generator, preserves rail-before-flight
+ordering and caps output at three distinct policy IDs. Each builder emits at most two
+complete alternatives, with the same base task keys and no nested alternatives.
+Denied/expired/unreviewed hosts cannot become fallbacks.

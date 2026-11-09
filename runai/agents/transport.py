@@ -11,7 +11,7 @@ from datetime import date
 from math import isfinite
 from typing import Any
 
-from runai.agents.site_policy import city_country, country_code, select_adapter, trip_expected
+from runai.agents.site_policy import city_country, country_code, select_adapters, trip_expected
 
 KIND = "transport"
 MAX_STEPS = 40
@@ -45,14 +45,22 @@ def build_task(
 ) -> dict[str, Any]:
     expected = trip_expected(trip, KIND, today=today)
     budget = _budget(trip)
-    adapter, url, decision = select_adapter(
+    candidates = select_adapters(
         KIND, expected, origin_country=origin_country(trip), today=today, registry=registry,
         modes=("rail", "flight"),
     )
+    tasks = [_candidate_task(expected.copy(), budget, *candidate) for candidate in candidates]
+    primary = tasks[0]
+    if len(tasks) > 1:
+        primary["alternatives"] = tasks[1:]
+    return primary
+
+
+def _candidate_task(expected, budget, adapter, url, decision):
     origin, city = expected["origin_city"], expected["city"]
     mode = {"rail": "train", "flight": "flight"}.get(adapter.get("mode"), "transport")
     place = adapter["places"].get(city.strip().casefold(), {})
-    destination = ", ".join(dict.fromkeys(
+    destination = place.get("via") or ", ".join(dict.fromkeys(
         place[key] for key in ("station_name", "station_code", "iata") if place.get(key)
     ))
     route_city = f"{city} via {destination}" if destination else city
@@ -80,10 +88,16 @@ def build_task(
         f"4. {budget_hint} Use public links only: select outbound arriving on or before "
         f"{arrival} AND return departing on {departure}, then fare with the full round-trip "
         "total for the whole party. Never fill or submit any form. "
-        "Unselected result lists or a homepage are NOT ready.\n"
+        "Unselected result lists or a homepage are NOT ready. An explicitly reviewed via "
+        "gateway is the arrival point for the race city: READY covers the round trip to/from "
+        "that gateway, without changing the race city in expected. The onward local transfer "
+        "is out of scope: mention it in the final report, never claim it as booked or included. "
+        "Never substitute a non-reviewed gateway or invent race-city evidence.\n"
         f"5. Site-specific success evidence: {adapter['success_evidence']}\n"
         f"6. Site-specific blocked evidence: {adapter['blocked_evidence']}\n"
-        "7. Stop before opening passenger details or payment. Never type personal data, log in, "
+        "7. STOP on the reviewed fare-selection page and report READY immediately when both "
+        "outbound and return fares, dates, party and full round-trip total are selected and visible. "
+        "Stop before opening passenger details or payment. Never type personal data, log in, "
         "create accounts, tick terms, solve captchas or pay. For login/account walls report "
         "BLOCKED login_required; for captcha report BLOCKED captcha; for required consent "
         "report BLOCKED consent_required. Safety rules override site evidence.\n"

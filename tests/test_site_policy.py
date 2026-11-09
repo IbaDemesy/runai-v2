@@ -1,10 +1,11 @@
 import copy
 import json
-from datetime import date
+from datetime import date, datetime
+from urllib.parse import urlsplit
 
 import pytest
 
-from runai.agents import site_policy
+from runai.agents import hclient, site_policy
 from runai.agents.site_policy import (
     PolicyError,
     evaluate_url,
@@ -80,6 +81,29 @@ def registry(*entries):
         entry(id="denied-chain", automation="prohibited", screenshot_scope="none",
               scopes=[{"host": "chain.example", "path_prefix": "/"}], adapters=[]),
     ]}
+
+
+def assert_task_policy(task, monkeypatch, reg=None):
+    class ReviewClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 11, 9, tzinfo=tz)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(hclient, "datetime", ReviewClock)
+        patch.setattr(site_policy, "evaluate_url", lambda url, kind: evaluate_url(
+            url, kind, today=TODAY, registry=reg))
+        for candidate in [task, *task.get("alternatives", [])]:
+            decision = evaluate_url(candidate["start_url"], candidate["kind"],
+                                    today=TODAY, registry=reg)
+            assert decision["allowed"] and decision["policy_id"] == candidate["site_name"]
+            assert hclient._policy(candidate)
+            host = urlsplit(candidate["start_url"]).hostname
+            entries = load_registry() if reg is None else parse_registry(reg)
+            for item in entries:
+                if item["automation"] == "prohibited":
+                    assert not any(host == s["host"] or host.endswith("." + s["host"])
+                                   for s in item["scopes"])
 
 
 KEYS = {"allowed", "reason", "policy_id", "screenshot_scope", "allowed_hosts", "allowed_paths",
@@ -585,3 +609,58 @@ def test_registration_adapter_on_platform_host_or_without_platform():
     _, url, _ = site_policy.select_adapter(
         "registration", expected, today=TODAY, registry=organizer_only)
     assert url.startswith("https://www.example-marathon.test/")
+
+
+def distinct_entry(number, kind="hotel"):
+    item = entry() if kind == "hotel" else transport_entry()
+    old_host = item["scopes"][0]["host"]
+    host = f"site{number}.example"
+    item.update(id=f"site{number}", scopes=[{"host": host, "path_prefix": "/"}],
+                navigation_hosts=[])
+    for adapter in item["adapters"]:
+        adapter["url_template"] = adapter["url_template"].replace(old_host, host)
+    return item
+
+
+def test_select_adapters_distinct_order_cap_and_compatibility():
+    items = [distinct_entry(n) for n in range(5)]
+    items[0]["adapters"] *= 2
+    reg = registry(*items)
+    before = copy.deepcopy(reg)
+    expected = {**EXPECTED, "country": "IT"}
+    selected = site_policy.select_adapters("hotel", expected, today=TODAY, registry=reg)
+    assert [d["policy_id"] for _, _, d in selected] == ["site0", "site1", "site2"]
+    assert site_policy.select_adapter("hotel", expected, today=TODAY, registry=reg) == selected[0]
+    assert reg == before
+
+
+@pytest.mark.parametrize("reg", [
+    {"schema_version": 1, "entries": []}, {"schema_version": 9},
+    registry(entry(automation="prohibited")),
+    registry(entry(expires_at="2026-11-08")), registry(entry(adapters=[])),
+])
+def test_select_adapters_empty_error_and_denied_fail_closed(reg):
+    with pytest.raises(ValueError):
+        site_policy.select_adapters("hotel", {**EXPECTED, "country": "IT"},
+                                    today=TODAY, registry=reg)
+
+
+@pytest.mark.parametrize("via", ["", 123, None])
+def test_via_requires_reviewed_nonempty_text(via):
+    item = transport_entry()
+    item["adapters"][0]["places"] = {"Milan": {"via": via}}
+    with pytest.raises(PolicyError, match="invalid adapter place"):
+        parse_registry(registry(item))
+
+
+def test_r4_coverage_known_unknown_expired():
+    for city in ("Milan", "Barcelona", "Lisbon", "Valencia", "Seville", "Zurich",
+                 "Geneva", "Amsterdam", "Den Haag", "Rome"):
+        assert site_policy.coverage("transport", city=city, origin_city="Paris",
+                                    today=TODAY)["covered"]
+    for city in ("Savognin", "Grindelwald", "Sierre", "Den Haag"):
+        assert site_policy.coverage("hotel", city=city, today=TODAY)["covered"]
+    assert not site_policy.coverage("transport", city="Unknown",
+                                   origin_city="Paris", today=TODAY)["covered"]
+    assert not site_policy.coverage("transport", city="Barcelona", origin_city="Paris",
+                                   today=date(2030, 1, 1))["covered"]
