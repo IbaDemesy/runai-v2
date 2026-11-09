@@ -1156,6 +1156,21 @@ def test_named_missing_race_with_no_results_still_names_the_request(text, missin
     assert not turn.candidates and state.draft.race is None
 
 
+@pytest.mark.parametrize("name,matched", [("Lisbon Marathon", False), ("València Marathon", True),
+                                        ("Valence Marathon", True), ("Other Race", False)])
+def test_review_named_race_without_city_requires_name_evidence(name, matched):
+    async def discover(query, hints):
+        return [{"id": "candidate", "name": name, "distance_km": 42.195,
+                 "country": "Spain",
+                 "race_date": "2027-04-11", "date_status": "official", "synthetic": True}]
+
+    state, turn = run(engine(discover).start("le marathon de Valencia"))
+    assert turn.ready_to_confirm == matched
+    if not matched:
+        assert state.draft.race is None and "Je ne trouve pas" in turn.message
+        assert all(s.group == "Alternatives" for s in turn.suggestions if s.kind == "choose_race")
+
+
 @pytest.mark.parametrize("country,fr", [("Austria", "Autriche"), ("Germany", "Allemagne"),
     ("Switzerland", "Suisse"), ("Spain", "Espagne"), ("Italy", "Italie"),
     ("Portugal", "Portugal"), ("Netherlands", "Pays-Bas"),

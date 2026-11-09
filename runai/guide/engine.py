@@ -137,7 +137,10 @@ class GuideEngine:
             return True
         if race.city:
             return normalize(bare_city(race.city) or race.city) == normalize(city)
-        return bool(bare_city(city) or normalize(city) in normalize(race.name))
+        aliases = [alias for groups in CITY_GROUPS.values() for group in groups
+                   if bare_city(group.split("/")[0]) == city for alias in group.split("/")]
+        return any(re.search(r"(?<!\w)" + re.escape(normalize(alias)) + r"(?!\w)",
+                             normalize(race.name)) for alias in [city, *aliases])
 
     def _named_not_found(self, state):
         city = state.hints["city"]
