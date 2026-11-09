@@ -736,11 +736,21 @@ def test_fresh_open_coverage_per_required_country():
     assert {"Spain", "Netherlands", "Switzerland", "Italy"} <= covered
 
 
-def test_frankfurt_reviewed_but_not_preparable_until_white_label_id_is_scrub_clean():
+@pytest.mark.parametrize("scrub_mode", ["actual", "allowed", "denied"])
+def test_frankfurt_reviewed_but_not_preparable_until_white_label_id_is_scrub_clean(
+    monkeypatch, scrub_mode,
+):
+    start = build_task(_race_trip(*FRANKFURT), today=MERGED_TODAY,
+                       registry=_merged())["start_url"]
+    cleaned = scrub_url(start)
+    assert cleaned in (None, start)
+    if scrub_mode != "actual":
+        cleaned = start if scrub_mode == "allowed" else None
+        monkeypatch.setattr("runai.agents.scrub.scrub_url",
+                            lambda url: cleaned if url == start else scrub_url(url))
     coverage = _merged_coverage(FRANKFURT)
-    assert scrub_url(build_task(_race_trip(*FRANKFURT), today=MERGED_TODAY,
-                                registry=_merged())["start_url"]) is None
-    assert coverage["covered"] is False and coverage["preparable_open"] is False
+    assert coverage["covered"] is (cleaned == start)
+    assert coverage["preparable_open"] is (cleaned == start)
     assert coverage["prohibited"] is False
 
 

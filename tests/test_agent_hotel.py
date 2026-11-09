@@ -16,6 +16,7 @@ from test_site_policy import (
 
 from runai.agents import hclient
 from runai.agents.hotel import build_task as build_current_task
+from runai.agents.scrub import scrub_url
 from runai.agents.site_policy import city_name, evaluate_url, load_registry
 
 KEYS = {"kind", "site_name", "start_url", "instructions", "stop_before", "success_signal",
@@ -414,6 +415,42 @@ def test_new_direct_hotel_candidates(city, country, travelers):
     if city == "Stoos":
         assert "Lucerne" not in task["start_url"] and "Zurich" not in task["start_url"]
         assert "gateway_city" not in task["expected"]
+
+
+def test_booking_berlin_search_checkout_date_is_not_a_payment_boundary():
+    data = {
+        "race": {"name": "Generali Berlin-Marathon", "edition": "2027",
+                 "race_date": "2027-09-26", "distance_km": 42.195,
+                 "city": "Berlin", "country": "DE",
+                 "official_url": "https://www.generali-berlin-marathon.com/en/"},
+        "origin_city": "Paris", "arrival_date": "2027-09-25",
+        "departure_date": "2027-09-27", "travelers": 1, "nights": 2, "budget_eur": 600,
+    }
+    task = build_current_task(data, today=TODAY)
+    assert task["site_name"] == "r7-booking-hotel"
+    reviews = hclient._policy(task)
+    checkpoint = hclient._checkpoint(task)
+    for key in ("start_url", "fallback_url"):
+        raw = task[key]
+        cleaned = scrub_url(raw)
+        assert evaluate_url(raw, "hotel")["allowed"]
+        assert hclient._reviewed(cleaned, reviews)
+        for url in (raw, cleaned, cleaned.replace("searchresults.html", "searchresults.en-gb.html")):
+            assert not hclient._checkpoint_matches(checkpoint, "url_patterns", url)
+            assert not hclient._checkpoint_matches(checkpoint, "beyond_patterns", url)
+    assert not hclient._checkpoint_matches(checkpoint, "beyond_patterns", None)
+    assert not hclient._checkpoint_matches(checkpoint, "beyond_patterns", "")
+
+
+@pytest.mark.parametrize("path", [
+    "/checkout/", "/CHECKOUT?checkout=2027-09-27", "/hotel/checkout/details",
+    "/check%6fut/", "/payment", "/pay", "/guests/details", "/book/confirm",
+    "/booking/review?next=/checkout/", "/select-enhance-stay?next=/%63heckout/",
+])
+def test_booking_keeps_real_unsafe_paths_blocked(path):
+    task = build_current_task(trip(city="Berlin", country="DE"), today=TODAY)
+    assert hclient._checkpoint_matches(
+        hclient._checkpoint(task), "beyond_patterns", "https://www.booking.com" + path)
 
 
 def test_guest_profile_names_only_and_payment_boundary():

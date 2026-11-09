@@ -1,3 +1,87 @@
+# R7-03 Booking offline diagnosis — 2026-11-09
+
+No further H sessions. Rebuilt the exact Berlin task from the smoke: same race,
+dates, one adult and EUR600 budget, same Booking adapter, alternatives removed.
+Found a deterministic adapter false positive: the bare `checkout` alternative
+in beyond_patterns matches `checkout=2027-09-27` in the search URL. P11 matches
+unquoted path plus query, not just the path. The original pattern matches both
+the raw and scrub-normalized search URL before any room/rate selection.
+
+### Gates and attempted disproof
+
+| Check | Exact start and fallback result |
+|---|---|
+| evaluate_url | allowed; policy r7-booking-hotel; hosts www.booking.com; paths / |
+| hclient._policy | ALLOW: [({'www.booking.com'}, ('/',))] |
+| Task allowed_hosts subset of reviewed hosts | true |
+| scrub_url(raw) == raw | false: `%2C%20DE` canonicalizes to `%2C+DE` |
+| _reviewed(raw) / _reviewed(scrub_url(raw)) | false / true |
+| Original beyond_patterns against raw/cleaned search | true: bare checkout matches the departure-date query key |
+| Fixed beyond_patterns against raw/cleaned search | false |
+
+The raw scrub inequality is not a blocking scrub rejection: hclient._attempt
+uses clean_url at startup and for observations before _reviewed. Normalized
+URLs pass review. Creation in the real smoke independently rules out a
+pre-session denial. No core scrub/hclient change is needed for this defect.
+
+The reachable observation dispatch in hclient._attempt checks _reviewed, then
+beyond_patterns, then title/URL restrictions, and only afterward assigns
+final_url or emits a frame. Thus an observation retaining the checkout date
+query deterministically raises policy_denied with no final page/frame. This
+explains the symptom for that input, but **the original first H observation
+was not retained: its actual URL/title, and therefore the historical causal
+link, remain unverified**. Title restrictions could also yield policy_denied;
+the live trigger cannot be conclusively identified from the retained result.
+
+Anonymous `curl -sI -L --max-time 45 --max-redirs 10` of the exact deep link:
+```
+HTTP/2 301
+location: https://www.booking.com/searchresults.html
+HTTP/2 202
+```
+The Location omitted the original query; only www.booking.com was observed.
+HEAD redirects are not proof of the H browser's redirect chain or UI state.
+Hypothetical www.booking.com/searchresults.en-gb.html passes the existing /
+scope. secure.booking.com/book.html and account.booking.com are not reviewed,
+but would raise unreviewed_redirect, not the reported policy_denied. Neither
+host appeared in this curl chain; no speculative scopes were added.
+
+### Fix and limits
+
+docs/site-policy.d/hotel.json: Booking's bare `checkout` becomes `/checkout`.
+This excludes the date query key while still blocking real checkout paths,
+including nested next=/checkout/ URLs and encoded/case-insensitive variants.
+Guest, payment, confirmation and selected-room checkpoint rules are unchanged.
+tests/test_agent_hotel.py reproduces the exact task, reviews normalized URLs,
+excludes search/localized search from both stop patterns, and preserves unsafe
+path blocking. Initial tests exposed that a path-only anchor would miss unsafe
+nested next URLs; used `/checkout` instead and kept all existing tests intact.
+**Offline fix only; not re-verified live. Booking remains a blocked smoke.**
+
+### B&B Milan follow-up
+
+Reviewed the existing selected-state observation below and the read-only base
+adapter. The property path /en/hotel/milano-sant-ambrogio was identical before
+and after room/rate selection, with no distinguishing URL state recorded.
+/booking/(?:extras|review) remains guessed; the other historical /checkout/
+observation was beyond the safe boundary and did not verify a selected stop.
+No safe URL discriminator was found in existing evidence. No shard/hotel.py
+override or unselected-property checkpoint was added, and docs/site-policy.json
+was not edited. State-based verification needs core support or new safe public
+URL evidence, not a broadened URL checkpoint. No new browser/H observation.
+
+Final checks (also covering Frankfurt merge-order-compatible tests):
+```
+uv run ruff check .
+All checks passed!
+uv run pytest -q
+2353 passed, 1 warning in 69.02s (0:01:09)
+uv run pytest -q tests/test_agent_hotel.py tests/test_agent_registration.py tests/test_site_policy.py
+820 passed in 9.41s
+```
+Existing Starlette httpx TestClient deprecation warning. JSON shard formatting
+matches json.dumps(indent=1, ensure_ascii=False). Visually/live unverified.
+
 # R7-03 live hotel smoke — 2026-11-09
 
 Real `hotel.build_task` -> `HAgentRunner.run`, without runner_profile. Selected

@@ -46,7 +46,7 @@
        "^/book\\.html(?:[/?]|$)"
       ],
       "beyond_patterns": [
-       "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book/confirm|/booking/confirm|card[-_]?details"
+       "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|/checkout|/book/confirm|/booking/confirm|card[-_]?details"
       ]
      },
      "success_evidence": "Selected room AND rate, exact dates and adults, full-stay total visible; stop at the untouched guest-details boundary. Provisional URL pattern requires live validation; never infer selection from a URL alone.",
