@@ -183,7 +183,7 @@ class GuideEngine:
 
     def _matches_distance(self, state, race):
         distance = state.hints.get("distance")
-        target = {"half": 21.1}.get(distance)
+        target = {"half": 21.1, "5k": 5}.get(distance)
         return target is None or race.distance_km is None or abs(race.distance_km - target) < 0.2
 
     def _access_warning(self, state, race):
@@ -1561,7 +1561,7 @@ class GuideEngine:
                         f"Sounds good, let's plan on {description}. You can still change your mind.",
                     ),
                 )
-            text = chip.value
+            text = chip.label if chip.value.startswith("resolve_distance:") else chip.value
         if not text:
             if introduction:
                 state.lang = introduced_language
@@ -1605,6 +1605,9 @@ class GuideEngine:
                 return recovered, turn
             return self._turn(state, refusal, "safety_refusal")
         intent = parse_intent(text, today=self.today)
+        if chip and chip.value.startswith("resolve_distance:"):
+            intent.distance = chip.value.removeprefix("resolve_distance:")
+            intent.correction = True
         if introduction and not intent.fr_cues and not intent.en_cues:
             intent.switch_language = introduced_language
         if re.search(r"\b(?:meteo|weather|poeme?|poetry)\b", normalize(text)) and not (
@@ -1679,8 +1682,10 @@ class GuideEngine:
             if intent.problem == "distance_conflict":
                 turn.question = self._say(state, "Un marathon de 42,2 km ou une course de 5 km ?",
                                           "A 42.2 km marathon or a 5 km race?")
-                turn.suggestions = [self._chip("Un marathon" if state.lang == "fr" else "A marathon"),
-                                    self._chip("Une course de 5 km" if state.lang == "fr" else "A 5 km race")]
+                turn.suggestions = [self._chip("resolve_distance:marathon", self._say(
+                    state, "Un marathon", "A marathon")),
+                    self._chip("resolve_distance:5k", self._say(
+                        state, "Une course de 5 km", "A 5 km race"))]
                 state.pending_suggestions = turn.suggestions
             if intent.problem == "past_date":
                 state.query = re.sub(r"\b(?:19|20)\d{2}(?:-\d{2}-\d{2})?\b", "", text)

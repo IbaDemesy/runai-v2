@@ -16,7 +16,7 @@ def normalize(text: str) -> str:
 
 
 def named_query(city: str, distance: str) -> str:
-    label = {"marathon": "Marathon", "half": "Half Marathon", "10k": "10K",
+    label = {"marathon": "Marathon", "half": "Half Marathon", "5k": "5K", "10k": "10K",
              "trail": "Trail", "ultra": "Ultra"}.get(distance, distance)
     return f"{city} {label}"
 
@@ -187,6 +187,7 @@ def parse_intent(text: str, *, today: date) -> Intent:
         (r"\b(ultra)\b", "ultra"),
         (r"\btrail\b", "trail"),
         (r"\b(semi|half)\b", "half"),
+        (r"\b5\s?k(m)?\b", "5k"),
         (r"\b10\s?k(m)?\b", "10k"),
         (r"\bmarathon\b", "marathon"),
     ]:

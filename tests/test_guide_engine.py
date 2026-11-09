@@ -45,6 +45,34 @@ def test_delegation_preserves_explicit_later_race(initial, defer):
     assert state.draft.race.id == "late" and turn.ready_to_confirm
 
 
+@pytest.mark.parametrize("text", ["un marathon de 5 km à Lisbonne", "a marathon of 5 km in Lisbon"])
+@pytest.mark.parametrize("choice,km", [("5k", 5), ("marathon", 42.195)])
+@pytest.mark.parametrize("outcome", ["normal", "empty", "error"])
+def test_distance_contradiction_pills_search_selected_format(text, choice, km, outcome):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        if outcome == "error":
+            raise RuntimeError("offline failure")
+        if outcome == "empty":
+            return []
+        row = (await preparation_discovery(query, hints))[0]
+        return [row | {"distance_km": km, "distance_label": f"{km:g} km"}]
+
+    e = engine(discover)
+    state, turn = run(e.start(text))
+    assert turn.error == "distance_conflict" and not calls
+    pill = next(s for s in turn.suggestions if s.value == "resolve_distance:" + choice)
+    state, turn = run(e.step(state, {"suggestion_id": pill.id}))
+    assert calls and all(h["distance"] == choice and h["city"] == "Lisbon" for _, h in calls)
+    assert turn.error != "distance_conflict"
+    if outcome == "normal":
+        assert any(r.distance_km == km for r in state.candidates)
+    else:
+        assert not turn.ready_to_confirm
+
+
 @pytest.mark.parametrize("text,delegation,label", [
     ("un semi", "tu me conseilles", "Autre distance"),
     ("a half marathon", "you choose", "Another distance"),
