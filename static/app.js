@@ -756,14 +756,15 @@
   function bilan(state) {
     const box = node('section', 'bilan'), list = node('ol', 'milestones');
     const ready = state.status === 'ready_for_payment';
-    const reached = ready ? 4 : state.prefilled ? 3 : state.checkpoint === 'selection' ? 2 : state.checkpoint === 'dates' ? 1 : state.active || state.image ? 0 : -1;
+    const payment = (ready && $('mode').value === 'live' && state.synthetic !== true) || state.checkpoint === 'payment' || /(?:page de paiement|payment page)/i.test(state.stopLabel || '');
+    const reached = payment ? 4 : state.prefilled ? 3 : ready || state.checkpoint === 'selection' ? 2 : state.checkpoint === 'dates' ? 1 : state.active || state.image ? 0 : -1;
     const names = [t('Site ouvert', 'Site opened'), t('Dates', 'Dates'), t('Sélection', 'Selection'), t('Formulaire pré-rempli', 'Form prefilled'), t('Page de paiement', 'Payment page')];
     const head = node('div', 'bilan-head');
     head.append(node('strong', 'bilan-title', t('BILAN', 'ACTIVITY')), node('span', 'bilan-stat', t(`${reached + 1}/5 étapes`, `${reached + 1}/5 steps`)));
     box.append(head);
     for (const [index, label] of names.entries()) {
       const step = node('li', '', label);
-      const skipped = ready && index === 3 && !state.prefilled;
+      const skipped = payment && index === 3 && !state.prefilled;
       step.dataset.done = String(index <= reached && (index !== 3 || Boolean(state.prefilled)));
       step.dataset.skipped = String(skipped);
       if (skipped) { step.append(node('span', 'milestone-skip', t('non requis', 'not required'))); step.setAttribute('title', t('Pré-remplissage non requis pour atteindre cette page', 'Prefill not required to reach this page')); }
@@ -890,7 +891,8 @@
     const state = agentState[e.kind] ||= {status: 'pending', level: -1, frames: 0, progress: 0};
     if (typeof e.stale_frame === 'boolean') state.staleFrame = e.stale_frame;
     if (e.prefilled === true) state.prefilled = true;
-    if (['dates', 'selection'].includes(e.checkpoint)) state.checkpoint = e.checkpoint;
+    if (typeof e.synthetic === 'boolean') state.synthetic = e.synthetic;
+    if (['dates', 'selection', 'payment'].includes(e.checkpoint)) state.checkpoint = e.checkpoint;
     const message = String(e.message ?? ''), activity = e.type === 'step_progress' || e.status === 'queued' ? activityOf(e) : null;
     if (e.type === 'step_started') { state.started ||= Date.now(); state.level = Math.max(state.level, 0); }
     if (activity?.code === 'queued') { state.queued = true; state.started ||= Date.now(); state.level = Math.max(state.level, 0); if (!terminal.has(state.status)) state.status = 'running'; }

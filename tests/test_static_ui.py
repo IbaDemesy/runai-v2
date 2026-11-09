@@ -699,7 +699,7 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
   } else if (scenario === 'prefilled') {
     ids.agents.hidden = false;
     kinds.forEach(kind => ui.event({kind, type: 'step_started'}));
-    ui.event({kind: 'hotel', status: 'ready_for_payment', prefilled: true, stop_label: 'Récapitulatif avant paiement {"raw":1}', handoff_url: 'https://example.org/hotel/checkout'});
+    ui.event({kind: 'hotel', status: 'ready_for_payment', prefilled: true, checkpoint: 'payment', stop_label: 'Récapitulatif avant paiement {"raw":1}', handoff_url: 'https://example.org/hotel/checkout'});
     ui.event({kind: 'transport', status: 'prefilled', stop_label: 'Page passager remplie', handoff_url: 'https://example.net/trip'});
     ui.event({kind: 'registration', status: 'ready_for_payment', handoff_url: 'https://example.com/race'});
     const success = kind => card(kind).querySelector('.success');
@@ -713,10 +713,23 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     assert.ok(success('transport').textContent.includes('Continuer sur example.net'));
     assert.ok(success('registration').textContent.includes('Prêt avant paiement'));
     assert.equal(success('registration').querySelectorAll('.milestones li').length, 5);
-    assert.deepEqual(success('registration').querySelectorAll('.milestones li').map(x => x.dataset.done), ['true', 'true', 'true', 'false', 'true']);
-    assert.deepEqual(success('registration').querySelectorAll('.milestones li').map(x => x.dataset.skipped), ['false', 'false', 'false', 'true', 'false']);
-    assert.ok(success('registration').textContent.includes('non requis'));
-    assert.equal(success('registration').querySelector('.bilan-stat').textContent, '5/5 étapes');
+    assert.deepEqual(success('registration').querySelectorAll('.milestones li').map(x => x.dataset.done), ['true', 'true', 'true', 'false', 'false']);
+    assert.deepEqual(success('registration').querySelectorAll('.milestones li').map(x => x.dataset.skipped), ['false', 'false', 'false', 'false', 'false']);
+    assert.equal(success('registration').querySelector('.bilan-stat').textContent, '3/5 étapes');
+    for (const mode of ['demo', 'replay', 'live']) {
+      ids.mode.value = mode; ids.mode.onchange();
+      for (const synthetic of [true, false]) {
+        ui.event({kind:'hotel', status:'ready_for_payment', synthetic, handoff_url:'https://example.org/'});
+        const payment = mode === 'live' && !synthetic;
+        const steps = card('hotel').querySelectorAll('.milestones li');
+        assert.equal(steps[4].dataset.done, String(payment));
+        assert.equal(steps[3].dataset.skipped, String(payment));
+        assert.equal(card('hotel').querySelector('.bilan-stat').textContent, payment ? '5/5 étapes' : '3/5 étapes');
+        assert.ok(card('hotel').querySelector('.handoff-link').textContent.includes('Continuer sur example.org'));
+      }
+      ui.event({kind:'hotel', status:'ready_for_payment', synthetic:true, stop_label:'Page de paiement'});
+      assert.equal(card('hotel').querySelectorAll('.milestones li')[4].dataset.done, 'true');
+    }
     assert.equal(ids['mission-banner'].hidden, false);
   } else if (scenario === 'live-clean') {
     ids.agents.hidden = false;
