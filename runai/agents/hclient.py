@@ -785,6 +785,7 @@ class HAgentRunner:
         stall_forced = False
         prefill_identity = None
         prefill_observations = 0
+        prefill_current_url = None
         last_frame_at = None
         state = None
         force_window = None
@@ -1125,6 +1126,7 @@ class HAgentRunner:
                                 if kind == "answer_event":
                                     outcome = data.get("outcome", outcome)
                             if kind == "observation_event":
+                                prefill_current_url = None
                                 metadata = data.get("metadata") or {}
                                 last_observation_at = time.monotonic()
                                 if not observed_progress and _browser_error(metadata.get("url")):
@@ -1171,6 +1173,7 @@ class HAgentRunner:
                                 ):
                                     raise _PolicyBlocked
                                 result["final_url"] = observed
+                                prefill_current_url = observed
                                 if _checkpoint_matches(checkpoint, "prefill_patterns", observed):
                                     identity = _page_identity(observed)
                                     prefill_observations = (
@@ -1229,7 +1232,7 @@ class HAgentRunner:
                     if (state not in _TERMINAL | {"queued", "pending"}
                             and forced_at is None
                             and _checkpoint_matches(checkpoint, "prefill_patterns",
-                                                    result.get("final_url"))
+                                                    prefill_current_url)
                             and (max_observed_steps >= max(1, max_steps - PREFILL_STEP_MARGIN)
                                  or prefill_observations >= PREFILL_OBSERVATION_LIMIT)):
                         terminal_state = None

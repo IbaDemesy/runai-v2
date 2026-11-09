@@ -330,6 +330,34 @@ def test_prefill_threshold_uses_available_answer_before_forcing(source, valid):
     assert provider.cancelled
 
 
+@pytest.mark.parametrize("skipped", ["about:blank", "chrome://newtab/", "", None])
+@pytest.mark.parametrize("same_batch", [False, True])
+def test_skipped_observation_does_not_force_previous_prefill_page(skipped, same_batch):
+    task = {**TASK, "max_steps": 60, "runner_profile": {"full_name": "Test Runner"},
+            "prefill_fields": ["full_name"], "checkpoint": {
+                "url_patterns": ["registration"], "beyond_patterns": [],
+                "prefill_patterns": ["registration"],
+            }}
+    skipped_event = observation()
+    skipped_event["data"]["metadata"]["url"] = skipped
+    first = [observation(), skipped_event] if same_batch else [observation()]
+    batches = [batch(*first, metrics={"steps": 50 if same_batch else 10})]
+    if not same_batch:
+        batches.append(batch(skipped_event, metrics={"steps": 50}))
+    batches.extend([batch(metrics={"steps": 50}), batch(state="completed", answer=ANSWER)])
+    provider = CheckpointProvider(batches)
+
+    def handle(request):
+        if request.method == "GET" and request.url.path == "/api/v2/sessions/test-session":
+            provider.requests.append(request)
+            return httpx.Response(200, json={"status": "running", "latest_answer": None})
+        return provider(request)
+
+    result, _ = run(handle, task)
+    assert not any(r.url.path.endswith("/force_answer") for r in provider.requests)
+    assert result["status"] == "ready_for_payment", result
+
+
 @pytest.mark.parametrize("prefill", [False, True])
 def test_prefill_observation_counter_does_not_affect_other_pages(prefill):
     task = {**TASK, "max_steps": 60, "runner_profile": {"full_name": "Test Runner"},
