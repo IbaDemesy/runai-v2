@@ -509,6 +509,21 @@ def test_prefill_prompt_explicitly_overrides_legacy_personal_data_ban():
     assert "Never pay, book, submit a final form" in body["overrides"]["agent.instructions"]
 
 
+@pytest.mark.parametrize("untouched,entered,valid", [
+    (True, None, True), (None, True, True), (False, True, True),
+    (None, None, False), (False, False, False), ("true", "true", False),
+])
+def test_prefill_requires_explicit_participant_data_disposition(untouched, entered, valid):
+    task = {**TASK, "runner_profile": {"full_name": "Test Runner"},
+            "prefill_fields": ["full_name"]}
+    verification = {**ANSWER["verification"], "participant_data_untouched": untouched}
+    answer = {**ANSWER, "verification": verification, "personal_data_entered": entered}
+    failures = _verification_failures(
+        task, answer, HANDOFF, HANDOFF, HANDOFF, [({"race.example.org"}, ("/",))],
+    )
+    assert failures == ([] if valid else ["participant_data_disposition"])
+
+
 @pytest.mark.parametrize("url,unsafe", [
     ("https://secure.booking.com/book.html?checkin=2027-04-04&checkout=2027-04-06", False),
     ("https://secure.booking.com/book.html?checkout=2027-04-06&checkin=2027-04-04", False),

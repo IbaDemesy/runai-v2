@@ -354,6 +354,13 @@ def _verification_failures(task, answer, handoff, observed, frame_seen, reviews)
     if any((task.get("runner_profile") or {}).get(key)
            for key in task.get("prefill_fields", [])):
         fields = tuple(key for key in fields if key != "participant_data_untouched")
+        if task.get("kind") == "registration" and not (
+            isinstance(verification, dict) and (
+                verification.get("participant_data_untouched") is True
+                or answer.get("personal_data_entered") is True
+            )
+        ):
+            failures.append("participant_data_disposition")
     if not expected or not isinstance(verification, dict) or not fields:
         return ["verification_object"]
     if not _complete_expected(task):
