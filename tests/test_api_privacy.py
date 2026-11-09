@@ -13,6 +13,37 @@ SENTINELS = ["4111 1111 1111 1111", "4111-1111-1111-1111",
 TEXT = "budget 800 € le 2027-04-04 " + " ; ".join(SENTINELS)
 
 
+@pytest.mark.parametrize("url", [
+    "https://in.njuko.com/generali-geneve-marathon-2027-1782304695994",
+    "https://in.njuko.com/wizz-air-milano-marathon-20271776152378557?currentPage=form_individual-form",
+    "https://in.njuko.com/w/8a51dd786fba3d1be53c9a97",
+])
+def test_public_njuko_url_survives_api_sanitizer(url):
+    assert sanitize(url, "handoff_url") == url
+
+
+@pytest.mark.parametrize("diagnostic", [
+    "other.example.org/flights", "in.njuko.com/w/8a51dd786fba3d1be53c9a97",
+])
+def test_public_redirect_diagnostic_survives_without_query_or_fragment(diagnostic):
+    assert sanitize(diagnostic, "blocked_url_host") == diagnostic
+
+
+@pytest.mark.parametrize("diagnostic", [
+    "other.example.org/flights?token=secret", "other.example.org/flights#private",
+    "localhost/private", "127.0.0.1/private", "runner@example.org/private",
+    "other.example.org/+33-6-12-34-56-78", "other.example.org/runner@example.org",
+    "other.example.org/w/8a51dd786fba3d1be53c9a97", "https://other.example.org/flights",
+])
+def test_private_redirect_diagnostic_is_removed(diagnostic):
+    from runai.models import StepResult
+
+    fields = {"kind": "transport", "status": "blocked", "summary": "Stopped", "synthetic": False,
+              "blocked_url_host": diagnostic}
+    assert StepResult(**fields).blocked_url_host is None
+    assert sanitize(diagnostic, "blocked_url_host") is None
+
+
 @pytest.mark.parametrize("secret", SENTINELS)
 @pytest.mark.parametrize("location", ["query", "path"])
 def test_url_fields_reject_sensitive_components(secret, location):

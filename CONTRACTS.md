@@ -314,3 +314,56 @@ frame, progress or final URL; 45 s or 3 such observations before the first
 reviewed page end blocked `provider_error`. A session that fails after reviewed
 progress ends blocked `session_failed` with the last reviewed public URL as
 handoff.
+
+### P11 H deterministic observed checkpoints (round 5)
+A task and each P7 alternative may carry optional
+`checkpoint: {url_patterns: list[str], beyond_patterns: list[str]}`.
+Both lists contain case-insensitive regexes matched against the **unquoted
+path + '?' + query** of a policy-reviewed observed URL, never a suggested URL.
+`url_patterns` must be nonempty. Invalid types/regexes disable the checkpoint
+and fail closed for READY when the key is present. Tasks without the key retain
+normal verification. Patterns are private stop-page hints in H's prompt, never
+user-facing messages.
+
+At an observed checkpoint the client emits its genuine observation frame,
+requests `POST /sessions/{id}/force_answer` once, then waits at most 60 seconds.
+READY still requires all existing kind-specific `_verified` evidence, a frame
+for the final observed URL, and handoff == the observed checkpoint URL. A later
+page outside that checkpoint cannot be READY. At `max_steps-3` (or an accepted
+provider step_limit) force_answer is requested once, with <=45 seconds to answer.
+The max step cap remains 80. No synthetic frame or unobserved claim establishes
+readiness. These are observation/cancellation boundaries, not a tool interceptor.
+
+`beyond_patterns` take precedence: cancel immediately, block `policy_denied`
+(or `unsafe_claim` for a payment/booking admission), never READY. Preserve the
+last reviewed checkpoint URL for handoff if one was observed; otherwise existing
+policy-checked fallback rules apply. Never enter data, submit forms, consent,
+book or pay to reach a checkpoint.
+
+H startup reads status from create/changes. `queued`/`pending` pause the 45-second
+and 3-blank-observation startup limits and the per-agent 10-minute active budget.
+Emit "En attente d'un navigateur disponible" once; total queue wait is capped at
+8 minutes, then blocked provider_error. Each create (including one pre-progress
+retry) gets a fresh Idempotency-Key. Browser-internal URLs (`about:`, `chrome:`,
+`chrome-error:`, `data:`, `blob:` and empty) are blank observations, not redirects.
+Real metrics.steps emit monotonic friendly "Étape N" activity, never fake frames.
+App/LiveRunner continue to launch all three kinds concurrently; quota queueing
+does not serialize a mission. Queue time does not consume the shared P7 budget.
+
+`StepResult.blocked_url_host: str|null` is additive: the scrubbed public host +
+path of an unreviewed redirect, **without scheme, query, fragment, credentials
+or private identifiers**. It may appear in internal step logs, never raw in UI
+copy. Invalid/private values are discarded by the model and API sanitizer.
+
+### P12 Gateway city and fragment-routed starts (round 5)
+`expected.gateway_city: str` is optional for hotel/transport. Verification city
+may match expected.city **or** gateway_city using existing accent/case-normalized
+substring equality; no arbitrary third city is permitted. All dates, travelers,
+origin and selection evidence remain required and unchanged.
+
+`keep_fragment: true` opts a task into a fragment-routed start URL (e.g. NS
+International `#/...`). Retain only a public fragment whose route and query
+survive scrubbing unchanged, with the fragment-less URL policy-reviewed and
+unchanged by scrub_url. Sensitive/changed fragments or absent/false flags strip
+the fragment as before. This never widens allowed hosts/paths. No raw fragment
+or private URL is exposed as progress copy.

@@ -51,15 +51,19 @@
   directly to main. Keep main green; merge only with green CI, including
   tests/test_journey_e2e.py, and reviewed safety/evidence boundaries.
 - Read CONTRACTS.md, your ticket under docs/tickets/ and docs/tickets/index.json
-  first. index.json is the authoritative current queue (round 4: R4-01..R4-05);
+  first. index.json is the authoritative current queue (round 5: R5-01..R5-05);
   R2-*/R1-*/T* ticket files are history and grant no current scope. Touch only the
   ticket's allowed files; otherwise stop and request a scope amendment.
-- Round 4: R4-01..R4-05 merge in any order. R4-01 owns core integration
+- Round 5: R5-01..R5-05 merge in any order. R5-01 owns core integration
   (app/models/providers and hclient/scrub), CONTRACTS.md and shared docs; its
-  PR-A lands the H runtime fixes and docs, and its PR-B runs final integrated
-  live acceptance after R4-02..R4-05 merge, on a rebased branch. Code against
+  PR-A lands queue-aware H startup, P11 checkpoints/force_answer, P12 gateway
+  verification/fragments and redirect diagnostics; its PR-B runs final integrated
+  live acceptance after R5-02..R5-05 merge, on a rebased branch. Code against
   the pinned additive interfaces in CONTRACTS.md; import sibling modules lazily
   and fail closed when they are missing.
+- H organization concurrency is 3. Check quota before a ticket's live smoke,
+  use at most one H session per ticket; final acceptance runs one mission at
+  a time (three agents parallel within it). Queue wait is capped at eight minutes.
 - Each ticket writes docs/handoff/<id>.md with changes, checks (pasted
   output), evidence, blockers and next steps; only the integration ticket edits
   the shared HANDOFF.md.

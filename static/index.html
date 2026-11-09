@@ -72,14 +72,18 @@
       </section>
       <section id="agents" hidden aria-label="Les trois agents">
         <div class="agents-heading">
-          <p class="eyebrow">VOTRE ÉQUIPE EN ACTION</p>
-          <h2>Trois agents. Un départ.</h2>
-          <p>Préparation en parallèle · arrêt avant paiement</p>
+          <div class="agents-title">
+            <p class="eyebrow"><span class="live-dot" aria-hidden="true"></span>VOTRE ÉQUIPE EN ACTION</p>
+            <h2>Trois agents. Un départ.</h2>
+            <p class="mission-recap"></p>
+            <p class="agents-sub">Préparation en parallèle · arrêt avant paiement</p>
+          </div>
+          <dl class="live-count" aria-label="Progression des agents" aria-live="polite"></dl>
         </div>
         <div id="mission-banner" role="status" hidden></div>
         <section id="coverage" hidden aria-live="polite"></section>
         <div class="agent-grid">
-          <article class="agent" data-agent="registration" data-status="pending">
+          <article class="agent" data-agent="registration" data-status="pending" data-phase="pending">
             <header>
               <span class="agent-icon" aria-hidden="true">↗</span>
               <div class="agent-title"><h3>Dossard</h3><p class="site">Site choisi au lancement</p></div>
@@ -89,12 +93,13 @@
             <div class="stage">
               <div class="preview" data-state="unavailable">En attente de la première capture</div>
               <span class="live-badge" hidden></span>
+              <button class="focus-toggle" type="button" aria-pressed="false" aria-label="Agrandir l’agent Dossard">⤢</button>
             </div>
             <p class="frame-meta" aria-live="polite">Aucune image reçue</p>
             <div class="steps" aria-live="polite">L’agent se prépare.</div>
             <div class="handoff"></div>
           </article>
-          <article class="agent" data-agent="hotel" data-status="pending">
+          <article class="agent" data-agent="hotel" data-status="pending" data-phase="pending">
             <header>
               <span class="agent-icon" aria-hidden="true">⌂</span>
               <div class="agent-title"><h3>Hôtel</h3><p class="site">Site choisi au lancement</p></div>
@@ -104,12 +109,13 @@
             <div class="stage">
               <div class="preview" data-state="unavailable">En attente de la première capture</div>
               <span class="live-badge" hidden></span>
+              <button class="focus-toggle" type="button" aria-pressed="false" aria-label="Agrandir l’agent Hôtel">⤢</button>
             </div>
             <p class="frame-meta" aria-live="polite">Aucune image reçue</p>
             <div class="steps" aria-live="polite">L’agent se prépare.</div>
             <div class="handoff"></div>
           </article>
-          <article class="agent" data-agent="transport" data-status="pending">
+          <article class="agent" data-agent="transport" data-status="pending" data-phase="pending">
             <header>
               <span class="agent-icon" aria-hidden="true">→</span>
               <div class="agent-title"><h3>Transport</h3><p class="site">Site choisi au lancement</p></div>
@@ -119,6 +125,7 @@
             <div class="stage">
               <div class="preview" data-state="unavailable">En attente de la première capture</div>
               <span class="live-badge" hidden></span>
+              <button class="focus-toggle" type="button" aria-pressed="false" aria-label="Agrandir l’agent Transport">⤢</button>
             </div>
             <p class="frame-meta" aria-live="polite">Aucune image reçue</p>
             <div class="steps" aria-live="polite">L’agent se prépare.</div>

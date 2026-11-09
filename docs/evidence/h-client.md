@@ -1,5 +1,58 @@
 # H client: private screenshot transport and evidence boundary
 
+## R5-01 runtime integration — 2026-11-09
+
+- Queue-aware startup reads nested create status and changes status. Pending/
+  queued browsers emit one honest waiting line, pause the startup/active clocks,
+  and are capped at eight total queued minutes. Creates and pre-progress retry
+  use independent Idempotency-Key values; three mission agents remain concurrent.
+- P11 compiles task/alternative stop and beyond patterns, case-insensitively
+  against decoded observed path/query. Checkpoint frames precede force_answer;
+  READY requires final checkpoint URL equality and unchanged kind verification.
+  Beyond pages cancel immediately and preserve only a reviewed checkpoint link.
+  Step budgets request an answer three steps early; waits are bounded.
+- P12 permits only the race city or declared gateway city, and preserves only
+  scrub-clean opted-in fragment routes with reviewed fragment-less URLs.
+- Redirect diagnostics contain public host/path only, never query/fragment or
+  keys; browser-internal URLs are blanks. UI progress contains only friendly
+  messages, with monotonic provider metrics steps. No images are fabricated.
+- Njuko's known public event/widget identifiers survive URL and API scrubbing;
+  query/text contacts and arbitrary opaque paths remain redacted. Real H may
+  serialize `verification` as JSON text despite the object answer schema: decode
+  valid object JSON before normal verification; malformed values fail closed.
+
+Official API references reviewed before POST changes:
+[create/idempotency](https://hub.hcompany.ai/agents-api/sessions/create.md),
+[changes/status](https://hub.hcompany.ai/agents-api/sessions/changes.md),
+[force_answer](https://hub.hcompany.ai/agents-api/sessions/force-answer.md).
+force_answer asks an agent to answer on its next step and can restart a finished
+session; the client cancels after consuming a forced final answer. Observation
+monitoring is not a tool-level interception guarantee.
+
+### Live smoke boundary
+
+2026-11-09: three sequential single-session read/prepare-only Milan registration
+smokes, quota checked before each (limit 3, available 3). Njuko is the reviewed
+official registration platform; its allowed owner-rule review permits only this
+public preparation scope and in-session screenshots. No captcha bypass, data,
+consent, submission, booking or payment was attempted. No images or private H
+ids/URLs were published or committed.
+
+Both started pending, then running at 7.2 seconds, showed genuine changing
+frames and reached the untouched participant form:
+`https://in.njuko.com/wizz-air-milano-marathon-20271776152378557?currentPage=form_individual-form`.
+force_answer returned 202 once in each. First: four frames, max inter-frame gap
+18.5 s, 48.0 s elapsed. Second: six frames, max gap 22.8 s, 74.6 s elapsed.
+Both honestly ended blocked provider_error because H returned string-valued
+verification, exposing a pre-existing AttributeError in blocked classification.
+This is fixed with guarded JSON decoding and offline malformed-type regressions.
+Neither is claimed as READY. A third smoke after the fix reached the same
+untouched participant form and returned ready_for_payment with handoff exactly
+equal to that observed checkpoint, force_answer 202 once, six real frames,
+25.3 s max inter-frame gap, 78.7 s total; pending at 1.7 s, running at 7.1 s.
+This is one registration-only runtime success, NOT a three-agent UI success.
+Integrated UI acceptance is reserved for PR-B after the other R5 tickets merge.
+
 ## R4-01 runtime changes — 2026-11-09
 
 Offline synthetic regression evidence only; no live certification.

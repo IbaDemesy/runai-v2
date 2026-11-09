@@ -13,6 +13,8 @@ from runai.agents.hclient import (
     GUARDRAILS,
     HAgentRunner,
     HUnavailable,
+    _checkpoint,
+    _checkpoint_matches,
     _payment_claim,
     _policy,
     _PolicyBlocked,
@@ -85,6 +87,8 @@ class Provider:
             })
         if request.method == "DELETE":
             return httpx.Response(204)
+        if path.endswith("/force_answer"):
+            return httpx.Response(409)
         if path.endswith("/changes"):
             self.polls += 1
             return httpx.Response(200, json={
@@ -1513,4 +1517,318 @@ def test_newest_observation_supersedes_older_pending_frames():
     assert fetched == ["/old", "/newest", "/last"]
     assert [event["image"] for event in events if event["type"] == "live_frame"] == [
         b"/newest", b"/last",
+    ]
+
+
+CHECKPOINT = {"url_patterns": [r"^/registration(?:\?|$)"],
+              "beyond_patterns": [r"/pay(?:/|\?|$)", r"/passengers"]}
+
+
+def test_synthetic_checkpoint_fixture_matches_casefolded_unquoted_path_query():
+    fixture = json.loads((Path(__file__).parent / "fixtures/h_checkpoint_observations.json").read_text())
+    assert fixture["synthetic"] is True
+    checkpoint = _checkpoint({"checkpoint": fixture["checkpoint"]})
+    for row in fixture["observations"]:
+        assert _checkpoint_matches(checkpoint, "url_patterns", row["url"]) == row["stop"]
+        assert _checkpoint_matches(checkpoint, "beyond_patterns", row["url"]) == row["beyond"]
+
+
+class CheckpointProvider(Provider):
+    def __init__(self, batches, **kwargs):
+        super().__init__(**kwargs)
+        self.batches = iter(batches)
+
+    def __call__(self, request):
+        if request.url.path.endswith("/force_answer"):
+            self.requests.append(request)
+            return httpx.Response(202)
+        if request.url.path.endswith("/changes"):
+            self.requests.append(request)
+            return httpx.Response(200, json=next(self.batches))
+        return super().__call__(request)
+
+
+def batch(*events, state="running", **kwargs):
+    return {"status": state, "new_events": list(events), **kwargs}
+
+
+@pytest.mark.parametrize("create_state", ["queued", {"status": "pending"}])
+def test_queued_120_seconds_then_running_does_not_use_startup_budget(monkeypatch, create_state):
+    now = 0
+    provider = Provider()
+
+    def handle(request):
+        nonlocal now
+        response = provider(request)
+        if request.method == "POST":
+            return httpx.Response(201, json={"id": "test-session", "status": create_state})
+        if request.url.path.endswith("/changes"):
+            now = [120, 121, 122][provider.polls - 1]
+            if provider.polls == 1:
+                return httpx.Response(200, json=batch(*[blank_observation()] * 4, state="queued"))
+            return httpx.Response(200, json=batch(
+                *([observation()] if provider.polls == 2 else []),
+                state="completed" if provider.polls == 3 else "running", answer=ANSWER,
+            ))
+        return response
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    result, emitted = run(handle)
+    assert result["status"] == "ready_for_payment"
+    assert sum(e.get("message") == "En attente d'un navigateur disponible" for e in emitted) == 1
+    assert provider.requests[0].headers["Idempotency-Key"]
+
+
+@pytest.mark.parametrize("end_state", ["queued", "running"])
+def test_queue_wait_over_eight_minutes_is_blocked(monkeypatch, end_state):
+    now = 0
+    provider = Provider()
+
+    def handle(request):
+        nonlocal now
+        response = provider(request)
+        if request.method == "POST":
+            return httpx.Response(201, json={"id": "test-session", "status": "queued"})
+        if request.url.path.endswith("/changes"):
+            now = 481
+            return httpx.Response(200, json=batch(state=end_state))
+        return response
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    result, _ = run(handle)
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == "provider_error"
+    assert provider.cancelled
+
+
+def test_alternatives_share_eight_minute_total_queue_limit(monkeypatch):
+    now, creates = 0, 0
+    provider = Provider()
+
+    def handle(request):
+        nonlocal now, creates
+        response = provider(request)
+        if request.method == "POST" and request.url.path.endswith("/sessions"):
+            creates += 1
+            return httpx.Response(201, json={"id": "test-session", "status": "queued"})
+        if request.url.path.endswith("/changes"):
+            if creates == 1:
+                now = 300
+                return httpx.Response(200, json=batch(blank_observation("https://evil.example/")))
+            now = 481
+            return httpx.Response(200, json=batch(state="queued"))
+        return response
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    result, _ = run(handle, {**TASK, "alternatives": [dict(TASK), dict(TASK)]})
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == "provider_error"
+    assert creates == 2 and provider.cancelled
+
+
+def test_checkpoint_frame_precedes_exactly_one_force_and_verified_answer():
+    provider = CheckpointProvider([
+        batch(observation()), batch(observation(), metrics={"steps": 78}),
+        batch(state="completed", answer=ANSWER),
+    ])
+    result, events = run(provider, {**TASK, "checkpoint": CHECKPOINT})
+    assert result["status"] == "ready_for_payment"
+    assert result["handoff_url"] == HANDOFF
+    assert sum(r.url.path.endswith("/force_answer") for r in provider.requests) == 1
+    assert any(e["type"] == "live_frame" for e in events)
+    prompt = json.loads(provider.requests[0].content)["messages"][0]["message"]
+    assert "Stop page hints" in prompt
+    assert not any("url_patterns" in e.get("message", "") for e in events)
+
+
+def test_completed_checkpoint_consumes_existing_answer_without_restarting_browser():
+    provider = CheckpointProvider([
+        batch(observation(), state="completed", answer=ANSWER),
+        batch(state="completed", answer=ANSWER),
+    ])
+    result, events = run(provider, {**TASK, "checkpoint": CHECKPOINT})
+    assert result["status"] == "ready_for_payment"
+    assert result["handoff_url"] == HANDOFF
+    assert any(e["type"] == "live_frame" for e in events)
+    assert not any(r.url.path.endswith("/force_answer") for r in provider.requests)
+
+
+def test_step_limit_tightens_prior_checkpoint_answer_wait_to_45_seconds(monkeypatch):
+    now, polls = 0, 0
+    provider = CheckpointProvider([
+        batch(observation()), batch(metrics={"steps": 77}), batch(metrics={"steps": 78}),
+    ])
+
+    def handle(request):
+        nonlocal now, polls
+        if request.url.path.endswith("/changes"):
+            now = [0, 10, 46][polls]
+            polls += 1
+        return provider(request)
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    result, _ = run(handle, {**TASK, "checkpoint": CHECKPOINT})
+    assert result["reason_code"] == "step_limit"
+    assert sum(r.url.path.endswith("/force_answer") for r in provider.requests) == 1
+    assert provider.cancelled and now == 46
+
+
+@pytest.mark.parametrize("verification,ready", [
+    (json.dumps(ANSWER["verification"]), True),
+    ("not JSON", False), ("[]", False), ("null", False), ([], False), (42, False),
+])
+def test_provider_stringified_verification_is_decoded_or_fails_closed(verification, ready):
+    provider = CheckpointProvider([
+        batch(observation()),
+        batch(state="completed", answer={**ANSWER, "verification": verification}),
+    ])
+    result, _ = run(provider, {**TASK, "checkpoint": CHECKPOINT})
+    assert result["status"] == ("ready_for_payment" if ready else "blocked")
+    assert result["error"] is None if ready else result["error"] == "Verification unavailable or site blocked"
+
+
+@pytest.mark.parametrize("claim", [False, True])
+@pytest.mark.parametrize("prior_checkpoint", [False, True])
+def test_beyond_checkpoint_cancels_and_never_ready(claim, prior_checkpoint):
+    beyond = blank_observation("https://race.example.org/pay/payments?token=secret")
+    batches = [batch(observation())] if prior_checkpoint else []
+    batches += [batch(beyond, answer={**ANSWER, "booking_executed": True} if claim else ANSWER)]
+    provider = CheckpointProvider(batches)
+    result, _ = run(provider, {**TASK, "checkpoint": CHECKPOINT})
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == ("unsafe_claim" if claim else "policy_denied")
+    assert result["handoff_url"] == (HANDOFF if prior_checkpoint else None)
+    assert provider.cancelled
+
+
+@pytest.mark.parametrize("checkpoint", [None, {}, [], {"url_patterns": ["("], "beyond_patterns": []},
+    {"url_patterns": [True], "beyond_patterns": []},
+    {"url_patterns": [""], "beyond_patterns": []},
+    {"url_patterns": [r"/other"], "beyond_patterns": []}])
+def test_invalid_or_unmatched_present_checkpoint_fails_closed(checkpoint):
+    result, _ = run(Provider(), {**TASK, "checkpoint": checkpoint})
+    assert result["status"] == "blocked"
+
+
+@pytest.mark.parametrize("from_error", [False, True])
+def test_step_budget_forces_answer_before_step_limit(from_error):
+    provider = CheckpointProvider([
+        batch(observation(), metrics={"steps": 77}, **(
+            {"error_code": "step_limit", "status": "failed"} if from_error else {}
+        )), batch(state="completed", answer=ANSWER),
+    ])
+    result, _ = run(provider)
+    assert result["status"] == "ready_for_payment"
+    assert sum(r.url.path.endswith("/force_answer") for r in provider.requests) == 1
+
+
+def test_force_answer_wait_is_bounded(monkeypatch):
+    now = 0
+    provider = CheckpointProvider([batch(observation(), metrics={"steps": 77}), batch()])
+
+    def handle(request):
+        nonlocal now
+        if request.url.path.endswith("/changes") and any(
+            r.url.path.endswith("/force_answer") for r in provider.requests
+        ):
+            now = 46
+        return provider(request)
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    result, _ = run(handle)
+    assert result["reason_code"] == "step_limit"
+    assert provider.cancelled
+
+
+@pytest.mark.parametrize("kind", ["hotel", "transport"])
+@pytest.mark.parametrize("city,ready", [("Amsterdam", True), ("Den Haag", True), ("Rotterdam", False)])
+def test_gateway_city_is_an_additional_expected_city_only(kind, city, ready):
+    expected = {"city": "Den Haag", "gateway_city": "Amsterdam", "origin_city": "Paris",
+                "arrival_date": "2027-04-03", "departure_date": "2027-04-05", "travelers": 1}
+    answer = {**ANSWER, "verification": {
+        **expected, "city": city, "selected": True, "next_safe_boundary": "guest data",
+        "room": "Standard", "rate": "Flex", "total": "120 EUR", "fare": "Basic",
+        "outbound_selected": True, "return_selected": True,
+    }}
+    result, _ = run(Provider(answer=answer), {**TASK, "kind": kind, "expected": expected})
+    assert result["status"] == ("ready_for_payment" if ready else "blocked")
+
+
+@pytest.mark.parametrize("flag,fragment,kept", [
+    (True, "/booking/train?from=Paris&to=Amsterdam", True),
+    (False, "/booking/train?from=Paris", False),
+    (True, "/booking/train?token=private", False),
+    (True, "/booking/runner@example.org", False),
+])
+def test_keep_fragment_only_preserves_public_routes(flag, fragment, kept):
+    provider = Provider()
+    start = START + "#" + fragment
+    run(provider, {**TASK, "start_url": start, "keep_fragment": flag})
+    requested = json.loads(provider.requests[0].content)["overrides"][
+        "agent.environments[kind=web].start_url"]
+    assert requested == (start if kept else START)
+
+
+def test_retry_create_uses_new_idempotency_key():
+    provider = Provider(status="failed", events=[])
+    run(provider)
+    keys = [r.headers["Idempotency-Key"] for r in provider.requests
+            if r.method == "POST" and r.url.path.endswith("/sessions")]
+    assert len(keys) == 2 and len(set(keys)) == 2
+
+
+def test_unreviewed_redirect_has_public_host_path_diagnostic_only():
+    provider = Provider(events=[blank_observation("https://other.example.org/flights?email=a@b.fr#x")])
+    result, emitted = run(provider)
+    assert result["reason_code"] == "unreviewed_redirect"
+    assert result["blocked_url_host"] == "other.example.org/flights"
+    assert "other.example.org/flights" in repr(result["steps"])
+    assert not any("other.example.org" in e.get("message", "") for e in emitted)
+    assert "a@b.fr" not in repr(result)
+
+
+def test_redirect_diagnostic_never_contains_current_api_key():
+    result, _ = run(Provider(events=[blank_observation("https://evil.example/test-api-key")]))
+    assert result["reason_code"] == "unreviewed_redirect"
+    assert result["blocked_url_host"] is None
+    assert "test-api-key" not in repr(result)
+
+
+def test_checkpoint_final_answer_cannot_verify_a_different_final_page():
+    other = HANDOFF + "/other"
+    provider = CheckpointProvider([
+        batch(observation()),
+        batch(blank_observation(other), state="completed", answer={**ANSWER, "handoff_url": other}),
+    ])
+    result, _ = run(provider, {**TASK, "checkpoint": CHECKPOINT})
+    assert result["status"] == "blocked"
+
+
+def test_present_checkpoint_is_applied_to_alternative_not_primary():
+    bad = Provider(events=[blank_observation("https://evil.example/")])
+    good = CheckpointProvider([batch(observation()), batch(state="completed", answer=ANSWER)])
+    result, _ = run(alternative_provider([bad, good]), task={
+        **TASK, "alternatives": [{**TASK, "checkpoint": CHECKPOINT}],
+    })
+    assert result["status"] == "ready_for_payment"
+    assert sum(r.url.path.endswith("/force_answer") for r in good.requests) == 1
+
+
+@pytest.mark.parametrize("url", ["about:srcdoc", "chrome://newtab", "chrome-error://chromewebdata/",
+                                      "data:text/html,", "blob:https://race.example.org/id"])
+def test_browser_internal_urls_are_blank_not_redirects(url):
+    provider = Provider(events=[blank_observation(url), observation()])
+    result, _ = run(provider)
+    assert result["status"] == "ready_for_payment"
+    assert not result.get("blocked_url_host")
+
+
+def test_step_progress_is_monotonic_and_uses_only_provider_metrics():
+    provider = CheckpointProvider([batch(observation(), metrics={"steps": n}) for n in [1, 1, 3, 2]] + [
+        batch(state="completed", answer=ANSWER),
+    ])
+    result, events = run(provider)
+    assert result["status"] == "ready_for_payment"
+    assert [e["message"] for e in events if e.get("message", "").startswith("Étape")] == [
+        "Étape 1", "Étape 3",
     ]
