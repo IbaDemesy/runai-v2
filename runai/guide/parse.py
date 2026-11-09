@@ -285,7 +285,7 @@ def parse_intent(text: str, *, today: date) -> Intent:
         if match:
             setattr(result, field, int(match[1]))
     budget = re.search(r"\bbudget\s+(-?\d+)", t)
-    travelers = re.search(r"\ba\s+(\d+)\b", t)
+    travelers = re.search(r"\ba\s+(\d+)\b(?![.,]\d|\s*(?:km|k|mi|miles?|m)\b)", t)
     if budget:
         result.budget_eur = int(budget[1])
     if travelers:

@@ -67,6 +67,7 @@ def test_distance_contradiction_pills_search_selected_format(text, choice, km, o
     state, turn = run(e.step(state, {"suggestion_id": pill.id}))
     assert calls and all(h["distance"] == choice and h["city"] == "Lisbon" for _, h in calls)
     assert turn.error != "distance_conflict"
+    assert state.draft.travelers == 1
     if outcome == "normal":
         assert any(r.distance_km == km for r in state.candidates)
     else:

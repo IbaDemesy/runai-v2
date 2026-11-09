@@ -7,6 +7,13 @@ from runai.guide.parse import bare_city, country_name, parse_intent
 TODAY = date(2026, 9, 1)
 
 
+@pytest.mark.parametrize("unit", ["km", "k", "mi", "mile", "miles", "m"])
+@pytest.mark.parametrize("text", ["A 5 {unit} race", "une course à 5 {unit}",
+                                "A 5.5 {unit} race", "une course à 5,5 {unit}"])
+def test_distance_numbers_are_not_traveler_counts(text, unit):
+    assert parse_intent(text.format(unit=unit), today=TODAY).travelers is None
+
+
 @pytest.mark.parametrize("text", ["un semi à Amsterdm", "a half marathon in Amsterdm"])
 def test_amsterdam_typo_keeps_named_city(text):
     intent = parse_intent(text, today=TODAY)
