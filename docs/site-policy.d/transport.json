@@ -1,0 +1,267 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "id": "sbb-ch",
+      "name": "sbb.ch",
+      "purposes": [
+        "transport"
+      ],
+      "scopes": [
+        {
+          "host": "sbb.ch",
+          "path_prefix": "/"
+        },
+        {
+          "host": "www.sbb.ch",
+          "path_prefix": "/"
+        }
+      ],
+      "terms_urls": [
+        "https://www.sbb.ch/en/meta/legallines/legal-information.html"
+      ],
+      "reviewed_at": "2026-11-09",
+      "expires_at": "2027-02-07",
+      "reviewed_sections": "Restrictions on access; Use of SBB Websites",
+      "justification": "No express robot/automated-agent clause found; copying/reproduction is limited to personal non-commercial use or needs written consent, so the terms are materially ambiguous for agents. Allowed read-only (no forms, accounts, consent or payment; screenshots in-session only, never published) by owner decision of 2026-11-08: prefer sites whose terms do not forbid agents. Note: Official footer legal-information page fetched. No explicit automation clause found here; copying/public/commercial use restricted. R4-02 normal-browser check 2026-11-09: Individual pages may be saved; public/commercial reuse requires consent. No express robot prohibition found. Tested link did not show a round-trip fare list with party. Existing owner rule is not express permission; no publication, forms, accounts, consent or payment. See docs/evidence/site-policy.md. R6-02 2026-11-09 H showed dated outbound numeric fares for Paris-Milan, Lyon-Milan, Geneva-Milan and Geneva-Zurich under the default Half Fare display. Not proof of full-adult/round-trip preparation. Paris-Zurich had no numeric prices; Geneva-Lucerne retained a loading skeleton/consent banner. Ticket-offer checkpoint is guessed, not live verified.",
+      "automation": "allowed_owner_rule",
+      "screenshot_scope": "in_session_only",
+      "navigation_hosts": [],
+      "registration_observations": [],
+      "adapters": [
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "traveler_counts": [
+            1
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "destination_countries": [
+            "IT"
+          ],
+          "url_template": "https://www.sbb.ch/en?stops={origin_station_name}_I{origin_station_code}~{station_name}_I{station_code}&day={arrival_date}&time=08_00&moment=dep",
+          "origin_places": {
+            "paris": {
+              "origin_station_name": "Paris Gare de Lyon",
+              "origin_station_code": "8768600"
+            }
+          },
+          "places": {
+            "milan": {
+              "station_name": "Milano Centrale",
+              "station_code": "8301700"
+            }
+          },
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Ticket-offer checkpoint is an unverified guess; &trip= is only a connection preview, never READY.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))[^?]*/en/buying/pages/(?:offerte|angebot)/(?:offerte|angebot)\\.xhtml(?:\\?|$)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09"
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "traveler_counts": [
+            1
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "destination_countries": [
+            "IT"
+          ],
+          "url_template": "https://www.sbb.ch/en?stops={origin_station_name}_I{origin_station_code}~{station_name}_I{station_code}&day={arrival_date}&time=08_00&moment=dep",
+          "origin_places": {
+            "lyon": {
+              "origin_station_name": "Lyon Part Dieu",
+              "origin_station_code": "8772319"
+            }
+          },
+          "places": {
+            "milan": {
+              "station_name": "Milano Centrale",
+              "station_code": "8301700"
+            }
+          },
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Ticket-offer checkpoint is an unverified guess; &trip= is only a connection preview, never READY.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))[^?]*/en/buying/pages/(?:offerte|angebot)/(?:offerte|angebot)\\.xhtml(?:\\?|$)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09"
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "traveler_counts": [
+            1
+          ],
+          "origin_countries": [
+            "CH"
+          ],
+          "destination_countries": [
+            "IT"
+          ],
+          "url_template": "https://www.sbb.ch/en?stops={origin_station_name}_I{origin_station_code}~{station_name}_I{station_code}&day={arrival_date}&time=08_00&moment=dep",
+          "origin_places": {
+            "geneva": {
+              "origin_station_name": "Genève",
+              "origin_station_code": "8501008"
+            }
+          },
+          "places": {
+            "milan": {
+              "station_name": "Milano Centrale",
+              "station_code": "8301700"
+            }
+          },
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Ticket-offer checkpoint is an unverified guess; &trip= is only a connection preview, never READY.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))[^?]*/en/buying/pages/(?:offerte|angebot)/(?:offerte|angebot)\\.xhtml(?:\\?|$)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09"
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "traveler_counts": [
+            1
+          ],
+          "origin_countries": [
+            "CH"
+          ],
+          "destination_countries": [
+            "CH"
+          ],
+          "url_template": "https://www.sbb.ch/en?stops={origin_station_name}_I{origin_station_code}~{station_name}_I{station_code}&day={arrival_date}&time=08_00&moment=dep",
+          "origin_places": {
+            "geneva": {
+              "origin_station_name": "Genève",
+              "origin_station_code": "8501008"
+            }
+          },
+          "places": {
+            "zurich": {
+              "station_name": "Zürich HB",
+              "station_code": "8503000"
+            }
+          },
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Ticket-offer checkpoint is an unverified guess; &trip= is only a connection preview, never READY.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))[^?]*/en/buying/pages/(?:offerte|angebot)/(?:offerte|angebot)\\.xhtml(?:\\?|$)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
+            ]
+          },
+          "h_render_verified_at": "2026-11-09"
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "traveler_counts": [
+            1
+          ],
+          "origin_countries": [
+            "FR"
+          ],
+          "destination_countries": [
+            "CH"
+          ],
+          "url_template": "https://www.sbb.ch/en?stops={origin_station_name}_I{origin_station_code}~{station_name}_I{station_code}&day={arrival_date}&time=08_00&moment=dep",
+          "origin_places": {
+            "paris": {
+              "origin_station_name": "Paris Gare de Lyon",
+              "origin_station_code": "8768600"
+            }
+          },
+          "places": {
+            "zurich": {
+              "station_name": "Zürich HB",
+              "station_code": "8503000"
+            }
+          },
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Ticket-offer checkpoint is an unverified guess; &trip= is only a connection preview, never READY.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))[^?]*/en/buying/pages/(?:offerte|angebot)/(?:offerte|angebot)\\.xhtml(?:\\?|$)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
+            ]
+          }
+        },
+        {
+          "kind": "transport",
+          "mode": "rail",
+          "traveler_counts": [
+            1
+          ],
+          "origin_countries": [
+            "CH"
+          ],
+          "destination_countries": [
+            "CH"
+          ],
+          "url_template": "https://www.sbb.ch/en?stops={origin_station_name}_I{origin_station_code}~{station_name}_I{station_code}&day={arrival_date}&time=08_00&moment=dep",
+          "origin_places": {
+            "geneva": {
+              "origin_station_name": "Genève",
+              "origin_station_code": "8501008"
+            }
+          },
+          "places": {
+            "lucerne": {
+              "station_name": "Luzern",
+              "station_code": "8505000"
+            }
+          },
+          "success_evidence": "Select outbound and return for the exact stay dates, 1 adult without reduction/Half-Fare, fares and full round-trip total visible at the fare/ticket selection summary before passenger details/login/payment. The public URL applies outbound date only, not return or party. Dated outbound render evidence is not READY. Ticket-offer checkpoint is an unverified guess; &trip= is only a connection preview, never READY.",
+          "blocked_evidence": "Wrong dates/route/party, Half-Fare/reduction still applied, one-way only, no numeric prices, price on request or unavailable online, no results, login, consent acceptance, captcha, passenger data or form submission. Do not claim a full-adult or round-trip quote from default reduced outbound prices.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:passenger|traveller|traveler|guest|/pax|payment|/pay|checkout|login|sign[-_]?in|account|personal[-_]details|(?:enter[-_](?:your[-_])?)details))[^?]*/en/buying/pages/(?:offerte|angebot)/(?:offerte|angebot)\\.xhtml(?:\\?|$)"
+            ],
+            "beyond_patterns": [
+              "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm",
+              "^[^?]*/(?:passengers?(?:[-_/](?:details|info))?|travell?ers?(?:[-_/](?:details|info))?|guests?[-_/](?:details|info)|pax|(?:enter[-_](?:your[-_])?|personal[-_])details|login|log[-_]in|sign[-_]?in|payments?(?:[-_/](?:details|card))?|pay|checkout|account)(?=[/?;]|$)",
+              "[?&](?:step|stage|screen|page)=(?:passengers?(?:[-_](?:details|info))?|travell?ers?(?:[-_](?:details|info))?|personal[-_]details|login|sign[-_]?in|payment|pay|checkout)(?:&|$)"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

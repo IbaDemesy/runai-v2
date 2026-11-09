@@ -1,3 +1,27 @@
+# R6-02 transport render evidence gate — 2026-11-09
+
+SBB's existing `sbb-ch` entry is now in `docs/site-policy.d/transport.json`, with
+the same reviewed hosts, owner-rule status, review 2026-11-09 and expiry
+2027-02-07. This move is not a terms-review renewal or new authorization.
+No booking subdomains or prohibited providers were added. NS retains its
+review/expiry; CP and Vueling remain allowed by policy but lack verified primary
+render evidence. Owner rules remain materially different from affirmative
+provider permission; copying/public/commercial reuse restrictions still apply.
+
+Optional transport-adapter `h_render_verified_at` dates are validated and scoped
+to observed route/place sets. Only dated outbound fare visibility is asserted,
+not full-adult round-trip quotes or READY. A transport route without a verified
+candidate is uncovered; unverified candidates are alternatives only. SBB's
+default Half Fare display must be safely corrected to one adult without
+reduction, and a return safely selected, before any preparation claim. No
+personal data, forms, consent acceptance, login, booking or payment is allowed.
+
+See the new R6-02 section in `transport.md` for the dated per-candidate render
+matrix, instrumentation caveats, public templates and unverified P11 guesses.
+No live sessions were run during step 4, and no screenshots/private H URLs/IDs
+are committed. SBB `trip=` is preview only; NS selected review shares its result
+path. The guessed ticket-offer/overview checkpoints are not live acceptance.
+
 # Guest-query compatibility correction — 2026-11-09
 
 Bare guest matched the benign guests=1 query key, incorrectly cancelling an IHG

@@ -1,3 +1,140 @@
+# R6-02 transport render gate — 2026-11-09
+
+This section supersedes historical coverage claims below. Owner-rule authorization
+and an executable URL do not establish that H can render priced results.
+Transport adapters may carry optional `h_render_verified_at: "YYYY-MM-DD"`.
+It must be a valid canonical ISO date, no later than the current UTC date;
+malformed/future values fail registry validation closed. It is transport-only.
+The date records a route-scoped dated-results render, **not** READY, full-adult
+pricing, selected return travel, an independently audited action trace, or
+affirmative provider authorization. It does not renew the entry's terms review.
+
+Verified candidates rank before unverified candidates, preserving the existing
+mode/registry order within each group. A route without a verified candidate has
+no primary: `select_adapters` raises the existing no-coverage ValueError and
+`coverage('transport', ...)` returns `covered=False, policy_ids=[]`. Unverified
+candidates can only be P7 alternatives behind a verified primary. Other kinds
+retain their existing policy gate. Distinct-policy cap remains three tasks.
+
+## Scoped registry and coverage
+
+- SBB's existing `sbb-ch` review moved, unchanged in date/scope/automation, from
+  the base document into `docs/site-policy.d/transport.json`. No duplicate ID.
+  One-adult rail adapters carry the date only for Paris–Milan, Lyon–Milan,
+  Geneva–Milan and Geneva–Zurich. Paris–Zurich and Geneva–Lucerne are unwitnessed
+  alternatives, never primaries without another verified provider on that route.
+- NS Paris–Amsterdam is separated from the Den Haag gateway mapping. Only the
+  Amsterdam place set and Geneva–Zurich adapter carry the date. Brussels–Amsterdam,
+  Paris–Barcelona, other NS routes and Den Haag remain unverified. Gateway-city
+  task/verifier behavior is retained, but gateway coverage is not inferred from
+  a different route's render evidence.
+- No date is attached to Vueling or CP. Paris–Milan now chooses SBB before the
+  unverified Vueling alternative; Geneva–Zurich chooses NS then SBB.
+- Covered eval routes: Paris–Milan, Lyon–Milan, Geneva–Zurich, Paris–Amsterdam.
+  Geneva–Milan is also covered. Eval gaps: Paris–Lisbon/Zurich/Barcelona/Madrid,
+  Brussels–Amsterdam and Geneva–Lucerne. Historical Vueling-only routes below
+  are no longer reported covered.
+
+## Public URL shapes and limitations
+
+```text
+SBB: https://www.sbb.ch/en?stops={origin_station_name}_I{origin_station_code}~{station_name}_I{station_code}&day={arrival_date}&time=08_00&moment=dep
+NS: https://www.nsinternational.com/en/traintickets-v3/#/search/{origin_station_code}/{station_code}/{arrival_ymd}?pax=A&inboundDate={departure_ymd}
+CP: https://www.cp.pt/pt/resultado-pesquisa?departureStation={origin_place_id}&arrivalStation={place_id}&startDate={arrival_date}&endDate={departure_date}&passageiros={travelers}&selectedClass=2
+Vueling: https://tickets.vueling.com/booking/flightSearch?o={origin_iata}&d={iata}&dd={arrival_date}&rd={departure_date}&adt={travelers}&chd=0&inf=0&c=en-GB&cur=EUR
+Legacy SBB: https://www.sbb.ch/en/buying/pages/fahrplan/fahrplan.xhtml?suche=true&von=Gen%C3%A8ve&nach=Z%C3%BCrich%20HB&datum=09.01.2027&zeit=08%3A00&an=false&reisedatumRueckfahrt=11.01.2027&anzahlErwachsene=1
+SWISS: https://www.swiss.com/booking/flight-search?tripType=R&flight1=PAR.GVA.2027-01-09&flight2=GVA.PAR.2027-01-11&adults=1
+Aer Lingus: https://www.aerlingus.com/booking/flight-search/?origin=CDG&destination=DUB&departureDate=2027-01-09&returnDate=2027-01-11&adults=1
+```
+
+SBB stop search verified 8768600 Paris Gare de Lyon, 8772319 Lyon Part Dieu,
+8301700 Milano Centrale; domestic IDs are 8501008 Genève, 8503000 Zürich HB,
+8505000 Luzern. Template substitutions percent-encode names (including spaces
+and accents); `%20` and the manually tested `+` have the same decoded value.
+SBB's current query honors the outbound date but has **no return/party URL
+parameters**. Normal Chrome and H defaulted to one Half Fare Travelcard. Tasks
+therefore require 1 adult without reduction/Half-Fare, outbound plus return on
+the departure date, both selected fares and total, and a stop before passenger
+details/login/payment. If safe selection controls are unavailable, block; never
+submit a search/personal-data form or claim reduced outbound prices as READY.
+NS keeps safe fragment retention and existing reviewed gateway semantics.
+
+## Dated render observations (steps 1–3)
+
+All observations below: 2026-11-09; outbound January 9, 2027, return January 11
+where supported. Start-page tasks forbade interactions; selection research
+allowed only necessary/reject cookies and safe connection/fare selection. Last
+frames remained outside the repository. No screenshots, private URLs or session
+IDs are included. Runtime classifications can differ from visible state.
+
+The public-template column refers to the shapes above, with arrival 2027-01-09,
+departure 2027-01-11, one adult, and each row's mapped stations/airports.
+
+| Provider / route | Public template | Frames | Observed state | Observed host/path change |
+| --- | --- | ---: | --- | --- |
+| CP Porto–Lisbon, step 1 | CP | 1 | Frame received; not retained/classified | Not established |
+| Vueling ORY–Barcelona baseline | Vueling | 0 | Runtime `consent_required`; visual wall unverified | No public final observation |
+| SBB Geneva–Zurich, legacy URL | Legacy SBB | 1 | Cookie/timetable shell, wrong date 09.11.2026; no fares | `www.sbb.ch` timetable surface |
+| SWISS Paris–Geneva | SWISS | 1 | Cloudflare verification/bot wall | `www.swiss.com` booking surface |
+| Aer Lingus CDG–Dublin, old URL | Aer Lingus | 1 | Sparse broken/loading surface, no fares | `www.aerlingus.com` booking surface |
+| NS Paris–Amsterdam | NS | 2 | Jan 9 outbound fares EUR48/66.90/101.90/41/33 | `/en/traintickets-v3/`, unchanged |
+| NS Brussels–Amsterdam | NS | 2 | Correct route/dates/party; connections-loading error | Same unchanged NS path |
+| NS Paris–Barcelona | NS | 1 | Cookie wall; route/dates behind it, no readable fares | Same unchanged NS path |
+| NS Geneva–Zurich | NS | 2 | Jan 9 outbound connections EUR89.80 | Same unchanged NS path |
+| CP Porto–Lisbon, step 2 | CP | 2 | Correct route/date/class; no results for selected filters | `/pt/resultado-pesquisa`, unchanged |
+| SBB Geneva–Zurich, current query | SBB | 1 | Correct date/times; price placeholders, no numeric prices | `/en`, unchanged |
+| SBB Geneva–Lucerne | SBB | 1 | Correct date; loading skeleton and cookie banner | `/en`, unchanged |
+| SBB Paris–Zurich | SBB | 2 | Correct date; direct TGV timetable/cookie wall, no numeric prices | `/en`, unchanged |
+| SBB Paris–Milan | SBB | 3 | Correct date; CHF117.30/88/71 connection prices | `/en`, unchanged |
+| SBB Lyon–Milan | SBB | 3 | Correct date; direct FR CHF73; alternatives 85.30/89/72 | `/en`, unchanged |
+| SBB Geneva–Milan | SBB | 3 | Correct date; CHF82.50/60.70/51.30; direct EC64 | `/en`, unchanged |
+| SBB Geneva–Zurich selection research | SBB | 4 | Connection preview, 2nd class from CHF29.80; Select tickets still present | `/en?...` → same query plus `trip=[redacted]` |
+| NS Paris–Amsterdam selection research | NS | 10 | Both Jan 9/11 Mid-flex legs selected, 1 passenger, EUR89; Enter your details unclicked | `/en/traintickets-v3/`, unchanged |
+
+Three-frame start-page probes were intentionally cancelled at the third frame;
+their `failed/provider_error` is not a render failure. SBB selection ended
+`login_required`, but the retained frame was connection preview, not proof of a
+login page. NS selected review ended `provider_error`, not runtime READY. No
+passenger/login/payment URL was observed. Path auditing in steps 1–2 did not
+retain queries/fragments; step 3 retained scrubbed path+query, not fragments.
+The retained records are not complete runtime action audits.
+
+Execution caveats: step 1 Vueling unexpectedly retried once without a separate
+quota check. Later launchers disabled retries and quota-gated each creation.
+Step 2's initial response-hook bug consumed three sessions with no valid frames;
+those attempts are not provider-render evidence. Cleanup returned HTTP204.
+Step 4 is offline implementation only; no new live sessions.
+
+## Unwired candidates and checkpoint uncertainty
+
+Trenitalia/Le Frecce: public form uses POST; candidate white-label URL stayed
+loading in Chrome. Italo: booking links found but no complete dated fare GET.
+Renfe: public code exposes a fallback search endpoint, not a verified dated GET.
+SNCB: international booking uses b-europe.com. These booking hosts, plus
+ventas.ouigo.com, are outside current reviewed scopes;
+policy was not broadened. Iberia/Volotea: no validated dated party fare link.
+Aer Lingus's different `/app/plan/plan` query still showed an empty form behind
+consent in Chrome. Official OUIGO España dated deep-link shape was found, but
+the Madrid–Barcelona candidate showed an error in Chrome; no H probe. ITA and
+other prohibited providers remain excluded. Marketing/timetable pages are not
+fare preparation evidence. The older SNCB handoff/registry discrepancy remains
+historical; no international booking authorization is inferred from it.
+
+SBB's P11 ticket-offer guess is
+`/en/buying/pages/(offerte|angebot)/(offerte|angebot).xhtml`, **not live verified**.
+Neither `/en?...` nor `/en?...&trip=...` matches it. `trip` proves connection
+preview only. NS retains its existing unverified overview/review guess; actual
+selected review stayed on the results path. Neither is a proven READY URL.
+Both providers merge defensive path-boundary and explicit step/stage/screen/page
+query patterns for passenger/login/payment/checkout. Bare `guests=1` and `pax=A`
+do not trigger those boundaries. The same defensive boundaries are merged into
+legacy CP/Vueling checkpoints, without changing their guessed ready paths, so
+alternatives also stop at login. Ready patterns exclude nested login or explicit
+personal-details navigation state even under a guessed review/offer path.
+Actual beyond-page URLs are unobserved; do not
+visit passenger details just to discover them. Next step must validate guesses
+live or document failure, never broaden READY to shared results or previews.
+
 # R5-02 step 5 live transport smokes — 2026-11-09
 
 Merged HAgentRunner.run with branch build_task output, alternatives removed only
