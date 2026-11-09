@@ -546,6 +546,19 @@ def test_merged_coverage_prohibited_registration_is_not_covered(race):
         build_task(_race_trip(*race), today=MERGED_TODAY, registry=_merged())
 
 
+@pytest.mark.parametrize("race", [BARCELONA_HALF, IRONTRAIL])
+@pytest.mark.parametrize("registration_url", [None, "", "https://in.njuko.com/example-2027"])
+def test_prohibited_registration_flow_cannot_start_on_organizer(race, registration_url):
+    trip = _race_trip(*race)
+    trip["race"]["registration_url"] = registration_url
+    coverage = registration_coverage(trip["race"], today=MERGED_TODAY, registry=_merged())
+    assert coverage["covered"] is False
+    assert coverage["prohibited"] is True
+    assert coverage["policy_id"] in {"mitjamarato-barcelona", "irontrail-ch"}
+    with pytest.raises(ValueError, match="denied"):
+        build_task(trip, today=MERGED_TODAY, registry=_merged())
+
+
 def test_merged_den_haag_builds_on_reviewed_njuko_with_sold_out_first():
     reg = _merged()
     task = build_task(_race_trip(*DEN_HAAG), today=MERGED_TODAY, registry=reg)

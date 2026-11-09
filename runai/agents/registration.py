@@ -253,8 +253,10 @@ def _plan(
     except (OSError, ValueError, TypeError) as exc:
         raise ValueError("site-policy registry unavailable or invalid") from exc
 
-    if registration_url:
-        denial = evaluate_url(registration_url, KIND, today=today, registry=view)
+    for sourced_url in (registration_url, official_url):
+        if not sourced_url:
+            continue
+        denial = evaluate_url(sourced_url, KIND, today=today, registry=view)
         if denial["reason"].startswith(_PROHIBITED):
             raise ValueError(f"registration site not policy-reviewed: denied ({denial['reason']})")
     values = {"race_date": expected["race_date"], "edition": _text(race, "edition")}
