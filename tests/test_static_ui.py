@@ -132,7 +132,48 @@ const loaded = async img => { await img.onload(); await flush(); };
 const initial = async (ready = false) => { respond('/api/missions', mission(ready)); await submit('un semi au printemps'); };
 (async () => {
   await flush();
-  if (scenario === 'chronology') {
+  if (scenario === 'polish') {
+    const result = mission(true); result.language = 'en';
+    result.turns[0].message = 'Plan — accès inconnu';
+    result.turns[0].suggestions[0].label = 'Choice — access unknown';
+    result.turns[0].draft.race.source_urls = ['https://example.org/race', 'https://www.example.org/other'];
+    result.turns[0].draft.race.country_code = 'PT';
+    respond('/api/missions', result); await submit('course');
+    const inner = root.querySelector('.assistant').querySelector('.message-content');
+    assert.equal(inner.children.at(-1).className, 'confirm-area');
+    assert.ok(inner.children.indexOf(inner.querySelector('.chips')) < inner.children.indexOf(inner.querySelector('.confirm-area')));
+    assert.equal(inner.querySelectorAll('.source-badge').length, 1);
+    assert.ok(!inner.textContent.includes('accès inconnu')); assert.ok(!inner.textContent.includes('access unknown'));
+    assert.ok(inner.textContent.includes('Arrival') || inner.textContent.includes('Origin'));
+    assert.ok(inner.textContent.includes('Confirm plan'));
+    assert.ok(inner.textContent.includes('🇵🇹')); assert.ok(inner.textContent.includes('days to go'));
+    const hooks = context.__runai;
+    for (const code of ['no_site_coverage', 'policy_denied', 'date_mismatch', 'no_inventory', 'sold_out', 'registration_closed', 'login_required', 'captcha', 'consent_required', 'unreviewed_redirect', 'over_budget', 'step_limit', 'session_failed', 'timeout', 'unsafe_claim', 'provider_error']) {
+      assert.equal(hooks.reasons[code].length, 2);
+      hooks.setLanguage('fr'); assert.equal(hooks.reason(code,'blocked'), hooks.reasons[code][0]);
+      hooks.setLanguage('en');
+      ui.event({kind:'hotel', status:'blocked', reason_code:code, summary:'RAW_JSON_LOG', handoff_url:'https://example.org/hotel'});
+      assert.equal(card('hotel').querySelector('.steps').textContent, hooks.reasons[code][1]);
+      assert.ok(card('hotel').querySelector('.handoff').textContent.includes('Continue on example.org'));
+    }
+    for (const status of ['blocked', 'failed', 'cancelled']) {
+      ui.event({kind:'transport', status, reason_code:'unknown'});
+      assert.equal(card('transport').querySelector('.steps').textContent, hooks.reason('unknown', status));
+      assert.ok(card('transport').textContent.includes('No verified site'));
+      assert.ok(!card('transport').textContent.includes('Waiting for'));
+    }
+    ui.event({kind:'registration', type:'step_started'});
+    ui.event(frame('registration','old',1)); await loaded(images.at(-1));
+    now += 30000; ui.frameMeta('registration');
+    assert.ok(card('registration').querySelector('.frame-meta').textContent.includes('Agent working'));
+    assert.ok(!card('registration').textContent.includes('interrupted'));
+    ui.event({kind:'registration', status:'failed'});
+    assert.ok(card('registration').querySelector('.frame-meta').textContent.includes('tracking interrupted'));
+    assert.ok(!root.textContent.includes('RAW_JSON_LOG'));
+    hooks.setLanguage('fr');
+    assert.equal(hooks.reason('captcha','blocked'), hooks.reasons.captcha[0]);
+    assert.notEqual(hooks.reason(null,'blocked'), hooks.reason(null,'failed'));
+  } else if (scenario === 'chronology') {
     await initial();
     const inner = root.querySelector('.assistant').querySelector('.message-content');
     assert.deepEqual(inner.children.map(x => x.className), ['message-name', 'bubble', 'candidates', 'question', 'chips']);
@@ -260,10 +301,18 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     assert.equal(ui.safeURL('https://example.org/register?email=runner%40example.org'), null);
     assert.equal(ui.safeURL('https://example.org/register?booking_id=ABC123'), null);
     assert.equal(ui.safeURL('http://example.org/register'), null);
+  } else if (scenario === 'snapshot-error') {
+    await initial(true); ui.event({kind:'hotel',type:'step_started'});
+    ui.event(frame('hotel','valid',1)); await loaded(images.at(-1));
+    respond('/api/missions/m1/events?after=1', []);
+    respond('/api/missions/m1', {}, 500); await ui.poll(0);
+    assert.ok(!card('hotel').querySelector('.frame-meta').textContent.includes('interrompu'));
+    assert.ok(card('hotel').querySelector('.frame-meta').textContent.includes('travaille'));
   } else if (scenario === 'disconnect') {
     await initial(true); ui.event(frame('hotel','valid',1)); await loaded(images.at(-1));
     respond('/api/missions/m1/events?after=1', {}, 500); await ui.poll(0);
     assert.equal(card('hotel').querySelector('.preview').dataset.state,'stale');
+    assert.ok(card('hotel').querySelector('.frame-meta').textContent.includes('suivi interrompu'));
     assert.ok(root.querySelector('.retry'));
     respond('/api/missions/m1/events?after=1', [frame('hotel','reconnected',2)]);
     respond('/api/missions/m1',{results:kinds.map(kind=>({kind,status:'blocked'}))});
@@ -277,7 +326,8 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
 
 @pytest.mark.parametrize("scenario", [
     "chronology", "uncertain", "english", "pending", "background", "sync", "retry", "sensitive", "empty",
-    "generation", "frames", "stale", "decode", "replay", "launch", "disconnect",
+    "generation", "frames", "stale", "decode", "replay", "launch", "disconnect", "polish",
+    "snapshot-error",
 ])
 def test_executable_browser_states(scenario):
     result = subprocess.run(
