@@ -1,3 +1,4 @@
+import asyncio
 import re
 from collections.abc import Awaitable, Callable
 from datetime import date, timedelta
@@ -26,6 +27,7 @@ from .types import GuidedTurn, GuideState, RaceOption, RacePreparation, Suggesti
 Discover = Callable[[str, dict], Awaitable[list[dict]]]
 DEFAULT_ORIGINS = ["Paris", "Lyon", "Bruxelles", "Genève"]
 STANDARD_DISTANCES = [5.0, 10.0, 21.1, 42.195]
+FIRST_DISCOVERY_TIMEOUT_S = 20.0
 _SKIP_CONFIRMATION = re.compile(
     r"(?:skip|without|bypass|sans|saute[rz]?|zappe[rz]?|pas besoin d.?|no need (?:for|to))"
     r"\W+(?:\w+\W+){0,3}(?:la |ma |the |my )?(?:confirm|valid)|"
@@ -545,9 +547,14 @@ class GuideEngine:
                 setattr(state.draft, field, value)
                 state.draft.provenance[field] = "user"
 
-    async def _collect(self, state, hints, *, broadened=False):
+    async def _collect(self, state, hints, *, broadened=False, deadline=None):
         flags = {"past": False, "unsafe": False, "unsourced": False}
-        rows = await self.discover(state.query, hints)
+        if deadline is not None:
+            remaining = max(0, deadline - asyncio.get_running_loop().time())
+            hints = dict(hints, depth="standard", search_timeout_s=min(
+                FIRST_DISCOVERY_TIMEOUT_S * 0.9, remaining * 0.95))
+        async with asyncio.timeout_at(deadline):
+            rows = await self.discover(state.query, hints)
         for row in rows:
             row = self._scrub_data(row)
             if self._source_instruction(row):
@@ -737,6 +744,9 @@ class GuideEngine:
         return state, turn
 
     async def _search_races(self, state):
+        deadline = (asyncio.get_running_loop().time() + FIRST_DISCOVERY_TIMEOUT_S
+                    if not state.discovery_started else None)
+        state.discovery_started = True
         state.draft.race = None
         state.draft.arrival_date = state.draft.departure_date = None
         state.candidates = []
@@ -752,14 +762,14 @@ class GuideEngine:
         broadened = None
         alternative_ids = set()
         try:
-            flags = await self._collect(state, hints)
+            flags = await self._collect(state, hints, deadline=deadline)
             if state.candidates and not any(self._eligible(r) for r in state.candidates):
                 alternatives = dict(hints, official_date_required=True, depth="deep",
                                     alternative_scope="official dated alternatives", broaden=True)
                 original_candidates = state.candidates
                 state.candidates = []
                 try:
-                    await self._collect(state, alternatives, broadened=True)
+                    await self._collect(state, alternatives, broadened=True, deadline=deadline)
                 except Exception:  # noqa: BLE001 -- optional alternatives must not discard initial results
                     state.candidates = []
                 official = [r for r in state.candidates if self._eligible(r)]
@@ -785,21 +795,24 @@ class GuideEngine:
                     broad.pop("year", None)
                 broad["broaden"] = True
                 broadened = "months" if state.hints.get("months") else "criteria"
-                flags = await self._collect(state, broad, broadened=True)
+                flags = await self._collect(state, broad, broadened=True, deadline=deadline)
             past_found, unsafe_source = flags["past"], flags["unsafe"]
             unsourced_date_found = flags["unsourced"]
-        except Exception:  # noqa: BLE001 -- provider failures are returned as scrubbed turns
+        except Exception as exc:  # noqa: BLE001 -- provider failures are returned as scrubbed turns
             state.stage = "discover"
             state, turn = self._turn(
                 state,
                 self._say(
                     state,
-                    "La recherche a rencontré un souci, on peut réessayer.",
-                    "Search hit a snag; let's try again.",
+                    "La recherche n'a pas abouti à temps ; essayons une autre piste."
+                    if isinstance(exc, TimeoutError) else "La recherche a rencontré un souci, on peut réessayer.",
+                    "The search did not finish in time; let's try another query."
+                    if isinstance(exc, TimeoutError) else "Search hit a snag; let's try again.",
                 ),
                 "discovery_failed",
             )
-            turn.suggestions = self._recovery_chips(state) if hints.get("retry_count") else [
+            turn.suggestions = self._recovery_chips(state) if (
+                hints.get("retry_count") or isinstance(exc, TimeoutError)) else [
                 self._chip("retry", self._say(state, "Réessayer", "Retry"), "retry")
             ]
             state.pending_suggestions = turn.suggestions

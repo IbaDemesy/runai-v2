@@ -4,9 +4,12 @@ from datetime import date
 from types import SimpleNamespace
 
 import pytest
+from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 import runai.guide
+import runai.guide.engine as guide_engine
+from runai.app import create_app
 from runai.guide.engine import GuideEngine
 from runai.guide.fake import FakeDiscovery
 from runai.guide.types import GuideState, RaceOption
@@ -145,6 +148,102 @@ def test_package_public_api():
     assert runai.guide.GuideState is GuideState
     assert runai.guide.RaceOption is RaceOption
     assert all(hasattr(runai.guide, name) for name in runai.guide.__all__)
+
+
+def test_first_discovery_is_standard_and_deep_waits_for_selection():
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        return [{"id": "berlin", "name": "Berlin Marathon", "distance_km": 42.195,
+                 "race_date": "2027-09-26", "source_urls": ["https://race.example/edition"],
+                 "date_status": "official" if hints["depth"] == "deep" else "unverified"}]
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon in Germany"))
+    assert calls and all(h["depth"] == "standard" for h in calls)
+    assert all(0 < h["search_timeout_s"] <= guide_engine.FIRST_DISCOVERY_TIMEOUT_S for h in calls)
+    assert not turn.ready_to_confirm
+    chip = next(s for s in turn.suggestions if s.kind == "choose_race")
+    state, turn = run(e.step(state, {"suggestion_id": chip.id}))
+    assert calls[-1]["depth"] == "deep"
+    assert state.draft.race.date_status == "official"
+
+
+@pytest.mark.parametrize("lang", ["fr", "en"])
+def test_first_discovery_timeout_is_bounded_and_recovery_queries_differ(monkeypatch, lang):
+    monkeypatch.setattr(guide_engine, "FIRST_DISCOVERY_TIMEOUT_S", 0.02)
+    calls, cancelled = [], []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        if len(calls) > 1:
+            return []
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.append(True)
+
+    async def scenario():
+        e = engine(discover)
+        began = asyncio.get_running_loop().time()
+        state, turn = await e.start("un marathon en Allemagne" if lang == "fr" else "a marathon in Germany")
+        assert asyncio.get_running_loop().time() - began < 0.5
+        assert cancelled and turn.error == "discovery_failed" and not turn.candidates
+        assert ("pas abouti à temps" if lang == "fr" else "did not finish in time") in turn.message
+        assert len(turn.suggestions) >= 2
+        for chip in turn.suggestions:
+            await e.step(state.model_copy(deep=True), {"suggestion_id": chip.id})
+        queries = [query for query, _ in calls]
+        assert len(queries) == len(set(queries))
+
+    run(asyncio.wait_for(scenario(), timeout=0.5))
+
+
+def test_first_discovery_preserves_partial_results_when_enrichment_times_out(monkeypatch):
+    monkeypatch.setattr(guide_engine, "FIRST_DISCOVERY_TIMEOUT_S", 0.02)
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        if len(calls) == 1:
+            return [{"id": "partial", "name": "Berlin Marathon", "date_status": "unverified",
+                     "source_urls": ["https://race.example/edition"], "distance_km": 42.195}]
+        await asyncio.Event().wait()
+
+    async def scenario():
+        began = asyncio.get_running_loop().time()
+        _, turn = await engine(discover).start("a marathon in Germany")
+        assert asyncio.get_running_loop().time() - began < 0.5
+        assert len(calls) == 2 and all(h["depth"] == "standard" for h in calls)
+        assert [r.id for r in turn.candidates] == ["partial"]
+        assert not turn.ready_to_confirm and turn.error is None
+        assert turn.suggestions[0].kind != "choose_race"
+
+    run(asyncio.wait_for(scenario(), timeout=0.5))
+
+
+def test_existing_progress_events_arrive_before_real_guide_discovery_completes():
+    release = asyncio.Event()
+    entered = asyncio.Event()
+    completed = []
+
+    async def discover(query, hints):
+        entered.set()
+        await release.wait()
+        completed.append(True)
+        return await preparation_discovery(query, hints)
+
+    with TestClient(create_app(guide=engine(discover))) as client:
+        response = client.post("/api/missions", json={"text": "a half marathon in Portugal", "background": True})
+        assert response.status_code == 202 and not completed
+        client.portal.call(entered.wait)
+        url = f"/api/missions/{response.json()['id']}"
+        events = client.get(url + "/events").json()
+        assert events[0]["type"] == "discovery_progress"
+        assert events[0]["message"] == "Race search started"
+        assert not completed
+        client.portal.call(release.set)
 
 
 @pytest.mark.parametrize("lang,travelers,label", [

@@ -9,6 +9,7 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
+import runai.guide.engine as guide_engine
 from runai.discovery import (
     DiscoveryError,
     DiscoveryProviderError,
@@ -18,6 +19,7 @@ from runai.discovery import (
     discover,
     linkup,
 )
+from runai.guide.engine import GuideEngine
 from runai.guide.types import RaceOption, RegistrationAccess
 
 KEY = "offline-test-secret-never-echo"
@@ -711,6 +713,89 @@ def test_per_call_wall_timeout_retries_once_and_closes_requests():
     asyncio.run(run())
     assert calls == finished == 4
     assert not linkup._cache
+
+
+@pytest.mark.parametrize("outcome", ["partial", "empty", "error"])
+def test_total_search_budget_returns_completed_results_and_cancels_pending(outcome):
+    calls, cancelled = [], []
+
+    async def handler(request):
+        calls.append(json.loads(request.content))
+        if len(calls) == 1:
+            if outcome == "error":
+                return httpx.Response(400)
+            return httpx.Response(200, json={"candidates": [race()] if outcome == "partial" else []})
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.append(True)
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            began = asyncio.get_running_loop().time()
+            if outcome == "partial":
+                rows = await discover("bounded", {"search_timeout_s": 0.02}, api_key=KEY, client=client)
+                assert len(rows) == 1 and rows[0]["date_status"] == "official"
+                assert rows[0]["source_urls"] and not rows[0]["synthetic"]
+            else:
+                with pytest.raises(DiscoveryTimeout):
+                    await discover("bounded", {"search_timeout_s": 0.02}, api_key=KEY, client=client)
+            assert asyncio.get_running_loop().time() - began < 0.5
+            assert not client.is_closed
+            assert cancelled and len(calls) == 2
+            assert all(payload["depth"] == "standard" for payload in calls)
+            assert not linkup._cache
+
+    asyncio.run(asyncio.wait_for(run(), timeout=0.5))
+
+
+def test_berlin_first_reply_keeps_linkup_partial_within_guide_cap(monkeypatch):
+    monkeypatch.setattr(guide_engine, "FIRST_DISCOVERY_TIMEOUT_S", 0.08)
+    calls = []
+
+    async def handler(request):
+        calls.append(json.loads(request.content))
+        if len(calls) > 1:
+            await asyncio.Event().wait()
+        return httpx.Response(200, json={"candidates": [race(
+            name="Berlin Marathon", city="Berlin", country="Germany")]})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            async def discovery(query, hints):
+                return await discover(query, hints, api_key=KEY, client=client, timeout_s=120)
+
+            began = asyncio.get_running_loop().time()
+            _, turn = await GuideEngine(discovery).start("Berlin marathon")
+            assert asyncio.get_running_loop().time() - began < 0.5
+            assert len(calls) == 2 and all(p["depth"] == "standard" for p in calls)
+            assert turn.error is None and len(turn.candidates) == 1
+            assert turn.candidates[0].name == "Berlin Marathon"
+            assert turn.candidates[0].date_status == "official"
+            assert turn.candidates[0].source_urls
+
+    asyncio.run(asyncio.wait_for(run(), timeout=0.5))
+
+
+def test_optional_registration_lookup_cannot_discard_partial_on_budget_expiry():
+    cancelled = []
+
+    async def registration_info(url):
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cancelled.append(True)
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(
+            lambda _: httpx.Response(200, json={"candidates": [race()]})
+        )) as client:
+            rows = await discover("bounded metadata", {"search_timeout_s": 0.02},
+                                  api_key=KEY, client=client, registration_info=registration_info)
+            assert len(rows) == 1 and rows[0]["date_status"] == "official"
+            assert rows[0]["registration_access"] is None and cancelled
+
+    asyncio.run(asyncio.wait_for(run(), timeout=0.5))
 
 
 @pytest.mark.parametrize("failure", ["timeout", "connection", "429", "500", "503"])

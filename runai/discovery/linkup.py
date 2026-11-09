@@ -117,7 +117,7 @@ class DiscoveryUnavailable(DiscoveryError):
     """No Linkup credential is configured."""
 
 
-class DiscoveryTimeout(DiscoveryError):
+class DiscoveryTimeout(DiscoveryError, TimeoutError):
     """The provider did not complete within the configured timeout."""
 
 
@@ -387,6 +387,8 @@ async def discover(
     host, not a provider-generated status label. Unknown dates stay unknown.
     A caller-provided client remains open. Each search has a 35-second wall-clock
     budget (or the caller's shorter timeout) and at most one transient retry.
+    The optional hints search_timeout_s budget bounds both parallel lookups and
+    returns completed sourced results when another lookup times out.
     """
     key = api_key if api_key is not None else os.getenv("LINKUP_API_KEY")
     if not key or not key.strip():
@@ -497,10 +499,25 @@ async def discover(
     try:
         focused = {**payload, "q": prompt + "\nPrioritize the organizers' official edition "
                    "and registration pages over calendars; keep the same requested constraints."}
-        results = await asyncio.gather(
-            *(_search(active_client, request, key, timeout_s) for request in (payload, focused)),
-            return_exceptions=True,
-        )
+        budget = (hints or {}).get("search_timeout_s")
+        bounded = isinstance(budget, (int, float)) and math.isfinite(budget) and budget >= 0
+        deadline = monotonic() + budget if bounded else None
+        tasks = [asyncio.create_task(_search(active_client, request, key, timeout_s))
+                 for request in (payload, focused)]
+        try:
+            if bounded:
+                done, pending = await asyncio.wait(tasks, timeout=budget)
+                results = [task.result() if not task.exception() else task.exception()
+                           for task in tasks if task in done]
+                if pending:
+                    results.insert(0, DiscoveryTimeout("Race discovery timed out. Please try again."))
+            else:
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
         rows = [row for result in results if isinstance(result, list) for row in result]
         errors = [result for result in results if isinstance(result, Exception)]
         if not rows and errors:
@@ -513,9 +530,14 @@ async def discover(
     for candidate in candidates:
         url = candidate["registration_url"] or candidate["official_url"]
         if url:
-            candidate["registration_access"] = await _registration_access(
-                url, registration_info or _site_registration_info
-            )
+            try:
+                async with asyncio.timeout(max(0, deadline - monotonic())
+                                           if deadline is not None else None):
+                    candidate["registration_access"] = await _registration_access(
+                        url, registration_info or _site_registration_info
+                    )
+            except TimeoutError:
+                candidate["registration_access"] = None
         RaceOption.model_validate(candidate)
     if cacheable and candidates and not errors:
         _cache[cache_key] = (monotonic() + CACHE_TTL_S, copy.deepcopy(candidates))
