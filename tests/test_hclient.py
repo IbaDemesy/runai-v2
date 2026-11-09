@@ -198,7 +198,7 @@ def test_personal_data_claim_requires_effective_prefill(profile, fields):
     assert result["reason_code"] == "unsafe_claim"
 
 
-def test_prefill_page_never_forces_answer():
+def test_short_prefill_page_run_does_not_force_answer():
     task = {**TASK, "runner_profile": {"full_name": "Test Runner"},
             "prefill_fields": ["full_name"], "checkpoint": {
                 "url_patterns": ["registration"], "beyond_patterns": [],
@@ -213,6 +213,106 @@ def test_prefill_page_never_forces_answer():
     provider = PrefillProvider()
     run(provider, task, timeout_s=0.02)
     assert not any(r.url.path.endswith("/force_answer") for r in provider.requests)
+
+
+@pytest.mark.parametrize("trigger", ["steps", "observations"])
+@pytest.mark.parametrize("gate", [None, "wrong_date", "missing_frame", "checkpoint_pattern"])
+@pytest.mark.parametrize("terminal", [False, True])
+@pytest.mark.parametrize("patched", [False, True])
+def test_prefill_limits_force_once_and_preserve_verification(
+    monkeypatch, trigger, gate, terminal, patched,
+):
+    now = 0
+    observation_limit = 3 if patched else 8
+    if patched:
+        monkeypatch.setattr("runai.agents.hclient.PREFILL_STEP_MARGIN", 11)
+        monkeypatch.setattr("runai.agents.hclient.PREFILL_OBSERVATION_LIMIT", observation_limit)
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    monkeypatch.setattr("runai.agents.hclient.STALL_TIMEOUT_S", 15)
+    url = HANDOFF + "?currentPage=form_individual-form&distance=42"
+    answer = {**ANSWER, "handoff_url": url, "personal_data_entered": True}
+    if gate == "wrong_date":
+        answer["verification"] = {**ANSWER["verification"], "race_date": "2027-04-05"}
+    task = {**TASK, "max_steps": 60, "runner_profile": {"full_name": "Test Runner"},
+            "prefill_fields": ["full_name"], "checkpoint": {
+                "url_patterns": ["unmatched" if gate == "checkpoint_pattern" else "registration"],
+                "beyond_patterns": ["/payment"], "prefill_patterns": ["registration"],
+            }}
+    provider = Provider(answer=answer)
+    forced_polls = []
+    terminal_checks = []
+
+    def handle(request):
+        nonlocal now
+        if request.url.path.endswith("/force_answer"):
+            provider.requests.append(request)
+            forced_polls.append(provider.polls)
+            assert terminal_checks == [provider.polls]
+            return httpx.Response(202)
+        if request.method == "GET" and request.url.path == "/api/v2/sessions/test-session":
+            provider.requests.append(request)
+            terminal_checks.append(provider.polls)
+            return httpx.Response(200, json={
+                "status": "completed" if terminal else "running", "latest_answer": answer,
+            })
+        if request.url.path.endswith("/changes"):
+            provider.requests.append(request)
+            provider.polls += 1
+            now += 20
+            if (forced_polls and provider.polls >= forced_polls[0] + 2) or provider.polls == 12:
+                return httpx.Response(200, json=batch(state="completed", answer=answer))
+            if forced_polls:
+                return httpx.Response(200, json=batch())
+            event = observation()
+            event["data"]["metadata"]["url"] = (
+                url if provider.polls % 2 else
+                HANDOFF + "?distance=42&currentPage=form_individual-form"
+            )
+            if gate == "missing_frame":
+                event["data"]["image"] = {}
+            return httpx.Response(200, json=batch(
+                event, metrics={"steps": (49 if patched else 50) if trigger == "steps" else 10},
+            ))
+        return provider(request)
+
+    result, _ = run(handle, task)
+    assert terminal_checks == [1 if trigger == "steps" else observation_limit]
+    assert forced_polls == ([] if terminal else terminal_checks)
+    assert result["status"] == ("blocked" if gate else "ready_for_payment"), result
+    if gate is None:
+        assert result["prefilled"] is True
+        assert result["handoff_url"] == url
+    else:
+        assert any("verify_failed" in step for step in result["steps"])
+
+
+@pytest.mark.parametrize("prefill", [False, True])
+def test_prefill_observation_counter_does_not_affect_other_pages(prefill):
+    task = {**TASK, "max_steps": 60, "runner_profile": {"full_name": "Test Runner"},
+            "prefill_fields": ["full_name"], "checkpoint": {
+                "url_patterns": ["registration"], "beyond_patterns": [],
+                "prefill_patterns": ["registration" if prefill else "guest-details"],
+            }}
+    if not prefill:
+        task.pop("checkpoint")
+    provider = Provider()
+
+    def handle(request):
+        if request.url.path.endswith("/changes"):
+            provider.requests.append(request)
+            provider.polls += 1
+            if provider.polls == 12:
+                return httpx.Response(200, json=batch(state="completed", answer=ANSWER))
+            event = observation()
+            event["data"]["metadata"]["url"] = HANDOFF + (
+                f"?page={provider.polls}" if prefill else ""
+            )
+            return httpx.Response(200, json=batch(event, metrics={"steps": 10}))
+        return provider(request)
+
+    result, _ = run(handle, task)
+    assert not any(r.url.path.endswith("/force_answer") for r in provider.requests)
+    assert result["status"] == ("blocked" if prefill else "ready_for_payment")
 
 
 def test_real_milan_registration_fallback_is_handoff_only(monkeypatch):

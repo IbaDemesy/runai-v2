@@ -58,6 +58,8 @@ _IMAGE_LIMIT = 5 * 1024 * 1024
 STALL_TIMEOUT_S = 150
 STALL_FORCE_GRACE_S = 60
 STALE_FRAME_S = 60
+PREFILL_STEP_MARGIN = 10
+PREFILL_OBSERVATION_LIMIT = 8
 _FORBIDDEN = re.compile(
     r"login|log-in|sign-in|signin|sign-up|signup|account|payment|"
     r"(?<![?&;])checkout|checkout(?!=)|captcha|"
@@ -781,6 +783,8 @@ class HAgentRunner:
         hard_boundary = False
         forced_at = None
         stall_forced = False
+        prefill_identity = None
+        prefill_observations = 0
         last_frame_at = None
         state = None
         force_window = None
@@ -845,8 +849,8 @@ class HAgentRunner:
             except (httpx.HTTPError, TimeoutError):
                 return False
 
-        async def force_answer(window):
-            if not stall_forced and allow_prefill and _checkpoint_matches(
+        async def force_answer(window, *, prefill_limit=False):
+            if not stall_forced and not prefill_limit and allow_prefill and _checkpoint_matches(
                 checkpoint, "prefill_patterns", result.get("final_url"),
             ):
                 return
@@ -1124,6 +1128,7 @@ class HAgentRunner:
                                     result["steps"].append("site_unreachable_in_h")
                                     raise _PolicyBlocked("provider_error")
                                 if _browser_internal(metadata.get("url")):
+                                    prefill_identity, prefill_observations = None, 0
                                     if not observed_progress and new_state not in {"queued", "pending"}:
                                         blank_observations += 1
                                         if blank_observations >= 3:
@@ -1163,6 +1168,14 @@ class HAgentRunner:
                                 ):
                                     raise _PolicyBlocked
                                 result["final_url"] = observed
+                                if _checkpoint_matches(checkpoint, "prefill_patterns", observed):
+                                    identity = _page_identity(observed)
+                                    prefill_observations = (
+                                        prefill_observations + 1 if identity == prefill_identity else 1
+                                    )
+                                    prefill_identity = identity
+                                else:
+                                    prefill_identity, prefill_observations = None, 0
                                 await emit({"type": "step_progress", "message": "Navigation sur le site"})
                                 pending_frame = (data, event.get("timestamp"), observed)
                                 if (_checkpoint_matches(checkpoint, "url_patterns", observed)
@@ -1210,6 +1223,20 @@ class HAgentRunner:
                         max_observed_steps = steps
                         await emit({"type": "step_progress", "message": f"Étape {steps}"})
                     now = time.monotonic()
+                    if (state not in _TERMINAL | {"queued", "pending"}
+                            and forced_at is None
+                            and _checkpoint_matches(checkpoint, "prefill_patterns",
+                                                    result.get("final_url"))
+                            and (max_observed_steps >= max(1, max_steps - PREFILL_STEP_MARGIN)
+                                 or prefill_observations >= PREFILL_OBSERVATION_LIMIT)):
+                        session = (await request("GET", f"/sessions/{session_id}")).json()
+                        terminal_state = session_state(session)
+                        if terminal_state in _TERMINAL:
+                            state = terminal_state
+                            answer = session.get("latest_answer", answer)
+                            events = []
+                        else:
+                            await force_answer(60, prefill_limit=True)
                     if (state not in _TERMINAL | {"queued", "pending"}
                             and now - last_observation_at >= STALL_TIMEOUT_S
                             and forced_at is None):

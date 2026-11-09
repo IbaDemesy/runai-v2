@@ -26,6 +26,15 @@ checkpoint frame URL when available. These timings and the 60-second frame
 freshness threshold are module constants; the total per-agent cap remains
 15 minutes. Step progress/frame events carry nullable `stale_frame` metadata;
 no frame means unknown, not fresh. A watchdog timeout does not try alternatives.
+Prefill pages no longer suppress forced answers indefinitely: while the current
+observed URL matches `prefill_patterns`, force once at `max_steps - 10` steps
+or eight consecutive observations of the same normalized page path/query.
+Changing page identity or leaving the prefill page resets that observation count.
+`PREFILL_STEP_MARGIN` and `PREFILL_OBSERVATION_LIMIT` are patchable module constants.
+Check for and consume a terminal session answer before forcing; these triggers
+share the existing once-only force flag with the stall watchdog. The answer
+passes unchanged P13 URL-pattern/frame/verification gates; prefill alone never
+grants READY or permission to enter data without effective `prefill_fields`.
 
 Google Flights public itinerary query keys `tfs`/`tfu` survive opaque-token
 scrubbing only on google.com or google.<two-letter cc> (optionally www), at
