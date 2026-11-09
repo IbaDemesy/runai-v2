@@ -1012,7 +1012,8 @@ def test_round6_named_regression_conversations(case):
             copy_text += " ".join(r.country for r in turn.candidates)
             assert "Autriche" in copy_text and "Austria" not in copy_text
         elif case.expected == "pii":
-            assert not discovery.calls and turn.error == "safety_refusal"
+            assert discovery.calls and turn.error == "safety_refusal"
+            assert discovery.calls[0][1]["city"] == "Vienna"
             assert state.history[0]["text"] == "[redacted personal data]"
             assert "profil" in turn.message
         elif case.expected == "profile":

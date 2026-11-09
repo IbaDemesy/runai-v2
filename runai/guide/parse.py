@@ -63,7 +63,7 @@ CITY_GROUPS = {
     "United Kingdom": ["London/Londres"],
     "Netherlands": ["Amsterdam", "Rotterdam", "The Hague/La Haye"],
     "Belgium": ["Brussels/Bruxelles"],
-    "Switzerland": ["Geneva/Geneve", "Zurich", "Lausanne", "Zermatt", "Interlaken"],
+    "Switzerland": ["Geneva/Geneve", "Zurich/Zürich/Zurigo", "Lausanne", "Zermatt", "Interlaken"],
     "Austria": ["Vienna/Vienne"],
     "Czechia": ["Prague"],
     "Denmark": ["Copenhagen/Copenhague"],
@@ -307,7 +307,11 @@ def parse_intent(text: str, *, today: date) -> Intent:
         if not re.match(r"\s*(?:€|euros?\b|eur\b|nuits?\b|nights?\b)", t[match.end():])
         and not re.search(r"\bbudget\s*(?:de\s*)?$", t[:match.start()])
     }
-    if len(countries) > 1 or len(cities) > 1 or mismatched_city:
+    if re.search(r"\bmarathon\s+(?:de\s+|of\s+)?5\s*k(?:m)?\b", t):
+        result.problem = "distance_conflict"
+    elif result.city == "Amsterdam" and re.search(r"montagne|mountain", t):
+        result.problem = "terrain_conflict"
+    elif len(countries) > 1 or len(cities) > 1 or mismatched_city:
         result.problem = "destination_conflict"
     elif len(set(explicit_dates)) > 1 or season_count > 1 or len(years) > 1:
         result.problem = "date_conflict"

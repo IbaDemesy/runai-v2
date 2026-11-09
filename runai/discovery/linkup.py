@@ -344,6 +344,7 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
                              and _host(_url(item.official_url)) in source_hosts))
         official_url = next(iter(official_urls), None)
         official_hosts = {_host(url) for url in official_urls}
+        official_hosts -= {"running-portugal.com"}
         official_host = _host(official_url)
         registration_url = next((
             _url(item.registration_url) for item in group
