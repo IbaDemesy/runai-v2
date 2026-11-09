@@ -1601,6 +1601,31 @@ def test_queue_wait_over_eight_minutes_is_blocked(monkeypatch, end_state):
     assert provider.cancelled
 
 
+def test_alternatives_share_eight_minute_total_queue_limit(monkeypatch):
+    now, creates = 0, 0
+    provider = Provider()
+
+    def handle(request):
+        nonlocal now, creates
+        response = provider(request)
+        if request.method == "POST" and request.url.path.endswith("/sessions"):
+            creates += 1
+            return httpx.Response(201, json={"id": "test-session", "status": "queued"})
+        if request.url.path.endswith("/changes"):
+            if creates == 1:
+                now = 300
+                return httpx.Response(200, json=batch(blank_observation("https://evil.example/")))
+            now = 481
+            return httpx.Response(200, json=batch(state="queued"))
+        return response
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    result, _ = run(handle, {**TASK, "alternatives": [dict(TASK), dict(TASK)]})
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == "provider_error"
+    assert creates == 2 and provider.cancelled
+
+
 def test_checkpoint_frame_precedes_exactly_one_force_and_verified_answer():
     provider = CheckpointProvider([
         batch(observation()), batch(observation(), metrics={"steps": 78}),

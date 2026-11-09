@@ -508,7 +508,7 @@ class HAgentRunner:
             if result["status"] != "blocked" or result["reason_code"] not in {
                 "unreviewed_redirect", "provider_error", "no_inventory", "sold_out",
                 "captcha", "session_failed",
-            } or time.monotonic() >= deadline:
+            } or time.monotonic() >= deadline or queue_wait[0] >= 480:
                 break
             if not isinstance(alternative, dict) or alternative.get("kind") != task.get("kind"):
                 continue
@@ -529,9 +529,9 @@ class HAgentRunner:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 break
-            queue_wait = [0.0]
+            previous_queue_wait = queue_wait[0]
             result = await self._attempt(alternative, on_event, remaining, queue_wait)
-            deadline += queue_wait[0]
+            deadline += queue_wait[0] - previous_queue_wait
             if result["status"] == "blocked" and not result.get("handoff_url"):
                 result["handoff_url"] = scrub_url(alternative.get("fallback_url"))
         return result
@@ -549,7 +549,7 @@ class HAgentRunner:
         hard_boundary = False
         forced_at = None
         force_window = None
-        queue_total = 0.0
+        queue_total = queue_wait[0] if queue_wait is not None else 0.0
         queued_since = None
         result = {
             "status": "failed", "summary": "", "handoff_url": None,
