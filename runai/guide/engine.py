@@ -780,9 +780,18 @@ class GuideEngine:
         original = state
         state = GuideState.model_validate(self._scrub_data(state.model_dump()))
         text = scrub_text(action.get("text", "")).strip()
+        introduction = re.search(
+            r"\b(?:je m['’]appelle|my name is|i['’]m called|moi c['’]est)\s+", text,
+            flags=re.IGNORECASE,
+        )
+        introduced_language = (
+            "en" if introduction and normalize(introduction[0]).startswith(("my", "i")) else "fr"
+        )
+        race_token = r"(?:half|semi|marathon|trail|ultra|\d+(?:[.,]\d+)?\s*(?:km|k))\b"
         name_boundary = (
-            r"\b(?:and|et|mais|but|je veux|i want|inscris)\b|[,.;!]|"
-            r"\b(?:un|une|le|la|a|the)\s+(?:half|semi|marathon|trail|ultra|10\s*k)\b"
+            r"\b(?:and|et|mais|but|je cherche|je veux|j['’]aimerais|je voudrais|cherche|"
+            r"i want|i['’]m looking|i am looking|looking for|i['’]d like|i would like|inscris)\b|"
+            r"[,.;!]|\b(?:(?:un|une|le|la|a|the)\s+)?" + race_token
         )
         text = re.sub(
             r"\b(?:je m['’]appelle|my name is|i['’]m called|moi c['’]est)\s+"
@@ -874,6 +883,8 @@ class GuideEngine:
                 )
             text = chip.value
         if not text:
+            if introduction:
+                state.lang = introduced_language
             return self._turn(state)
         unsafe = re.search(
             r"ignore.*(?:instructions?|rules)|system\s*:|developer\s*:|override|"
@@ -914,6 +925,8 @@ class GuideEngine:
                 return recovered, turn
             return self._turn(state, refusal, "safety_refusal")
         intent = parse_intent(text, today=self.today)
+        if introduction and not intent.fr_cues and not intent.en_cues:
+            intent.switch_language = introduced_language
         self._set_language(state, intent, typed=chip is None)
         if _FORBIDDEN_SITE.search(normalize(text)):
             return self._turn(state, self._say(

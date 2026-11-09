@@ -60,6 +60,22 @@ class Case:
 
 
 CASES = [
+    *[Case("name-paris-intent-" + str(index), "r4-regression", text, (), "name-paris",
+           "paris", lang=lang)
+      for index, (text, lang) in enumerate([
+          ("Je m'appelle SentinelRunnerName Alpha je cherche un 10 km à Paris", "fr"),
+          ("Je m'appelle SentinelRunnerName Alpha j'aimerais un 10 km à Paris", "fr"),
+          ("Je m'appelle SentinelRunnerName Alpha je voudrais un 10 km à Paris", "fr"),
+          ("moi c'est SentinelRunnerName Alpha cherche un 10 km à Paris", "fr"),
+          ("my name is SentinelRunnerName Alpha I'm looking for a 10 km in Paris", "en"),
+          ("I'm called SentinelRunnerName Alpha looking for a 10 km in Paris", "en"),
+          ("my name is SentinelRunnerName Alpha I'd like a 10 km in Paris", "en"),
+          ("my name is SentinelRunnerName Alpha 10km Paris", "en"),
+      ])],
+    Case("called-name-only-en", "r4-regression",
+         "I'm called SentinelRunnerName Alpha", (), "question", lang="en"),
+    Case("my-name-only-en", "r4-regression",
+         "my name is SentinelRunnerName Alpha", (), "question", lang="en"),
     Case("four-word-name-fr", "r4-regression",
          "je m'appelle SentinelRunnerName Alpha Beta Gamma et je veux le semi de Lisbonne", (),
          "name-lisbon"),
@@ -84,7 +100,7 @@ CASES = [
     Case("name-without-boundary-fr", "r4-regression",
          "je m'appelle SentinelRunnerName Alpha Beta Gamma Delta", (), "question"),
     Case("name-without-boundary-en", "r4-regression", FR,
-         ("my name is SentinelRunnerName Alpha Beta Gamma Delta",), "name-lisbon"),
+         ("my name is SentinelRunnerName Alpha Beta Gamma Delta",), "name-lisbon", switch="en"),
     Case("name-and-race-fr", "r4-regression",
          "Je m'appelle SentinelRunnerName et je veux le semi de Lisbonne", (), "name-lisbon"),
     Case("name-and-race-en", "r4-regression",
@@ -299,6 +315,11 @@ class OfflineDiscovery:
             rows = await FakeDiscovery(today=self.today)(query, {"city": "Lisbon", "distance": "half"})
             for row in rows:
                 row.update(id="valencia", city="Valencia", country="Spain")
+        if self.mode == "paris" and hints.get("city") == "Paris":
+            rows = await FakeDiscovery(today=self.today)(query, {"city": "Lisbon", "distance": "half"})
+            for row in rows:
+                row.update(id="paris-10k", name="Synthetic Paris 10K", city="Paris",
+                           country="France", distance_km=10, distance_label="10 km")
         if self.mode == "mixed-distance":
             extra = copy.deepcopy(rows[0])
             extra.update(id="lisbon-eco", name="Lisbon Eco Marathon", distance_km=42.195,
@@ -362,7 +383,10 @@ def assert_safe(state, turn, discovery, lang):
 
 def assert_immediate(case, state, turn, discovery):
     expected = case.expected
-    if expected == "name-lisbon":
+    if expected == "name-paris":
+        assert discovery.calls and state.draft.race.city == "Paris"
+        assert state.hints["distance"] == "10k" and state.draft.race.distance_km == 10
+    elif expected == "name-lisbon":
         assert discovery.calls and state.draft.race.city == "Lisbon"
         serialized = json.dumps({"state": state.model_dump(mode="json"),
                                  "turn": turn.model_dump(mode="json"), "calls": discovery.calls})
