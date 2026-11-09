@@ -7,6 +7,29 @@ from runai.guide.parse import bare_city, country_name, parse_intent
 TODAY = date(2026, 9, 1)
 
 
+@pytest.mark.parametrize("text", ["un semi à Amsterdm", "a half marathon in Amsterdm"])
+def test_amsterdam_typo_keeps_named_city(text):
+    intent = parse_intent(text, today=TODAY)
+    assert intent.city == "Amsterdam" and intent.country == "Netherlands"
+    assert intent.distance == "half" and intent.named
+
+
+@pytest.mark.parametrize("alias,city,country", [
+    ("València", "Valencia", "Spain"), ("Valence", "Valencia", "Spain"),
+    ("Berlin", "Berlin", "Germany"), ("Paris", "Paris", "France"),
+    ("Londres", "London", "United Kingdom"), ("Roma", "Rome", "Italy"),
+    ("Barcelone", "Barcelona", "Spain"), ("Madrid", "Madrid", "Spain"),
+    ("Amsterdam", "Amsterdam", "Netherlands"), ("Lisboa", "Lisbon", "Portugal"),
+    ("Porto", "Porto", "Portugal"), ("Milano", "Milan", "Italy"),
+    ("Francfort", "Frankfurt", "Germany"), ("Séville", "Seville", "Spain"),
+    ("Sevilla", "Seville", "Spain"),
+])
+def test_named_major_marathon_aliases(alias, city, country):
+    intent = parse_intent(f"marathon de {alias} 2027", today=TODAY)
+    assert intent.named and intent.city == city and intent.country == country
+    assert intent.year == 2027 and intent.distance == "marathon"
+
+
 @pytest.mark.parametrize("text", ["non en fait de Bruxelles", "je pars de Bruxelles",
                                   "départ de Bruxelles", "from Brussels",
                                   "I'm leaving from Brussels"])

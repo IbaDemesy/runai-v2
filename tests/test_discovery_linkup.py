@@ -207,7 +207,7 @@ def test_unicode_race_names_have_stable_distinct_ids():
     assert search([race(name="東京マラソン")])[0]["id"] == results[0]["id"]
 
 
-def test_conflicting_dates_even_across_duplicate_candidates():
+def test_official_date_wins_across_duplicate_candidates():
     other = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
     results = search([
         race(),
@@ -216,9 +216,59 @@ def test_conflicting_dates_even_across_duplicate_candidates():
         ]),
     ])
     assert len(results) == 1
-    assert results[0]["date_status"] == "conflicting"
-    assert results[0]["race_date"] is None
+    assert results[0]["date_status"] == "official"
+    assert results[0]["race_date"] == DAY
     assert len(results[0]["source_urls"]) == 2
+
+
+def test_conflicting_official_dates_remain_unconfirmed():
+    other = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
+    results = search([race(), race(name=f"EXAMPLE-Marathon {YEAR}", sources=[
+        {"url": "https://race.example/other", "race_date": other}])])
+    assert len(results) == 1
+    assert results[0]["date_status"] == "conflicting" and results[0]["race_date"] is None
+
+
+@pytest.mark.parametrize("city,domain", [
+    ("Valencia", "valenciaciudaddelrunning.com"),
+    ("Paris", "schneiderelectricparismarathon.com"),
+    ("London", "tcslondonmarathon.com"),
+])
+def test_named_major_targets_organizer_at_standard_depth(city, domain):
+    async def run():
+        def handler(request):
+            payload = json.loads(request.content)
+            assert payload["depth"] == "standard"
+            assert f"{city} Marathon 2027 official date" in payload["q"]
+            assert domain in payload["q"]
+            return httpx.Response(200, json={"candidates": [race(
+                name=f"{city} Marathon", city=city, official_url=f"https://{domain}/",
+                sources=[{"url": f"https://{domain}/edition", "race_date": DAY}])]})
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            result = await discover(f"{city} Marathon", hints={
+                "named": True, "race_name": f"{city} Marathon", "city": city,
+                "year": 2027, "distance": "marathon", "depth": "deep"},
+                api_key=KEY, client=client)
+            assert len(result) == 1 and result[0]["name"] == f"{city} Marathon"
+    asyncio.run(run())
+
+
+def test_named_major_without_year_searches_current_and_next_editions():
+    async def run():
+        year = datetime.now(UTC).year
+
+        def handler(request):
+            payload = json.loads(request.content)
+            assert f"{year} or {year + 1} next upcoming" in payload["q"]
+            return httpx.Response(200, json={"candidates": []})
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            assert await discover("Valencia Marathon", hints={
+                "named": True, "race_name": "Valencia Marathon", "city": "Valencia",
+                "distance": "marathon"}, api_key=KEY, client=client) == []
+
+    asyncio.run(run())
 
 
 @pytest.mark.parametrize("missing_distance", [None, 0, -1])
