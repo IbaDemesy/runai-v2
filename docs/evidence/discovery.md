@@ -337,7 +337,7 @@ whole reply, edition year derived from sourced dates, and one broadened
 sourced retry (no month window, close distance variants) before any "no race"
 answer. Dates still come only from sources; nothing was invented.
 
-## R4-04 — 2026-11-09 offline latency/determinism checks
+## R4-04 — 2026-11-09 offline latency/determinism checks (step 3 snapshot)
 
 No live Linkup or H calls were made for this change. The live first-reply p50
 target of <=35 seconds is **not measured or established** by these tests.
@@ -370,4 +370,88 @@ Final full offline check:
 ```text
 All checks passed!
 1152 passed, 1 warning in 14.12s
+```
+
+## R4-04 — 2026-11-09 live Linkup-only smoke (step 4)
+
+Two smoke runs total. Both used `PYTHONPATH=.` from the repository root,
+`GuideEngine.start` → `runai.app._discovery_hints` →
+`runai.discovery.linkup.discover(timeout_s=120)`. The Linkup key was bound
+only through the execution environment, never printed or written to disk.
+No H calls, race-site interaction, account creation, forms or purchases.
+Each run used a fresh cache and executed the requests sequentially in one
+process; the fourth request repeated the first. HTTP request hooks counted
+actual provider requests, including retries, without logging URLs or headers.
+
+### Run 1 — deep / 15-second attempt cap — failed
+
+2026-11-09T01:32:48Z–01:34:49Z:
+
+| Request | First-reply seconds | Linkup calls | Candidates | Result |
+| --- | ---: | ---: | ---: | --- |
+| un marathon au printemps en Italie | 30.145 | 4 | 0 | discovery_failed |
+| un trail en Suisse cet été | 30.159 | 4 | 0 | discovery_failed |
+| le semi de Lisbonne | 30.162 | 4 | 0 | discovery_failed |
+| un marathon au printemps en Italie (repeat) | 30.121 | 4 | 0 | discovery_failed |
+
+Cache entries: 0; cache repeat identical: **no** (no candidates, no cache hit).
+The repeated ~30-second/four-call pattern is consistent with exhausting two
+15-second attempts per query; this first script recorded the guide error,
+not individual provider exception types. These failures do not count toward
+a successful discovery latency claim. The initial cap was unsuitable.
+
+### Run 2 — standard / 35-second attempt cap — successful sourced replies
+
+Changed query depth to `standard`, retaining structured output and all source,
+date, URL and unsafe-response validation. Increased the attempt cap to 35
+seconds to avoid the prior overly short deadline; caller-specified shorter
+timeouts are still honored. A retry can exceed 35 seconds overall.
+
+2026-11-09T01:35:00Z–01:35:15Z:
+
+| Request | First-reply seconds | Linkup calls | Candidates | Guide error |
+| --- | ---: | ---: | ---: | --- |
+| un marathon au printemps en Italie | 4.568 | 2 | 2 | none |
+| un trail en Suisse cet été | 5.619 | 2 | 4 | none |
+| le semi de Lisbonne | 4.586 | 2 | 3 | none |
+| un marathon au printemps en Italie (repeat) | 0.014 | 0 | 2 | none |
+
+Cold-request sample p50: **4.586 seconds** across the three distinct requests,
+excluding the cache hit. No provider exception was reported in run 2. Cache
+entries: 3. Repeat candidate ids identical: **yes**, in the same order:
+`wizz-air-milano-marathon-2027`, `run-rome-the-marathon-32nd-edition`.
+
+Returned candidates (source domains only; null/conflicting dates preserved):
+
+| Request | Race | Date | date_status | Source domains | Registration | Hotel | Transport | Origin |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Italy | Wizz Air Milano Marathon | 2027-04-04 | official | www.fidal.it, www.milanomarathon.it | unknown | true | true | Paris |
+| Italy | Run Rome The Marathon | null | unknown | www.runnersworld.com, www.runromethemarathon.com | unknown | true | false | Paris |
+| Switzerland | Stoos-Trail | 2027-07-10 | official | www.stoostrail.ch | unknown | true | false | Paris |
+| Switzerland | Scuol trail running event | 2027-06-26 | unverified | guide.swiss-running.ch | unknown | true | false | Paris |
+| Switzerland | Klosters trail running event | null | conflicting | guide.swiss-running.ch | unknown | true | false | Paris |
+| Switzerland | Churfirsten Trail Run | 2027-08-28 | official | www.churfirstentrailrun.ch | unknown | false | false | Paris |
+| Lisbon | Discoveries Lisbon Half Marathon | 2026-11-29 | official | www.discoveries-half-marathon.com | unknown | true | true | Paris |
+| Lisbon | Tranquilidade Semi-Marathon des Découvertes (Meia Maratona dos Descobrimentos) | 2026-11-29 | official | www.discoveries-half-marathon.com | unknown | true | true | Paris |
+| Lisbon | EDP Lisbon Half Marathon | null | unknown | www.running-portugal.com | unknown | true | true | Paris |
+
+`official` is the discovery normalizer's classification of provider-returned
+source dates/hosts, not a separate manual verification of organizer pages.
+The two Discoveries names appear to describe the same event; distinct names
+were not deduplicated by the current name/edition key. The named Lisbon request
+also returned a different Lisbon half, while EDP's date remained unknown;
+this is not proof that the intended EDP edition is ready to prepare.
+Preparation booleans describe policy adapter coverage, not inventory or
+availability. Registration stayed unknown because P8 coverage is unavailable
+on this branch. No race was confirmed and nothing was prepared.
+
+This small live sample meets the <=35-second p50 target for these three
+requests only; it does not establish sustained throughput, six-concurrent-
+search behavior, generic source completeness, or live preparation success.
+
+Post-tuning offline checks:
+
+```text
+All checks passed!
+1152 passed, 1 warning in 14.33s
 ```

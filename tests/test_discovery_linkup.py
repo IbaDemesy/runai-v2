@@ -72,7 +72,7 @@ def test_normal_multi_candidate_and_structured_request():
             assert str(request.url) == "https://api.linkup.so/v1/search"
             assert request.headers["authorization"] == f"Bearer {KEY}"
             payload = json.loads(request.content)
-            assert payload["depth"] == "deep"
+            assert payload["depth"] == "standard"
             assert payload["outputType"] == "structured"
             schema = json.loads(payload["structuredOutputSchema"])
             assert schema["type"] == "object"
@@ -289,11 +289,11 @@ def test_errors_are_safe_and_injected_client_stays_open(failure):
 
 
 @pytest.mark.parametrize("timeout", [20, 120])
-def test_deep_search_retains_configured_timeout_and_delimits_scrubbed_query(timeout):
+def test_search_retains_configured_timeout_and_delimits_scrubbed_query(timeout):
     async def run():
         def handler(request):
             payload = json.loads(request.content)
-            assert payload["depth"] == "deep"
+            assert payload["depth"] == "standard"
             assert request.extensions["timeout"]["read"] == timeout
             prompt = payload["q"]
             assert prompt.count("<user_data>") == 1

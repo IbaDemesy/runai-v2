@@ -37,7 +37,7 @@ DISTANCES = {
 _OPTIONAL_ROW_FIELDS = ("distance_km", "official_url", "registration_url", "registration_source_url")
 CACHE_TTL_S = 1800
 CACHE_MAX_SIZE = 128
-CALL_BUDGET_S = 15
+CALL_BUDGET_S = 35
 _cache: OrderedDict[str, tuple[float, list[dict]]] = OrderedDict()
 
 
@@ -367,7 +367,7 @@ async def discover(
 
     Official status is grounded in per-source dates and the identified official
     host, not a provider-generated status label. Unknown dates stay unknown.
-    A caller-provided client remains open. Each search has a 15-second wall-clock
+    A caller-provided client remains open. Each search has a 35-second wall-clock
     budget (or the caller's shorter timeout) and at most one transient retry.
     """
     key = api_key if api_key is not None else os.getenv("LINKUP_API_KEY")
@@ -434,7 +434,7 @@ async def discover(
     )
     payload = {
         "q": prompt,
-        "depth": "deep",
+        "depth": "standard",
         "outputType": "structured",
         "structuredOutputSchema": json.dumps(_Response.model_json_schema()),
     }
