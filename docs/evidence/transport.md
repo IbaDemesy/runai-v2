@@ -1,3 +1,22 @@
+# PR44 review correction — SBB URL checkpoint disabled — 2026-11-09
+
+Supersedes earlier /en/offer checkpoint claims; earlier smoke tables remain
+historical observations. Step 6 Geneva's /en/offer URL already contained
+retDay/retMoment/retTime/retTrip while its last frame still showed **Select return
+ticket**, an outbound-only CHF54.40 subtotal and no selected return fare.
+Return-connection parameters do not prove return-ticket selection. No retained
+observed URL state distinguishes complete round-trip fare selection from that
+outbound offer; do not guess a stronger query regex.
+
+Every SBB adapter now uses the existing never-match `(?!)` sentinel for
+url_patterns, disabling URL-triggered force_answer. Registry and runner require
+nonempty lists, so an empty list would reject tasks rather than disable only
+the trigger. All beyond boundaries, including shop onboarding, are unchanged.
+Agent answers still undergo evidence validation; this does not promise READY
+without a verified checkpoint. No shared runtime/contract edits or live runs.
+Offline regressions reject bare /en/offer, outbound trip, return date, and the
+observed combination of return parameters on every SBB adapter.
+
 # R6-02 step 6 SBB-primary / reviewed shop smokes — 2026-11-09
 
 Only shop.sbb.ch was added as an explicitly owner-reviewed same-operator SBB

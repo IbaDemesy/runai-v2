@@ -495,12 +495,22 @@ def test_transport_checkpoint_guesses_exclude_results_and_benign_party_queries(p
                 assert not hclient._checkpoint_matches(
                     boundary, "beyond_patterns", "https://shop.sbb.ch" + path,
                 )
-        assert hclient._checkpoint_matches(
-            compiled, "url_patterns",
-            "https://www.sbb.ch/en/offer?stops=public-stations&trip=synthetic&retTrip=synthetic",
-        )
         for path in ("/en?trip=synthetic", "/en/plan/return?trip=synthetic&retTrip=synthetic",
                      "/en/buying/pages/offerte/offerte.xhtml", "/en/offers", "/en/offer/login"):
             assert not hclient._checkpoint_matches(
                 compiled, "url_patterns", "https://www.sbb.ch" + path,
             )
+
+
+@pytest.mark.parametrize("query", [
+    "", "?trip=synthetic", "?trip=synthetic&retDay=2027-01-11",
+    ("?stops=public-stations&day=2027-01-09&trip=synthetic&retDay=2027-01-11"
+     "&retMoment=dep&retTime=08_00&retTrip=synthetic"),
+])
+def test_sbb_outbound_offer_never_forces_answer_even_with_return_connection(query):
+    item = next(e for e in site_policy.load_registry() if e["id"] == "sbb-ch")
+    for adapter in item["adapters"]:
+        compiled = hclient._checkpoint({"checkpoint": adapter["checkpoint"]})
+        url = "https://www.sbb.ch/en/offer" + query
+        assert not hclient._checkpoint_matches(compiled, "url_patterns", url)
+        assert not hclient._checkpoint_matches(compiled, "beyond_patterns", url)
