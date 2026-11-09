@@ -862,6 +862,7 @@ def test_distance_tolerance_does_not_match_empty_scope_or_different_race():
     ("Registration for the 2027 edition will open on Saturday, December 19.", "", "not_open"),
     ("Die Anmeldung startet voraussichtlich im Februar 2027", "", "not_open"),
     ("Einzel-Anmeldung ... Register Now", "", "open"), ("Inscrições abertas!", "", "open"),
+    ("Registration open", "", "open"), ("Registration opens 1 March", "", "not_open"),
     ("", "", "unknown"), (None, 5, "unknown"), ("Marathon 2027 course map", "", "unknown"),
 ])
 def test_availability_from_evidence(text, url, status):
@@ -914,3 +915,23 @@ def test_prohibited_races_stay_policy_denied(race):
         assert coverage["prohibited"] is True and coverage["registration"] == "prohibited"
     with pytest.raises(ValueError, match="not policy-reviewed"):
         build_task(_race_trip(*race), today=MERGED_TODAY, registry=_merged())
+
+
+@pytest.mark.parametrize("race", [STOOS, FRANKFURT], ids=lambda r: r[0])
+def test_next_edition_does_not_inherit_observed_2027_availability(race):
+    trip = _race_trip(race[0], race[1].replace("2027", "2028"), *race[2:])
+    coverage = registration_coverage(trip["race"], today=MERGED_TODAY, registry=_merged())
+    assert coverage["status"] == "unknown" and coverage["preparable_open"] is False
+
+
+def test_waiting_list_instruction_yields_hclient_sold_out_reason():
+    task = build_task(_race_trip(*STOOS), today=MERGED_TODAY, registry=_merged())
+    assert "must start with the words 'sold out'" in task["instructions"]
+    answer = {"blocker": "sold out: waiting list only", "reached_step": "waiting list"}
+    assert hclient._blocked_reason(answer, task) == "sold_out"
+
+
+def test_invalid_availability_race_dates_fail_closed():
+    reg = _with_availability()
+    reg["entries"][0]["adapters"][0]["availability"]["race_dates"] = ["2027-13-40"]
+    assert _coverage(reg=reg)["covered"] is False

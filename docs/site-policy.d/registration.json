@@ -1752,7 +1752,10 @@
       ],
       "observed_at": "2026-11-09",
       "source": "https://my.raceresult.com/422182/registration",
-      "note": "Normal-Chrome render 2026-11-09: 'Stoos Trail 2027, 2027-07-10', Einzel-Anmeldung contest list ST46/ST24/ST10/Bärglauf with current fee window 10/15/2026-11/14/2026 (90/65/35/70 CHF) and an active 'Register Now' button that opens the participant form. Distances: official course lengths plus the contest labels ST10/ST24/ST46 shown on the registration page."
+      "note": "Normal-Chrome render 2026-11-09: 'Stoos Trail 2027, 2027-07-10', Einzel-Anmeldung contest list ST46/ST24/ST10/Bärglauf with current fee window 10/15/2026-11/14/2026 (90/65/35/70 CHF) and an active 'Register Now' button that opens the participant form. Distances: official course lengths plus the contest labels ST10/ST24/ST46 shown on the registration page.",
+      "race_dates": [
+       "2027-07-10"
+      ]
      }
     }
    ]
@@ -1829,7 +1832,10 @@
       ],
       "observed_at": "2026-11-09",
       "source": "https://in.motionevents-registrations.com/mainova-frankfurt-marathon-2027-1789303690969?currentPage=select-competition",
-      "note": "Normal-Chrome render 2026-11-09: 'MAINOVA FRANKFURT MARATHON 2027, DATUM 31.10.2027, ZEIT 10:00, Preis 136,00 €, EINZELANMELDUNG' active. Kids races are separately not yet open (Feb 2027); marathon only."
+      "note": "Normal-Chrome render 2026-11-09: 'MAINOVA FRANKFURT MARATHON 2027, DATUM 31.10.2027, ZEIT 10:00, Preis 136,00 €, EINZELANMELDUNG' active. Kids races are separately not yet open (Feb 2027); marathon only.",
+      "race_dates": [
+       "2027-10-31"
+      ]
      }
     }
    ]

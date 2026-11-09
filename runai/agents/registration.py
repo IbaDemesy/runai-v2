@@ -64,7 +64,7 @@ _AVAILABILITY_EVIDENCE = (
         r"inscri[cç][oõ]es encerradas|inscripci[oó]n(?:es)? cerradas?|iscrizioni chiuse|"
         r"inscriptions? (?:sont )?(?:clos|ferm)|inschrijving (?:is )?gesloten")),
     ("not_open", re.compile(
-        r"registration (?:will )?opens?\b|\bwill (?:re)?open\b|not (?:yet )?open|"
+        r"registration (?:will open|opens)\b|\bwill (?:re)?open\b|not (?:yet )?open|"
         r"opens?[-_ ]soon|coming[-_ ]soon|"
         r"anmeldung (?:startet|beginnt|er[oö]ffnet)\s+(?:voraussichtlich|ab|erst|demn[aä]chst)|"
         r"noch nicht (?:verf[uü]gbar|ge[oö]ffnet)|inscri[cç][oõ]es (?:em breve|brevemente)|"
@@ -181,6 +181,16 @@ def _availability(raw: Any, entry_id: Any) -> dict[str, Any] | None:
         ):
             raise site_policy.PolicyError(f"{entry_id}: availability.distances_km is invalid")
         result["distances_km"] = distances
+    if "race_dates" in raw:
+        dates = raw["race_dates"]
+        try:
+            if not isinstance(dates, list) or not dates or not all(
+                    isinstance(d, str) for d in dates):
+                raise TypeError(dates)
+            result["race_dates"] = [date.fromisoformat(d).isoformat() for d in dates]
+        except (TypeError, ValueError) as exc:
+            raise site_policy.PolicyError(
+                f"{entry_id}: availability.race_dates is invalid") from exc
     return result
 
 
@@ -209,11 +219,14 @@ def _distance_matches(distance_km: Any, distances_km: list[float]) -> bool:
 
 
 def _fresh_status(
-    adapter: Mapping[str, Any] | None, today: date, distance_km: Any,
+    adapter: Mapping[str, Any] | None, today: date, distance_km: Any, race_date: Any = None,
 ) -> tuple[str, str | None]:
-    """Observed availability status, or 'unknown' when absent, stale or dated in the future."""
+    """Observed availability status, or 'unknown' when absent, stale, dated in the future or
+    observed for another edition (``race_dates``)."""
     availability = adapter.get("availability") if adapter else None
     if not availability:
+        return "unknown", None
+    if "race_dates" in availability and str(race_date)[:10] not in availability["race_dates"]:
         return "unknown", None
     if "distances_km" in availability and not _distance_matches(
         distance_km, availability["distances_km"]
@@ -425,7 +438,7 @@ def _plan(
         f"{adapter['success_evidence']} BLOCKED looks like: {adapter['blocked_evidence']}\n"
         if adapter else ""
     )
-    status, observed_at = _fresh_status(adapter, today, distance_km)
+    status, observed_at = _fresh_status(adapter, today, distance_km, expected["race_date"])
     seen = f"on {observed_at} ({adapter['availability']['source']})" if adapter and (
         adapter["availability"]) else ""
     evidence = availability_from_evidence(url=start_url)
@@ -476,8 +489,10 @@ def _plan(
         "5b. AVAILABILITY: a waiting-list, sold-out or closed page (Waiting list, Lista de "
         "espera, Warteliste, Liste d'attente, Wachtlijst, Sold out, Ausverkauft, Complet, "
         "Esgotado, Agotado, Uitverkocht, Registration closed) means STOP and report BLOCKED "
-        "sold_out (registration_closed when closed or not yet open) with its URL. Never join "
-        "the waiting list; say only that registration is unavailable.\n"
+        "sold_out (registration_closed when closed or not yet open) with its URL; the blocker "
+        "text must start with the words 'sold out' (or 'registration closed'), e.g. 'sold out: "
+        "waiting list only'. Never join the waiting list; say only that registration is "
+        "unavailable.\n"
         f"{access_hint}{adapter_hint}{alternatives_hint}"
         f"6. STOP at the first page that asks for any of:\n{stop_lines}\n"
         "7. Never type personal data, log in, create an account, tick consent or terms, upload "
@@ -568,7 +583,8 @@ def registration_coverage(
             return result
         if not _scrub_clean(task["start_url"]):
             return result
-        status, observed_at = _fresh_status(adapter, today, race.get("distance_km"))
+        status, observed_at = _fresh_status(
+            adapter, today, race.get("distance_km"), race.get("race_date"))
         evidence = availability_from_evidence(url=race.get("registration_url"))
         if status in ("open", "unknown") and evidence in ("sold_out", "closed", "not_open"):
             status = evidence
