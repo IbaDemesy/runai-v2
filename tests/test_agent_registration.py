@@ -370,3 +370,29 @@ def test_load_registry_merges_fragments_when_available():
     trip = _race_trip("Wizz Air Milano Marathon", "2027-04-04", 42.195, "Milano", "Italy",
                       "https://www.milanomarathon.it/")
     assert build_task(trip, today=MERGED_TODAY)["start_url"].startswith("https://in.njuko.com/")
+
+
+def test_edition_specific_adapter_skips_other_editions():
+    trip = _race_trip("Wizz Air Milano Marathon", "2028-04-02", 42.195, "Milano", "Italy",
+                      "https://www.milanomarathon.it/", edition="2028")
+    task = build_task(trip, today=MERGED_TODAY, registry=_merged())
+    assert task["start_url"] == "https://www.milanomarathon.it/"
+    assert "2027" not in task["start_url"]
+
+
+def test_adapter_fallback_keeps_sourced_race_url():
+    trip = _race_trip("Wizz Air Milano Marathon", "2027-04-04", 42.195, "Milano", "Italy",
+                      "https://www.milanomarathon.it/")
+    task = build_task(trip, today=MERGED_TODAY, registry=_merged())
+    assert task["start_url"].startswith("https://in.njuko.com/")
+    assert task["fallback_url"] == "https://www.milanomarathon.it/"
+
+
+@pytest.mark.parametrize("bad", [["not-an-entry"], [{"id": "x", "scopes": ["host"]}]])
+def test_malformed_registry_entries_fail_closed_as_value_error(bad):
+    reg = _merged()
+    reg["entries"] = reg["entries"] + bad
+    trip = _race_trip("Wizz Air Milano Marathon", "2027-04-04", 42.195, "Milano", "Italy",
+                      "https://www.milanomarathon.it/")
+    with pytest.raises(ValueError, match="registry"):
+        build_task(trip, today=MERGED_TODAY, registry=reg)

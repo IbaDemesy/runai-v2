@@ -46,9 +46,9 @@
      "kind": "registration",
      "race_match": {
       "name_patterns": [
-       "milano\\s*marathon",
-       "maratona\\s+di\\s+milano",
-       "milan\\s+marathon"
+       "(?=.*\\b2027\\b).*(?:milano\\s*marathon)",
+       "(?=.*\\b2027\\b).*(?:maratona\\s+di\\s+milano)",
+       "(?=.*\\b2027\\b).*(?:milan\\s+marathon)"
       ],
       "countries": [
        "IT"
@@ -114,10 +114,10 @@
      "kind": "registration",
      "race_match": {
       "name_patterns": [
-       "meia\\s+maratona\\s+de\\s+lisboa",
-       "lisbon\\s+half",
-       "semi(-|\\s)?marathon\\s+de\\s+lisbonne",
-       "lisboa\\s+half"
+       "(?=.*\\b2027\\b).*(?:meia\\s+maratona\\s+de\\s+lisboa)",
+       "(?=.*\\b2027\\b).*(?:lisbon\\s+half)",
+       "(?=.*\\b2027\\b).*(?:semi(-|\\s)?marathon\\s+de\\s+lisbonne)",
+       "(?=.*\\b2027\\b).*(?:lisboa\\s+half)"
       ],
       "countries": [
        "PT"
@@ -401,9 +401,9 @@
      "kind": "registration",
      "race_match": {
       "name_patterns": [
-       "gen[eè]v[ea]\\s+(half\\s+)?marathon",
-       "geneva\\s+(half\\s+)?marathon",
-       "semi(-|\\s)?marathon\\s+de\\s+gen[eè]ve"
+       "(?=.*\\b2027\\b).*(?:gen[eè]v[ea]\\s+(half\\s+)?marathon)",
+       "(?=.*\\b2027\\b).*(?:geneva\\s+(half\\s+)?marathon)",
+       "(?=.*\\b2027\\b).*(?:semi(-|\\s)?marathon\\s+de\\s+gen[eè]ve)"
       ],
       "countries": [
        "CH"
@@ -657,9 +657,9 @@
      "kind": "registration",
      "race_match": {
       "name_patterns": [
-       "vienna\\s+(city\\s+)?marathon",
-       "vienna\\s+city",
-       "wien\\s+marathon"
+       "(?=.*\\b2027\\b).*(?:vienna\\s+(city\\s+)?marathon)",
+       "(?=.*\\b2027\\b).*(?:vienna\\s+city)",
+       "(?=.*\\b2027\\b).*(?:wien\\s+marathon)"
       ],
       "countries": [
        "AT"
@@ -719,9 +719,9 @@
      "kind": "registration",
      "race_match": {
       "name_patterns": [
-       "prague\\s+(half\\s+)?marathon",
-       "praha\\s+marathon",
-       "marathon\\s+de\\s+prague"
+       "(?=.*\\b2027\\b).*(?:prague\\s+(half\\s+)?marathon)",
+       "(?=.*\\b2027\\b).*(?:praha\\s+marathon)",
+       "(?=.*\\b2027\\b).*(?:marathon\\s+de\\s+prague)"
       ],
       "countries": [
        "CZ"

@@ -86,7 +86,11 @@ def default_registry() -> dict[str, Any]:
 def _check_scopes(entries: list[Any]) -> None:
     decisions: dict[tuple[str, str], str] = {}
     for raw in entries:
+        if not isinstance(raw, Mapping) or not isinstance(raw.get("scopes") or [], list):
+            raise site_policy.PolicyError("registry entries and scopes must be objects/lists")
         for scope in raw.get("scopes") or []:
+            if not isinstance(scope, Mapping):
+                raise site_policy.PolicyError("registry scopes must be objects")
             key = (scope.get("host"), scope.get("path_prefix", "/"))
             if decisions.setdefault(key, raw.get("automation")) != raw.get("automation"):
                 raise site_policy.PolicyError(f"conflicting policy decisions for {key}")
@@ -173,7 +177,8 @@ def _host_allowed(host: str, *, today: date | None, registry: Any) -> bool:
 
 
 def _matching(adapters, race: Mapping[str, Any]) -> list[dict[str, Any]]:
-    name = " ".join(p for p in (_text(race, "name"), _text(race, "edition")) if p)
+    year = (_text(race, "race_date") or "")[:4]
+    name = " ".join(p for p in (_text(race, "name"), _text(race, "edition"), year) if p)
     code = country_code(race.get("country"))
     return [
         a for a in adapters
@@ -226,6 +231,9 @@ def build_task(
     if start_url is None or decision is None:
         raise ValueError(f"registration site not policy-reviewed ({'; '.join(reasons)})")
 
+    fallback_url = next(
+        (u for u in (registration_url, official_url)
+         if u and evaluate_url(u, KIND, today=today, registry=view)["allowed"]), start_url)
     start_host = urlsplit(start_url).hostname
     scope_hosts = {
         s["host"] for e in parse_registry(view) if e["id"] == decision["policy_id"]
@@ -298,7 +306,7 @@ def build_task(
         "instructions": instructions,
         "stop_before": list(STOP_BEFORE),
         "success_signal": success,
-        "fallback_url": start_url,
+        "fallback_url": fallback_url,
         "max_steps": DEFAULT_MAX_STEPS,
         "expected": expected,
         "allowed_hosts": hosts,
