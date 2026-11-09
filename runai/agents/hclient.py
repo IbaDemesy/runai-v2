@@ -666,7 +666,7 @@ class HAgentRunner:
             return state.get("status") if isinstance(state, dict) else state
 
         async def frame(data: dict, timestamp: str | None, page_url: str | None):
-            nonlocal frame_seen, last_frame_hash
+            nonlocal frame_seen, last_frame_hash, checkpoint_frame_url
             image = data.get("image") or {}
             if not isinstance(image, dict):
                 return
@@ -722,6 +722,8 @@ class HAgentRunner:
                     raise ValueError("Screenshot too large")
                 if page_url == result["final_url"]:
                     frame_seen = page_url
+                    if _checkpoint_matches(checkpoint, "url_patterns", page_url):
+                        checkpoint_frame_url = page_url
                 digest = hashlib.sha256(content).digest()
                 if digest == last_frame_hash:
                     return
@@ -946,8 +948,6 @@ class HAgentRunner:
                                         pending_frame = None
                                     except (TimeoutError, httpx.HTTPError):
                                         pass
-                                    if frame_seen == observed:
-                                        checkpoint_frame_url = observed
                                     if new_state not in _TERMINAL:
                                         await force_answer(60)
                     if pending_frame is not None:

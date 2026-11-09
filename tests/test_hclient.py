@@ -1869,6 +1869,48 @@ def test_ihg_unverified_checkpoint_is_honest_public_handoff(field, value, gate):
     assert not any("verify_failed" in repr(event) for event in emitted)
 
 
+@pytest.mark.parametrize("succeed_on", [1, 2, 3, None])
+@pytest.mark.parametrize("verification", ["empty", "missing_total"])
+def test_ihg_unverified_checkpoint_retains_frame_downloaded_on_retry(succeed_on, verification):
+    fixture, task, observations = ihg_case()
+    answer = fixture["answer"]
+    if verification == "empty":
+        answer["verification"] = {}
+    else:
+        answer["verification"]["total"] = None
+    checkpoint = observations[-1]
+    checkpoint["data"]["image"] = {
+        "type": "url", "source": "https://images.example.org/checkpoint",
+        "media_type": "image/png",
+    }
+    provider = Provider(events=[checkpoint], answer=answer)
+    attempts = 0
+
+    def handle(request):
+        nonlocal attempts
+        if request.url.host == "images.example.org":
+            attempts += 1
+            if succeed_on is None or attempts < succeed_on:
+                return httpx.Response(503)
+            return httpx.Response(200, content=IMAGE, headers={"content-type": "image/png"})
+        return provider(request)
+
+    result, events = run(handle, task)
+    frames = [event for event in events if event["type"] == "live_frame"]
+    assert result["status"] == "blocked"
+    if succeed_on is not None:
+        assert attempts == succeed_on
+        assert len(frames) == 1 and frames[0]["image"] == IMAGE
+        assert result["reason_code"] == "checkpoint_unverified"
+        assert result["checkpoint_reached"] is True
+        assert result["handoff_url"] == scrub_url(fixture["urls"][-1])
+    else:
+        assert attempts == 3
+        assert not frames and not result.get("checkpoint_reached")
+        assert result["handoff_url"] is None
+        assert result["reason_code"] == "unsafe_claim"
+
+
 def test_ihg_complete_checkpoint_ready_with_zero_based_july_and_tracking_noise():
     fixture, task, events = ihg_case()
     result, _ = run(Provider(events=events, answer=fixture["answer"]), task)
