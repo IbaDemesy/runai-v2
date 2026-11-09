@@ -11,10 +11,11 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Mapping
-from datetime import UTC, date, datetime
+from collections.abc import Mapping, Sequence
+from datetime import UTC, date, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
+from string import Formatter
 from typing import Any
 from urllib.parse import quote, urlsplit
 
@@ -79,11 +80,18 @@ def _observation(raw: Any) -> dict[str, Any]:
     }
 
 
-_DATE_VARIANTS = ("dmy_slash", "dmy_dot", "day", "monthyear0")
-_PLACE_FIELDS = frozenset({"place_id", "place_code", "place_name", "place_country", "place_extra"})
-_ORIGIN_FIELDS = frozenset({"origin_place_id", "origin_place_code"})
+_DATE_VARIANTS = ("dmy_slash", "dmy_dot", "day", "monthyear0", "ymd", "dmy_dash", "mdy_slash")
+_PLACE_FIELDS = frozenset({
+    "place_id", "place_code", "place_name", "place_country", "place_extra",
+    "city_query", "iata", "station_code", "station_name",
+})
+_ORIGIN_FIELDS = frozenset({
+    "origin_place_id", "origin_place_code", "origin_city_query", "origin_iata",
+    "origin_station_code", "origin_station_name",
+})
 _TEMPLATE_FIELDS = frozenset({
     "city", "country", "origin_city", "arrival_date", "departure_date", "travelers", "race_date",
+    "race_name",
     *(f"{d}_{v}" for d in ("arrival", "departure") for v in _DATE_VARIANTS),
 }) | _PLACE_FIELDS | _ORIGIN_FIELDS
 
@@ -91,7 +99,10 @@ _TEMPLATE_FIELDS = frozenset({
 def _date_values(prefix: str, value: date) -> dict[str, str]:
     """Site date encodings; monthyear0 is a zero-based month (00=January) followed by YYYY."""
     return {
+        f"{prefix}_ymd": value.strftime("%Y%m%d"),
+        f"{prefix}_dmy_dash": value.strftime("%d-%m-%Y"),
         f"{prefix}_dmy_slash": value.strftime("%d/%m/%Y"),
+        f"{prefix}_mdy_slash": value.strftime("%m/%d/%Y"),
         f"{prefix}_dmy_dot": value.strftime("%d.%m.%Y"),
         f"{prefix}_day": value.strftime("%d"),
         f"{prefix}_monthyear0": f"{value.month - 1:02d}{value.year}",
@@ -128,18 +139,39 @@ def _codes(value: Any, field: str) -> frozenset[str] | None:
 
 def _adapter(raw: Any, entry_id: str, scope_hosts: set[str]) -> dict[str, Any]:
     """A reviewed public deep link: values are filled only into the query or fragment."""
-    if not isinstance(raw, Mapping) or raw.get("kind") not in KINDS - {"registration"}:
-        raise PolicyError(f"{entry_id}: adapter needs kind hotel or transport")
+    if not isinstance(raw, Mapping) or raw.get("kind") not in KINDS:
+        raise PolicyError(f"{entry_id}: invalid adapter kind")
+    mode = raw.get("mode")
+    traveler_counts = raw.get("traveler_counts")
+    if traveler_counts is not None and (
+        not isinstance(traveler_counts, list) or not traveler_counts
+        or any(type(n) is not int or n < 1 for n in traveler_counts)
+    ):
+        raise PolicyError(f"{entry_id}: traveler_counts must be non-empty positive integers")
+    if mode is not None and mode not in ("rail", "flight", "bus", "hotel", "registration"):
+        raise PolicyError(f"{entry_id}: invalid adapter mode")
     template = raw.get("url_template")
     if not isinstance(template, str):
         raise PolicyError(f"{entry_id}: adapter url_template is required")
     try:
+        used = set()
+        for _, field, spec, conversion in Formatter().parse(template):
+            if field is not None:
+                if field not in _TEMPLATE_FIELDS or spec or conversion is not None:
+                    raise ValueError("invalid field")
+                used.add(field)
         sample = template.format(**{f: "X" for f in _TEMPLATE_FIELDS})
     except (KeyError, IndexError, ValueError) as exc:
-        raise PolicyError(f"{entry_id}: unknown url_template placeholder") from exc
+        raise PolicyError(f"{entry_id}: malformed placeholder") from exc
+    platform_hosts = []
+    if raw["kind"] == "registration":
+        hosts = raw.get("platform_hosts", [])
+        if not isinstance(hosts, list):
+            raise PolicyError(f"{entry_id}: platform_hosts must be a list")
+        platform_hosts = [_host(h) for h in hosts]
     before, after = urlsplit(template), urlsplit(sample)
     if (
-        before.scheme != "https" or before.hostname not in scope_hosts
+        before.scheme != "https" or before.hostname not in scope_hosts | set(platform_hosts)
         or (before.netloc, before.path) != (after.netloc, after.path)
     ):
         raise PolicyError(f"{entry_id}: url_template must be https on a reviewed host, "
@@ -149,11 +181,32 @@ def _adapter(raw: Any, entry_id: str, scope_hosts: set[str]) -> dict[str, Any]:
             raise PolicyError(f"{entry_id}: adapter {key} is required")
     places = _places(raw.get("places"), entry_id, _PLACE_FIELDS)
     origin_places = _places(raw.get("origin_places"), entry_id, _ORIGIN_FIELDS)
-    used = {f for f in _TEMPLATE_FIELDS if "{" + f + "}" in template}
-    if used & _PLACE_FIELDS and not places or used & _ORIGIN_FIELDS and not origin_places:
+    if (used & (_PLACE_FIELDS - {"city_query"}) and not places
+            or used & (_ORIGIN_FIELDS - {"origin_city_query"}) and not origin_places):
         raise PolicyError(f"{entry_id}: url_template uses place IDs but adapter has none")
+    race_match = None
+    if raw["kind"] == "registration":
+        race_match = raw.get("race_match")
+        if not isinstance(race_match, Mapping):
+            raise PolicyError(f"{entry_id}: race_match is required")
+        patterns = race_match.get("name_patterns")
+        if not isinstance(patterns, list) or not patterns:
+            raise PolicyError(f"{entry_id}: name_patterns must be non-empty")
+        try:
+            if not all(isinstance(p, str) and p.strip() for p in patterns):
+                raise ValueError("empty pattern")
+            for pattern in patterns:
+                re.compile(pattern, re.IGNORECASE)
+        except (ValueError, re.error) as exc:
+            raise PolicyError(f"{entry_id}: invalid race name pattern") from exc
+        race_match = {"name_patterns": patterns,
+                      "countries": _codes(race_match.get("countries"), "race_match.countries")}
     return {
         "kind": raw["kind"],
+        "mode": mode,
+        "traveler_counts": traveler_counts,
+        "race_match": race_match,
+        "platform_hosts": platform_hosts,
         "places": places,
         "origin_places": origin_places,
         "uses": frozenset(used),
@@ -231,16 +284,50 @@ def parse_registry(data: Any) -> list[dict[str, Any]]:
     parsed = [_entry(raw) for raw in entries]
     if len({e["id"] for e in parsed}) != len(parsed):
         raise PolicyError("duplicate policy ids")
+    decisions = {}
+    for entry in parsed:
+        for scope in entry["scopes"]:
+            key = (scope["host"], scope["path_prefix"])
+            if key in decisions and decisions[key] != entry["automation"]:
+                raise PolicyError("conflicting automation decisions for identical scope")
+            decisions[key] = entry["automation"]
+    registration_hosts = {
+        s["host"] for e in parsed if "registration" in e["purposes"]
+        and e["automation"] in ("allowed_read_only", "allowed_owner_rule") for s in e["scopes"]
+    }
+    for entry in parsed:
+        for adapter in entry["adapters"]:
+            if not set(adapter["platform_hosts"]) <= registration_hosts:
+                raise PolicyError("registration platform host lacks an allowed registration policy")
     return parsed
 
 
 @lru_cache(maxsize=4)
-def _load(path: str, mtime_ns: int) -> tuple[dict[str, Any], ...]:
-    return tuple(parse_registry(json.loads(Path(path).read_text(encoding="utf-8"))))
+def _load(files: tuple[tuple[str, int], ...]) -> tuple[dict[str, Any], ...]:
+    try:
+        documents = [json.loads(Path(path).read_text(encoding="utf-8")) for path, _ in files]
+        return tuple(_merge_registries(documents))
+    except (ValueError, TypeError) as exc:
+        raise PolicyError("malformed registry document") from exc
 
 
-def load_registry(path: Path | str = REGISTRY_PATH) -> list[dict[str, Any]]:
-    return list(_load(str(path), Path(path).stat().st_mtime_ns))
+def load_registry(
+    path: Path | str = REGISTRY_PATH, fragments_dir: Path | str | None = None,
+) -> list[dict[str, Any]]:
+    path = Path(path)
+    directory = Path(fragments_dir) if fragments_dir is not None else path.parent / "site-policy.d"
+    paths = [path, *sorted(directory.glob("*.json"))]
+    return list(_load(tuple((str(p.resolve()), p.stat().st_mtime_ns) for p in paths)))
+
+
+def _merge_registries(documents: Sequence[Any]) -> list[dict[str, Any]]:
+    entries = []
+    for document in documents:
+        if (not isinstance(document, Mapping) or document.get("schema_version") != 1
+                or not isinstance(document.get("entries"), list)):
+            raise PolicyError("malformed registry document")
+        entries.extend(document["entries"])
+    return parse_registry({"schema_version": 1, "entries": entries})
 
 
 def _split(url: Any) -> tuple[str, str] | None:
@@ -280,6 +367,8 @@ def _deny(reason: str, entry: Mapping[str, Any] | None = None) -> dict[str, Any]
 
 
 def _registry(registry: Any) -> list[dict[str, Any]]:
+    if isinstance(registry, (list, tuple)):
+        return _merge_registries(registry)
     return load_registry() if registry is None else parse_registry(registry)
 
 
@@ -391,6 +480,16 @@ _CITY_COUNTRIES = {
     "berlin": "DE", "munich": "DE", "münchen": "DE", "frankfurt": "DE", "hamburg": "DE",
     "brussels": "BE", "bruxelles": "BE", "amsterdam": "NL", "london": "GB", "londres": "GB",
     "vienna": "AT", "vienne": "AT", "wien": "AT",
+    "freiburg": "DE", "freiburg im breisgau": "DE", "köln": "DE", "cologne": "DE",
+    "basel": "CH", "bâle": "CH", "lausanne": "CH", "genf": "CH", "ginevra": "CH",
+    "lucerne": "CH", "luzern": "CH", "interlaken": "CH", "lugano": "CH", "berne": "CH",
+    "brussel": "BE", "antwerp": "BE", "anvers": "BE", "ghent": "BE", "gand": "BE",
+    "valència": "ES", "sevilla": "ES", "bilbao": "ES", "malaga": "ES",
+    "bologna": "IT", "florence": "IT", "firenze": "IT", "venice": "IT", "venezia": "IT",
+    "naples": "IT", "napoli": "IT", "strasbourg": "FR", "bordeaux": "FR", "toulouse": "FR",
+    "nantes": "FR", "montpellier": "FR", "rotterdam": "NL", "salzburg": "AT",
+    "innsbruck": "AT", "prague": "CZ", "budapest": "HU", "copenhagen": "DK",
+    "dublin": "IE", "athens": "GR",
 }
 
 
@@ -476,7 +575,7 @@ def trip_expected(
 
 def select_adapter(
     kind: str, expected: Mapping[str, Any], *, origin_country: str | None = None,
-    today: date | None = None, registry: Any = None,
+    today: date | None = None, registry: Any = None, modes: Sequence[str] | None = None,
 ) -> tuple[dict[str, Any], str, dict[str, Any]]:
     """First reviewed deep-link adapter whose filled URL passes evaluate_url, else ValueError."""
     destination = country_code(expected.get("country"))
@@ -486,9 +585,27 @@ def select_adapter(
         entries = _registry(registry)
     except (OSError, ValueError, TypeError) as exc:
         raise ValueError("site-policy registry unavailable or invalid") from exc
+    reasons = []
+    for _, adapter, url, decision in _candidates(
+        kind, expected, entries, origin_country=origin_country, today=today,
+        registry=registry, modes=modes, reasons=reasons,
+    ):
+        return adapter, url, decision
+    detail = "; ".join(reasons) or "no reviewed adapter covers this route/destination"
+    raise ValueError(f"no policy-reviewed {kind} site for this trip ({detail})")
+
+
+def _candidates(
+    kind, expected, entries, *, origin_country=None, today=None, registry=None,
+    modes=None, reasons=None, partial=False,
+):
+    reasons = reasons if reasons is not None else []
+    destination = country_code(expected.get("country"))
     values = {
         k: str(expected.get(k) or "") for k in _TEMPLATE_FIELDS
     }
+    values["city_query"] = values["city"]
+    values["origin_city_query"] = values["origin_city"]
     try:
         values |= _date_values("arrival", _iso(expected.get("arrival_date"), "arrival_date"))
         values |= _date_values("departure", _iso(expected.get("departure_date"), "departure_date"))
@@ -496,36 +613,99 @@ def select_adapter(
         pass
     city = str(expected.get("city") or "").strip().casefold()
     origin = str(expected.get("origin_city") or "").strip().casefold()
-    reasons = []
-    for entry in entries:
-        for adapter in entry["adapters"]:
-            if adapter["kind"] != kind:
-                continue
-            if adapter["destination_countries"] is not None and (
-                destination not in adapter["destination_countries"]
+    candidates = [(e, a) for e in entries for a in e["adapters"]]
+    if modes is not None:
+        candidates = [(e, a) for mode in [*dict.fromkeys(modes), None]
+                      for e, a in candidates if a["mode"] == mode]
+    for entry, adapter in candidates:
+        if adapter["kind"] != kind:
+            continue
+        if (adapter["traveler_counts"] is not None
+                and expected.get("travelers") not in adapter["traveler_counts"]):
+            reasons.append(f"{entry['id']}: party size not reviewed")
+            continue
+        if adapter["destination_countries"] is not None and (
+            destination not in adapter["destination_countries"]
+        ) and not (partial and expected.get("country") is None):
+            continue
+        if adapter["origin_countries"] is not None and (
+            origin_country not in adapter["origin_countries"]
+        ) and not (partial and expected.get("origin_city") is None):
+            continue
+        if adapter["race_match"] is not None:
+            match = adapter["race_match"]
+            if not partial and not any(
+                re.search(p, str(expected.get("race_name") or ""), re.IGNORECASE)
+                for p in match["name_patterns"]
             ):
+                reasons.append(f"{entry['id']}: race name does not match")
                 continue
-            if adapter["origin_countries"] is not None and (
-                origin_country not in adapter["origin_countries"]
-            ):
+            if (match["countries"] is not None and destination not in match["countries"]
+                    and not (partial and expected.get("country") is None)):
+                reasons.append(f"{entry['id']}: race country does not match")
                 continue
-            filled = dict(values)
-            if adapter["uses"] & _PLACE_FIELDS:
-                if city not in adapter["places"]:
-                    reasons.append(f"{entry['id']}: no reviewed place IDs for this city")
-                    continue
-                filled |= adapter["places"][city]
-            if adapter["uses"] & _ORIGIN_FIELDS:
-                if origin not in adapter["origin_places"]:
-                    reasons.append(f"{entry['id']}: no reviewed place IDs for this origin")
-                    continue
-                filled |= adapter["origin_places"][origin]
-            url = adapter["url_template"].format(
-                **{k: quote(v, safe="") for k, v in filled.items()},
-            )
-            decision = evaluate_url(url, kind, today=today, registry=registry)
-            if decision["allowed"]:
-                return adapter, url, decision
+            if any(not any(
+                evaluate_url(f"https://{host}{scope['path_prefix']}", "registration",
+                             today=today, registry=registry)["allowed"]
+                for platform in entries
+                if "registration" in platform["purposes"]
+                and platform["automation"] in ("allowed_read_only", "allowed_owner_rule")
+                for scope in platform["scopes"] if scope["host"] == host
+            ) for host in adapter["platform_hosts"]):
+                reasons.append(f"{entry['id']}: registration platform unavailable or expired")
+                continue
+        filled = dict(values)
+        missing = False
+        for key, table, fields, fallback, label in (
+            (city, adapter["places"], _PLACE_FIELDS, "city_query", "city"),
+            (origin, adapter["origin_places"], _ORIGIN_FIELDS, "origin_city_query", "origin"),
+        ):
+            required = adapter["uses"] & (fields - {fallback})
+            lookup = table.get(key, {})
+            if partial and not key and required and table:
+                lookup = next((row for row in table.values() if required <= row.keys()), {})
+            if not required <= lookup.keys():
+                reasons.append(f"{entry['id']}: no reviewed place IDs for this {label}")
+                missing = True
+                break
+            filled |= lookup
+        if missing:
+            continue
+        url = adapter["url_template"].format(
+            **{k: quote(v, safe="") for k, v in filled.items()},
+        )
+        decision = evaluate_url(url, kind, today=today, registry=registry)
+        if decision["allowed"]:
+            yield entry, adapter, url, decision
+        else:
             reasons.append(f"{entry['id']}: {decision['reason']}")
-    detail = "; ".join(reasons) or "no reviewed adapter covers this route/destination"
-    raise ValueError(f"no policy-reviewed {kind} site for this trip ({detail})")
+
+
+def coverage(
+    kind, *, country=None, city=None, origin_city=None, today=None, registry=None,
+) -> dict[str, Any]:
+    """Return reviewed adapter coverage without starting a provider; malformed input fails closed."""
+    empty = {"covered": False, "policy_ids": []}
+    try:
+        if kind not in KINDS or any(
+            value is not None and (not isinstance(value, str) or not value.strip())
+            for value in (country, city, origin_city)
+        ):
+            return empty
+        if country is not None and country_code(country) is None:
+            return empty
+        today = today or datetime.now(UTC).date()
+        entries = _registry(registry)
+        expected = {
+            "country": country, "city": city, "origin_city": origin_city,
+            "arrival_date": (today + timedelta(days=30)).isoformat(),
+            "departure_date": (today + timedelta(days=32)).isoformat(), "travelers": 1,
+        }
+        ids = {e["id"] for e, _, _, _ in _candidates(
+            kind, expected, entries, origin_country=city_country(origin_city), today=today,
+            registry=registry, partial=True,
+        )}
+        policy_ids = [e["id"] for e in entries if e["id"] in ids]
+        return {"covered": bool(policy_ids), "policy_ids": policy_ids}
+    except Exception:  # noqa: BLE001
+        return empty
