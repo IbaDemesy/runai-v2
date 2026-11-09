@@ -31,7 +31,7 @@ from runai.agents.site_policy import (
 )
 
 KIND = "registration"
-DEFAULT_MAX_STEPS = 40
+DEFAULT_MAX_STEPS = 60
 FRAGMENT_DIR = Path(site_policy.REGISTRY_PATH).parent / "site-policy.d"
 _TEMPLATE_FIELDS = ("race_date", "edition")
 REASON_CODES = (
@@ -52,6 +52,34 @@ STOP_BEFORE = [
 AVAILABILITY_STATUSES = ("open", "sold_out", "not_open", "closed", "unknown")
 AVAILABILITY_MAX_AGE_DAYS = 21
 _PROHIBITED = "site terms prohibit"
+
+NJUKO_CHECKPOINT = {
+    "url_patterns": [r"(?i)[?&#]currentPage=form(?:_individual(?:-form)?)?(?:[&#]|$)"],
+    "beyond_patterns": [r"(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in)"],
+}
+PERSONAL_DATA_CHECKPOINT = {
+    "url_patterns": [r"(?i)(?:participant|personal[-_]?data|individual[-_]?form)"],
+    "beyond_patterns": NJUKO_CHECKPOINT["beyond_patterns"],
+}
+
+
+def _checkpoint(raw: Any, entry_id: Any) -> dict[str, list[str]]:
+    if not isinstance(raw, Mapping):
+        raise site_policy.PolicyError(f"{entry_id}: checkpoint is required")
+    result = {}
+    for key in ("url_patterns", "beyond_patterns"):
+        patterns = raw.get(key)
+        if not isinstance(patterns, list) or not patterns or not all(
+            isinstance(p, str) and p.strip() for p in patterns
+        ):
+            raise site_policy.PolicyError(f"{entry_id}: checkpoint.{key} is invalid")
+        try:
+            for pattern in patterns:
+                re.compile(pattern)
+        except re.error as exc:
+            raise site_policy.PolicyError(f"{entry_id}: checkpoint.{key} is invalid") from exc
+        result[key] = list(patterns)
+    return result
 
 
 def _https_url(value: Any) -> str | None:
@@ -166,6 +194,11 @@ def _registration_adapter(raw: Any, entry: Mapping[str, Any]) -> dict[str, Any]:
         isinstance(c, str) and len(c) == 2 and c.isupper() for c in countries
     )):
         raise site_policy.PolicyError(f"{entry_id}: race_match.countries must be ISO codes")
+    distances = match.get("distances_km")
+    if distances is not None and (not isinstance(distances, list) or not distances or not all(
+        type(d) in (int, float) and 0 < d < float("inf") for d in distances
+    )):
+        raise site_policy.PolicyError(f"{entry_id}: race_match.distances_km is invalid")
     platforms = raw.get("platform_hosts", [])
     if not isinstance(platforms, list):
         raise site_policy.PolicyError(f"{entry_id}: platform_hosts must be a list")
@@ -192,6 +225,7 @@ def _registration_adapter(raw: Any, entry: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "policy_id": entry_id, "patterns": compiled,
         "countries": frozenset(countries) if countries else None,
+        "distances_km": distances,
         "url_template": template, "platform_hosts": platforms,
         "organizer_url": (
             f"https://{scopes[0]['host']}{scopes[0].get('path_prefix', '/')}" if scopes else None
@@ -199,6 +233,7 @@ def _registration_adapter(raw: Any, entry: Mapping[str, Any]) -> dict[str, Any]:
         "success_evidence": raw["success_evidence"].strip(),
         "blocked_evidence": raw["blocked_evidence"].strip(),
         "availability": _availability(raw.get("availability"), entry_id),
+        "checkpoint": _checkpoint(raw.get("checkpoint"), entry_id),
     }
 
 
@@ -236,6 +271,7 @@ def _matching(adapters, race: Mapping[str, Any]) -> list[dict[str, Any]]:
         a for a in adapters
         if name and any(p.search(name) for p in a["patterns"])
         and (a["countries"] is None or code in a["countries"])
+        and (a["distances_km"] is None or race.get("distance_km") in a["distances_km"])
     ]
 
 
@@ -295,6 +331,10 @@ def _plan(
         reasons.append(decision["reason"])
     if start_url is None or decision is None:
         raise ValueError(f"registration site not policy-reviewed ({'; '.join(reasons)})")
+    checkpoint = adapter["checkpoint"] if adapter else (
+        copy.deepcopy(NJUKO_CHECKPOINT) if urlsplit(start_url).hostname == "in.njuko.com"
+        else copy.deepcopy(PERSONAL_DATA_CHECKPOINT)
+    )
     alternatives = []
     if adapter:
         for url in dict.fromkeys(
@@ -352,8 +392,8 @@ def _plan(
     stop_lines = "\n".join(f"- {item}" for item in STOP_BEFORE)
     success = (
         f"READY: the registration flow for {label}, {distance} on {expected['race_date']} is "
-        "selected and the current page is the first one asking for personal data, a medical "
-        "certificate, consent or payment, left untouched; report its https URL. "
+        "selected and the current page is the first one asking for participant personal "
+        "data, left untouched; STOP and answer immediately with its https URL. "
         "BLOCKED: registration closed, sold out, not yet open, lottery/ballot only, another "
         "edition/date/distance only, account login/creation, captcha or consent required "
         "earlier, or an unreviewed redirect; report the reason code and the last URL. "
@@ -374,7 +414,8 @@ def _plan(
         f"edition on {expected['race_date']}. If it shows another date or edition, report "
         "BLOCKED date_mismatch; never pick another edition.\n"
         f"4. Select the distance {distance} and a ticket category with public buttons only, "
-        "if this needs no personal data.\n"
+        "if this needs no personal data. Open the first participant/personal-data page, "
+        "then STOP and answer immediately without typing anything.\n"
         "5. Cookie banners: reject or close only, never accept optional consent.\n"
         f"{access_hint}{adapter_hint}{alternatives_hint}"
         f"6. STOP at the first page that asks for any of:\n{stop_lines}\n"
@@ -387,7 +428,7 @@ def _plan(
         f"9. Blocked reason codes: {', '.join(REASON_CODES)}.\n"
         f"Report: {success}"
     )
-    return {
+    task = {
         "kind": KIND,
         "site_name": urlsplit(start_url).netloc.removeprefix("www."),
         "start_url": start_url,
@@ -398,8 +439,26 @@ def _plan(
         "max_steps": DEFAULT_MAX_STEPS,
         "expected": expected,
         "allowed_hosts": hosts,
-        "alternatives": alternatives,
-    }, adapter
+        "checkpoint": copy.deepcopy(checkpoint),
+    }
+    task["alternatives"] = []
+    for url in alternatives[:2]:
+        review = evaluate_url(url, KIND, today=today, registry=view)
+        alternative_hosts = sorted((set(hosts) | {urlsplit(url).hostname})
+                                   & set(review["allowed_hosts"]))
+        task["alternatives"].append({
+            **{key: copy.deepcopy(value) for key, value in task.items()
+               if key != "alternatives"},
+            "start_url": url,
+            "site_name": urlsplit(url).netloc.removeprefix("www."),
+            "instructions": instructions.replace(
+                f"1. Start at {start_url}. Allowed navigation hosts (reviewed policy "
+                f"{decision['policy_id']}): {', '.join(hosts)}.",
+                f"1. Start at {url}. Allowed navigation hosts (reviewed policy "
+                f"{review['policy_id']}): {', '.join(alternative_hosts)}."),
+            "allowed_hosts": alternative_hosts,
+        })
+    return task, adapter
 
 
 def _coverage_trip(race: Mapping[str, Any], today: date) -> dict[str, Any]:
