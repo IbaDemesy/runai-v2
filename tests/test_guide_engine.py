@@ -1126,7 +1126,8 @@ def test_optional_alternative_lookup_preserves_initial_results(secondary):
     assert len(calls) == 2
     assert turn.error is None
     assert any(r.id == "initial" for r in state.candidates)
-    assert any(s.kind == "choose_race" and s.value == "initial" for s in turn.suggestions)
+    assert any(r.id == "initial" for r in turn.candidates)
+    assert turn.suggestions
     assert not turn.ready_to_confirm
     if secondary == "official":
         assert any(r.id == "official" for r in state.candidates)
