@@ -471,7 +471,8 @@ def registration_adapter_registry(**changes):
 
 @pytest.mark.parametrize("changes", [
     {"race_match": {"name_patterns": ["["]}}, {"race_match": {"name_patterns": []}},
-    {"platform_hosts": []}, {"platform_hosts": ["unknown.example"]},
+    {"platform_hosts": "platform.example"}, {"platform_hosts": ["unknown.example"]},
+    {"platform_hosts": [], "url_template": "https://platform.example/?race={race_name}"},
 ])
 def test_registration_adapter_validation(changes):
     with pytest.raises(PolicyError):
@@ -571,3 +572,16 @@ def test_origin_lookup_and_coverage():
 @pytest.mark.parametrize("host", ["www.flixbus.com", "www.sncf-connect.com", "www.omio.com"])
 def test_unreviewed_transport_stays_denied(host):
     assert not evaluate_url(f"https://{host}/", "transport", today=TODAY)["allowed"]
+
+
+def test_registration_adapter_on_platform_host_or_without_platform():
+    on_platform = registration_adapter_registry(
+        url_template="https://platform.example/race?name={race_name}")
+    expected = {**EXPECTED, "country": "IT", "race_name": "Example Marathon"}
+    _, url, decision = site_policy.select_adapter(
+        "registration", expected, today=TODAY, registry=on_platform)
+    assert url.startswith("https://platform.example/race?") and decision["policy_id"] == "platform"
+    organizer_only = registration_adapter_registry(platform_hosts=[])
+    _, url, _ = site_policy.select_adapter(
+        "registration", expected, today=TODAY, registry=organizer_only)
+    assert url.startswith("https://www.example-marathon.test/")

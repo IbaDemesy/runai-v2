@@ -163,9 +163,15 @@ def _adapter(raw: Any, entry_id: str, scope_hosts: set[str]) -> dict[str, Any]:
         sample = template.format(**{f: "X" for f in _TEMPLATE_FIELDS})
     except (KeyError, IndexError, ValueError) as exc:
         raise PolicyError(f"{entry_id}: malformed placeholder") from exc
+    platform_hosts = []
+    if raw["kind"] == "registration":
+        hosts = raw.get("platform_hosts", [])
+        if not isinstance(hosts, list):
+            raise PolicyError(f"{entry_id}: platform_hosts must be a list")
+        platform_hosts = [_host(h) for h in hosts]
     before, after = urlsplit(template), urlsplit(sample)
     if (
-        before.scheme != "https" or before.hostname not in scope_hosts
+        before.scheme != "https" or before.hostname not in scope_hosts | set(platform_hosts)
         or (before.netloc, before.path) != (after.netloc, after.path)
     ):
         raise PolicyError(f"{entry_id}: url_template must be https on a reviewed host, "
@@ -178,7 +184,7 @@ def _adapter(raw: Any, entry_id: str, scope_hosts: set[str]) -> dict[str, Any]:
     if (used & (_PLACE_FIELDS - {"city_query"}) and not places
             or used & (_ORIGIN_FIELDS - {"origin_city_query"}) and not origin_places):
         raise PolicyError(f"{entry_id}: url_template uses place IDs but adapter has none")
-    race_match, platform_hosts = None, []
+    race_match = None
     if raw["kind"] == "registration":
         race_match = raw.get("race_match")
         if not isinstance(race_match, Mapping):
@@ -195,10 +201,6 @@ def _adapter(raw: Any, entry_id: str, scope_hosts: set[str]) -> dict[str, Any]:
             raise PolicyError(f"{entry_id}: invalid race name pattern") from exc
         race_match = {"name_patterns": patterns,
                       "countries": _codes(race_match.get("countries"), "race_match.countries")}
-        hosts = raw.get("platform_hosts")
-        if not isinstance(hosts, list) or not hosts:
-            raise PolicyError(f"{entry_id}: platform_hosts must be non-empty")
-        platform_hosts = [_host(h) for h in hosts]
     return {
         "kind": raw["kind"],
         "mode": mode,
