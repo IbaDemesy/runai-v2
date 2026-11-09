@@ -210,12 +210,13 @@ class GuideEngine:
 
         if race.distance_km is not None:
             return (canonical(race.distance_km),)
-        label = " ".join(re.sub(r"[-–—]", " ", normalize(race.distance_label)).split())
+        label = normalize(race.distance_label)
         if re.fullmatch(r"\d+(?:[.,]\d+)?", label):
             return (canonical(float(label.replace(",", "."))),)
         values = self._distance_values(re.sub(r"(?<=\d)\s*k\b", " km", label))
         if values:
             return tuple(sorted(canonical(value) for value in values))
+        label = " ".join(re.sub(r"[-–—]", " ", label).split())
         named = {"marathon": 42.195, "half marathon": 21.1, "semi marathon": 21.1,
                  "semi": 21.1, "half": 21.1}
         if label in named:

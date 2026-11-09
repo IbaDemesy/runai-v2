@@ -906,6 +906,9 @@ def test_off_topic_never_discovers_or_treats_weather_as_date(text):
     ([10, None], ["", "10 km"], 1),
     ([42.195, None], ["", "10 km"], 2),
     ([None, None], ["marathon", "10 km"], 2),
+    ([None, None], ["16–111 km", "111 km"], 2),
+    ([None, None], ["16—111 km", "16-111 km"], 1),
+    ([None, None], ["16–111 km", "111 / 16 km"], 1),
 ])
 def test_deduplication_preserves_distinct_distances(distances, labels, expected):
     async def discover(query, hints):
