@@ -1119,8 +1119,25 @@ def test_named_official_lookup_reports_actual_season_match(official_date, in_sea
                  "source_urls": ["https://race.example/edition"]}]
 
     state, turn = run(engine(discover).start("le marathon de Milan au printemps 2027"))
-    assert (state.draft.race is not None) == in_season
+    assert state.draft.race is None
     assert ("Rien de sourcé sur la période demandée" in turn.message) == (not in_season)
+    assert not turn.ready_to_confirm
+
+
+def test_in_season_unverified_card_does_not_mask_out_of_season_official_alternative():
+    async def discover(query, hints):
+        official = hints.get("official_date_required")
+        return [{"id": "official" if official else "unverified", "name": "Milan Marathon",
+                 "distance_km": 42.195,
+                 "race_date": "2027-10-10" if official else "2027-04-10",
+                 "date_status": "official" if official else "unverified",
+                 "source_urls": ["https://race.example/edition"]}]
+
+    state, turn = run(engine(discover).start("le marathon de Milan au printemps 2027"))
+    assert state.draft.race is None
+    assert {r.id for r in state.candidates} == {"official", "unverified"}
+    assert "Rien de sourcé sur la période demandée" in turn.message
+    assert any(s.kind == "choose_race" and s.value == "official" for s in turn.suggestions)
     assert not turn.ready_to_confirm
 
 

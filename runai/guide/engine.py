@@ -631,6 +631,7 @@ class GuideEngine:
         if hints.get("named"):
             hints.setdefault("race_name", state.query)
         broadened = None
+        alternative_ids = set()
         try:
             flags = await self._collect(state, hints)
             if state.candidates and not any(self._eligible(r) for r in state.candidates):
@@ -643,6 +644,7 @@ class GuideEngine:
                 except Exception:  # noqa: BLE001 -- optional alternatives must not discard initial results
                     state.candidates = []
                 official = [r for r in state.candidates if self._eligible(r)]
+                alternative_ids.update(r.id for r in official)
                 state.candidates = official + [r for r in original_candidates
                                                if r.id not in {a.id for a in official}]
                 if official:
@@ -650,7 +652,7 @@ class GuideEngine:
                     if not months:
                         broadened = "criteria"
                     elif not any(r.race_date and r.race_date.strftime("%Y-%m") in months
-                                 for r in state.candidates):
+                                 for r in official):
                         broadened = "months"
             if (not state.candidates and not flags["past"] and not flags["unsafe"]
                     and not state.hints.get("exact_date") and not hints.get("retry_count")):
@@ -725,6 +727,7 @@ class GuideEngine:
         self._prepare_candidates(state)
         state.candidates.sort(key=lambda race: self._preparation_rank(state, race))
         if (len(state.candidates) == 1 and self._matches_distance(state, state.candidates[0])
+                and state.candidates[0].id not in alternative_ids
                 and state.hints.get("named") and not broadened) and not (
             state.candidates[0].registration_access and (
                 state.candidates[0].registration_access.account_required is True
