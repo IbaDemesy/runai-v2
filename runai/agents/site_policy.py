@@ -657,6 +657,9 @@ def trip_expected(
         "arrival_date": arrival.isoformat(), "departure_date": departure.isoformat(),
         "travelers": travelers,
     }
+    canonical_city = city_name(city)
+    if kind in {"hotel", "transport"} and canonical_city != city:
+        expected["gateway_city"] = canonical_city
     if require_origin:
         expected["origin_city"] = _required_text(trip, "origin_city")
     elif isinstance(trip.get("origin_city"), str) and trip["origin_city"].strip():

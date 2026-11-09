@@ -12,6 +12,7 @@ from test_site_policy import (
     registry,
 )
 
+from runai.agents import hclient
 from runai.agents.hotel import build_task
 from runai.agents.site_policy import city_name, evaluate_url, load_registry
 
@@ -51,6 +52,24 @@ def test_alias_tasks_same_search_and_adapters(alias, canonical, country, monkeyp
 
 
 @pytest.mark.parametrize("city,gateway", [
+    ("Bijlmer", "Amsterdam"), ("Amsterdam-Zuidoost", "Amsterdam"),
+    ("The Hague", "Den Haag"), ("Amsterdam", None), ("Den Haag", None),
+])
+def test_alias_gateway_accepts_canonical_hotel_evidence(city, gateway):
+    task = build_task(trip(city=city, country="NL", travelers=1), today=TODAY)
+    for candidate in [task, *task.get("alternatives", [])]:
+        expected = candidate["expected"]
+        assert expected["city"] == city
+        if gateway is None:
+            assert "gateway_city" not in expected
+        else:
+            assert expected["gateway_city"] == gateway
+            assert hclient._matches_expected("city", gateway, expected["gateway_city"])
+        if city == "Bijlmer":
+            assert not hclient._matches_expected("city", "Amsterdam", expected["city"])
+
+
+@pytest.mark.parametrize("city,gateway", [
     ("Stoos", "Lucerne"), ("Morschach", "Lucerne"), ("Savognin", "Chur"),
     ("Grindelwald", "Interlaken"),
 ])
@@ -86,6 +105,7 @@ def test_deep_link_encodes_exact_stay(city, country):
         "kind": "hotel", "race_name": "Example Marathon", "race_date": "2027-04-04",
         "distance_km": 42.195, "city": city, "country": country, "origin_city": "Paris",
         "arrival_date": "2027-04-03", "departure_date": "2027-04-05", "travelers": 2,
+        **({"gateway_city": city_name(city)} if city_name(city) != city else {}),
     }
     for text in ("check-in 2027-04-03", "check-out 2027-04-05", "2 adults", "EUR 600",
                  "date_mismatch", "unreviewed_redirect", "www.hotels.example",

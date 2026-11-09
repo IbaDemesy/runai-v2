@@ -126,6 +126,25 @@ def test_transport_alias_tasks(alias, canonical, country):
     assert a["expected"]["city"] == alias and b["expected"]["city"] == canonical
 
 
+@pytest.mark.parametrize("city,gateway", [
+    ("Bijlmer", "Amsterdam"), ("Amsterdam-Zuidoost", "Amsterdam"),
+    ("The Hague", "Amsterdam"), ("Amsterdam", None),
+])
+def test_alias_gateway_accepts_canonical_transport_evidence(city, gateway):
+    task = build_task(trip(city=city, country="NL", origin_city="Paris", travelers=1),
+                      today=TODAY)
+    for candidate in [task, *task.get("alternatives", [])]:
+        expected = candidate["expected"]
+        assert expected["city"] == city
+        if gateway is None:
+            assert "gateway_city" not in expected
+        else:
+            assert expected["gateway_city"] == gateway
+            assert hclient._matches_expected("city", gateway, expected["gateway_city"])
+        if city == "Bijlmer":
+            assert not hclient._matches_expected("city", "Amsterdam", expected["city"])
+
+
 @pytest.mark.parametrize("city", ["Den Haag", "The Hague", "'s-Gravenhage"])
 def test_transport_gateway_city_keeps_race_city(city, monkeypatch):
     task = build_task(trip(city=city, country="NL", origin_city="Paris", travelers=1),
