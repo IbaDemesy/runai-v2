@@ -150,14 +150,14 @@ def test_package_public_api():
     assert all(hasattr(runai.guide, name) for name in runai.guide.__all__)
 
 
-def test_first_discovery_is_standard_and_deep_waits_for_selection():
+def test_first_discovery_and_selected_verification_use_standard():
     calls = []
 
     async def discover(query, hints):
         calls.append(hints.copy())
-        return [{"id": "berlin", "name": "Berlin Marathon", "distance_km": 42.195,
+        return [{"id": "unlisted", "name": "Unlisted Marathon", "distance_km": 42.195,
                  "race_date": "2027-09-26", "source_urls": ["https://race.example/edition"],
-                 "date_status": "official" if hints["depth"] == "deep" else "unverified"}]
+                 "date_status": "official" if hints.get("verification_only") else "unverified"}]
 
     e = engine(discover)
     state, turn = run(e.start("a marathon in Germany"))
@@ -166,7 +166,7 @@ def test_first_discovery_is_standard_and_deep_waits_for_selection():
     assert not turn.ready_to_confirm
     chip = next(s for s in turn.suggestions if s.kind == "choose_race")
     state, turn = run(e.step(state, {"suggestion_id": chip.id}))
-    assert calls[-1]["depth"] == "deep"
+    assert calls[-1]["depth"] == "standard" and calls[-1]["verification_only"]
     assert state.draft.race.date_status == "official"
 
 
@@ -1094,6 +1094,85 @@ def test_unverified_selection_has_only_one_verification_attempt():
     assert all(s.value != "Gaia" for s in turn.suggestions)
 
 
+def test_same_country_official_precedes_foreign_preparable(monkeypatch):
+    covered_offline(monkeypatch)
+
+    async def discover(query, hints):
+        return [{"id": "foreign", "name": "Geneva Marathon", "country": "Switzerland",
+                 "distance_km": 42.195, "race_date": "2027-05-09", "date_status": "official",
+                 "source_urls": ["https://race.example/foreign"]},
+                {"id": "domestic", "name": "Berlin Marathon", "country": "Germany",
+                 "distance_km": 42.195, "race_date": "2027-09-26", "date_status": "official",
+                 "source_urls": ["https://race.example/domestic"]}]
+
+    e = engine(discover)
+    _state, turn = run(e.start("a marathon in Germany"))
+    assert turn.suggestions[0].value == "domestic"
+    assert turn.candidates[0].country == "Germany"
+
+
+@pytest.mark.parametrize("outcome", ["official", "empty", "error", "foreign"])
+def test_selected_unverified_edition_verifies_before_country_fallback(monkeypatch, outcome):
+    covered_offline(monkeypatch)
+    calls = []
+    initial = {"id": "berlin", "name": "Berlin Marathon", "country": "Germany", "city": "Berlin",
+               "distance_km": 42.195, "race_date": "2027-09-26", "date_status": "unverified",
+               "source_urls": ["https://directory.example/berlin"]}
+
+    async def discover(query, hints):
+        calls.append(hints.copy())
+        if len(calls) <= 2:
+            return [initial.copy()]
+        assert hints["verification_only"] and hints["depth"] == "standard"
+        assert hints["search_timeout_s"] <= guide_engine.FIRST_DISCOVERY_TIMEOUT_S
+        assert "bmw-berlin-marathon.com" in hints["official_domains"]
+        if outcome == "error":
+            raise TimeoutError("offline")
+        if outcome == "empty":
+            return []
+        if outcome == "foreign":
+            return [dict(initial, id="geneva", name="Geneva Marathon", country="Switzerland",
+                         date_status="official")]
+        return [dict(initial, name="GENERALI BERLIN-MARATHON", date_status="official",
+                     source_urls=["https://www.bmw-berlin-marathon.com/en/"])]
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon in Germany"))
+    chip = next(s for s in turn.suggestions if s.value == "berlin")
+    state, turn = run(e.step(state, {"suggestion_id": chip.id}))
+    assert len(calls) == 3
+    assert state.draft.race and state.draft.race.country == "Germany"
+    assert state.draft.race.date_status == ("official" if outcome == "official" else "unverified")
+    assert not turn.ready_to_confirm
+    if outcome != "official":
+        assert turn.suggestions[0].value == "same_country"
+
+
+def test_recovery_prefers_requested_country_after_foreign_chip_failures(monkeypatch):
+    covered_offline(monkeypatch)
+    calls = []
+
+    async def discover(query, hints):
+        calls.append((query, hints.copy()))
+        if "preparable alternative" not in query:
+            return []
+        return [{"id": "geneva", "name": "Geneva Marathon", "country": "Switzerland",
+                 "date_status": "official", "distance_km": 42.195, "race_date": "2027-05-09",
+                 "source_urls": ["https://race.example/geneva"]},
+                {"id": "berlin", "name": "Berlin Marathon", "country": "Germany",
+                 "date_status": "official", "distance_km": 42.195, "race_date": "2027-09-26",
+                 "source_urls": ["https://race.example/berlin"]}]
+
+    e = engine(discover)
+    state, turn = run(e.start("a marathon in Germany"))
+    for _ in range(2):
+        chip = next(s for s in turn.suggestions if s.value == "In Switzerland")
+        state, turn = run(e.step(state, {"suggestion_id": chip.id}))
+    assert calls[-1][1]["country"] == "Germany" and "Berlin" in calls[-1][0]
+    assert turn.suggestions[0].value == "berlin"
+    assert all(r.country == "Germany" for r in turn.candidates)
+
+
 @pytest.mark.parametrize("outcome", ["normal", "empty", "error"])
 def test_mission_verification_survives_queries(outcome):
     calls = 0
@@ -1532,7 +1611,7 @@ def test_optional_alternative_lookup_preserves_initial_results(secondary):
             return [{"id": "official", "name": "Other Marathon", "distance_km": 42.195,
                      "race_date": "2027-04-10", "date_status": "official",
                      "source_urls": ["https://race.example/official"]}]
-        return [{"id": "initial", "name": "Milan Marathon", "distance_km": 42.195,
+        return [{"id": "initial", "name": "Unlisted Marathon", "distance_km": 42.195,
                  "race_date": "2027-04-11", "date_status": "unverified",
                  "source_urls": ["https://race.example/initial"]}]
 

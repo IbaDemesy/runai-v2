@@ -92,3 +92,4 @@ class GuideState(Model):
     recovery_failures: dict[str, int] = Field(default_factory=dict)
     verification_attempts: list[str] = Field(default_factory=list)
     discovery_started: bool = False
+    requested_country: str | None = None

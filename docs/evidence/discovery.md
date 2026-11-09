@@ -660,3 +660,127 @@ The warning is the baseline Starlette/httpx deprecation. No post-rebase live
 batch was run. Upstream registration/policy/runtime/UI changes mean the live
 coverage observations above apply specifically to the pre-rebase smoke, not
 to a new integrated live validation.
+## R6-04 — verification diagnosis and live batch 2 (2026-11-09)
+
+This section supplements, and does not replace, run 1 above. Diagnosis used its
+retained scrubbed candidate/source records and two targeted standard-depth Linkup
+probes, not a reconstruction of unavailable raw provider bodies.
+
+### Reachable cause and countercheck
+
+Run 1 Germany's Berlin candidate cited visitberlin.de, marathonguide.com and
+aims-worldrunning.org; named Berlin cited berlin.de/en/events/september/; Milan
+cited marathon-index.com/races/milan-marathon/. None supplied a dated organizer
+source on the Berlin or Milano organizer domains. In `linkup._normalize`, official
+status requires a parsed source date on the sourced `official_url` host (or its
+qualifying linked registration URL). These run-1 source sets cannot satisfy that
+gate. They are correctly unverified, not evidence that official dates do not exist.
+Whether the original provider omitted `official_url` too cannot be determined
+from the retained normalized records.
+
+The guide's `_search_races` secondary lookup was a general alternative search,
+not targeted organizer verification. The first chips were `alternative` or
+`retry`, not `choose_race`, so the explicit unverified-selection verification
+branch did not execute. Run-1 call/turn records show later deep discovery timing
+out (about 70 s), followed by `In Switzerland`/`En Suisse` recovery. This connects
+the missing organizer evidence to the observed country drift without assuming
+that the explicit selection branch ran.
+
+To disprove a broken-domain-matcher hypothesis, two standard targeted probes at
+06:02:25–06:02:31 UTC included the race, 2027, official edition date and organizer
+domains. The unchanged normalizer returned:
+
+| Probe | Source extraction | Normalized result |
+| --- | --- | --- |
+| Berlin Marathon | bmw-berlin-marathon.com/en/ and the organizer's 01-10-2026 press-release PDF: 2027-09-26 | GENERALI BERLIN-MARATHON, official, 42.195 km |
+| Milano Marathon | milanomarathon.it/en/ and /la-25-edizione-si-correra-domenica-4-aprile/: 2027-04-04 | Wizz Air Milano Marathon, official, 42.195 km |
+
+This establishes that standard retrieval can return qualifying dated organizer
+evidence and the existing exact-host gate accepts it. It does not prove that
+every future query will retrieve it, nor independently audit Linkup's extraction.
+No browser/site fetch or H was used for these probes.
+
+### Fix boundary
+
+Named/seed search prompts now prefer organizer-date announcements, with explicit
+Berlin legacy/current domains and Milano's domain as **search hints only**.
+Known seed aliases (including sponsor prefixes) share mission verification and
+deduplication identity at the same sourced date/distance. A remaining unverified
+seed gets a targeted, standard lookup under the shared first-search deadline,
+rather than a general foreign alternative lookup. Other races can use their
+sourced organizer URL as a search hint. Explicit unverified selection gets one
+bounded standard verification call without a second broadened call; failed,
+undated, conflicting or unrelated results cannot verify that selection. Its ID
+and the other original selectable candidates survive the attempt.
+
+Original requested country is retained through recovery. Official same-country
+choices rank before foreign choices; targeted-verification recovery offers a
+same-country search before the Swiss shortcut, and preparable-alternative seeds
+use the original country. The normalizer's source/date/host evidence gate was
+**not relaxed**. No date, distance, coverage or status is assigned by a seed/domain.
+
+### Batch 2 — post-integration Linkup-only smoke
+
+06:12:13–06:12:51 UTC, same five requests and first-chip driver, real
+`GuideEngine` → `runai.app._discovery_hints` → `linkup.discover`, `PYTHONPATH=.`
+from the repository root. Key bound only through exec environment and never
+printed. Runner and scrubbed results remain outside the repository. Two total
+five-case batches have now been run; the two diagnostic probes were single-race
+queries, not additional five-case batches. No server, H session, confirmation,
+account creation, consent, personal-data entry, submission, payment or booking.
+
+O = official; U = unverified. Inputs include the initial request; ready means
+the draft confirmation gate, not agent preparation.
+
+| Request | First reply (s) | Initial displayed candidates | Inputs to ready | Final selected race/date/status | Repeated turns |
+| --- | ---: | --- | ---: | --- | ---: |
+| Germany autumn marathon | 9.868 | GENERALI BERLIN-MARATHON — O | 5 | GENERALI BERLIN-MARATHON, 2027-09-26, O | 0 |
+| Portugal half | 7.946 | Hyundai Porto International Half Marathon — O; Hyundai Porto Half Marathon — O; Funchal Marathon – Half Marathon — U; EDP Lisbonne Half Marathon — O | 5 | Hyundai Porto International Half Marathon, 2027-09-19, O | 0 |
+| Italy spring / Milan | 4.203 | Wizz Air Milano Marathon — O | 5 | Wizz Air Milano Marathon, 2027-04-04, O | 0 |
+| Named Berlin | 5.403 | GENERALI BERLIN-MARATHON — O | 4 | GENERALI BERLIN-MARATHON, 2027-09-26, O | 0 |
+| EN October | 6.914 | 2XU Long Beach Marathon — unknown date/status | 6 | 2XU Long Beach Marathon, 2027-10-03, O | 0 |
+
+Nearest-rank p95 = max of five first replies = **9.868 s**, passing ≤20 s.
+All journeys took 4.221–10.548 s and retained the requested country/named race
+or month. No deep calls or discovery timeouts occurred. Germany, Portugal,
+Italy and Berlin each needed one standard discovery call; October needed two
+before its first reply and one later standard recovery call. October's first
+reply honestly reported no sourced October date; the next search obtained an
+official October date instead of switching months/countries. No Portugal
+Funchal/Gaia ping-pong and no repeated consecutive assistant turns occurred.
+
+Public organizer evidence returned by Linkup (all retrieved 2026-11-09):
+
+| Candidate | Sourced edition/date/distance | Public source URLs |
+| --- | --- | --- |
+| GENERALI BERLIN-MARATHON | 2027-09-26; 42.195 km; official | https://www.generali-berlin-marathon.com/en/ ; https://www.bmw-berlin-marathon.com ; https://www.bmw-berlin-marathon.com/fileadmin/media/events/berlinmarathon/PDFs/press_releases/01-10-2026_de.pdf |
+| Wizz Air Milano Marathon | 2027-04-04; 42.195 km; official | https://www.milanomarathon.it/en/ |
+| Hyundai Porto International Half Marathon | 2027-09-19; 21.097 km; official | https://www.porto-half-marathon.com/en/home.html |
+| Hyundai Porto Half Marathon | 2027-09-19; 21.0975 km; official | https://www.porto-marathon.com/en/half.html ; https://hotway.life/en/running/portugal/hyundai-porto-half-marathon |
+| Funchal Marathon – Half Marathon | 2027-01-31; 21.0975 km; unverified | https://backmyrun.com/races/funchal-marathon |
+| EDP Lisbonne Half Marathon | 2027-03-07; 21.0975 km; official | https://www.running-portugal.com/lisbon/lisbonhalf/en/home.html ; https://maratonaclubedeportugal.com/en/ |
+| 2XU Long Beach Marathon | initially unknown date; later 2027-10-03, 42.195 km, official | https://www.runlongbeach.com/ ; https://www.runlongbeach.com/marathon |
+
+Coverage remains distinct from evidence of a race date: Berlin and selected
+Porto registration were unknown, hotel/transport true; Milano reported covered
+registration and hotel/transport true; Long Beach registration unknown and both
+hotel/transport false. EDP Lisbonne's registration was sold out and it did not
+become the default. Porto still displayed two similar official aliases with
+slightly different provider distances; no unsupported merge was forced. Thus
+five draft gates are **not five fully covered/executable preparations**. No live
+browser, registration or H readiness was established. Next work belongs to
+coverage expansion, broader alias grounding and integrated authorized acceptance;
+UI appearance remains visually unverified.
+
+Offline regressions include run-1 third-party-only shapes followed by official,
+empty, failed, undated and conflicting targeted responses; all three requested
+organizer domains; sponsor aliases; selected-race ID/alternatives preservation;
+same-country ordering and recovery. Final code check:
+
+```text
+All checks passed!
+2138 passed, 1 warning in 45.41s
+```
+
+The warning remains the baseline Starlette/httpx deprecation. No code changed
+between this check and batch 2; subsequent changes only append scoped evidence.

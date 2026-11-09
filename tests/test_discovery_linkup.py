@@ -798,6 +798,67 @@ def test_optional_registration_lookup_cannot_discard_partial_on_budget_expiry():
     asyncio.run(asyncio.wait_for(run(), timeout=0.5))
 
 
+@pytest.mark.parametrize("city,name,sponsor,domain,day", [
+    ("Berlin", "Berlin Marathon", "GENERALI BERLIN-MARATHON", "bmw-berlin-marathon.com", "09-26"),
+    ("Milan", "Milano Marathon", "Wizz Air Milano Marathon", "milanomarathon.it", "04-04"),
+])
+@pytest.mark.parametrize("outcome", ["official", "empty", "error", "undated", "conflicting"])
+def test_run1_third_party_dates_get_one_targeted_official_lookup(city, name, sponsor, domain, day, outcome):
+    calls = []
+    year = datetime.now(UTC).year + 1
+    iso = f"{year}-{day}"
+    country = "Germany" if city == "Berlin" else "Italy"
+
+    async def discovery(query, hints):
+        calls.append((query, hints.copy()))
+        url = f"https://www.{domain}/en/"
+        if hints.get("verification_only"):
+            assert hints["depth"] == "standard" and domain in hints["official_domains"]
+            assert hints["year"] == year and hints["country"] == country
+            if outcome == "empty":
+                return []
+            if outcome == "error":
+                raise DiscoveryTimeout("offline")
+            sources = [{"url": url, "race_date": None if outcome == "undated" else iso}]
+            if outcome == "conflicting":
+                sources.append({"url": url + "announcement", "race_date": f"{year}-{day[:-2]}25"})
+            row = race(name=sponsor, city=city, country=country, edition=str(year),
+                       official_url=url, sources=sources)
+        else:
+            row = race(name=name, city=city, country=country, edition=str(year),
+                       official_url=url, sources=[{"url": f"https://directory.example/{city}", "race_date": iso}])
+        return linkup._normalize(linkup._rows({"candidates": [row]}), datetime.now(UTC).date(),
+                                 datetime.now(UTC).isoformat().replace("+00:00", "Z"))
+
+    async def run():
+        engine = GuideEngine(discovery)
+        state, turn = await engine.start(f"the {name}")
+        assert len(calls) == 2
+        if outcome == "official":
+            assert len(turn.candidates) == 1 and turn.candidates[0].date_status == "official"
+            assert turn.candidates[0].race_date.isoformat() == iso
+            assert any(domain in source for source in turn.candidates[0].source_urls)
+            for _ in range(5):
+                if turn.ready_to_confirm:
+                    break
+                state, turn = await engine.step(state, {"suggestion_id": turn.suggestions[0].id})
+            assert turn.ready_to_confirm and state.draft.race.country == country
+        else:
+            assert not turn.ready_to_confirm
+            assert all(r.date_status != "official" for r in turn.candidates)
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize("domain", ["bmw-berlin-marathon.com", "berlin-marathon.com", "milanomarathon.it"])
+def test_official_host_gate_accepts_actual_dated_host_not_a_domain_hint(domain):
+    url = f"https://www.{domain}/edition"
+    row = race(official_url=url, sources=[{"url": "https://directory.example/edition", "race_date": DAY}])
+    assert search([row])[0]["date_status"] == "unverified"
+    row["sources"].append({"url": url, "race_date": DAY})
+    assert search([row])[0]["date_status"] == "official"
+
+
 @pytest.mark.parametrize("failure", ["timeout", "connection", "429", "500", "503"])
 def test_transient_search_retries_once_then_succeeds(failure):
     calls = {}

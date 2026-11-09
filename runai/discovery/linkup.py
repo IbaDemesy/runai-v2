@@ -26,7 +26,7 @@ from runai.guide.types import RaceOption, RegistrationAccess
 SEARCH_URL = "https://api.linkup.so/v1/search"
 HINT_KEYS = {
     "distance", "country", "city", "month_from", "month_to", "year", "race_name", "broaden",
-    "named", "retry_count", "depth", "official_date_required", "alternative_scope",
+    "named", "retry_count", "depth", "official_date_required", "alternative_scope", "official_domains",
 }
 DISTANCES = {
     "marathon": "marathon (42.195 km)",
@@ -56,6 +56,25 @@ CACHE_TTL_S = 1800
 CACHE_MAX_SIZE = 128
 CALL_BUDGET_S = 35
 _cache: OrderedDict[str, tuple[float, list[dict]]] = OrderedDict()
+
+
+def official_search_hint(name: str, distance: float | None = None) -> dict:
+    if distance is not None and not 42 <= distance <= 42.3:
+        return {}
+    words = set(_slug(name).split("-"))
+    if "marathon" not in words or words & {"half", "semi"}:
+        return {}
+    if "berlin" in words:
+        return {"race_name": "Berlin Marathon", "country": "Germany",
+                "official_domains": "bmw-berlin-marathon.com berlin-marathon.com generali-berlin-marathon.com"}
+    if words & {"milan", "milano"}:
+        return {"race_name": "Milano Marathon", "country": "Italy",
+                "official_domains": "milanomarathon.it"}
+    for country, seeds in RACE_SEARCH_SEEDS.items():
+        for seed in seeds:
+            if set(_slug(seed).split("-")) <= words:
+                return {"race_name": seed, "country": country, "official_domains": ""}
+    return {}
 
 
 def clear_cache() -> None:
@@ -446,6 +465,21 @@ async def discover(
                            "availability or coverage. Search the requested season first; "
                            "verify every edition and distance from returned sources.",
         }
+    official_hint = official_search_hint(str(constraints.get("race_name", safe_query)))
+    if constraints.get("official_domains"):
+        official_hint = {"race_name": constraints.get("race_name", safe_query),
+                         "official_domains": constraints["official_domains"]}
+    if official_hint:
+        year = constraints.get("year", today.year + 1)
+        search_terms["official_edition"] = (
+            f"{official_hint['race_name']} {year} official edition date organizer "
+            f"{official_hint['official_domains']}. Retrieve the dated organizer announcement "
+            "from these domains, including it in sources with its exact edition date. "
+            "Set official_url to the actual sourced organizer host, including after redirects. "
+            "These are search hints only: a domain/name is not evidence of a date or distance.")
+    if constraints.get("country") and not constraints.get("named"):
+        search_terms["official_seed_sites"] = [official_search_hint(name)
+            for name in RACE_SEARCH_SEEDS.get(constraints["country"], ()) if official_search_hint(name)]
     intent_data = json.dumps({"query": safe_query, "hints": constraints,
                               "search_terms": search_terms}, ensure_ascii=True)
     intent_data = intent_data.replace("<", "\\u003c").replace(">", "\\u003e")

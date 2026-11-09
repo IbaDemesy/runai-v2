@@ -82,8 +82,8 @@ class GuideEngine:
 
     def _race_chips(self, state, races=None):
         choices = list(state.candidates if races is None else races)
-        choices.sort(key=lambda r: (not self._default_race(state, r),
-                                    not self._eligible(r), self._preparation_rank(state, r)))
+        choices.sort(key=lambda r: (not self._eligible(r), not self._same_country(state, r),
+                                    not self._default_race(state, r), self._preparation_rank(state, r)))
         chips = [
             self._chip(
                 r.id,
@@ -104,6 +104,26 @@ class GuideEngine:
     def _default_race(self, state, race):
         return (self._eligible(race) and self._matches_distance(state, race)
                 and self._preparation_rank(state, race)[-1] == 0)
+
+    def _same_country(self, state, race):
+        return (not state.requested_country or not race.country or
+                normalize(country_name(race.country) or race.country) == normalize(state.requested_country))
+
+    def _official_hint(self, race):
+        if race.synthetic:
+            return {}
+        try:
+            hint = import_module("runai.discovery.linkup").official_search_hint(race.name, race.distance_km)
+            if not hint and race.official_url:
+                hint = {"race_name": race.name, "country": race.country,
+                        "official_domains": urlsplit(race.official_url).hostname or ""}
+            return hint
+        except (ImportError, AttributeError):
+            return {}
+
+    def _race_identity(self, race):
+        hint = self._official_hint(race)
+        return " ".join(re.findall(r"\w+", normalize(hint.get("race_name", race.name))))
 
     def _matches_distance(self, state, race):
         distance = state.hints.get("distance")
@@ -296,7 +316,9 @@ class GuideEngine:
         elif state.stage == "choose_race":
             question = self._say(state, "Laquelle te tente ?", "Which one catches your eye?")
             chips = self._race_chips(state)
-            if not d.race and not any(self._eligible(r) for r in state.candidates):
+            if not d.race and not any(self._eligible(r) and (
+                not state.hints.get("prefer_requested_country") or self._same_country(state, r)
+            ) for r in state.candidates):
                 chips = [self._chip("alternative", self._say(
                     state, "Chercher une course préparable", "Find a preparable race"), "retry")]
                 chips += self._recovery_chips(state) + self._race_chips(state)
@@ -309,6 +331,10 @@ class GuideEngine:
             if d.race:
                 chips = self._race_chips(state, [r for r in state.candidates
                                                  if self._eligible(r)])
+                if state.hints.get("prefer_requested_country") and not any(
+                    self._eligible(r) and self._same_country(state, r) for r in state.candidates
+                ):
+                    chips = [c for c in self._recovery_chips(state) if c.value == "same_country"] + chips
                 explanation = self._say(
                     state,
                     "Les sources actuelles ne permettent pas de confirmer la date de cette course ; choisissons une autre option.",
@@ -318,7 +344,7 @@ class GuideEngine:
                 if not state.hints.get("retry_count"):
                     chips += [self._chip("retry", self._say(state, "Relancer", "Try again"),
                                          "retry")]
-                chips += self._recovery_chips(state)
+                chips += [c for c in self._recovery_chips(state) if c.value not in {s.value for s in chips}]
         elif state.stage in {"origin", "nights", "budget"}:
             if state.stage == "origin":
                 choices = self._origin_choices(d.race)
@@ -552,7 +578,7 @@ class GuideEngine:
         if deadline is not None:
             remaining = max(0, deadline - asyncio.get_running_loop().time())
             hints = dict(hints, depth="standard", search_timeout_s=min(
-                FIRST_DISCOVERY_TIMEOUT_S * 0.9, remaining * 0.95))
+                FIRST_DISCOVERY_TIMEOUT_S * 0.75, remaining * 0.8))
         async with asyncio.timeout_at(deadline):
             rows = await self.discover(state.query, hints)
         for row in rows:
@@ -564,6 +590,13 @@ class GuideEngine:
                 race = RaceOption.model_validate(row)
             except ValidationError:
                 continue
+            if hints.get("verification_only"):
+                target = import_module("runai.discovery.linkup").official_search_hint(hints.get("race_name", ""))
+                target_name = " ".join(re.findall(r"\w+", normalize(target.get("race_name", hints.get("race_name", "")))))
+                if (self._race_identity(race) != target_name
+                        or race.country and hints.get("country")
+                        and normalize(country_name(race.country) or race.country) != normalize(hints["country"])):
+                    continue
             hosts = set()
             urls = []
             for source in race.source_urls:
@@ -582,7 +615,7 @@ class GuideEngine:
             if race.race_date and race.race_date < self.today:
                 flags["past"] = True
                 continue
-            key = f"{normalize(race.name)}|{race.race_date}|{self._dedupe_distance(race)}"
+            key = f"{self._race_identity(race)}|{race.race_date}|{self._dedupe_distance(race)}"
             cached = state.verification_cache.get(key)
             if cached and cached.date_status == "official":
                 race.date_status = "official"
@@ -591,10 +624,8 @@ class GuideEngine:
                 race.registration_url = race.registration_url or cached.registration_url
             elif race.date_status == "official":
                 state.verification_cache[key] = race.model_copy(deep=True)
-            def identity(name):
-                return " ".join(re.findall(r"\w+", normalize(name)))
             duplicate = next((r for r in state.candidates
-                              if identity(r.name) == identity(race.name)
+                              if self._race_identity(r) == self._race_identity(race)
                               and r.race_date == race.race_date
                               and (self._dedupe_distance(r) is None
                                    or self._dedupe_distance(race) is None
@@ -607,6 +638,8 @@ class GuideEngine:
                     [*duplicate.source_urls, *race.source_urls]))
                 if race.date_status == "official":
                     duplicate.date_status = "official"
+                    duplicate.official_url = race.official_url or duplicate.official_url
+                    duplicate.registration_url = race.registration_url or duplicate.registration_url
                 continue
             if state.hints.get("exact_date") and (
                 not race.race_date or race.race_date.isoformat() != state.hints["exact_date"]
@@ -650,10 +683,17 @@ class GuideEngine:
         return flags
 
     def _recovery_chips(self, state):
-        return [self._chip(value) for value in self._say(
+        chips = [self._chip(value) for value in self._say(
             state, ["En Suisse", "En juillet", "Un marathon"],
             ["In Switzerland", "In July", "A marathon"])
                 if state.recovery_failures.get(normalize(value), 0) < 2]
+        if state.hints.get("prefer_requested_country") and state.requested_country and (
+            state.recovery_failures.get("same_country", 0) < 2
+        ):
+            country = self._display_text(state, state.requested_country)
+            chips.insert(0, self._chip("same_country", self._say(
+                state, f"Autres courses en {country}", f"Other races in {country}"), "retry"))
+        return chips
 
     def _escalate(self, state):
         attempt = state.hints.get("retry_count", 0) + 1
@@ -714,10 +754,12 @@ class GuideEngine:
         original = state.candidates
         try:
             seeds = import_module("runai.discovery.linkup").RACE_SEARCH_SEEDS
-            names = seeds.get(state.hints.get("country"), seeds["Italy"])
+            country = state.requested_country or state.hints.get("country")
+            names = seeds.get(country, seeds["Italy"])
             attempt = sum(state.recovery_failures.values()) - 2
             name = names[attempt % len(names)]
-            hints = {"race_name": name, "named": True, "depth": "deep",
+            hints = {"race_name": name, "named": True, "depth": "standard", "country": country,
+                     "search_timeout_s": FIRST_DISCOVERY_TIMEOUT_S * 0.9,
                      "retry_count": state.hints.get("retry_count", 0),
                      "official_date_required": True, "broaden": True,
                      "alternative_scope": "open registration and covered hotel and transport"}
@@ -730,7 +772,8 @@ class GuideEngine:
             finally:
                 state.query = query
             self._prepare_candidates(state)
-            alternatives = [r for r in state.candidates if self._default_race(state, r)]
+            alternatives = [r for r in state.candidates if self._default_race(state, r)
+                            and self._same_country(state, r)]
         except Exception:  # noqa: BLE001 -- optional recovery never invents an alternative
             alternatives = []
         state.candidates = alternatives + [r for r in original
@@ -745,7 +788,8 @@ class GuideEngine:
 
     async def _search_races(self, state):
         deadline = (asyncio.get_running_loop().time() + FIRST_DISCOVERY_TIMEOUT_S
-                    if not state.discovery_started else None)
+                    if not state.discovery_started or state.hints.get("official_domains")
+                    or state.hints.get("verification_only") else None)
         state.discovery_started = True
         state.draft.race = None
         state.draft.arrival_date = state.draft.departure_date = None
@@ -763,9 +807,17 @@ class GuideEngine:
         alternative_ids = set()
         try:
             flags = await self._collect(state, hints, deadline=deadline)
-            if state.candidates and not any(self._eligible(r) for r in state.candidates):
+            if (state.candidates and not any(self._eligible(r) and self._same_country(state, r)
+                                            for r in state.candidates)
+                    and not hints.get("verification_only")):
                 alternatives = dict(hints, official_date_required=True, depth="deep",
                                     alternative_scope="official dated alternatives", broaden=True)
+                target = next((r for r in state.candidates if self._official_hint(r)), None)
+                if target:
+                    alternatives.update(self._official_hint(target), depth="standard", verification_only=True,
+                                        named=True, year=target.race_date.year if target.race_date else self.today.year + 1)
+                    state.hints["official_domains"] = alternatives["official_domains"]
+                    state.hints["prefer_requested_country"] = True
                 original_candidates = state.candidates
                 state.candidates = []
                 try:
@@ -776,7 +828,7 @@ class GuideEngine:
                 alternative_ids.update(r.id for r in official)
                 state.candidates = official + [r for r in original_candidates
                                                if r.id not in {a.id for a in official}
-                                               if not any(normalize(r.name) == normalize(a.name)
+                                               if not any(self._race_identity(r) == self._race_identity(a)
                                                           and r.race_date == a.race_date
                                                           and self._dedupe_distance(r) == self._dedupe_distance(a)
                                                           for a in official)]
@@ -788,7 +840,8 @@ class GuideEngine:
                                  for r in official):
                         broadened = "months"
             if (not state.candidates and not flags["past"] and not flags["unsafe"]
-                    and not state.hints.get("exact_date") and not hints.get("retry_count")):
+                    and not state.hints.get("exact_date") and not hints.get("retry_count")
+                    and not hints.get("verification_only")):
                 broad = {key: value for key, value in hints.items()
                          if key not in {"months", "month_from", "month_to"}}
                 if "year" not in state.hints:
@@ -856,7 +909,8 @@ class GuideEngine:
                 suggestion.id += f":turn-{len(state.history)}"
             return state, turn
         self._prepare_candidates(state)
-        state.candidates.sort(key=lambda race: self._preparation_rank(state, race))
+        state.candidates.sort(key=lambda race: (not self._same_country(state, race),
+                                                self._preparation_rank(state, race)))
         if (len(state.candidates) == 1 and self._matches_distance(state, state.candidates[0])
                 and state.candidates[0].id not in alternative_ids
                 and state.hints.get("named") and not broadened) and not (
@@ -1107,6 +1161,12 @@ class GuideEngine:
             if chip.kind == "retry" or chip.value.startswith("month:"):
                 state.hints["_recovery_action"] = normalize(chip.value)
                 self._escalate(state)
+                if chip.value == "same_country":
+                    state.hints.update(country=state.requested_country, depth="standard")
+                    for key in ("city", "race_name", "named", "verification_only", "official_domains"):
+                        state.hints.pop(key, None)
+                    state.query = (f"{state.requested_country} {state.hints.get('distance', 'marathon')} "
+                                   f"official dates recovery {state.hints['retry_count']}")
                 if chip.value.startswith("month:"):
                     month = chip.value.removeprefix("month:")
                     state.hints["months"] = [month]
@@ -1134,20 +1194,25 @@ class GuideEngine:
                 state.draft.race = next(r for r in state.candidates if r.id == chip.value)
                 if not self._eligible(state.draft.race):
                     race = state.draft.race
-                    key = f"{normalize(race.name)}|{race.race_date}|{self._dedupe_distance(race)}"
+                    key = f"{self._race_identity(race)}|{race.race_date}|{self._dedupe_distance(race)}"
                     if key not in state.verification_attempts:
                         state.verification_attempts.append(key)
                         state.query = race.name + " official edition date"
-                        state.hints.update(race_name=race.name, named=True, depth="deep",
-                                           official_date_required=True)
+                        original_candidates = state.candidates
+                        state.hints.update(race_name=race.name, named=True, depth="standard",
+                                           official_date_required=True, verification_only=True,
+                                           year=race.race_date.year if race.race_date else self.today.year + 1)
+                        state.hints.update(self._official_hint(race))
+                        state.hints["prefer_requested_country"] = True
                         state, turn = await self._discover(state)
                         selected = next((r for r in state.candidates
-                                         if normalize(r.name) == normalize(race.name)), None)
-                        if selected and not self._eligible(selected):
-                            state.draft.race = selected
-                            self._advance(state)
-                            return self._turn(state, turn.message, turn.error)
-                        return state, turn
+                                         if self._race_identity(r) == self._race_identity(race)), None)
+                        state.draft.race = selected or race
+                        state.draft.race.id = race.id
+                        state.candidates = [state.draft.race if r.id == race.id else r
+                                            for r in original_candidates]
+                        self._advance(state)
+                        return self._turn(state, turn.message, turn.error)
                     return self._turn(state, self._say(
                         state, "Date à confirmer : choisis une alternative officielle ou une autre recherche.",
                         "Date to confirm: choose an official alternative or another search."))
@@ -1413,6 +1478,8 @@ class GuideEngine:
                     if k in {"distance", "city", "country", "months", "named", "year"} and v
                 }
             )
+            if not recovery and intent.country:
+                state.requested_country = intent.country
             if recovery:
                 place = state.hints.get("city") or state.hints.get("country", "")
                 state.query = named_query(place, state.hints.get("distance", "race"))
