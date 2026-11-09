@@ -2354,7 +2354,15 @@ def r7_checkpoint_task(row):
                      "registration_url": row.get("registration_url")},
             "origin_city": "Paris", "arrival_date": row["arrival_date"],
             "departure_date": row["departure_date"], "travelers": 1, "nights": 2}
-    task = builder.build_task(trip, today=date(2026, 11, 9))
+    kwargs = {}
+    if row["builder"] == "hotel":
+        docs = Path(__file__).resolve().parents[1] / "docs"
+        paths = [docs / "site-policy.json", *sorted((docs / "site-policy.d").glob("*.json"))]
+        kwargs["registry"] = {"schema_version": 1, "entries": [
+            entry for path in paths for entry in json.loads(path.read_text())["entries"]
+            if entry["id"] == row["site_name"]
+        ]}
+    task = builder.build_task(trip, today=date(2026, 11, 9), **kwargs)
     task = next(candidate for candidate in [task, *task.get("alternatives", [])]
                 if candidate["site_name"] == row["site_name"])
     return {key: value for key, value in task.items() if key != "alternatives"}
