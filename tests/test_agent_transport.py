@@ -677,6 +677,7 @@ def test_restored_links_reach_unmodified_runner_session_post(origin, city, count
                            arrival_date="2027-01-29", departure_date="2027-01-31",
                            race_changes={"race_date": "2027-01-30"}), today=TODAY)
     task = next(t for t in [task, *task.get("alternatives", [])] if t["site_name"] == provider)
+    task = {key: value for key, value in task.items() if key != "alternatives"}
     assert_task_policy(task, monkeypatch)
     clean = hclient.scrub_url(task["start_url"])
     if provider == "sbb-ch":
