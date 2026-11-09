@@ -455,3 +455,55 @@ Post-tuning offline checks:
 All checks passed!
 1152 passed, 1 warning in 14.33s
 ```
+
+## 2026-11-09 — R5-04 live smoke
+
+Read-only Linkup through `GuideEngine` → `runai.app._discovery_hints` →
+`runai.discovery.linkup.discover`, run from an external scratch script. No H
+sessions, confirmation actions, bookings or preparation launches. Only public
+race data was recorded. These are discovery-ready drafts, not prepared bookings.
+
+Latest attempt per case below. Steps count **follow-up** user messages/clicks;
+add one to include the initial request. Therefore Portugal's first successful
+attempt took seven total inputs and missed the <=6-total-input target.
+
+| Case | Attempt | First reply (s) | Follow-ups / total inputs | Ready | Race / date / status | Public source hosts | Origin |
+|---|---:|---:|---|---|---|---|---|
+| Milan | 3 | 3.47 | 3 / 4 | yes | Wizz Air Milano Marathon / 2027-04-04 / official | runhub.world, www.milanomarathon.it | Paris |
+| Barcelona winter half | 1 | 74.78 | 4 / 5 | yes | Hyundai Mitja Marató Barcelona / 2027-02-14 / official | www.mitjamarato.barcelona | Paris |
+| Swiss summer trail | 1 | 3.78 | 3 / 4 | yes | Stoos-Trail / 2027-07-10 / official | www.stoostrail.ch | Geneva |
+| Netherlands spring 10K | 1 | 8.92 | 4 / 5 | yes | Groet uit Schoorl Run / 2027-02-14 / official | www.groetuitschoorlrun.nl | Paris |
+| Portugal spring half | 3 | 72.97 | 6 / 7, stopped | **no** | no selected race | — | — |
+| A03 Lisbon → Berlin | 2 | 3.93 | 5 / 6 | yes | GENERALI BERLIN-MARATHON / 2027-09-26 / official | www.bmw-berlin-marathon.com, www.generali-berlin-marathon.com, www.scc-events.com | Paris |
+| A08 Milan → Paris | 3 | 0.09 | 3 / 4 | yes | Wizz Air Milano Marathon / 2027-04-04 / official | runhub.world, www.milanomarathon.it | Paris |
+| A16 Milan → Lyon → Brussels | 3 | 0.09 | 4 / 5 | yes | Wizz Air Milano Marathon / 2027-04-04 / official | runhub.world, www.milanomarathon.it | Brussels |
+
+No identical consecutive assistant turns in any attempt (comparison used message,
+candidate IDs and chip kind/value, excluding turn-specific chip IDs). All cases
+stopped without confirmation. A08/A16 reused the in-process live Milan cache;
+their first-reply latency is warm-cache latency, not provider network latency.
+
+Initial Milan requests returned empty results twice. Adding year/local city
+aliases to named search prompts produced sourced Milan results on attempt 3;
+this observation does not isolate the prompt change from provider variability.
+A03 initially failed, then reached ready on attempt 2 using a deep official-date
+alternative search. New offline regressions cover empty delegated-search
+escalation, unknown-date recovery, unverified delegated-search escalation and
+the named prompt after app hint mapping. Recovery now prioritizes explicitly
+sourced organizer dates; missing dates are never inferred.
+
+Portugal remains a blocker: attempt 1 reached ready after six follow-ups, with
+EDP Meia Maratona de Lisboa, 2027-03-07, official, source host
+maratonaclubedeportugal.com, Paris origin, and a sold-out/waitlist warning.
+Attempt 2 stalled on unverified-only candidates; attempt 3 encountered provider
+errors and stopped after six follow-ups despite an intermediate official-date
+result. No fourth attempt was made. It is not a repeatable live success.
+Netherlands returned a February date after broadening a spring request; readiness
+does not establish that the original seasonal preference was satisfied.
+
+Seven of eight latest attempts reached ready, all within six total inputs;
+the Portugal case did not. Slow cold responses (~73–75 seconds), fallback-season
+quality, and Portugal reliability need follow-up. The successes were collected
+across incremental fixes, not a fresh all-eight run on the final revision. This
+small sample proves neither generic live readiness nor H preparation. UI
+presentation was not visually verified.

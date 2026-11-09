@@ -15,6 +15,12 @@ def normalize(text: str) -> str:
     )
 
 
+def named_query(city: str, distance: str) -> str:
+    label = {"marathon": "Marathon", "half": "Half Marathon", "10k": "10K",
+             "trail": "Trail", "ultra": "Ultra"}.get(distance, distance)
+    return f"{city} {label}"
+
+
 COUNTRIES = {
     "Italy": "italy italie italia",
     "France": "france",
@@ -55,7 +61,7 @@ CITY_GROUPS = {
     "Spain": ["Madrid", "Barcelona/Barcelone", "Valencia/Valence", "Seville/Sevilla"],
     "Germany": ["Berlin", "Munich", "Frankfurt/Francfort", "Hamburg/Hambourg"],
     "United Kingdom": ["London/Londres"],
-    "Netherlands": ["Amsterdam", "Rotterdam"],
+    "Netherlands": ["Amsterdam", "Rotterdam", "The Hague/La Haye"],
     "Belgium": ["Brussels/Bruxelles"],
     "Switzerland": ["Geneva/Geneve", "Zurich", "Lausanne", "Zermatt", "Interlaken"],
     "Austria": ["Vienna/Vienne"],
@@ -154,6 +160,7 @@ def parse_intent(text: str, *, today: date) -> Intent:
         "marathn": "marathon", "marat+h?o+n+": "marathon", "itali": "italie",
         "printemp": "printemps", "semi+": "semi", "espagn+e*": "espagne", "spai+n+": "spain",
         "lisbone": "lisbonne", "suise": "suisse", "trai+l+": "trail",
+        "marahton": "marathon", "romme": "rome", "berln": "berlin",
     }.items():
         t = re.sub(r"\b" + wrong + r"\b", right, t)
     cues = list(re.finditer(FR_CUES + "|" + EN_CUES, t))
@@ -169,7 +176,8 @@ def parse_intent(text: str, *, today: date) -> Intent:
         r"\b(?:same city|same place|(?:la )?meme ville|la-bas)\b", t))
     result.deferred = bool(re.search(
         r"peu importe|je (?:ne )?sais pas|tu en penses quoi|whatever|i don.?t know|"
-        r"you choose|what do you think|comme tu veux|a toi de choisir|tu me conseilles", t,
+        r"you choose|what do you think|comme tu veux|a toi de choisir|tu me conseilles|"
+        r"choisis pour moi", t,
     ))
     if re.search(r"(?:in english|en anglais)(?: please| s.il te plait)?", t):
         result.switch_language = "en"
@@ -185,7 +193,8 @@ def parse_intent(text: str, *, today: date) -> Intent:
         if re.search(pattern, t):
             result.distance = distance
             break
-    origin = re.search(r"\b(?:depuis|from|je pars de)\s+([\w -]+)", t)
+    origin = re.search(
+        r"\b(?:depuis|from|je pars de|depart de|non en fait de)\s+([\w -]+)", t)
     destination_text = t
     if origin:
         for alias, (city, _) in CITIES.items():

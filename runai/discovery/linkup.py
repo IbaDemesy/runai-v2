@@ -20,11 +20,13 @@ import httpx
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from runai.agents.scrub import scrub_text
+from runai.guide.parse import CITY_GROUPS
 from runai.guide.types import RaceOption, RegistrationAccess
 
 SEARCH_URL = "https://api.linkup.so/v1/search"
 HINT_KEYS = {
     "distance", "country", "city", "month_from", "month_to", "year", "race_name", "broaden",
+    "named", "retry_count", "depth", "official_date_required", "alternative_scope",
 }
 DISTANCES = {
     "marathon": "marathon (42.195 km)",
@@ -52,6 +54,7 @@ def _cache_key(query, constraints, today):
             return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
         return value
 
+    query = constraints.get("race_name", query) if constraints.get("named") else query
     data = {"query": normalized(query), "hints": {
         name: normalized(value) for name, value in constraints.items()
     }, "day": today.isoformat()}
@@ -380,6 +383,7 @@ async def discover(
         for name, value in (hints or {}).items()
         if name in HINT_KEYS and isinstance(value, (str, int, float, bool))
     }
+    query = constraints.get("race_name", query) if constraints.get("named") else query
     safe_query = _data_text(query.replace(key, "[redacted]"))
     cacheable = registration_info is None or registration_info is _site_registration_info
     cache_key = _cache_key(safe_query, constraints, today)
@@ -395,6 +399,27 @@ async def discover(
     code = _country_code(constraints.get("country"))
     if code:
         search_terms["country_code"] = code
+    if constraints.get("race_name") and constraints.get("city"):
+        city = constraints["city"]
+        aliases = next((group.split("/") for group in CITY_GROUPS.get(
+            constraints.get("country"), []) if group.split("/")[0] == city), [city])
+        year = constraints.get("year", today.year + 1)
+        distance = constraints.get("distance", "running race")
+        search_terms["named_editions"] = (
+            f"{constraints['race_name']} {year} official date; "
+            + "; ".join(f"{alias} {distance} {year} date officielle" for alias in aliases)
+            + ". Find the named event's upcoming organizer announcement using local city aliases.")
+    if constraints.get("country") and not constraints.get("city") and not constraints.get("named"):
+        country = constraints["country"]
+        localized = {"Germany": "Allemagne", "Italy": "Italie", "Switzerland": "Suisse",
+                     "Netherlands": "Pays-Bas", "Spain": "Espagne", "Belgium": "Belgique",
+                     "United Kingdom": "Royaume-Uni"}.get(country, country)
+        year = constraints.get("year", today.year + 1)
+        distance = constraints.get("distance", "running race")
+        search_terms["national_editions"] = (
+            f"{distance} {localized} {year} date officielle; "
+            f"major {distance} editions in {country} {year} official date. "
+            "Search main national editions and organizer calendars; return only sourced dates.")
     intent_data = json.dumps({"query": safe_query, "hints": constraints,
                               "search_terms": search_terms}, ensure_ascii=True)
     intent_data = intent_data.replace("<", "\\u003c").replace(">", "\\u003e")
@@ -431,11 +456,15 @@ async def discover(
         "that country's languages; many countries host several such races, so return all "
         "matching sourced editions (up to 6), not only the most famous one. "
         "Return an empty candidates list when no sourced race is found.\n"
-        f"<user_data>\n{intent_data}\n</user_data>"
+        + ("This is an official-date recovery search: prioritize organizer pages explicitly "
+           "announcing the upcoming date. Return verified alternatives with explicit dates "
+           "rather than only repeating unknown-date results. Never infer a date.\n"
+           if constraints.get("official_date_required") else "")
+        + f"<user_data>\n{intent_data}\n</user_data>"
     )
     payload = {
         "q": prompt,
-        "depth": "standard",
+        "depth": "deep" if constraints.get("depth") == "deep" else "standard",
         "outputType": "structured",
         "structuredOutputSchema": json.dumps(_Response.model_json_schema()),
     }
