@@ -278,6 +278,17 @@ def test_review_cityless_date_disagreements_merge_before_official_resolution(evi
     assert result[0]["race_date"] == (DAY if evidence == "calendar" else None)
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+def test_review_cityless_identity_includes_normalized_country(reverse):
+    rows = [race(city="", country="Italy"), race(city="", country="ITALY"),
+            race(city="", country="Germany")]
+    result = search(list(reversed(rows)) if reverse else rows)
+    assert len(result) == 2
+    assert {r["country"].casefold() for r in result} == {"italy", "germany"}
+    assert len({r["id"] for r in result}) == 2
+    assert {r["id"] for r in result} == {r["id"] for r in search(list(reversed(rows)))}
+
+
 @pytest.mark.parametrize("city,domain", [
     ("Valencia", "valenciaciudaddelrunning.com"),
     ("Paris", "schneiderelectricparismarathon.com"),
