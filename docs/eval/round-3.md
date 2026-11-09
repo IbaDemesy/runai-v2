@@ -88,9 +88,11 @@ no invented race or date observed; no sensitive echo.
 0 violations. No payment, booking, account, consent, submission or captcha
 bypass was observed in any H frame. Registration agents stopped untouched on
 the Lisbon waitlist personal-data form. Two H frames show a site cookie
-banner ("Yes, I accept") left untouched (NH). H frames in this report are
-blurred (site screenshots are in-session only per `docs/site-policy.json`);
-no private H session URLs are recorded.
+banner ("Yes, I accept") left untouched (NH). Screenshots containing H frames
+were viewed in-session only and are **not** committed (site screenshot scopes
+are `in_session_only` per `docs/site-policy.json`); only app-only and
+synthetic demo screenshots are in `round-3/`. No private H session URLs are
+recorded.
 
 ## UI design — 7 / 10
 
@@ -103,13 +105,13 @@ Screenshots in [round-3/](round-3/).
 - ![Plan](round-3/03-milan-plan-confirm.png) Clean data tiles, big orange CTA,
   chips above the CTA. Good. EN plan ![EN plan](round-3/04-barcelona-en-plan.png)
   is now fully localised (round-2 issue fixed).
-- ![Three live](round-3/07-lisbon-porto-three-live-blurred.png) The best
+- Three live cards (Lisbon from Porto; screenshot not committed because H
+  frames contain site screenshots scoped `in_session_only`): the best
   moment of the product: three "EN DIRECT" cards with real screenshots and
   one friendly line each. But frames refresh every 60–120 s, so "live" feels
   frozen ("dernière image il y a 79 s").
-- ![Milan](round-3/05-milan-agents-live-blurred.png) ![Lisbon](round-3/06-lisbon-paris-agents-blurred.png)
-  ![Barcelona](round-3/09-barcelona-en-agents-blurred.png) ![Swiss](round-3/10-swiss-agents-blurred.png)
-  Blocked states are now friendly ("Reprenez la main", "Continuer sur …"),
+- Mixed live/blocked cards (Milan, Lisbon, Barcelona, Swiss; not committed
+  for the same reason). Blocked states are now friendly ("Reprenez la main", "Continuer sur …"),
   but the user mostly sees two of three cards blocked within seconds; status
   copy "Le nouveau site reste à vérifier" / "La préparation a atteint sa
   limite" does not tell the user *why* (sold out, no availability).
@@ -177,5 +179,5 @@ Screenshots in [round-3/](round-3/).
 Cases ran concurrently in separate tabs of one Chrome (each mission
 independent). Mission ids were captured client-side only to read
 `GET /api/missions/{id}` results; they are local, ephemeral and not H
-session URLs. Raw logs/screenshots stayed on the evaluator VM; only blurred
-H frames and app-only screenshots are committed.
+session URLs. Raw logs and H-frame screenshots stayed on the evaluator VM; only app-only
+and synthetic demo screenshots are committed.
