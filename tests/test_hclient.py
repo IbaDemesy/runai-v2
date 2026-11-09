@@ -1674,7 +1674,10 @@ def batch(*events, state="running", **kwargs):
 
 
 @pytest.mark.parametrize("create_state", ["queued", {"status": "pending"}])
-def test_queued_120_seconds_then_running_does_not_use_startup_budget(monkeypatch, create_state):
+@pytest.mark.parametrize("timeout_s", [60, 900])
+def test_queued_120_seconds_then_running_does_not_use_startup_budget(
+    monkeypatch, create_state, timeout_s,
+):
     now = 0
     provider = Provider()
 
@@ -1694,7 +1697,7 @@ def test_queued_120_seconds_then_running_does_not_use_startup_budget(monkeypatch
         return response
 
     monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
-    result, emitted = run(handle)
+    result, emitted = run(handle, timeout_s=timeout_s)
     assert result["status"] == "ready_for_payment"
     assert sum(e.get("message") == "En attente d'un navigateur disponible" for e in emitted) == 1
     assert provider.requests[0].headers["Idempotency-Key"]

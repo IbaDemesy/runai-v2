@@ -571,9 +571,13 @@ class HAgentRunner:
     ) -> dict:
         queue_wait = [0.0]
         deadline = time.monotonic() + self.timeout_s
+        wall_deadline = time.monotonic() + 900
         profile = task.get("runner_profile") or {}
         skip = public_profile_context(task)
         frames_seen = False
+
+        def remaining_budget():
+            return min(deadline + queue_wait[0], wall_deadline) - time.monotonic()
 
         async def capture(event):
             nonlocal frames_seen
@@ -586,14 +590,14 @@ class HAgentRunner:
             nonlocal frames_seen
             frames_seen = False
             candidate = {**candidate, "runner_profile": profile} if profile else candidate
-            remaining = deadline - time.monotonic()
-            async with asyncio.timeout(max(0, remaining)):
+            remaining = remaining_budget()
+            async with asyncio.timeout(max(0, wall_deadline - time.monotonic())):
                 outcome = await self._attempt(candidate, capture, min(600, remaining), queue_wait)
                 if (not frames_seen and "Browser startup unavailable" in (outcome.get("error") or "")
                         and can_continue(outcome) and queue_wait[0] < 480
-                        and deadline - time.monotonic() > 20):
+                        and remaining_budget() > 20):
                     await self.sleep(20)
-                    remaining = deadline - time.monotonic()
+                    remaining = remaining_budget()
                     if remaining > 0:
                         outcome = await self._attempt(
                             candidate, capture, min(600, remaining), queue_wait,
@@ -624,7 +628,7 @@ class HAgentRunner:
         if not isinstance(alternatives, list):
             return result
         for alternative in alternatives:
-            if not can_continue(result) or time.monotonic() >= deadline or queue_wait[0] >= 480:
+            if not can_continue(result) or remaining_budget() <= 0 or queue_wait[0] >= 480:
                 break
             if not isinstance(alternative, dict) or alternative.get("kind") != task.get("kind"):
                 continue
@@ -642,7 +646,7 @@ class HAgentRunner:
                 continue
             if on_event:
                 await capture({"type": "step_progress", "message": "Essai d’un autre site"})
-            remaining = deadline - time.monotonic()
+            remaining = remaining_budget()
             if remaining <= 0:
                 break
             result = await bounded_attempt(alternative)
