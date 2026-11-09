@@ -256,6 +256,16 @@ def test_review_sourced_candidates_without_city_are_preserved(omit_city):
     assert all(not r["city"] and r["source_urls"] for r in result)
 
 
+def test_review_candidate_ids_distinguish_cities_and_missing_city_dates():
+    other_day = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
+    rows = [race(city="Paris"), race(city="Lyon"), race(city=""),
+            race(city="", sources=[{"url": "https://race.example/other", "race_date": other_day}])]
+    result = search(rows)
+    assert len(result) == 4 and len({r["id"] for r in result}) == 4
+    by_location_date = lambda rs: {(r["city"], r["race_date"]): r["id"] for r in rs}
+    assert by_location_date(result) == by_location_date(search(list(reversed(rows))))
+
+
 @pytest.mark.parametrize("city,domain", [
     ("Valencia", "valenciaciudaddelrunning.com"),
     ("Paris", "schneiderelectricparismarathon.com"),

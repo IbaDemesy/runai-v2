@@ -367,7 +367,7 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
             edition_years and max(edition_years) < today.year
         )
         candidates.append((is_past, {
-            "id": "-".join(key[:2]),
+            "id": "-".join(part for part in key if part),
             "name": row.name.strip(),
             "edition": row.edition.strip(),
             "distance_km": _distance(row.distance_km),
