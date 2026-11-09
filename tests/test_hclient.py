@@ -554,6 +554,8 @@ def test_no_page_stop_label_distinguishes_site_from_agent_failure(site_failed):
     def handle(request):
         if not site_failed:
             return httpx.Response(503)
+        if request.method == "POST" and request.url.path.endswith("/sessions"):
+            provider.polls = 0
         return provider(request)
 
     result, _ = run(handle, task)
