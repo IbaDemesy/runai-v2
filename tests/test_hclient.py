@@ -1616,6 +1616,18 @@ def test_checkpoint_frame_precedes_exactly_one_force_and_verified_answer():
     assert not any("url_patterns" in e.get("message", "") for e in events)
 
 
+def test_completed_checkpoint_consumes_existing_answer_without_restarting_browser():
+    provider = CheckpointProvider([
+        batch(observation(), state="completed", answer=ANSWER),
+        batch(state="completed", answer=ANSWER),
+    ])
+    result, events = run(provider, {**TASK, "checkpoint": CHECKPOINT})
+    assert result["status"] == "ready_for_payment"
+    assert result["handoff_url"] == HANDOFF
+    assert any(e["type"] == "live_frame" for e in events)
+    assert not any(r.url.path.endswith("/force_answer") for r in provider.requests)
+
+
 @pytest.mark.parametrize("verification,ready", [
     (json.dumps(ANSWER["verification"]), True),
     ("not JSON", False), ("[]", False), ("null", False), ([], False), (42, False),

@@ -887,7 +887,8 @@ class HAgentRunner:
                                         pending_frame = None
                                     except (TimeoutError, httpx.HTTPError):
                                         pass
-                                    await force_answer(60)
+                                    if new_state not in _TERMINAL:
+                                        await force_answer(60)
                     if pending_frame is not None:
                         last_attempt = time.monotonic()
                         try:
