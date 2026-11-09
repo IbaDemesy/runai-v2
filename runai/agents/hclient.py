@@ -1300,7 +1300,11 @@ class HAgentRunner:
             result["summary"] = "H preparation did not complete safely"
         if allow_prefill:
             result["prefilled"] = prefilled
-            result["stop_label"] = (
-                "payment page reached" if result.get("status") == "ready_for_payment" else "safe stop"
-            )
+            if (result["status"] == "ready_for_payment" and checkpoint_frame_url
+                    and _checkpoint_matches(checkpoint, "url_patterns", result.get("final_url"))):
+                result["stop_label"] = "pre-payment stop reached"
+            elif result["status"] == "blocked" and frame_seen:
+                result["stop_label"] = "safe stop"
+            elif not frame_seen and not result.get("final_url"):
+                result["stop_label"] = "site unavailable"
         return scrub_profile(result, profile, profile_skip)

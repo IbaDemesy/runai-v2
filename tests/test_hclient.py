@@ -148,7 +148,7 @@ def test_prefill_prompt_is_scoped_and_outputs_private(fields):
                 "never submit a final form)") in prompt
         assert result["reason_code"] != "unsafe_claim"
         assert result["prefilled"] is True
-        assert result["stop_label"] == "payment page reached"
+        assert "stop_label" not in result
     assert all(v.casefold() not in str([result, events]).casefold() for v in profile.values())
 
 
@@ -522,6 +522,25 @@ def test_prefill_requires_explicit_participant_data_disposition(untouched, enter
         task, answer, HANDOFF, HANDOFF, HANDOFF, [({"race.example.org"}, ("/",))],
     )
     assert failures == ([] if valid else ["participant_data_disposition"])
+
+
+@pytest.mark.parametrize("state,label", [
+    ("checkpoint", "pre-payment stop reached"), ("framed_block", "safe stop"),
+    ("no_site", "site unavailable"), ("no_frame", None), ("legacy_ready", None),
+])
+def test_prefill_stop_label_uses_observed_evidence(state, label):
+    task = {**TASK, "runner_profile": {"full_name": "Test Runner"},
+            "prefill_fields": ["full_name"]}
+    if state != "legacy_ready":
+        task["checkpoint"] = {"url_patterns": ["/registration"], "beyond_patterns": []}
+    events = [] if state == "no_site" else [observation()]
+    if state == "no_frame":
+        events[0]["data"].pop("image")
+    answer = dict(ANSWER)
+    if state == "framed_block":
+        answer["verification"] = {**ANSWER["verification"], "selected": False}
+    result, _ = run(Provider(events=events, answer=answer), task)
+    assert result.get("stop_label") == label
 
 
 @pytest.mark.parametrize("url,unsafe", [
