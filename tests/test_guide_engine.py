@@ -928,6 +928,26 @@ def test_deduplication_preserves_distinct_distances(distances, labels, expected)
             assert selected.draft.race.id == race.id
 
 
+@pytest.mark.parametrize("distance,label", [
+    (21.1, "Semi-marathon"), (21.1, "Half-marathon"), (21.1, "semi"),
+    (21.1, "half"), (21.1, "21.1"), (21.1, "21.0975"), (21.0975, "HALF MARATHON"),
+    (42.195, "marathon"), (42.195, "42.2"), (42.2, "42.195"),
+    (10, "10k"), (10, "10 km"), (21.1, "  SEMI - MARATHON  "),
+])
+def test_deduplicate_standard_distance_aliases(distance, label):
+    async def discover(query, hints):
+        return [{"id": "numeric", "name": "City Run", "distance_km": distance,
+                 "race_date": "2027-04-10", "date_status": "official",
+                 "source_urls": ["https://numeric.example/edition"]},
+                {"id": "label", "name": "City Run", "distance_label": label,
+                 "race_date": "2027-04-10", "date_status": "official",
+                 "source_urls": ["https://label.example/edition"]}]
+
+    state, _ = run(engine(discover).start("une course"))
+    assert len(state.candidates) == 1
+    assert len(state.candidates[0].source_urls) == 2
+
+
 def test_deduplicate_normalized_name_date_and_merge_sources():
     async def discover(query, hints):
         return [{"id": str(index), "name": name, "race_date": "2027-04-10",

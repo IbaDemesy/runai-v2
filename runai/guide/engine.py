@@ -202,13 +202,22 @@ class GuideEngine:
         return []
 
     def _dedupe_distance(self, race):
+        def canonical(value):
+            for standard in (21.1, 42.195):
+                if abs(value - standard) < 0.01:
+                    return standard
+            return round(value, 3)
+
         if race.distance_km is not None:
-            return (round(race.distance_km, 3),)
-        label = normalize(race.distance_label)
-        values = self._distance_values(re.sub(r"\bk\b", "km", label))
+            return (canonical(race.distance_km),)
+        label = " ".join(re.sub(r"[-–—]", " ", normalize(race.distance_label)).split())
+        if re.fullmatch(r"\d+(?:[.,]\d+)?", label):
+            return (canonical(float(label.replace(",", "."))),)
+        values = self._distance_values(re.sub(r"(?<=\d)\s*k\b", " km", label))
         if values:
-            return tuple(sorted(round(value, 3) for value in values))
-        named = {"marathon": 42.195, "half marathon": 21.1, "semi marathon": 21.1}
+            return tuple(sorted(canonical(value) for value in values))
+        named = {"marathon": 42.195, "half marathon": 21.1, "semi marathon": 21.1,
+                 "semi": 21.1, "half": 21.1}
         if label in named:
             return (named[label],)
         return label or None
