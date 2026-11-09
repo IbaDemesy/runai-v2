@@ -579,3 +579,50 @@ session_failed and preserves the last reviewed public URL. That condition can no
 trigger P7 alternatives. It does not change the historical IHG step_limit result into
 READY, nor verify the refined Add Extras stop instruction. No applicable new live
 evidence or independent visual check was obtained.
+
+## R7-03 hotel offline coverage — 2026-11-09
+
+Added owner-rule policies r7-booking-hotel, r7-hilton-hotel and r7-accor-hotel,
+reviewed 2026-11-09, expiring 2027-02-07. Authorization is the owner decision in
+docs/handoff/lift-site-exclusions.md, not permission granted by these sites.
+Booking/Hilton cover IT, DE, NL, PT, ES, CH, FR, BE, AT, GB, CZ. Accor is
+Milan-only: the loader forbids path placeholders, so its destination path is static
+and a reviewed place-name lookup gates it to Milan/Milano.
+
+Templates:
+- Booking: https://www.booking.com/searchresults.html?ss={city_query}%2C%20{country}&checkin={arrival_date}&checkout={departure_date}&group_adults={travelers}&no_rooms=1&group_children=0
+- Hilton: https://www.hilton.com/en/search/?query={city_query}%2C%20{country}&arrivalDate={arrival_date}&departureDate={departure_date}&numAdults={travelers}&numRooms=1
+- Accor: https://all.accor.com/ssr/app/accor/hotels/milan-italy?destination={place_name}&dateIn={arrival_date}&dateOut={departure_date}&compositions={travelers}
+
+Selection checkpoints (case-insensitive unquoted path + query):
+- Booking: ^/book\.html(?:[/?]|$)
+- Hilton: ^/en/book/reservation/review(?:[/?]|$)
+- Accor: ^/ssr/app/accor/booking/review(?:[/?]|$)
+
+These are conservative PROVISIONAL patterns, not observed live stops. No pattern
+matches search results or an unselected hotel/list page. Standard guest-form,
+checkout, pay/payment, confirmation and card-details navigation is blocked without
+a profile. With a usable guest profile, tasks contain field names only, separate
+guest prefill patterns and payment/card-details stop patterns; terms, marketing,
+submissions and payment entry remain forbidden. P14 runtime enforcement belongs
+to R7-01 and was not proven by these offline task-builder checks.
+
+Anonymous curl HEAD/GET of the Accor Milan URL returned HTTP 200 and an SSR shell
+(base href /ssr/, dateIn/dateOut state keys). This does NOT establish date/party
+hydration, inventory, room selection or a checkout boundary. No forms, consent or
+H sessions were used. Booking/Hilton rendering and every checkpoint need later
+live validation. Visually unverified; no site screenshots recorded.
+
+Checks after fixing conservative beyond-pattern coverage:
+```
+uv run ruff check .
+All checks passed!
+uv run pytest -q
+2307 passed, 1 warning in 63.45s (0:01:03)
+uv run pytest -q tests/test_agent_hotel.py tests/test_site_policy.py
+563 passed in 2.12s
+```
+The warning is the existing Starlette httpx TestClient deprecation.
+Initial full-suite check found 13 failures because new beyond-patterns omitted
+generic guest/checkout/pay boundaries; fixed the shard, not shared tests.
+No configured pre-commit file or active pre-commit hook is present.

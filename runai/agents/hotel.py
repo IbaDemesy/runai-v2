@@ -7,13 +7,18 @@ there is no default chain or homepage fallback.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from datetime import date
 from math import isfinite
+from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from runai.agents.site_policy import (
+    REGISTRY_PATH,
     city_key,
+    city_name,
     hotel_search_city,
     select_adapters,
     task_checkpoint,
@@ -27,6 +32,43 @@ STOP_BEFORE = [
     "booking confirmation", "terms or consent checkbox", "cookie consent acceptance",
     "captcha or bot challenge", "any form submission", "redirect to a host not in allowed_hosts",
 ]
+
+DIRECT_SITES = ("r7-booking-hotel", "r7-hilton-hotel", "r7-accor-hotel")
+GUEST_FIELDS = ("full_name", "given_name", "family_name", "email", "phone")
+
+
+def _prefill(task, fields, budget):
+    checkpoint = task["checkpoint"]
+    checkpoint["prefill_patterns"] = (
+        [r"^/book\.html(?:[/?]|$)"] if task["site_name"] == "r7-booking-hotel"
+        else [r"/(?:enter[-_])?guest(?:[-_/]?(?:details|info|form))?(?:[/?]|$)"]
+    )
+    checkpoint["url_patterns"] = [r"/(?:[^?]*/)?(?:payment|card[-_]?details)(?:[/?]|$)"]
+    checkpoint["beyond_patterns"] = [r"/(?:[^?]*/)?(?:confirm|confirmation|complete)(?:[/?]|$)"]
+    task["prefill_fields"] = fields.copy()
+    task["prefill_scope"] = "guest details"
+    task["stop_before"] = [s for s in STOP_BEFORE if s != "guest details / personal data form"]
+    task["instructions"] = (
+        f"Select room and rate for {task['expected']}. Verify dates, party and full-stay total. "
+        f"Allowed hosts: {', '.join(task['allowed_hosts'])}. "
+        f"Whole-stay budget EUR: {budget}; if exceeded report BLOCKED over_budget. "
+        "Cookie banners: reject or necessary-only; never accept optional consent. "
+        "Open guest details and type only the provided guest name/email/phone into guest fields. "
+        "Never tick terms/marketing, submit forms, log in, create accounts, solve captchas or pay. "
+        "Stop before payment or card entry; never type payment details. "
+        f"Guest-details prefill patterns (do not force an answer): {checkpoint['prefill_patterns']}. "
+        f"Stop URL patterns: {checkpoint['url_patterns']}; forbidden: {checkpoint['beyond_patterns']}. "
+        "Match case-insensitively against unquoted path + '?' + query. "
+        "READY only with selected room/rate, correct dates/party/city and full-stay total evidence; "
+        "otherwise BLOCKED unsafe_claim. Missing fields stay blank; required consent, submission, "
+        "login or captcha is BLOCKED, never bypassed. Return verification: room, rate, arrival_date, "
+        "departure_date, travelers, total, city, selected, next_safe_boundary and last safe public URL."
+    )
+    task["success_signal"] = (
+        "READY only after selected room/rate and provided guest details, with verified stay dates, "
+        "party, city and full-stay total, stopped before payment or card entry. "
+        "Never submit or accept terms/marketing. Incomplete evidence: BLOCKED unsafe_claim."
+    )
 
 
 def _budget(trip: Mapping[str, Any]) -> int | float | None:
@@ -43,8 +85,30 @@ def build_task(
 ) -> dict[str, Any]:
     expected = trip_expected(trip, KIND, today=today)
     budget = _budget(trip)
+    if registry is None:
+        path = Path(REGISTRY_PATH)
+        try:
+            entries = [entry for file in [path, *sorted((path.parent / "site-policy.d").glob("*.json"))]
+                       for entry in json.loads(file.read_text())["entries"]]
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            raise ValueError("site-policy registry unavailable or invalid") from exc
+        registry = {"schema_version": 1, "entries": sorted(entries, key=lambda e: (
+            DIRECT_SITES.index(e["id"]) if e["id"] in DIRECT_SITES else len(DIRECT_SITES)
+        ))}
     candidates = select_adapters(KIND, expected, today=today, registry=registry)
+    candidates = [
+        (adapter, url.replace(quote(hotel_search_city(expected), safe=""),
+                              quote(city_name(expected["city"]), safe=""), 1), decision)
+        if decision["policy_id"] == "r7-booking-hotel" else (adapter, url, decision)
+        for adapter, url, decision in candidates
+    ]
     tasks = [_candidate_task(expected.copy(), budget, *candidate) for candidate in candidates]
+    profile = trip.get("runner_profile")
+    fields = [k for k in GUEST_FIELDS if isinstance(profile, dict)
+              and isinstance(profile.get(k), str) and profile[k].strip()]
+    if fields:
+        for task in tasks:
+            _prefill(task, fields, budget)
     primary = tasks[0]
     if len(tasks) > 1:
         primary["alternatives"] = tasks[1:]
@@ -52,7 +116,8 @@ def build_task(
 
 
 def _candidate_task(expected, budget, adapter, url, decision):
-    search_city = hotel_search_city(expected)
+    search_city = (expected["city"] if decision["policy_id"] == "r7-booking-hotel"
+                   else hotel_search_city(expected))
     if city_key(search_city) != city_key(expected["city"]):
         expected["gateway_city"] = search_city
     checkpoint = task_checkpoint(adapter)

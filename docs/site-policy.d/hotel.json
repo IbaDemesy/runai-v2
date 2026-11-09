@@ -1,0 +1,162 @@
+{
+ "schema_version": 1,
+ "entries": [
+  {
+   "id": "r7-booking-hotel",
+   "name": "Booking.com",
+   "purposes": [
+    "hotel"
+   ],
+   "scopes": [
+    {
+     "host": "www.booking.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.booking.com/content/terms.html"
+   ],
+   "reviewed_at": "2026-11-09",
+   "expires_at": "2027-02-07",
+   "reviewed_sections": "Owner decision; historical terms findings retained in the base registry.",
+   "justification": "Allowed for read/prepare-only automation by owner decision in docs/handoff/lift-site-exclusions.md, not site-granted authorization. No payment, submission, accounts, consent or CAPTCHA bypass; in-session screenshots only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "adapters": [
+    {
+     "kind": "hotel",
+     "mode": "hotel",
+     "destination_countries": [
+      "IT",
+      "DE",
+      "NL",
+      "PT",
+      "ES",
+      "CH",
+      "FR",
+      "BE",
+      "AT",
+      "GB",
+      "CZ"
+     ],
+     "url_template": "https://www.booking.com/searchresults.html?ss={city_query}%2C%20{country}&checkin={arrival_date}&checkout={departure_date}&group_adults={travelers}&no_rooms=1&group_children=0",
+     "checkpoint": {
+      "url_patterns": [
+       "^/book\\.html(?:[/?]|$)"
+      ],
+      "beyond_patterns": [
+       "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book/confirm|/booking/confirm|card[-_]?details"
+      ]
+     },
+     "success_evidence": "Selected room AND rate, exact dates and adults, full-stay total visible; stop at the untouched guest-details boundary. Provisional URL pattern requires live validation; never infer selection from a URL alone.",
+     "blocked_evidence": "No availability, dates not on sale, sold out, wrong city/dates/party, required login, captcha or consent. Search results and unselected hotel pages are not ready."
+    }
+   ]
+  },
+  {
+   "id": "r7-hilton-hotel",
+   "name": "Hilton",
+   "purposes": [
+    "hotel"
+   ],
+   "scopes": [
+    {
+     "host": "www.hilton.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.hilton.com/en/p/site-usage-agreement/"
+   ],
+   "reviewed_at": "2026-11-09",
+   "expires_at": "2027-02-07",
+   "reviewed_sections": "Owner decision; historical terms findings retained in the base registry.",
+   "justification": "Allowed for read/prepare-only automation by owner decision in docs/handoff/lift-site-exclusions.md, not site-granted authorization. No payment, submission, accounts, consent or CAPTCHA bypass; in-session screenshots only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "adapters": [
+    {
+     "kind": "hotel",
+     "mode": "hotel",
+     "destination_countries": [
+      "IT",
+      "DE",
+      "NL",
+      "PT",
+      "ES",
+      "CH",
+      "FR",
+      "BE",
+      "AT",
+      "GB",
+      "CZ"
+     ],
+     "url_template": "https://www.hilton.com/en/search/?query={city_query}%2C%20{country}&arrivalDate={arrival_date}&departureDate={departure_date}&numAdults={travelers}&numRooms=1",
+     "checkpoint": {
+      "url_patterns": [
+       "^/en/book/reservation/review(?:[/?]|$)"
+      ],
+      "beyond_patterns": [
+       "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book/confirm|/booking/confirm|card[-_]?details"
+      ]
+     },
+     "success_evidence": "Selected room AND rate, exact dates and adults, full-stay total visible; stop at the untouched guest-details boundary. Provisional URL pattern requires live validation; never infer selection from a URL alone.",
+     "blocked_evidence": "No availability, dates not on sale, sold out, wrong city/dates/party, required login, captcha or consent. Search results and unselected hotel pages are not ready."
+    }
+   ]
+  },
+  {
+   "id": "r7-accor-hotel",
+   "name": "Accor Milan",
+   "purposes": [
+    "hotel"
+   ],
+   "scopes": [
+    {
+     "host": "all.accor.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://all.accor.com/a/en/information/legal-conditions.html"
+   ],
+   "reviewed_at": "2026-11-09",
+   "expires_at": "2027-02-07",
+   "reviewed_sections": "Owner decision; historical terms findings retained in the base registry.",
+   "justification": "Allowed for read/prepare-only automation by owner decision in docs/handoff/lift-site-exclusions.md, not site-granted authorization. No payment, submission, accounts, consent or CAPTCHA bypass; in-session screenshots only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "adapters": [
+    {
+     "kind": "hotel",
+     "mode": "hotel",
+     "destination_countries": [
+      "IT"
+     ],
+     "url_template": "https://all.accor.com/ssr/app/accor/hotels/milan-italy?destination={place_name}&dateIn={arrival_date}&dateOut={departure_date}&compositions={travelers}",
+     "checkpoint": {
+      "url_patterns": [
+       "^/ssr/app/accor/booking/review(?:[/?]|$)"
+      ],
+      "beyond_patterns": [
+       "/(?:enter[-_])?guests?(?:[-_/ ]?(?:details|info|forms?))?(?=[/?#&=]|$)|passenger|/pax|payment|/pay|checkout|/book/confirm|/booking/confirm|card[-_]?details"
+      ]
+     },
+     "success_evidence": "Selected room AND rate, exact dates and adults, full-stay total visible; stop at the untouched guest-details boundary. Provisional URL pattern requires live validation; never infer selection from a URL alone.",
+     "blocked_evidence": "No availability, dates not on sale, sold out, wrong city/dates/party, required login, captcha or consent. Search results and unselected hotel pages are not ready.",
+     "places": {
+      "milan": {
+       "place_name": "Milan"
+      },
+      "milano": {
+       "place_name": "Milan"
+      }
+     }
+    }
+   ]
+  }
+ ]
+}
