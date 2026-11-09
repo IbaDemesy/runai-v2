@@ -340,8 +340,10 @@ _FIRST_PERSON_CLAIM = re.compile(
 def _boundary_admission(text: str) -> bool:
     return any(
         not re.search(r"\b(?:before|prior to|until|without|not|never|no|avant|sans|pas|jamais)\b"
-                      r"|n't\b", text[:match.start()], re.IGNORECASE)
-        for match in _FIRST_PERSON_CLAIM.finditer(text)
+                      r"|n't\b", clause[:match.start()], re.IGNORECASE)
+        for clause in re.split(r"[.!?,;:\n]|\s+(?:but|however|mais)\s+", text,
+                               flags=re.IGNORECASE)
+        for match in _FIRST_PERSON_CLAIM.finditer(clause)
     )
 
 
