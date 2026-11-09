@@ -142,9 +142,15 @@ class LiveRunner:
             builder = importlib.import_module(f"runai.agents.{kind.value}")
             try:
                 task = builder.build_task(trip)
-            except ValueError:
+            except ValueError as exc:
+                denied = any(word in str(exc).lower() for word in ("denied", "prohibited"))
                 return StepResult(
-                    kind=kind, status="blocked", summary="Plan unsupported; continue on public site",
+                    kind=kind, status="blocked", summary=(
+                        "Site policy does not permit this trip; continue on the official site"
+                        if denied else
+                        "No reviewed site covers this trip yet; continue on the official site"
+                    ),
+                    reason_code="policy_denied" if denied else "no_site_coverage",
                     error="Task builder rejected this plan", handoff_url=fallback, synthetic=False,
                 )
             fallback = _valid_url(task.get("fallback_url") if isinstance(task, dict) else getattr(
@@ -172,5 +178,6 @@ class LiveRunner:
             return StepResult(
                 kind=kind, status="failed", summary="Live preparation failed; continue manually",
                 error=f"Live preparation unavailable ({type(exc).__name__})",
+                reason_code="provider_error",
                 handoff_url=fallback, synthetic=False,
             )

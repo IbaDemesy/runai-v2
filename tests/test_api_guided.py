@@ -486,3 +486,34 @@ def test_live_builder_rejection_blocks_without_h_calls(monkeypatch):
         assert result.status == "blocked"
         assert result.payment_executed is False
     assert calls == []
+
+
+@pytest.mark.parametrize("language,expected", [("en", "en"), ("fr", "fr"), ("xx", "en"), (None, "en")])
+def test_r3_latest_guide_language(language, expected):
+    class LanguageGuide(StubGuide):
+        async def start(self, text):
+            state, turn = await super().start(text)
+            turn["language"] = "en"
+            return state, turn
+
+        async def step(self, state, answer):
+            state, turn = await super().step(state, answer)
+            turn["language"] = language
+            return state, turn
+
+    with TestClient(create_app(guide=LanguageGuide())) as client:
+        url = ready(client)
+        assert client.get(url).json()["language"] == expected
+
+
+def test_r3_reason_in_api_json():
+    class BlockedRunner:
+        async def run(self, kind, trip, emit):
+            return StepResult(kind=kind, status="blocked", summary="No inventory",
+                              reason_code="no_inventory", synthetic=True)
+
+    with TestClient(create_app(guide=StubGuide(), runner_factory=lambda mode: BlockedRunner())) as c:
+        url = ready(c)
+        assert c.post(url + "/confirm", json={"confirmed": True}).status_code == 202
+        mission = terminal(c, url)
+        assert all(result["reason_code"] == "no_inventory" for result in mission["results"])

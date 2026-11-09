@@ -178,7 +178,7 @@ they treat the value as unknown and fail closed for H runs.
 4. The `build_task(trip)` dict keeps its keys and adds `expected: {kind,
    race_name?, race_date?, distance_km?, city, country?, origin_city?,
    arrival_date, departure_date, travelers}` and `allowed_hosts: [str]`.
-   `max_steps` can be up to 80; the H client caps it at 120.
+   `max_steps` can be up to 80; the H client caps it at 80.
 5. Background discovery (R2-05 implements it; R2-01 uses it):
    - When `background` is true on create/messages, the endpoint resolves the
      guide synchronously, so missing keys/modules still return 501. It then
