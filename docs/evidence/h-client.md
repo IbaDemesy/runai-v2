@@ -314,3 +314,74 @@ Offline MockTransport checks cover policy rejection without creation, no share
 requests, bounded budgets, terminal final-frame/204 drain, authenticated resource
 redirects, MIME/size rejection, forged verification, unsafe observations and
 cancellation failure. CI never calls live providers. See R2-03 handoff for output.
+
+## R7-01 integrated live acceptance (2026-11-09)
+
+Executed one real API-driven mission on PR #50 commit
+`0d27080ae1c49fb98955eab25abc2a25ed5e7357`, rebased onto main including
+R7-03/#48 and R7-05/#47. This is backend live evidence, not visual acceptance
+or a successful prepared checkout. No second mission or manual retry ran.
+
+The org quota limit was three. An initial check showed three available; the
+pre-launch check showed only two, so launch waited about three minutes until
+`active=0, available=3`. The server used real Linkup/H in live mode on port
+8010; readiness reported Linkup/H available, and neither was replaced with fakes.
+
+The vague French request asked for a spring marathon in Milan. Real discovery
+proposed Wizz Air Milano Marathon, 2027-04-04, 42.195 km, citing
+`https://www.milanomarathon.it/en/`. Accepted the default Paris origin, two
+nights and EUR 450; the plan had one traveler, arrival 2027-04-03 and departure
+2027-04-05. Submitted only the owner-supplied fake profile through the profile
+endpoint: HTTP 200, complete=true, twelve field names, no values returned.
+Explicit confirmation returned HTTP 202 at 08:43:52 UTC. The three agent-start
+events occurred within 122 ms. The mission ended failed at 08:53:58 UTC:
+**0/3 READY**, with two blocked agents and one failed agent.
+
+| Agent | Last observed public host/path (query omitted) | Status | reason_code | checkpoint_reached | prefilled | stop_label | Observed steps | Duration | Frames |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Registration | `in.njuko.com/wizz-air-milano-marathon-20271776152378557` | failed | timeout | null | true | null | 60 | 606.24 s | 36 |
+| Hotel | `www.booking.com/hotel/it/meininger-milano-garibaldi.html` | blocked | unreviewed_redirect | null | false | safe stop | 25 | 116.35 s | 23 |
+| Transport | `www.sbb.ch/en` | blocked | policy_denied | null | null | null | 8 | 46.96 s | 8 |
+
+Durations use each agent's step_started/step_finished UTC events, including
+waiting/cancellation. Steps are the maximum streamed H step number per attempt,
+not an independent browser-action count; each agent had one observed attempt.
+Frames count genuine API live_frame events; image bytes were not downloaded,
+saved or visually inspected. Null means not reported, not verified false.
+Registration's prefilled=true is H/client-reported, not independently verified
+typing. It reached step 60, then emitted read-page heartbeats before timing
+out; this is not a verified pre-payment checkpoint.
+
+Hotel additionally reported the rejected destination
+`secure.booking.com/book.html`. Its result's fallback handoff was
+`www.booking.com/searchresults.html`, not the blocked destination. Registration's
+fallback was the official race homepage; transport's fallback was SBB `/en`.
+Do not describe these fallbacks as prepared checkouts. The recorded gate names
+are observations, not a settled root-cause diagnosis of the builders or policy.
+No safety/framed block was bypassed. All three results were synthetic=false
+and payment_executed=false; these model fields alone cannot prove every remote
+browser action was safe.
+
+Privacy audit used case-insensitive fixed-string rg checks on final Mission
+JSON, the complete events endpoint and server logs, including URL-encoded
+identifying values and additional phone/date renderings. All returned zero
+identifying-sentinel matches. Whole-word quasi-identifier checks found no
+gender matches and no quasi matches in events/logs. Mission JSON contained
+the pre-existing public French locale `fr` in Mission.language and the four
+turn.language fields; it coincides with the fake nationality/country and was
+already present before profile submission, not a profile disclosure. Public
+Paris route context was intentionally exempt. Thus a literal assertion that
+no nationality string occurs would be false; no new profile-valued disclosure
+was detected. Profile status reset to complete=false, fields=[] at run end.
+
+The first polling helper's broad encoded single-letter matching overcounted
+ordinary text. Its counts were discarded; the subsequent rg audit and
+field-path whole-word checks above are the privacy evidence. Raw Mission/event
+payloads and H/private URLs were not saved to evidence. No H/site screenshots
+were saved to the repository. The server was stopped after the audit to release
+in-memory frames. Only scrubbed public host/path diagnostics are recorded here.
+
+Berlin and a third race remain pending the R7-02/R7-04 merges. Follow-up owners
+should inspect the Booking redirect authorization, transport policy boundary
+and Njuko terminal-answer stall without weakening safety/verification gates.
+This one failed mission does not establish integrated product readiness.

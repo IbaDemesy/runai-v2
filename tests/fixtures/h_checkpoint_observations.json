@@ -5,6 +5,35 @@
     "url_patterns": ["currentPage=form_individual-form"],
     "beyond_patterns": ["/pay(?:/|[?]|$)"]
   },
+  "r7_cases": [
+    {
+      "id": "njuko-milan", "builder": "registration", "site_name": "in.njuko.com",
+      "race_name": "Wizz Air Milano Marathon", "city": "Milan", "country": "Italy",
+      "race_date": "2027-04-04", "arrival_date": "2027-04-03", "departure_date": "2027-04-05",
+      "registration_url": "https://in.njuko.com/wizz-air-milano-marathon-20271776152378557",
+      "url": "https://in.njuko.com/wizz-air-milano-marathon-20271776152378557?currentPage=form_individual-form&lang=en",
+      "answer_url": "https://in.njuko.com/wizz-air-milano-marathon-20271776152378557?lang=en&currentPage=form_individual-form",
+      "ready": true,
+      "verification": {"race_name": "Wizz Air Milano Marathon", "edition": "2027", "race_date": "2027-04-04", "distance_km": 42.195, "participant_data_untouched": true, "selected": true, "next_safe_boundary": "participant data"}
+    },
+    {
+      "id": "hotel-bb-milan-room-list", "builder": "hotel", "site_name": "hotel-bb-com",
+      "race_name": "Wizz Air Milano Marathon", "city": "Milan", "country": "Italy",
+      "race_date": "2027-04-04", "arrival_date": "2027-04-03", "departure_date": "2027-04-05",
+      "url": "https://www.hotel-bb.com/en/hotel/milano-sant-ambrogio?arrival_date=04%2F03%2F2027&departure_date=04%2F05%2F2027&rooms=1&destination=milano-sant-ambrogio",
+      "ready": false, "gate": "checkpoint_pattern",
+      "verification": {"city": "Milan", "arrival_date": "2027-04-03", "departure_date": "2027-04-05", "travelers": 1, "room": "Standard", "rate": "Flexible", "total": "240 EUR", "selected": true, "next_safe_boundary": "guest details"}
+    },
+    {
+      "id": "ihg-den-haag", "builder": "hotel", "site_name": "ihg-com",
+      "race_name": "City Pier City Half Marathon", "city": "Den Haag", "country": "NL",
+      "race_date": "2027-03-14", "arrival_date": "2027-03-13", "departure_date": "2027-03-15",
+      "url": "https://www.ihg.com/hotels/gb/en/find-hotels/select-enhance-stay?qCiD=13&qCiMy=022027&qCoD=15&qCoMy=022027&qAdlt=1&qRms=1",
+      "answer_url": "https://www.ihg.com/hotels/gb/en/find-hotels/select-enhance-stay?qRms=1&qAdlt=1&qCoMy=022027&qCoD=15&qCiMy=022027&qCiD=13",
+      "ready": true,
+      "verification": {"city": "Den Haag", "arrival_date": "2027-03-13", "departure_date": "2027-03-15", "travelers": 1, "room": "Standard", "rate": "Flexible", "total": "240 EUR", "selected": true, "next_safe_boundary": "guest details"}
+    }
+  ],
   "observations": [
     {"url": "https://race.example.org/entry?currentPage=FORM_individual%2Dform", "stop": true, "beyond": false},
     {"url": "https://race.example.org/pay/payments", "stop": false, "beyond": true},

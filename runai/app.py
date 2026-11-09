@@ -15,7 +15,18 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import Field, StrictBool, model_validator
 
-from runai.models import Event, Kind, Mission, Mode, Model, StepResult, public_url
+from runai.agents.scrub import public_profile_context, scrub_profile
+from runai.models import (
+    Event,
+    Kind,
+    Mission,
+    Mode,
+    Model,
+    ProfileStatus,
+    RunnerProfile,
+    StepResult,
+    public_url,
+)
 from runai.providers import FakeRunner, LiveRunner, ReplayRunner
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -194,9 +205,11 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
     states: dict[str, object] = {}
     guides: dict[str, object] = {}
     locks: dict[str, asyncio.Lock] = {}
-    frames: dict[str, tuple[bytes, str]] = {}
+    frames: dict[str, tuple[bytes, str, str]] = {}
     tasks: set[asyncio.Task] = set()
+    mission_tasks: dict[str, set[asyncio.Task]] = {}
     generations: dict[str, int] = {}
+    profiles: dict[str, dict] = {}
 
     @asynccontextmanager
     async def lifespan(app):
@@ -216,10 +229,20 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
              "msg": "Invalid request", "type": error["type"]} for error in exc.errors()
         ]})
 
-    def track(coro):
+    def track(coro, mission_id):
         task = asyncio.create_task(coro)
         tasks.add(task)
-        task.add_done_callback(tasks.discard)
+        mission_tasks.setdefault(mission_id, set()).add(task)
+
+        def finished(done):
+            tasks.discard(done)
+            owned = mission_tasks.get(mission_id)
+            if owned is not None:
+                owned.discard(done)
+                if not owned:
+                    mission_tasks.pop(mission_id, None)
+
+        task.add_done_callback(finished)
         return task
 
     def get(mission_id: str) -> Mission:
@@ -274,7 +297,7 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
                     return await engine.step(sanitize_state(states[mission.id]), answer)
 
             started = asyncio.get_running_loop().time()
-            worker = track(search())
+            worker = track(search(), mission.id)
             try:
                 while not worker.done():
                     done, _ = await asyncio.wait({worker}, timeout=discovery_heartbeat_s)
@@ -298,13 +321,17 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
                 if generations[mission.id] == generation:
                     mission.status = previous
                     discovery_failed(mission)
-        track(discover())
+        track(discover(), mission.id)
 
     async def prepare(mission):
         async def run(kind):
             emit(mission, "step_started", "Preparation started; no purchases or submissions", kind)
 
             async def progress(data):
+                if mission.id not in missions:
+                    return
+                data = scrub_profile(data, profiles.get(mission.id, {}),
+                                     public_profile_context(mission.trip))
                 event_type = data.get("type", "step_progress")
                 if event_type not in {"step_progress", "live_view_available", "live_frame"}:
                     return
@@ -335,7 +362,7 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
                         emit(mission, "step_progress", "Frame exceeds size limit", kind)
                         return
                     frame_id = uuid4().hex
-                    frames[frame_id] = content, mime
+                    frames[frame_id] = content, mime, mission.id
                     while len(frames) > MAX_FRAMES or sum(
                         len(frame[0]) for frame in frames.values()
                     ) > MAX_FRAME_BYTES:
@@ -355,8 +382,14 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
                     runner = ReplayRunner(replay_path) if replay_path is not None else ReplayRunner()
                 else:
                     runner = LiveRunner() if mission.mode == Mode.live else FakeRunner()
-                result = await runner.run(kind, mission.trip, progress)
-                result = StepResult.model_validate(sanitize(jsonable_encoder(result)))
+                trip = dict(mission.trip or {})
+                if mission.mode == Mode.live and profiles.get(mission.id):
+                    trip["runner_profile"] = dict(profiles[mission.id])
+                result = await runner.run(kind, trip, progress)
+                result = StepResult.model_validate(sanitize(scrub_profile(
+                    jsonable_encoder(result), profiles.get(mission.id, {}),
+                    public_profile_context(mission.trip),
+                )))
                 if result.kind != kind or result.synthetic != mission.synthetic:
                     raise ValueError("Runner result provenance mismatch")
             except Exception as exc:  # noqa: BLE001 — isolate each background provider failure
@@ -368,7 +401,11 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
             mission.results.append(result)
             emit(mission, "step_finished", result.summary, kind)
 
-        await asyncio.gather(*(run(kind) for kind in Kind))
+        try:
+            await asyncio.gather(*(run(kind) for kind in Kind))
+        finally:
+            profiles.pop(mission.id, None)
+            mission.profile_status = ProfileStatus()
         successes = sum(result.status == "ready_for_payment" for result in mission.results)
         mission.status = "completed" if successes == 3 else "partial" if successes else "failed"
 
@@ -450,6 +487,49 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
             states[mission_id] = clean_state
             return mission
 
+    @app.post("/api/missions/{mission_id}/profile", response_model=Mission)
+    async def set_profile(mission_id: str, profile: RunnerProfile):
+        mission = get(mission_id)
+        async with locks[mission_id]:
+            if mission.status not in {"guiding", "ready"}:
+                raise HTTPException(409, "Profile cannot change after confirmation")
+            values = profile.model_dump(exclude_none=True)
+            profiles[mission_id] = values
+            mission.profile_status = ProfileStatus(
+                complete=profile.complete, fields=list(values),
+            )
+            return mission
+
+    @app.delete("/api/missions/{mission_id}/profile", response_model=Mission)
+    async def clear_profile(mission_id: str):
+        mission = get(mission_id)
+        async with locks[mission_id]:
+            if mission.status not in {"guiding", "ready"}:
+                raise HTTPException(409, "Profile cannot change after confirmation")
+            profiles.pop(mission_id, None)
+            mission.profile_status = ProfileStatus()
+            return mission
+
+    @app.delete("/api/missions/{mission_id}", status_code=204)
+    async def delete_mission(mission_id: str):
+        get(mission_id)
+        missions.pop(mission_id, None)
+        profiles.pop(mission_id, None)
+        pending = list(mission_tasks.get(mission_id, set()))
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+        for frame_id, (_, _, owner) in list(frames.items()):
+            if owner == mission_id:
+                frames.pop(frame_id, None)
+        profiles.pop(mission_id, None)
+        missions.pop(mission_id, None)
+        states.pop(mission_id, None)
+        guides.pop(mission_id, None)
+        locks.pop(mission_id, None)
+        generations.pop(mission_id, None)
+        return Response(status_code=204)
+
     @app.post("/api/missions/{mission_id}/confirm", response_model=Mission, status_code=202)
     async def confirm(mission_id: str, request: ConfirmRequest):
         mission = get(mission_id)
@@ -470,9 +550,7 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
                         raise HTTPException(501, "Live H preparation modules unavailable") from exc
             mission.status = "running"
             emit(mission, "confirmed", "Explicitly confirmed; stop before payment or commitment")
-            task = asyncio.create_task(prepare(mission))
-            tasks.add(task)
-            task.add_done_callback(tasks.discard)
+            track(prepare(mission), mission_id)
             return mission
 
     @app.get("/api/missions/{mission_id}", response_model=Mission)
@@ -487,7 +565,7 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
     def frame(frame_id: str):
         if frame_id not in frames:
             raise HTTPException(404, "Frame not found")
-        content, mime = frames[frame_id]
+        content, mime, _ = frames[frame_id]
         return Response(content, media_type=mime, headers={
             "Content-Security-Policy": "sandbox; default-src 'none'",
             "X-Content-Type-Options": "nosniff", "Cache-Control": "no-store",

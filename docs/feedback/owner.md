@@ -1,3 +1,13 @@
+## Round 7-8: owner decision (recorded 2026-11-09)
+
+OWNER DECISION (rounds 7-8, TOP PRIORITY, overrides older site-policy notes incl. the Accor note): NO site is excluded anymore for terms-of-service reasons (Booking, Trainline, SNCF Connect, Accor, Hilton, Omio, Google Flights/Hotels, Trenitalia, SBB... are all allowed; see docs/site-policy.json allowed_owner_rule and docs/handoff/lift-site-exclusions.md). Add adapters for the big sites where that makes runs reach further. Goal: H runs that ADVANCE AS FAR AS POSSIBLE (dates, room, fare, distance selected, cart/summary reached) and MINIMIZE THE CLIENT'S ACTIONS: the chatbot picks sensible defaults itself, asks as few questions as possible, the user ideally only confirms and then only has to review and pay. OWNER APPROVED PERSONAL-DATA PREFILL: the chatbot asks the runner profile ONCE (full name, email, phone, birth date, gender, nationality, address if needed) and the H agents may TYPE these into registration/hotel/transport forms (passenger/guest/participant details) to advance as far as possible. Never store that data in the repo, logs, evidence, screenshots committed to git or eval reports (use clearly fake test identities in evaluations, e.g. 'Test Runner'). Record this decision in docs/feedback/owner.md and update CONTRACTS.md/safety checks accordingly. Keep the hard guardrails: never pay, never create accounts, never accept terms/medical consent, never submit final forms, never bypass captchas; honest blocked states.
+
+Round-6 verdict: **38/100, 0/5 live successes**, design **8/10**.
+See [docs/eval/round-6.md](../eval/round-6.md). Only one of fifteen agents
+verified READY; this is not generic live readiness. The decision above supersedes
+older ToS exclusions and blanket bans on profile typing, not safety stops or
+unknown/expired review checks. Evaluations use clearly fake identities only.
+
 ## Round 6: owner hands-on feedback after testing round 1 live (recorded 2026-11-09)
 
 TOP PRIORITY. Verbatim owner feedback:
@@ -25,10 +35,14 @@ without explicit current-plan confirmation. Retain >=130 offline conversations
 and add round-5 regressions for Germany/Portugal dead ends, chip ping-pong,
 unverified-date proposals, mind/origin corrections and language consistency.
 
+**Historical ToS exclusions below are superseded by Round 7-8; retained verbatim.**
+
 Site policy: prefer sites without captchas whose terms don't forbid automated
 agents, and document the choice. Accor and every prohibited entry stay denied;
 unknown/expired reviews block before any H session. robots.txt is not
 authorization. H/site frames are in_session_only, never committed or published.
+**The blanket personal-data/form prohibition below is superseded by Round 7-8 P14; other hard guardrails remain. Historical text retained verbatim.**
+
 Owner approval is read/prepare-only: never pay/book/create accounts/accept terms
 or consent/submit forms/enter personal data/bypass captchas. H org concurrency
 is 3: quota-check before each smoke, one session per ticket at a time; final
