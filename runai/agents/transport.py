@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import date
+from importlib import import_module
 from math import isfinite
 from typing import Any
 from urllib.parse import urlsplit
@@ -78,7 +79,8 @@ def _keep_fragment(url):
 
 
 def _runnable_start_url(url):
-    return scrub_url(url) == url or _keep_fragment(url)
+    public_https = import_module("runai.agents.hclient")._public_https
+    return public_https(url) and public_https(scrub_url(url))
 
 
 def _candidate_task(expected, budget, adapter, url, decision, *, profile=None):

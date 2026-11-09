@@ -1356,7 +1356,7 @@
           "traveler_counts": [
             1
           ],
-          "url_template": "https://booking.flytap.com/booking/flights/deeplink?market=FR&language=en&origin={origin_iata}&destination={iata}&depDate={arrival_dmy_dot}&retDate={departure_dmy_dot}&flightType=return&adt={travelers}&chd=0&inf=0",
+          "url_template": "https://booking.flytap.com/booking/flights/deeplink?market=FR&language=en&origin={origin_iata}&destination={iata}&depDate={arrival_date}&retDate={departure_date}&flightType=return&adt={travelers}&chd=0&inf=0",
           "places": {
             "lisbon": {
               "iata": "LIS"

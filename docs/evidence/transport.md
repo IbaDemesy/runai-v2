@@ -1406,3 +1406,60 @@ start URL's scrub stability, form-encoded month dates/party wording, filtering
 before the three-policy cap, no unverified promotion, malformed encoding/priority,
 month boundary examples, and profile unit behavior through a clearly synthetic
 stable Omio test link. These synthetic unit links are not production/live evidence.
+
+## 2026-11-09 — runner-equivalent preflight correction (supersedes 7/48)
+
+The equality guard above was stricter than the runner and incorrectly removed
+SBB. `HAgentRunner._attempt` in `runai/agents/hclient.py` calls its nested
+`clean_url` (scrub_url; also rejects the configured API key) then requires
+`_public_https(start_url)` before POST /sessions. It does NOT require raw/clean
+equality. `_policy` checks both raw start_url and fallback_url for public HTTPS
+and reviewed permission/scope. Builders have no API-key input and emit only
+registry-derived public URLs, not credentials or profile values.
+
+The candidate guard now reuses hclient._public_https on both raw and scrubbed
+URLs. Existing select_adapters policy evaluation supplies the review/scope gate;
+generated fallback_url is exactly start_url. Safe NS fragments retain the
+existing keep_fragment handling. Public URL normalization is not rejection.
+
+SBB's percent-space to plus normalization retains all decoded query values,
+including day. Its adapter templates/counts/verification dates are unchanged.
+TAP would also pass the actual preflight, but dotted depDate/retDate values were
+lost during scrub. Its template now emits ISO dates that survive unchanged.
+Offline source check of TAP's public frontend bundle: deeplink depDate/retDate
+pass through INDRA_formatDateParam, which calls dateService.INDRA_formatDate
+with DDMMYYYY; that service uses Moment(input).parseZone().locale(...).format(...).
+ISO-8601 input is supported by that parser. This is source/URL-preservation
+evidence, NOT new H-render evidence for the ISO-formatted TAP link.
+
+### Current runnable H-render-verified primaries (one adult): 9/48
+
+| Origin | Destinations and primary |
+| --- | --- |
+| Paris | Milan, Berlin, Lisbon, Valencia: Google Flights; Amsterdam: NS |
+| Lyon | Milan: SBB |
+| Geneva | Milan, Zurich: SBB; Barcelona: Google Flights |
+| Brussels | None |
+
+All other 39 eval combinations still raise before H. Adults2..4: only the five
+Google routes above (5/48); SBB/NS/TAP remain one-adult-only. SBB is restored as
+Paris→Milan alternative; TAP as Paris→Lisbon alternative. Geneva→Zurich now ranks
+SBB before NS, as the registry already specified. Google remains first for all
+five verified Google routes, including the Milan/Berlin READY smokes. Omio's
+public UUID still scrubs to None and is skipped; broad coverage still depends on
+the R7-01 scrub exemption. Tests remain conditional on actual scrub behavior.
+
+No new live runs. Added synthetic MockTransport tests of unmodified
+HAgentRunner.run: SBB, NS and TAP reach POST /sessions with the expected
+normalized start URL (NS's safe fragment retained); TAP retains both ISO dates.
+The mock deliberately returns HTTP400 after capturing POST: no session or live
+READY result is claimed. Existing three Google READY routes remain historical
+evidence; nothing here upgrades Lisbon's checkpoint_unverified result.
+
+Correction checks (same configured Starlette/httpx deprecation):
+
+```text
+uv run ruff check . && uv run pytest -q
+All checks passed!
+2816 passed, 1 warning in 98.88s (0:01:38)
+```
