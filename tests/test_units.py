@@ -6,9 +6,31 @@ import pytest
 from pydantic import ValidationError
 from test_api_guided import TRIP
 
-from runai.app import execution_trip
+from runai.app import execution_trip, sanitize_state
 from runai.models import Kind, StepResult
 from runai.providers import FIXTURE, FakeVoice, LiveRunner, LiveVoice, ReplayRunner
+
+
+def test_p13_survives_provider_and_api_serialization(monkeypatch):
+    class Client:
+        async def run(self, task, on_event):
+            return {"status": "blocked", "summary": "Booking step reached — verify on the site",
+                    "reason_code": "checkpoint_unverified", "checkpoint_reached": True,
+                    "handoff_url": "https://www.ihg.com/reservation/select-enhance-stay"}
+
+    monkeypatch.setattr("runai.providers.importlib.import_module", lambda name: SimpleNamespace(
+        HAgentRunner=Client, build_task=lambda trip: {},
+    ))
+
+    async def emit(event):
+        pass
+
+    result = asyncio.run(LiveRunner().run(Kind.hotel, TRIP, emit))
+    payload = sanitize_state(result).model_dump(mode="json")
+    assert payload["checkpoint_reached"] is True
+    assert payload["reason_code"] == "checkpoint_unverified"
+    assert payload["status"] == "blocked"
+    assert payload["handoff_url"] == "https://www.ihg.com/reservation/select-enhance-stay"
 
 
 @pytest.mark.parametrize("value,expected", [

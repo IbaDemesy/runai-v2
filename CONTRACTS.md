@@ -355,6 +355,27 @@ path of an unreviewed redirect, **without scheme, query, fragment, credentials
 or private identifiers**. It may appear in internal step logs, never raw in UI
 copy. Invalid/private values are discarded by the model and API sanitizer.
 
+### P13 Observed but unverified checkpoints (round 6)
+
+`StepResult.checkpoint_reached: bool|null = null` and reason code
+`checkpoint_unverified` are additive. A reviewed public checkpoint observed with
+a genuine frame may be handed off when the final answer fails verification:
+status remains `blocked`, checkpoint_reached is true, and handoff_url is that
+observed checkpoint (handoff-only, P10; never a wider navigation scope).
+Friendly copy: « Étape de réservation atteinte — à vérifier sur le site »
+(EN: “Booking step reached — verify on the site”). Explicit safety/site blockers
+and date mismatches keep their precise reasons. Verification failures never use
+provider_error. Internal steps alone may contain `verify_failed: [gate names]`,
+never extracted values or personal data; diagnostics are not UI copy.
+
+READY still requires complete selected evidence, matching dates/party/city,
+a genuine frame of the final checkpoint, a reviewed handoff equal to the observed
+URL after scrubbing, and no beyond-pattern. Scrubbing drops known tracking query
+parameters, not booking dates or party. IHG qCiMy/qCoMy encode zero-based months:
+062027 is July 2027. Verification dates must be ISO dates of the actual stay.
+The optional field passes through model-based provider/API serialization; old
+synthetic fixtures remain valid without it.
+
 ### P12 Gateway city and fragment-routed starts (round 5)
 `expected.gateway_city: str` is optional for hotel/transport. Verification city
 may match expected.city **or** gateway_city using existing accent/case-normalized

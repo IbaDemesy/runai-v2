@@ -5,6 +5,11 @@ import pytest
 from runai.agents.scrub import scrub_text, scrub_url
 
 
+def test_tracking_noise_removed_without_changing_ihg_stay():
+    url = "https://www.ihg.com/select-enhance-stay?qCiD=09&qCiMy=062027&qAdlt=2"
+    assert scrub_url(url + "&utm_source=example&cm_mmc=example&gclid=example") == url
+
+
 @pytest.mark.parametrize("secret", [
     "4111 1111 1111 1111", "4111-1111-1111-1111", "4111111111111111",
     "DE89 3704 0044 0532 0130 00", "cvv: 123", "expiry: 12/29",

@@ -1,39 +1,63 @@
-# Handoff — round five
+# Handoff — round six
 
 ## Current implementation/evidence boundary (2026-11-09)
-Round 4 recorded **0/5 visible live successes** and a 7/10 design score.
-Read [docs/eval/round-4.md](docs/eval/round-4.md) for observed evidence, not
-a claim of generic live readiness. Planner-verified causes for round 5:
-H's organization quota is three sessions; queued browsers consumed the old
-45-second startup deadline. Step limits arrived without force_answer, even
-after safe pages were observed. Redirect targets lacked diagnostics, gateway
-cities/fragments could not verify, and real Njuko ids failed scrubbing.
+Round 5 recorded **score 41, 0/5 visible live successes, design 7.5/10**.
+Read [docs/eval/round-5.md](docs/eval/round-5.md) for observed evidence, not
+a claim of generic live readiness. IHG reached select-enhance-stay but failed
+verification; Vueling returned zero frames; Germany/Portugal recovery looped.
+
+R6-01 implemented IHG verification/date fixes, P13 checkpoint_unverified,
+friendly frame-gap heartbeats, browser-error diagnosis and validated observed_at.
+Sequential hotel-only real smokes reached READY in Milan, Zurich and Lisbon
+(retry). Lisbon's first attempt retained a safe framed checkpoint but failed
+handoff_observed; its original differing query was not retained, so the deeper
+cause remains unresolved. No verifier was weakened. Vueling chromewebdata and
+plain-homepage failure were observed; provider ordering was not changed here.
+See [hotel evidence](docs/evidence/hotel.md), [runtime evidence](docs/evidence/h-client.md)
+and [R6-01 handoff](docs/handoff/R6-01.md). These backend-only smokes do not
+establish visible integrated three-agent success.
 
 Owner feedback (a)–(d), Strava-first design, adversarial requirements, Accor
 denial and the exact live-success definition remain top priority in
-[docs/feedback/owner.md](docs/feedback/owner.md) (Round 5 section first).
+[docs/feedback/owner.md](docs/feedback/owner.md) (Round 6 section first).
 Synthetic tests/footage are not proof of live success.
 
-## Round-five queue
+## Round-six queue
 Exact file ownership is authoritative in [index.json](docs/tickets/index.json).
 
 | Ticket | Scope | Merge |
 | --- | --- | --- |
-| R5-01 | Queue-aware runtime, P11 checkpoints, P12 gateway/fragments, diagnostics, shared docs | PR-A any time green; PR-B acceptance last |
-| R5-02 | Hotel/transport stop pages, redirect fixes, rail/air alternatives | Any order |
-| R5-03 | Registration stop pages, NL/CH/Spain/FR/DE/PT coverage and availability | Any order |
-| R5-04 | No-loop guide, named races, mind/origin changes, >=130 adversarial cases | Any order |
-| R5-05 | Strava-grade UI polish, preparation badges, honest live stage | Any order |
+| R6-01 | Core integration + hotel, P13, heartbeats/timestamps, browser diagnostics, shared docs | Any order |
+| R6-02 | Transport ordering/working rail-air alternatives; generic policy/base registry | Any order |
+| R6-03 | Actual registration: Stoos checkpoint, DE/PT/ES/NL alternatives, sold-out detection, verified live-stop target | Merged PR #41 |
+| R6-04 | Inferred guide/discovery dead ends, unverified dates, chip ping-pong, >=130 adversarial cases | Any order |
+| R6-05 | >=8.5/10 Strava UI: SVG flags, energetic opening, honest live/P13, pills/thread/mobile | Any order |
 
-CONTRACTS.md pins P1–P12. Import lazily and fail closed. Each ticket branches
+Only R6-02 transport and R6-04 guide/discovery are inferred from round-5
+evaluation; planner may amend. R6-03 is the actual registration ticket from
+merged PR #41, with exactly five files and docs/handoff/R6-03.md. R6-05 UI
+merged in PR #40. Neither merge establishes complete visible live success.
+R6-03 ran no H live smokes (missing keys); Stoos checkpoint/availability work
+is offline/read-only evidence. Frankfurt's scrub restriction and Portugal's
+no-open-permitted-option remain blockers. See its handoff, not an inferred spec.
+The legacy docs/site-policy.json, loader and policy tests belong only R6-02;
+registration owns its existing fragment, transport a new transport fragment,
+hotel its allowed hotel fragment. Duplicate IDs across fragments/base fail closed.
+Any needed legacy-base change must be coordinated through R6-02. Current core
+ends site_unreachable_in_h without trying another site: R6-02 can order reviewed
+alternatives first, but post-failure retry changes require scoped R6-01 integration.
+Do not edit siblings to bridge these boundaries.
+
+CONTRACTS.md pins P1–P13. Import lazily and fail closed. Each ticket branches
 from current main, owns one PR and writes its docs/handoff/<id>.md with pasted
-checks and dated scrubbed evidence. Only R5-01 edits this shared handoff.
-R4/R3/R2/R1/T tickets are history, not current scope.
+checks and dated scrubbed evidence. Only R6-01 edits shared docs/queue/contracts.
+R5/R4/R3/R2/R1/T tickets are history, not current scope.
 
 ## Acceptance and next steps
-After R5-02..R5-05 merge, R5-01 PR-B rebases and records >=5 UI-driven live cases in
-[docs/eval/round-5-acceptance.md](docs/eval/round-5-acceptance.md). That report
-is a planned deliverable, not evidence already produced. Evaluate the Milan
+After remaining R6-02/R6-04 merge (R6-03/R6-05 already merged), R6-01 coordinates
+rebased visible integrated acceptance:
+>=5 UI-driven live cases, recording only within allowed evidence/handoff paths.
+This is planned, not evidence already produced. Evaluate the Milan
 marathon, Lisbon/Porto, a Barcelona/Spain half, a Swiss trail and a Netherlands
 10K (plus Valencia/Seville if useful), default Paris plus Lyon/Bruxelles/Genève.
 Run ONE MISSION AT A TIME to respect the shared three-session quota. Record per
@@ -49,11 +73,13 @@ and verified safe pre-payment stops for all three. Any earlier safety boundary
 is a blocker. Never pay/book/create accounts/accept terms or consent/submit
 forms/enter personal data/bypass captchas. Accor and prohibited entries stay
 denied; unknown/expired reviews block before H. Prefer authorized captcha-free
-sites. H budget is not a constraint.
+sites. robots.txt is not authorization; H/site frames are in_session_only.
+A P13 checkpoint_unverified stays blocked/reached-to-verify, never READY.
+Design target >=8.5/10; H budget is not a constraint.
 
 ## Offline checks
 Python 3.12: `uv sync --frozen`, then
 `uv run ruff check . && uv run pytest -q`, including journey E2E,
-tests/test_r5_scope_contract.py and >=130 adversarial FR/EN cases.
+tests/test_r6_scope_contract.py and >=130 adversarial FR/EN cases.
 Run configured pre-commit hooks. CI never calls live providers. Merge only
 green reviewed PRs, then turn observed failures into the next scoped queue.

@@ -1,3 +1,81 @@
+# R6-01 live IHG hotel acceptance — 2026-11-09
+
+Runtime commit: `84e301e`. Real `hotel.build_task` → `HAgentRunner.run`;
+selected the existing ihg-com candidate and removed alternatives only to keep
+each smoke to one reviewed provider/session. No registry, provider ordering or
+safety rules changed. One adult, two nights, EUR600 whole-stay budget, Paris
+origin. Quota checked immediately before every run; all seven hotel/transport
+sessions in this acceptance were strictly sequential, one at a time, with
+explicit DELETE cleanup returning HTTP204 before the next smoke.
+
+## Race/date provenance
+
+Fresh real Linkup discovery through `runai.discovery.linkup.discover` on
+2026-11-09, not demo/replay dates:
+
+- Wizz Air Milano Marathon: **2027-04-04**, official source
+  https://www.milanomarathon.it/en/ (also /en/marathon/).
+- EDP Lisbon Half Marathon: **2027-03-07**, official source
+  https://maratonaclubedeportugal.com/corrida-marco/edp-meia-maratona-de-lisboa/.
+  Initial discovery was conflicting and not used. A targeted deep official-date
+  query resolved March 7; no historical March 14 date was assumed.
+- OCHSNER SPORT Zürich Marathon: **2027-04-11**, official source
+  https://www.zuerichmarathon.ch/ and /marathon-2/marathon.
+  Amsterdam discovery was conflicting; Zurich was used instead.
+
+IHG's current registry review is allowed_owner_rule, reviewed 2026-11-09,
+expires 2027-02-07, screenshots in_session_only. The reviewed limited licence
+and copying restrictions remain materially ambiguous; this is the owner's
+read/prepare-only authorization, not a claim of express site permission.
+The runner preserved the no-payment/booking/account/consent/form/personal-data/
+captcha guardrails. No screenshots, frames, private URLs, queries, session IDs
+or personal data were persisted as evidence. Frame bytes were counted then
+discarded; no independent visual review or comprehensive hosted-action audit
+is claimed.
+
+## Actual hotel outcomes
+
+All final and handoff paths below are on **www.ihg.com**. The path retained for
+each run is `/hotels/gb/en/find-hotels/select-enhance-stay`; no query is retained.
+
+| City/run | Race date | Stay | Quota available | Final status | reason_code | Observed framed checkpoint? | P13 checkpoint_reached | verify_failed gates | H metrics steps | Elapsed | Real frames |
+|---|---|---|---:|---|---|---|---|---|---:|---:|---:|
+| Milan | 2027-04-04 | Apr 3–5 | 3 | ready_for_payment | null | yes | null | none | 14 | 96.1s | 14 |
+| Lisbon first | 2027-03-07 | Mar 6–8 | 2 | blocked | checkpoint_unverified | yes | true | handoff_observed | 9 | 55.9s | 8 |
+| Zurich | 2027-04-11 | Apr 10–12 | 2 | ready_for_payment | null | yes | null | none | 10 | 71.2s | 9 |
+| Lisbon diagnostic retry | 2027-03-07 | Mar 6–8 | 2 | ready_for_payment | null | yes | null | none | 8 | 53.1s | 8 |
+
+**Three distinct cities returned READY; the first Lisbon run remains a real
+blocked result, not retroactively upgraded.** READY here is the live hclient
+verification result with genuine observed frames, not a three-agent UI success
+or proof of a completed booking/payment. P13's optional field is set for the
+unverified blocked checkpoint; it remains null on the READY results.
+
+### Lisbon mismatch investigation
+
+The first failure isolated `handoff_observed`: verification fields, selected,
+boundary, dates/party/city, checkpoint matching and frame association all passed
+the runtime gates; the scrubbed agent handoff differed from the observed URL.
+P13 retained the reviewed observed checkpoint as a handoff and stayed blocked.
+The exact first-run queries were not retained, so their differing parameter(s)
+and values cannot be reconstructed. No claim is made that this was merely
+tracking noise or that its deeper cause is fixed.
+
+A sequential diagnostic retry on unchanged code compared query structure in
+memory without logging values: path equal, query pairs equal after sorting,
+no observed-only/handoff-only keys and no differing value keys. It returned
+READY with no verify_failed gates. Thus this is an intermittent handoff mismatch,
+not a consistently failing room/date verification gate. No safety check was
+weakened to force success. A future recurrence needs the same value-free
+parameter-name/equality diagnostics at the failing attempt; the successful retry
+does not explain the first discrepancy.
+
+Observed metric timing distribution and Vueling outcomes are in
+`docs/evidence/h-client.md`. No live heartbeat was needed in the measured
+Lisbon/Zurich runs: maximum adjacent frame gaps were 8.2s and 10.7s; Lisbon retry
+did not record its frame-gap distribution. Heartbeat correctness remains covered
+by fake-clock tests, not demonstrated by a >20s live observation gap here.
+
 # Guest-query compatibility — 2026-11-09
 
 Amsterdam's retained READY host/path still matches the IHG checkpoint. The exact

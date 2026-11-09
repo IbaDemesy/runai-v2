@@ -3,7 +3,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
-from datetime import date
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -243,6 +243,60 @@ def test_injected_live_events_and_frame_bytes(monkeypatch):
             assert "sandbox" in response.headers["content-security-policy"]
         assert sum(event["type"] == "live_view_available" for event in mission["events"]) == 3
         assert "private-session" not in str(mission)
+
+
+@pytest.mark.parametrize("timestamp,valid", [
+    ("2026-01-01T12:00:00Z", True), ("2026-01-01T14:00:00+02:00", True),
+    ("2099-01-01T12:00:00Z", False), ("malformed", False),
+    ("2026-01-01T12:00:00", False), (None, False), (1234, False),
+])
+def test_live_frame_observation_timestamp_survives_api_or_is_omitted(monkeypatch, timestamp, valid):
+    monkeypatch.setenv("HAI_API_KEY", "test-only-placeholder")
+
+    class Runner:
+        async def run(self, kind, trip, emit):
+            await emit({"type": "live_frame", "image": b"offline-frame", "mime": "image/png",
+                        "observed_at": timestamp})
+            return StepResult(kind=kind, status="blocked", summary="Stopped safely",
+                              synthetic=False)
+
+    with TestClient(create_app(guide=StubGuide(live=True), runner_factory=lambda mode: Runner())) as c:
+        url = ready(c, "live")
+        assert c.post(url + "/confirm", json={"confirmed": True}).status_code == 202
+        mission = terminal(c, url)
+        for events in (mission["events"], c.get(url + "/events").json()):
+            frames = [event for event in events if event["type"] == "live_frame"]
+            assert len(frames) == 3
+            for event in frames:
+                if valid:
+                    assert datetime.fromisoformat(event["observed_at"]) == datetime(
+                        2026, 1, 1, 12, tzinfo=UTC,
+                    )
+                else:
+                    assert "observed_at" not in event
+        assert all(step["status"] == "blocked" for step in mission["results"])
+
+
+def test_checkpoint_unverified_fields_survive_live_api(monkeypatch):
+    monkeypatch.setenv("HAI_API_KEY", "test-only-placeholder")
+
+    class Runner:
+        async def run(self, kind, trip, emit):
+            return {"kind": kind, "synthetic": False, "status": "blocked",
+                    "reason_code": "checkpoint_unverified", "checkpoint_reached": True,
+                    "summary": "Booking step reached — verify on the site",
+                    "handoff_url": "https://www.ihg.com/reservation/select-enhance-stay"}
+
+    with TestClient(create_app(guide=StubGuide(live=True), runner_factory=lambda mode: Runner())) as c:
+        url = ready(c, "live")
+        assert c.post(url + "/confirm", json={"confirmed": True}).status_code == 202
+        mission = terminal(c, url)
+        assert len(mission["results"]) == 3
+        for result in mission["results"]:
+            assert result["status"] == "blocked"
+            assert result["reason_code"] == "checkpoint_unverified"
+            assert result["checkpoint_reached"] is True
+            assert result["handoff_url"] == "https://www.ihg.com/reservation/select-enhance-stay"
 
 
 def test_unknown_server_mode_is_clean_startup_error(monkeypatch):

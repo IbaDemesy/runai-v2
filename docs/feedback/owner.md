@@ -1,4 +1,44 @@
-# Owner product feedback
+## Round 6: owner hands-on feedback after testing round 1 live (recorded 2026-11-09)
+
+TOP PRIORITY. Verbatim owner feedback:
+
+"(a) Suggestions must be redesigned like ChatGPT/OpenAI suggestion UI: elegant, clear, clickable suggestion pills/cards under the assistant reply, not raw buttons. (b) Each new assistant question must appear BELOW the latest proposals in the thread (chronological chat flow), never appended next to the initial question. (c) After launch: keep the 3 agent cards, and below them the user must ONLY SEE THE AGENTS ACTING LIVE (live browser view / animated screenshots) through to the final pre-payment step. NEVER show raw task text, prompts, JSON or technical logs to the user; at most short human-friendly status lines. (d) First reply takes ~1 min with no feedback: add immediate streaming/typing/progress feedback. The owner wants by morning a fully functional, beautiful, near-perfect site."
+
+Design priority: beautiful polished UX/UI is the single most important criterion.
+Deliver premium modern design inspired by Strava: bold athletic look, energetic
+orange accent, clean cards, data-rich activity feel, great typography, spacing,
+motion, empty/loading/error states and responsive layouts. Target >=8.5/10 in
+round 6; backend success does not substitute for visual polish.
+
+Exact live-success definition:
+
+"the assistant itself proposes the race (user never supplies the date), then the 3 H agents run LIVE in parallel (race bib/registration + hotel + transport), each reaching the pre-payment stop, and the user SEES all three agents working live on the page."
+
+Explicit plan confirmation remains mandatory before H launch. Stops must be
+verified with correct dates/party and genuine changing frames; an earlier safety
+boundary is blocked, not READY. Demo/replay/API-only success does not satisfy
+the visible three-agent definition. Milan is one evaluation case, not a limit.
+
+The FR/EN adversarial conversation suite must stay green: vague, contradictory,
+off-topic and injection inputs, safe recovery, no sensitive echo, and no launch
+without explicit current-plan confirmation. Retain >=130 offline conversations
+and add round-5 regressions for Germany/Portugal dead ends, chip ping-pong,
+unverified-date proposals, mind/origin corrections and language consistency.
+
+Site policy: prefer sites without captchas whose terms don't forbid automated
+agents, and document the choice. Accor and every prohibited entry stay denied;
+unknown/expired reviews block before any H session. robots.txt is not
+authorization. H/site frames are in_session_only, never committed or published.
+Owner approval is read/prepare-only: never pay/book/create accounts/accept terms
+or consent/submit forms/enter personal data/bypass captchas. H org concurrency
+is 3: quota-check before each smoke, one session per ticket at a time; final
+evaluation runs ONE MISSION AT A TIME with its three agents parallel.
+
+Round-5 verdict: **score 41/100, 0/5 live successes, design 7.5/10**.
+See [docs/eval/round-5.md](../eval/round-5.md). Round-6 scoped hotel-only READY
+smokes do not revise that integrated verdict or establish generic readiness.
+
+# Owner product feedback (earlier rounds)
 
 ## Round 5: owner hands-on feedback after testing round 1 live (recorded 2026-11-09)
 

@@ -3,7 +3,7 @@ import importlib
 import os
 import re
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from urllib.parse import parse_qsl, unquote, urlsplit
 from uuid import uuid4
@@ -312,6 +312,17 @@ def create_app(*, guide=None, runner_factory=None, replay_path=None,
                 if data.get("recorded_at"):
                     fields["recorded_at"] = data["recorded_at"]
                 if event_type == "live_frame":
+                    if "observed_at" in data:
+                        fields["observed_at"] = None
+                        try:
+                            observed = data["observed_at"]
+                            if isinstance(observed, str):
+                                observed = datetime.fromisoformat(observed)
+                            if (isinstance(observed, datetime) and observed.tzinfo is not None
+                                    and observed <= datetime.now(UTC)):
+                                fields["observed_at"] = observed.astimezone(UTC)
+                        except (ValueError, TypeError, OverflowError):
+                            pass
                     content = data.get("image")
                     mime = data.get("mime", "image/png")
                     allowed = {"image/png", "image/jpeg", "image/webp", "image/gif"}

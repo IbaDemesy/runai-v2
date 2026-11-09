@@ -82,6 +82,7 @@ def scrub_url(url: str | None) -> str | None:
         query = urlencode([
             (name, value) for name, value in parse_qsl(parts.query, keep_blank_values=True)
             if not _SENSITIVE_PARAM.search(name)
+            and not re.fullmatch(r"utm_.*|gclid|fbclid|cm_mmc|icdv|tracking", name, re.IGNORECASE)
             and not _EMAIL.search(value) and not _KEY.search(value)
             and not _IBAN.search(value) and not _JWT.search(value)
             and not _FINANCIAL.search(value) and not _ASSIGNED_KEY.search(value)

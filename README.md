@@ -15,13 +15,17 @@ chips, plan cards and three agent panels is the design priority.
 The chat should feel natural in French and English, with streaming-like replies,
 a bottom composer and one-click defaults or free-text corrections.
 
-**Status:** round 4 recorded 0/5 visible live successes
-([docs/eval/round-4.md](docs/eval/round-4.md)). Round 5 (R5-01..R5-05)
-adds queue-aware H startup, deterministic observed stop pages (P11), gateway
-city and fragment routes (P12), wider coverage, no-loop guide recovery and
-Strava-grade UI polish. No complete live success is claimed yet. Read
-[HANDOFF.md](HANDOFF.md) for the evidence boundary. R5-01 owns core/shared docs
-and final acceptance after R5-02..R5-05 merge. Milan is one evaluation case only.
+**Status:** round 5 scored 41, with 0/5 visible live successes and design 7.5/10
+([docs/eval/round-5.md](docs/eval/round-5.md)). Round 6 (R6-01..R6-05)
+targets IHG verification/P13 reached-to-verify states, honest frame timestamps
+and heartbeats, transport alternatives, no-loop sourced guide recovery,
+registration boundaries and >=8.5/10 Strava-grade UI. R6-01 owns core integration
+and shared docs. R6-03 is the actual registration ticket merged in PR #41;
+its live-stop acceptance remains unmet. R6-05 UI merged in PR #40.
+Only R6-02 transport/R6-04 guide specs are inferred; planner may amend.
+R6-01 hotel-only smokes returned READY in three cities, not a visible three-agent
+acceptance. No complete live success is claimed. Read [HANDOFF.md](HANDOFF.md)
+for the evidence boundary. Milan is one evaluation case only.
 
 ## Run locally (Python 3.12)
 ```sh
@@ -62,6 +66,10 @@ agents. Never pay, book, create accounts, accept terms/consent or medical
 declarations, submit forms, enter personal data or bypass captchas. Only dismiss
 cookie banners without accepting consent. Stop earlier than payment whenever
 any such boundary appears and report the blocker honestly.
+Accor/prohibited entries stay denied; unknown/expired reviews block before H.
+robots.txt is not authorization. H/site frames are in_session_only, never
+published or committed. P13 checkpoint_unverified means blocked/reached-to-verify,
+not verified READY; a public checkpoint handoff does not change that status.
 
 No secrets, tokens, private H session URLs, emails or other personal data belong
 in code, fixtures, logs or evidence. Hand off safe public links only; do not
@@ -76,10 +84,11 @@ CI tests never call live providers. Live verification requires separate dated,
 scrubbed observed evidence. See [AGENTS.md](AGENTS.md) for scoped branch/PR and
 safety rules, [PLAN.md](PLAN.md) for the architecture/evaluation set,
 [CONTRACTS.md](CONTRACTS.md) for API contracts, and
-[docs/tickets/index.json](docs/tickets/index.json) for the current round-5 queue.
-R4, R3, R2, R1 and T01..T12 tickets are history. Keep main green; R5-01..R5-05 merge
-in any order, then R5-01 PR-B runs final live acceptance on a rebased branch in
-docs/eval/round-5-acceptance.md.
+[docs/tickets/index.json](docs/tickets/index.json) for the current round-6 queue,
+validated by tests/test_r6_scope_contract.py. R5/R4/R3/R2/R1/T tickets are history.
+Keep main green; R6-01..R6-05 merge in any order, then R6-01 coordinates visible
+integrated live acceptance on a rebased branch, recording within its allowed
+evidence/handoff files. Only R6-01 edits shared docs/queue/contracts (P1–P13).
 
 H's organization quota is three sessions: final acceptance runs **one mission
 at a time**, with its three agents parallel. A queued browser displays honest

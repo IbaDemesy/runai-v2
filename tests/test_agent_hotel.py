@@ -20,6 +20,16 @@ KEYS = {"kind", "site_name", "start_url", "instructions", "stop_before", "succes
         "fallback_url", "max_steps", "expected", "allowed_hosts", "checkpoint"}
 
 
+def test_hotel_prompt_pins_verification_and_ihg_month_interpretation():
+    task = build_task(trip(), today=TODAY)
+    prompt = task["instructions"]
+    for field in (*hclient._VERIFY_FIELDS["hotel"], "city", "selected", "next_safe_boundary"):
+        assert field in prompt
+    assert "selected=true" in prompt
+    assert "062027 means July 2027" in prompt
+    assert "ISO YYYY-MM-DD" in prompt
+
+
 def trip(**changes):
     race = {
         "id": "r", "name": "Example Marathon", "edition": "2027", "distance_km": 42.195,

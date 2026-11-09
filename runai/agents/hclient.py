@@ -181,6 +181,15 @@ def _browser_internal(url):
     })
 
 
+def _browser_error(url):
+    if not isinstance(url, str):
+        return False
+    parts = urlsplit(url)
+    return (parts.scheme == "chrome-error"
+            or parts.scheme == "chrome" and parts.netloc == "chromewebdata"
+            or parts.scheme == "about" and parts.path in {"neterror", "certerror"})
+
+
 def _redirect_host_path(url):
     if not isinstance(url, str):
         return None
@@ -314,17 +323,43 @@ def _matches_expected(key, actual, expected):
 
 
 def _verified(task, answer, handoff, observed, frame_seen, reviews):
+    return not _verification_failures(task, answer, handoff, observed, frame_seen, reviews)
+
+
+def _ihg_dates_match(task, url):
+    parts = urlsplit(url or "")
+    if task.get("kind") != "hotel" or not (
+        parts.hostname == "ihg.com" or (parts.hostname or "").endswith(".ihg.com")
+    ):
+        return True
+    query = dict(parse_qsl(parts.query))
+    for prefix, key in (("qCi", "arrival_date"), ("qCo", "departure_date")):
+        if prefix + "My" not in query and prefix + "D" not in query:
+            continue
+        try:
+            monthyear = query[prefix + "My"]
+            actual = date(int(monthyear[2:]), int(monthyear[:2]) + 1, int(query[prefix + "D"]))
+            if actual != date.fromisoformat(str(task["expected"][key])[:10]):
+                return False
+        except (KeyError, ValueError, TypeError):
+            return False
+    return True
+
+
+def _verification_failures(task, answer, handoff, observed, frame_seen, reviews):
+    failures = []
     expected = task.get("expected")
     verification = answer.get("verification")
     fields = _VERIFY_FIELDS.get(task.get("kind"), ())
     if not expected or not isinstance(verification, dict) or not fields:
-        return False
+        return ["verification_object"]
     if not _complete_expected(task):
-        return False
-    if not all(verification.get(key) for key in fields):
-        return False
-    if verification.get("selected") is not True or not verification.get("next_safe_boundary"):
-        return False
+        return ["expected_fields"]
+    failures.extend("missing_" + key for key in fields if not verification.get(key))
+    if verification.get("selected") is not True:
+        failures.append("selected")
+    if not verification.get("next_safe_boundary"):
+        failures.append("next_safe_boundary")
     for key in _EXPECTED_FIELDS[task["kind"]] & expected.keys():
         value = expected[key]
         if key == "city" and task["kind"] in {"hotel", "transport"}:
@@ -334,39 +369,48 @@ def _verified(task, answer, handoff, observed, frame_seen, reviews):
             ):
                 continue
         if value is not None and not _matches_expected(key, verification.get(key), value):
-            return False
+            failures.append("expected_" + key)
     if (task["kind"] == "registration" and "edition" not in expected
             and str(expected["race_date"])[:4] not in str(verification.get("edition", ""))):
-        return False
+        failures.append("edition")
     for key in ("participant_data_untouched", "outbound_selected", "return_selected"):
         if key in fields and verification.get(key) is not True:
-            return False
-    if not frame_seen or frame_seen != observed or not _reviewed(handoff, reviews) or not observed:
-        return False
+            failures.append(key)
+    if not frame_seen or frame_seen != observed:
+        failures.append("checkpoint_frame")
+    if not observed or not _reviewed(handoff, reviews):
+        failures.append("reviewed_handoff")
     if scrub_url(handoff) != scrub_url(observed):
-        return False
+        failures.append("handoff_observed")
     if "checkpoint" in task and not _checkpoint_matches(
         _checkpoint(task), "url_patterns", observed,
     ):
-        return False
-    if urlsplit(handoff).path in ("", "/") or re.search(
-        r"(?:^|/)(?:search|results)(?:/|$)", urlsplit(handoff).path, re.IGNORECASE,
-    ) or _FORBIDDEN.search(handoff):
-        return False
-    dates = re.findall(r"\d{4}-\d{2}-\d{2}", unquote(handoff + " " + observed))
+        failures.append("checkpoint_pattern")
+    if (_checkpoint_matches(_checkpoint(task), "beyond_patterns", observed)
+            or _checkpoint_matches(_checkpoint(task), "beyond_patterns", handoff)):
+        failures.append("beyond_pattern")
+    if urlsplit(handoff or "").path in ("", "/") or re.search(
+        r"(?:^|/)(?:search|results)(?:/|$)", urlsplit(handoff or "").path, re.IGNORECASE,
+    ) or _FORBIDDEN.search(handoff or ""):
+        failures.append("unsafe_handoff")
+    if not all(_ihg_dates_match(task, url) for url in (handoff, observed)):
+        failures.append("ihg_dates")
+    dates = re.findall(r"\d{4}-\d{2}-\d{2}", unquote((handoff or "") + " " + (observed or "")))
     expected_dates = {date.fromisoformat(str(v)[:10]).isoformat()
                       for k, v in expected.items()
                       if k in _EXPECTED_FIELDS[task["kind"]] and "date" in k and v is not None}
     if task["kind"] == "transport":
         returning = str(date.fromisoformat(str(expected["departure_date"])[:10]))
         for url in (handoff, observed):
-            for name, value in parse_qsl(urlsplit(url).query):
+            for name, value in parse_qsl(urlsplit(url or "").query):
                 if (_RETURN_PARAM.search(name) and re.match(r"^\d{4}-\d{2}-\d{2}", value)
                         and value[:10] != returning):
-                    return False
+                    failures.append("return_date")
         expected_dates.add((date.fromisoformat(str(expected["arrival_date"])[:10])
                             - timedelta(days=1)).isoformat())
-    return not any(day not in expected_dates for day in dates)
+    if any(day not in expected_dates for day in dates):
+        failures.append("url_dates")
+    return failures
 _PAYMENT = re.compile(
     r"\b(?:payment|booking|purchase|reservation|order)\s+(?:(?:was|is|has been)\s+)?"
     r"(?:successfully\s+)?(?:executed|completed|confirmed|placed|paid|successful|processed)\b"
@@ -508,7 +552,9 @@ class HAgentRunner:
             if result["status"] != "blocked" or result["reason_code"] not in {
                 "unreviewed_redirect", "provider_error", "no_inventory", "sold_out",
                 "captcha", "session_failed",
-            } or time.monotonic() >= deadline or queue_wait[0] >= 480:
+            } or "site_unreachable_in_h" in result["steps"] or (
+                time.monotonic() >= deadline or queue_wait[0] >= 480
+            ):
                 break
             if not isinstance(alternative, dict) or alternative.get("kind") != task.get("kind"):
                 continue
@@ -546,6 +592,7 @@ class HAgentRunner:
         last_progress = None
         checkpoint = _checkpoint(task)
         checkpoint_url = None
+        checkpoint_frame_url = None
         hard_boundary = False
         forced_at = None
         force_window = None
@@ -619,7 +666,7 @@ class HAgentRunner:
             return state.get("status") if isinstance(state, dict) else state
 
         async def frame(data: dict, timestamp: str | None, page_url: str | None):
-            nonlocal frame_seen, last_frame_hash
+            nonlocal frame_seen, last_frame_hash, checkpoint_frame_url
             image = data.get("image") or {}
             if not isinstance(image, dict):
                 return
@@ -675,6 +722,8 @@ class HAgentRunner:
                     raise ValueError("Screenshot too large")
                 if page_url == result["final_url"]:
                     frame_seen = page_url
+                    if _checkpoint_matches(checkpoint, "url_patterns", page_url):
+                        checkpoint_frame_url = page_url
                 digest = hashlib.sha256(content).digest()
                 if digest == last_frame_hash:
                     return
@@ -763,10 +812,14 @@ class HAgentRunner:
                 blank_observations = 0
                 last_attempt = None
                 queue_notified = False
+                last_observation_at = session_started
+                last_heartbeat_at = session_started
+                last_step_at = session_started
 
                 async def update_clock(new_state):
                     nonlocal queued_since, queue_total, session_started, queue_notified
                     nonlocal active_deadline
+                    nonlocal last_observation_at, last_heartbeat_at, last_step_at
                     now = time.monotonic()
                     if new_state in {"queued", "pending"} and not observed_progress:
                         if queued_since is None:
@@ -787,6 +840,7 @@ class HAgentRunner:
                         if queue_total >= 480:
                             raise _PolicyBlocked("provider_error")
                         session_started = now
+                        last_observation_at = last_heartbeat_at = last_step_at = now
                         runtime.reschedule(asyncio.get_running_loop().time() +
                                            max(0, active_deadline - now))
 
@@ -840,6 +894,10 @@ class HAgentRunner:
                                     outcome = data.get("outcome", outcome)
                             if kind == "observation_event":
                                 metadata = data.get("metadata") or {}
+                                last_observation_at = time.monotonic()
+                                if not observed_progress and _browser_error(metadata.get("url")):
+                                    result["steps"].append("site_unreachable_in_h")
+                                    raise _PolicyBlocked("provider_error")
                                 if _browser_internal(metadata.get("url")):
                                     if not observed_progress and new_state not in {"queued", "pending"}:
                                         blank_observations += 1
@@ -914,8 +972,24 @@ class HAgentRunner:
                     outcome = changes.get("outcome") or outcome
                     steps = changes.get("metrics", {}).get("steps", 0)
                     if type(steps) is int and steps > max_observed_steps:
+                        now = time.monotonic()
+                        result["steps"].append("h_step_duration: " + json.dumps({
+                            "from_step": max_observed_steps, "to_step": steps,
+                            "duration_s": round(max(0, now - last_step_at), 3),
+                        }))
+                        last_step_at = now
                         max_observed_steps = steps
                         await emit({"type": "step_progress", "message": f"Étape {steps}"})
+                    now = time.monotonic()
+                    if (state not in _TERMINAL | {"queued", "pending"}
+                            and now - last_observation_at > 20
+                            and now - last_heartbeat_at >= 20):
+                        last_heartbeat_at = now
+                        prefix = f"Étape {max_observed_steps} · " if max_observed_steps else ""
+                        await emit({"type": "step_progress", "message": (
+                            f"{prefix}l'agent lit la page · "
+                            f"{int(now - last_observation_at)} s"
+                        )})
                     if changes.get("error_code") == "step_limit" or (
                         state not in _TERMINAL and max_observed_steps >= max(1, max_steps - 3)
                     ):
@@ -938,6 +1012,7 @@ class HAgentRunner:
                             await asyncio.shield(stop())
                             retried = True
                             session_started = time.monotonic()
+                            last_observation_at = last_heartbeat_at = last_step_at = session_started
                             created = (await request("POST", "/sessions", json=body,
                                                      headers={"Idempotency-Key": uuid4().hex})).json()
                             session_id = quote(str(created["id"]), safe="")
@@ -984,6 +1059,13 @@ class HAgentRunner:
                         if not _public_https(handoff):
                             handoff = None
                         result["handoff_url"] = handoff
+                        failures = _verification_failures(
+                            task, answer, handoff, result["final_url"], frame_seen, reviews,
+                        )
+                        if answer.get("status") != "ready_for_payment":
+                            failures.append("answer_status")
+                        if failures:
+                            result["steps"].append("verify_failed: " + json.dumps(failures))
                         result["status"] = "ready_for_payment" if (
                             answer.get("status") == "ready_for_payment" and handoff
                             and not _blocker_category(answer)
@@ -996,10 +1078,23 @@ class HAgentRunner:
                         ) else "Preparation blocked: verification unavailable"
                         if result["status"] == "blocked":
                             result["reason_code"] = _blocked_reason(answer, task)
+                            if result["reason_code"] == "provider_error":
+                                result["reason_code"] = "unsafe_claim"
                             result["error"] = _blocker_category(answer) or (
                                 "Verification unavailable or site blocked"
                             )
                             result["handoff_url"] = None
+                            if (checkpoint_frame_url and _public_https(checkpoint_frame_url)
+                                    and _reviewed(checkpoint_frame_url, reviews)):
+                                result["checkpoint_reached"] = True
+                                result["handoff_url"] = checkpoint_frame_url
+                                if result["reason_code"] == "unsafe_claim":
+                                    result["reason_code"] = "checkpoint_unverified"
+                                    result["summary"] = (
+                                        "Étape de réservation atteinte — à vérifier sur le site"
+                                    )
+                            if "ihg_dates" in failures:
+                                result["reason_code"] = "date_mismatch"
                             if not await stop():
                                 result["error"] += "; cancellation failed"
                         else:
