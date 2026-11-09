@@ -29,7 +29,13 @@
     'La recherche n’a pas abouti. Réessayez : votre demande est conservée.': 'The search did not finish. Try again: your request is saved.', 'Lancement…': 'Launching…', 'Réessayer la confirmation': 'Retry confirmation', 'Réessayer ↗': 'Retry ↗',
     'Masquer la conversation ↑': 'Hide conversation ↑', 'Site choisi au lancement': 'Site picked at launch', 'Progression': 'Progress', 'Voir le plan et la conversation ↓': 'View plan and conversation ↓',
     'Ce service n’est pas disponible dans ce mode. Aucun résultat n’a été simulé.': 'This service is unavailable in this mode. No result was simulated.', 'Le plan a changé. Vérifiez la dernière proposition avant de continuer.': 'The plan changed. Check the latest proposal before continuing.',
-    'Ce choix n’a pas pu être pris en compte. Essayez une autre réponse.': 'This choice could not be applied. Try another answer.', 'Cette session n’est plus disponible. Changez de mode pour recommencer.': 'This session is unavailable. Change mode to start again.', 'La connexion a été interrompue. Votre dernière étape est conservée.': 'Connection interrupted. Your last step is saved.'
+    'Ce choix n’a pas pu être pris en compte. Essayez une autre réponse.': 'This choice could not be applied. Try another answer.', 'Cette session n’est plus disponible. Changez de mode pour recommencer.': 'This session is unavailable. Change mode to start again.', 'La connexion a été interrompue. Votre dernière étape est conservée.': 'Connection interrupted. Your last step is saved.',
+    'Modifier le plan… (ex. départ de Lyon, 3 nuits)': 'Edit the plan… (e.g. leaving from Lyon, 3 nights)', 'Choisissez une course ou précisez votre envie…': 'Pick a race or refine your wish…',
+    'PROFIL COUREUR · UNE SEULE FOIS': 'RUNNER PROFILE · ONCE', 'Vos infos, saisies pour vous': 'Your details, typed for you', 'Remplir avec un profil de test': 'Fill with a test profile', 'Continuer sans profil': 'Continue without profile',
+    'Les agents tapent ces informations dans les formulaires participant, voyageur et client pour aller le plus loin possible.': 'Agents type these details into participant, traveller and guest forms to get as far as possible.',
+    'Gardé en mémoire pour cette mission uniquement, saisi par les agents dans les formulaires, jamais enregistré. Aucun paiement, compte ni consentement.': 'Kept in memory for this mission only, typed by the agents into forms, never stored. No payment, account or consent.',
+    'Enregistrer pour cette mission ↗': 'Use for this mission ↗', 'Nom complet': 'Full name', 'E-mail': 'Email', 'Téléphone': 'Phone', 'Date de naissance': 'Birth date', 'Genre': 'Gender', 'Nationalité': 'Nationality', 'Adresse (optionnelle)': 'Address (optional)',
+    'Choisir': 'Choose', 'Femme': 'Female', 'Homme': 'Male', 'Non précisé': 'Not specified'
   };
   const translate = value => {
     const raw = String(value ?? ''), key = raw.replace(/\s+/g, ' ').trim();
@@ -56,7 +62,7 @@
     };
     walk(document.body);
   }
-  const clean = value => String(value ?? '').replace(/\s*[—–-]?\s*(?:accès inconnu|access unknown)/gi, '');
+  const clean = value => String(value ?? '').replace(/\s*[—–-]?\s*(?:accès inconnu|access unknown)/gi, '').replace(/\[\s*synth[ée]tique\s*\/\s*synthetic\s*\]\s*/gi, '');
   const reasons = {
     no_site_coverage: ['Aucun site vérifié ne couvre encore cette étape.', 'Essayez une autre ville ou continuez sur le site officiel.', 'No reviewed site covers this step yet.', 'Try another city or continue on the official site.'],
     policy_denied: ['Ce site n’autorise pas les agents automatiques.', 'Continuez vous-même sur le site, en toute sécurité.', 'This site does not allow automated agents.', 'Continue on the site yourself, safely.'],
@@ -185,7 +191,7 @@
       question: typeof data.question === 'string' ? data.question : '',
       suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
       candidates: Array.isArray(data.candidates) ? data.candidates : [],
-      language: envelope.language,
+      language: envelope.language, mode: ['demo', 'replay', 'live'].includes(envelope.mode) ? envelope.mode : undefined,
       plan: plan?.race?.name ? plan : null,
       ready_to_confirm: data.ready_to_confirm === true || data.confirmation_required === true};
   }
@@ -348,6 +354,92 @@
     }
     return grid;
   }
+  const uncoveredKinds = race => kinds.filter(kind => ['none', 'closed', 'sold_out', 'not_open'].includes(prepState(race?.preparation?.[kind])));
+  const missionSynthetic = () => (mission?.mode || $('mode').value) !== 'live';
+  function ctaLabel(count) {
+    if (count >= 3) return translate('Confirmer le plan et lancer les 3 agents ↗');
+    if (count === 2) return t('Confirmer et lancer les 2 agents disponibles ↗', 'Confirm and launch the 2 available agents ↗');
+    if (count === 1) return t('Confirmer et lancer l’agent disponible ↗', 'Confirm and launch the available agent ↗');
+    return t('Confirmer le plan · liens officiels ↗', 'Confirm plan · official links ↗');
+  }
+  function coverageNote(race) {
+    const missing = uncoveredKinds(race), names = agentNames(), ready = 3 - missing.length;
+    const note = node('p', 'plan-coverage'); note.dataset.covered = String(ready);
+    if (!missing.length) { note.textContent = t('3 agents prêts à partir en parallèle.', '3 agents ready to start in parallel.'); return note; }
+    const list = missing.map(kind => names[kind]).join(t(' et ', ' and '));
+    note.textContent = ready ? t(`${ready} agent${ready > 1 ? 's' : ''} prêt${ready > 1 ? 's' : ''} à partir · ${list} : pas encore de site couvert, on vous donne le lien officiel.`, `${ready} agent${ready > 1 ? 's' : ''} ready to start · ${list}: no covered site yet, we will give you the official link.`)
+      : t('Aucun site couvert pour ce voyage : on vous donne les liens officiels.', 'No covered site for this trip: we will give you the official links.');
+    return note;
+  }
+  const profileFields = () => [['full_name', 'Nom complet', 'text', 'name', true], ['email', 'E-mail', 'email', 'email', true], ['phone', 'Téléphone', 'tel', 'tel', true],
+    ['birth_date', 'Date de naissance', 'date', 'bday', true], ['gender', 'Genre', 'select', 'sex', true], ['nationality', 'Nationalité', 'text', 'country', true], ['address', 'Adresse (optionnelle)', 'text', 'street-address', false]];
+  const testProfile = {full_name: 'Test Runner', email: 'test.runner@example.com', phone: '+33 6 00 00 00 00', birth_date: '1990-01-01', gender: 'F', nationality: 'FR', address: '1 rue de Test, 75001 Paris'};
+  let profile = {mission: null, state: 'open'};
+  function profileStatusFields(result) {
+    const raw = result?.profile_status ?? result?.mission?.profile_status, known = profileFields().map(([key]) => key);
+    const list = Array.isArray(raw) ? raw : Array.isArray(raw?.fields) ? raw.fields : Array.isArray(raw?.provided) ? raw.provided
+      : raw && typeof raw === 'object' ? Object.entries(raw).filter(([, value]) => value === true || value === 'provided' || value === 'set').map(([key]) => key) : [];
+    return known.filter(key => list.includes(key));
+  }
+  function profileDone(card, fields) {
+    const labels = Object.fromEntries(profileFields().map(([key, label]) => [key, label.replace(/ \(optionnelle\)$/, '')]));
+    const head = node('div', 'profile-head'), title = node('div'), list = node('ul', 'profile-checks');
+    head.append(node('span', 'profile-icon', '✓'), title);
+    title.append(node('p', 'eyebrow', t('PROFIL COUREUR', 'RUNNER PROFILE')), node('h3', '', t('Profil prêt pour cette mission', 'Profile ready for this mission')));
+    for (const key of fields) list.append(node('li', '', `${translate(labels[key])} ✓`));
+    card.dataset.state = 'done';
+    card.replaceChildren(head, ...(fields.length ? [list] : []), node('p', 'profile-privacy', t('Gardé en mémoire pour cette mission uniquement, jamais enregistré. Les agents s’arrêtent toujours avant paiement.', 'Kept in memory for this mission only, never stored. Agents always stop before payment.')));
+  }
+  function profileCard() {
+    const card = node('section', 'profile-card'), head = node('div', 'profile-head'), title = node('div'), grid = node('div', 'profile-grid'), inputs = {};
+    card.dataset.testid = 'profile-card'; card.dataset.state = 'open'; card.setAttribute('aria-label', t('Profil coureur', 'Runner profile'));
+    title.append(node('p', 'eyebrow', 'PROFIL COUREUR · UNE SEULE FOIS'), node('h3', '', 'Vos infos, saisies pour vous'));
+    head.append(node('span', 'profile-icon', '◎'), title);
+    for (const [key, label, type, autocomplete, required] of profileFields()) {
+      const field = node('label', `profile-field${key === 'address' ? ' wide' : ''}`), input = document.createElement(type === 'select' ? 'select' : 'input');
+      input.className = 'profile-input'; input.dataset.field = key; input.setAttribute('autocomplete', autocomplete); input.setAttribute('spellcheck', 'false');
+      if (type === 'select') for (const [value, text] of [['', 'Choisir'], ['F', 'Femme'], ['M', 'Homme'], ['X', 'Non précisé']]) { const option = node('option', '', text); option.value = value; input.append(option); }
+      else input.type = type;
+      if (required) input.setAttribute('aria-required', 'true');
+      inputs[key] = input; field.append(node('span', 'profile-label', label), input); grid.append(field);
+    }
+    const status = node('p', 'profile-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+    const actions = node('div', 'profile-actions'), fill = node('button', 'profile-fill', 'Remplir avec un profil de test'), skip = node('button', 'profile-skip', 'Continuer sans profil'), save = node('button', 'profile-save', 'Enregistrer pour cette mission ↗');
+    for (const button of [fill, skip, save]) button.type = 'button';
+    fill.onclick = () => { for (const [key, value] of Object.entries(testProfile)) inputs[key].value = value; status.textContent = t('Profil de test fictif · aucune donnée réelle.', 'Fictional test profile · no real data.'); };
+    skip.onclick = () => {
+      for (const input of Object.values(inputs)) input.value = '';
+      profile.state = 'skipped'; card.dataset.state = 'skipped';
+      card.replaceChildren(node('p', 'profile-skipped', t('Sans profil : les agents s’arrêtent avant les formulaires personnels, vous les remplirez vous-même.', 'No profile: agents stop before personal forms, you will fill them in yourself.')));
+    };
+    save.onclick = async () => {
+      if (save.disabled || !mission?.id) return;
+      const body = {}, missing = [];
+      for (const [key, , type, , required] of profileFields()) {
+        const value = String(inputs[key].value ?? '').trim(), invalid = (required && !value) || (type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
+        inputs[key].setAttribute('aria-invalid', String(invalid)); if (invalid) missing.push(key); if (value) body[key] = value;
+      }
+      if (missing.length) { status.dataset.tone = 'error'; status.textContent = t('Complétez les champs requis, ou continuez sans profil.', 'Complete the required fields, or continue without a profile.'); return; }
+      const id = mission.id; save.disabled = true; status.dataset.tone = ''; status.textContent = t('Transmission sécurisée…', 'Sending securely…');
+      try {
+        const result = await api(`/api/missions/${encodeURIComponent(id)}/profile`, body);
+        if (mission?.id !== id) return;
+        for (const input of Object.values(inputs)) input.value = '';
+        profile.state = 'done'; profileDone(card, profileStatusFields(result));
+      } catch (err) {
+        if ([404, 501].includes(err?.status)) { for (const input of Object.values(inputs)) input.value = ''; profile.state = 'unavailable'; card.remove(); return; }
+        save.disabled = false; status.dataset.tone = 'error'; status.textContent = t('Profil non transmis. Réessayez ou continuez sans profil.', 'Profile not sent. Try again or continue without a profile.');
+      }
+    };
+    actions.append(fill, skip, save);
+    card.append(head, node('p', 'profile-copy', 'Les agents tapent ces informations dans les formulaires participant, voyageur et client pour aller le plus loin possible.'), grid,
+      node('p', 'profile-privacy', 'Gardé en mémoire pour cette mission uniquement, saisi par les agents dans les formulaires, jamais enregistré. Aucun paiement, compte ni consentement.'), actions, status);
+    return card;
+  }
+  function placeholder() {
+    const copy = mission?.plan ? 'Modifier le plan… (ex. départ de Lyon, 3 nuits)' : mission?.candidates?.length ? 'Choisissez une course ou précisez votre envie…' : 'Quelle course vous fait envie ?';
+    $('message').setAttribute('data-i18n-placeholder', copy); $('message').setAttribute('placeholder', translate(copy));
+  }
   function planCard(p, ready) {
     const card = node('section', 'plan-card'), head = node('div', 'plan-head');
     const where = node('p', 'location'), countryFlag = flag(p.race); if (countryFlag) where.append(countryFlag);
@@ -371,18 +463,19 @@
     }
     card.append(facts);
     const crew = node('ul', 'plan-agents'); crew.setAttribute('aria-label', t('Les trois agents qui vont travailler', 'The three agents that will run'));
-    const names = agentNames();
+    const names = agentNames(), missing = uncoveredKinds(p.race);
     for (const kind of kinds) {
-      const site = prepSite(p.race.preparation?.[kind]) || (kind === 'registration' ? domainOf(p.race.registration_url || p.race.official_url) : '');
-      const item = node('li'); item.append(node('span', 'agent-icon', agentIcons[kind]), node('strong', '', names[kind]), node('span', '', site || t('site choisi au lancement', 'site picked at launch')));
+      const site = prepSite(p.race.preparation?.[kind]) || (kind === 'registration' ? domainOf(p.race.registration_url || p.race.official_url) : ''), covered = !missing.includes(kind);
+      const item = node('li'); item.dataset.covered = String(covered);
+      item.append(node('span', 'agent-icon', covered ? agentIcons[kind] : '–'), node('strong', '', names[kind]), node('span', '', covered ? site || t('site choisi au lancement', 'site picked at launch') : t('non couvert · lien officiel', 'not covered · official link')));
       crew.append(item);
     }
-    card.append(crew, node('p', 'plan-note', 'Départ, nuits et budget : préférences modifiables, pas des disponibilités réservées.'));
+    card.append(crew, coverageNote(p.race), node('p', 'plan-note', 'Départ, nuits et budget : préférences modifiables, pas des disponibilités réservées.'));
     const warning = accessWarning(p.race, true); if (warning) card.append(warning);
     const site = link(p.race.registration_url || p.race.official_url, 'Voir l’inscription officielle ↗', 'site-link'); if (site) card.append(site);
     if (ready) {
-      const area = node('div', 'confirm-area'), button = node('button', 'confirm', 'Confirmer le plan et lancer les 3 agents ↗');
-      button.type = 'button'; button.onclick = () => confirm(button);
+      const area = node('div', 'confirm-area'), button = node('button', 'confirm', ctaLabel(3 - missing.length));
+      button.type = 'button'; button.dataset.agents = String(3 - missing.length); button.onclick = () => confirm(button);
       area.append(node('p', '', 'Aucun achat, compte, consentement ou engagement. Vous gardez la main.'), button); card.append(area);
     }
     return card;
@@ -396,20 +489,24 @@
     reply.bubble.textContent = redact(clean(turn.assistant_message || t('Aucune proposition pour le moment. Essayons une autre envie de course.', 'No proposals yet. Let’s try another race idea.')));
     if (turn.plan) reply.inner.append(planCard(turn.plan, turn.ready_to_confirm));
     if (turn.candidates.length && (!turn.plan || !['official', 'unverified'].includes(turn.plan.race.date_status))) reply.inner.append(candidates(turn.candidates));
-    if (turn.question) reply.inner.append(node('p', 'question', turn.question));
+    const generic = turn.ready_to_confirm && turn.plan && /point de départ|ça (?:te|vous) va|starting point|sound good|does (?:this|that) work/i.test(turn.question);
+    if (turn.question) reply.inner.append(node('p', 'question', generic ? t('Tout est bon ? Lancez les agents, ou modifiez un détail ci-dessous.', 'All good? Launch the agents, or tweak a detail below.') : turn.question));
     const chips = node('div', 'chips'); chips.dataset.testid = 'chips'; chips.setAttribute('role', 'group'); chips.setAttribute('aria-label', t('Suggestions de réponse', 'Suggested replies'));
     for (const suggestion of turn.suggestions) {
       if (!suggestion.id || !suggestion.label || suggestion.kind === 'confirm') continue;
       const race = suggestion.kind === 'choose_race' ? turn.candidates.find(r => r.id === suggestion.value || suggestion.id === `choose_race:${r.id}`) : null;
       const item = node('div', 'suggestion'), button = node('button', 'chip', `${race?.name || suggestion.label} ↗`);
       button.type = 'button'; button.onclick = () => send({suggestion_id: suggestion.id}, suggestion.label);
+      if (race && missionSynthetic()) item.append(node('span', 'synthetic-badge', 'Synthétique'));
       const metadata = race ? `${distance(race)} · ${date(race.race_date)}` : {source: 'Course sourcée', synthetic: 'Exemple synthétique', suggested_default: 'Suggestion · modifiable'}[suggestion.provenance] || 'Choisir cette réponse';
       const hint = node('span', 'suggestion-meta', metadata); hint.id = `suggestion-${generation}-${$('thread').querySelectorAll('.message').length}-${chips.children.length}`;
       button.setAttribute('aria-describedby', hint.id); item.append(button, hint); chips.append(item);
     }
     if (chips.children.length) reply.inner.append(chips);
+    if (profile.mission !== turn.id) profile = {mission: turn.id, state: 'open'};
+    if (turn.ready_to_confirm && turn.plan && profile.state === 'open') reply.inner.append(document.querySelector('.profile-card[data-state="open"]') || profileCard());
     const area = reply.inner.querySelector('.confirm-area'); if (area) reply.inner.append(area);
-    localize(); badge(); scroll();
+    placeholder(); localize(); badge(); scroll();
   }
   function loading(value) {
     busy = value; $('send').disabled = value; $('send').textContent = value ? '···' : '↑';
@@ -467,10 +564,11 @@
     try {
       const result = await api(`/api/missions/${encodeURIComponent(mission.id)}/confirm`, {confirmed: true});
       if (token !== generation) return;
-      mission.ready_to_confirm = false; document.querySelectorAll('.confirm-area,.chips').forEach(el => el.remove());
+      mission.ready_to_confirm = false; document.querySelectorAll('.confirm-area,.chips,.profile-card[data-state="open"]').forEach(el => el.remove());
+      const skipped = uncoveredKinds(mission.plan?.race);
       $('agents').hidden = false; $('workspace').classList.add('executing');
       $('history-toggle').hidden = false; $('history-toggle').setAttribute('aria-expanded', 'false');
-      kinds.forEach(kind => event({kind, type: 'step_started'}));
+      kinds.forEach(kind => { agentState[kind] ||= {status: 'pending', level: -1, frames: 0, progress: 0}; agentState[kind].uncovered = skipped.includes(kind); event({kind, type: 'step_started'}); });
       consume(result); poll(token);
     } catch (err) { if (token === generation) { error(err); button.textContent = translate('Réessayer la confirmation'); } }
     finally { if (token === generation) loading(false); }
@@ -513,7 +611,8 @@
     : t(`image il y a ${Math.floor(age / 60)} min`, `frame ${Math.floor(age / 60)} min ago`);
   function activityLine(kind) {
     const state = agentState[kind], a = state.activity || {};
-    if (terminal.has(state.status)) return state.status === 'ready_for_payment' ? t('Prêt avant paiement', 'Ready before payment') : reason(state.reason, state.status, kind, state.active);
+    if (terminal.has(state.status)) return state.status === 'ready_for_payment' ? readyTitle(state) : reason(state.reason, state.status, kind, state.active);
+    if (state.uncovered && !state.active) return t('Pas de site couvert · lien officiel à suivre', 'No covered site · official link coming');
     if (state.queued) return t('En attente d’un navigateur disponible', 'Waiting for a free browser');
     const fallback = state.status === 'running'
       ? {registration: t('Parcours d’inscription officiel', 'Official registration journey'), hotel: t('Recherche de chambre pour vos dates', 'Finding a room for your dates'), transport: t('Recherche de votre aller-retour', 'Finding your return journey')}[kind]
@@ -522,6 +621,7 @@
       : {opening: t('Ouverture du site', 'Opening the site'), browsing: t('Navigation sur le site', 'Browsing the site'), handoff: t('Préparation du relais', 'Preparing the handover')}[a.code] || fallback;
     return a.step ? `${t(`Étape ${a.step}`, `Step ${a.step}`)} · ${base}` : base;
   }
+  const readyTitle = state => state?.prefilled ? t('Formulaire pré-rempli · prêt à payer', 'Form prefilled · ready to pay') : t('Prêt avant paiement', 'Ready before payment');
   function statusLine(kind) {
     const state = agentState[kind], steps = cardFor(kind)?.querySelector('.steps'); if (!state || !steps || terminal.has(state.status)) return;
     const age = state.image ? frameAge(state) : null, line = node('span', 'activity', activityLine(kind));
@@ -542,25 +642,37 @@
     if (badge) { badge.textContent = status; badge.hidden = !status; badge.dataset.tone = interrupted || done ? 'stopped' : stale ? 'working' : synthetic ? 'synthetic' : 'live'; }
     card.dataset.phase = phase(state);
     const preview = card.querySelector('.preview');
-    preview.dataset.state = state.image ? stale ? 'stale' : 'available' : done ? 'ended' : state.queued ? 'queued' : 'starting';
+    const parked = !done && !state.image && state.uncovered && !state.active;
+    preview.dataset.state = state.image ? stale ? 'stale' : 'available' : done ? 'ended' : parked ? 'uncovered' : state.queued ? 'queued' : 'starting';
+    card.dataset.alternative = String(Boolean(state.alternative && !done));
+    if (state.alternative && !done) preview.dataset.alt = t('Essai d’un autre site…', 'Trying another site…'); else delete preview.dataset.alt;
     const time = state.image ? (mode === 'replay' ? state.recorded : state.observed) : null;
     const clock = time && Number.isFinite(Date.parse(time)) ? `${mode === 'replay' ? t('heure originale', 'original time') : t('observée', 'observed')} ${new Intl.DateTimeFormat(locale(), {hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'UTC'}).format(new Date(time))} UTC` : '';
     const seconds = state.started ? Math.floor(((state.ended || Date.now()) - state.started) / 1000) : 0;
     const elapsed = done && !state.active ? t('Non démarré', 'Not started') : !state.started ? '' : done ? seconds < 1 ? t('Terminé', 'Finished') : t(`Terminé en ${duration(seconds)}`, `Finished in ${duration(seconds)}`) : t(`Durée ${duration(seconds)}`, `Elapsed ${duration(seconds)}`);
-    const meta = [!state.image && !done ? state.queued ? t('En file d’attente', 'Queued') : t('En attente de la première capture', 'Waiting for the first screenshot') : '', clock, elapsed].filter(Boolean).join(' · ');
+    const meta = [!state.image && !done && !parked ? state.queued ? t('En file d’attente', 'Queued') : t('En attente de la première capture', 'Waiting for the first screenshot') : '', clock, parked ? '' : elapsed].filter(Boolean).join(' · ');
     card.querySelector('.frame-meta').textContent = meta;
     if (!state.image && done) {
-      const box = node('div', 'terminal-state'), ready = state.status === 'ready_for_payment';
-      box.append(node('span', 'terminal-icon', ready ? '✓' : state.active ? '↗' : '–'),
-        node('strong', '', ready ? t('Prêt avant paiement', 'Ready before payment') : state.active ? t('L’agent vous passe le relais', 'The agent hands over to you') : t('Aucun site ouvert', 'No site opened')));
+      const box = node('div', 'terminal-state'), ready = state.status === 'ready_for_payment', uncovered = !state.active && (state.uncovered || coverageReasons.has(state.reason));
+      box.dataset.tone = ready ? 'ready' : state.active ? 'handover' : 'coverage';
+      box.append(node('span', 'terminal-icon', ready ? '✓' : state.active || !uncovered ? '↗' : '–'),
+        node('strong', '', ready ? readyTitle(state) : state.active ? t('L’agent vous passe le relais', 'The agent hands over to you') : uncovered ? t('Pas de site couvert pour ce trajet', 'No covered site for this trip') : t('Reprise sur le site officiel', 'Continue on the official site')));
       preview.replaceChildren(box);
-    } else if (!state.image) {
-      const copy = state.queued ? t('En attente d’un navigateur disponible…', 'Waiting for a free browser…') : t('Ouverture du site…', 'Opening the site…');
-      if (preview.querySelector('.waiting-copy')?.textContent !== copy) {
-        const box = node('div', 'waiting'), skeleton = node('div', 'browser-skeleton'); skeleton.setAttribute('aria-hidden', 'true');
-        skeleton.append(node('i'), node('i'), node('i'));
-        box.append(node('span', 'pulse-dot'), node('strong', 'waiting-copy', copy), skeleton); preview.replaceChildren(box);
+    } else if (parked) {
+      if (!preview.querySelector('.parked')) {
+        const box = node('div', 'terminal-state parked'); box.dataset.tone = 'coverage';
+        box.append(node('span', 'terminal-icon', '–'), node('strong', '', t('Pas de site couvert pour ce trajet', 'No covered site for this trip')), node('span', 'terminal-sub', t('Lien officiel dans le bilan', 'Official link in the summary')));
+        preview.replaceChildren(box);
       }
+    } else if (!state.image) {
+      const copy = state.queued ? t('En attente d’un navigateur disponible…', 'Waiting for a free browser…') : state.alternative ? t('Essai d’un autre site…', 'Trying another site…') : t('Connexion au site…', 'Connecting to the site…');
+      if (preview.querySelector('.waiting-copy')?.textContent !== copy) {
+        const box = node('div', 'waiting'), skeleton = node('div', 'browser-skeleton'), bar = node('span', 'skeleton-bar'); skeleton.setAttribute('aria-hidden', 'true');
+        bar.append(node('b'), node('b'), node('b'), node('em')); skeleton.append(bar, node('i'), node('i'), node('i'));
+        box.append(node('span', 'pulse-dot'), node('strong', 'waiting-copy', copy), skeleton, node('span', 'waiting-time')); preview.replaceChildren(box);
+      }
+      const clockLabel = preview.querySelector('.waiting-time');
+      if (clockLabel) clockLabel.textContent = state.started ? t(`${duration(seconds)} écoulées`, `${duration(seconds)} elapsed`) : '';
     }
     statusLine(kind);
   }
@@ -611,10 +723,16 @@
     if (kind !== 'registration' && trip.arrival_date && trip.departure_date) facts.push(`${date(trip.arrival_date)} → ${date(trip.departure_date)}`);
     if (Number.isInteger(trip.travelers)) facts.push(t(`${trip.travelers} voyageur${trip.travelers > 1 ? 's' : ''}`, `${trip.travelers} traveller${trip.travelers > 1 ? 's' : ''}`));
     if (state.total) facts.push(t(`total affiché ${state.total}`, `total shown ${state.total}`));
-    const head = node('div', 'success-head'); head.append(check, node('strong', '', t('Prêt avant paiement', 'Ready before payment')));
-    box.append(head);
+    const head = node('div', 'success-head'); head.append(check, node('strong', '', readyTitle(state)));
+    box.dataset.prefilled = String(Boolean(state.prefilled)); box.append(head);
+    if (state.stopLabel) box.append(node('p', 'success-stop', state.stopLabel));
     if (facts.length) box.append(node('p', 'success-facts', facts.join(' · ')));
-    const cta = link(state.handoff, t(`Prêt — à vous de payer sur ${domain} ↗`, `Ready — pay yourself on ${domain} ↗`), 'handoff-link cta');
+    const milestones = node('ol', 'milestones'); milestones.setAttribute('aria-label', t('Jusqu’où l’agent est allé', 'How far the agent got'));
+    for (const [label, ok] of [[t('Site', 'Site'), true], [t('Sélection', 'Selection'), true], [t('Coordonnées', 'Details'), Boolean(state.prefilled)], [t('Paiement · vous', 'Payment · you'), false]]) {
+      const step = node('li', '', label); step.dataset.done = String(ok); milestones.append(step);
+    }
+    box.append(milestones);
+    const cta = link(state.handoff, state.prefilled ? t(`Continuer sur ${domain} ↗`, `Continue on ${domain} ↗`) : t(`Prêt — à vous de payer sur ${domain} ↗`, `Ready — pay yourself on ${domain} ↗`), 'handoff-link cta');
     if (cta) box.append(cta);
     if ($('mode').value !== 'live') box.append(node('p', 'success-note', t('Démo synthétique : page d’accueil publique, aucun panier réel.', 'Synthetic demo: public homepage, no real checkout.')));
     return box;
@@ -626,10 +744,11 @@
     pill.dataset.status = key; pill.textContent = translate(labels[key] || labels.pending);
     const heading = card.querySelector('h3'); if (heading) heading.textContent = agentNames()[kind];
     const site = card.querySelector('.site');
-    if (site) site.textContent = state.site ? `${state.alternative && !terminal.has(state.status) ? t('Autre site · ', 'Alternative · ') : ''}${state.site}` : terminal.has(state.status) && !state.active ? t('Aucun site ouvert', 'No site opened') : t('Site choisi au lancement', 'Site picked at launch');
+    if (site) site.textContent = state.site ? `${state.alternative && !terminal.has(state.status) ? t('Autre site · ', 'Alternative · ') : ''}${state.site}` : terminal.has(state.status) && !state.active ? t('Lien officiel', 'Official link') : state.uncovered ? t('Non couvert', 'Not covered') : t('Site choisi au lancement', 'Site picked at launch');
     stepper(kind);
     const steps = card.querySelector('.steps'), handoff = card.querySelector('.handoff');
-    if (state.status === 'ready_for_payment') steps.textContent = kind === 'registration' ? t('Prêt : vous complétez vous-même l’inscription, puis payez.', 'Ready: you complete the registration details yourself, then pay.') : t('Tout est prêt : il ne reste que le paiement, par vous.', 'All set: only the payment is left, for you.');
+    if (state.status === 'ready_for_payment' && state.prefilled) steps.textContent = t('Vos informations sont saisies : vérifiez, puis payez vous-même.', 'Your details are typed in: review, then pay yourself.');
+    else if (state.status === 'ready_for_payment') steps.textContent = kind === 'registration' ? t('Prêt : vous complétez vous-même l’inscription, puis payez.', 'Ready: you complete the registration details yourself, then pay.') : t('Tout est prêt : il ne reste que le paiement, par vous.', 'All set: only the payment is left, for you.');
     else if (terminal.has(state.status)) {
       const [title, next] = reasonCopy(state.reason, state.status, kind, state.active);
       steps.replaceChildren(node('strong', 'reason-title', title), ...(next ? [node('span', 'reason-next', next)] : []));
@@ -654,7 +773,7 @@
   const coverageReasons = new Set(['no_site_coverage', 'policy_denied']);
   function liveStrip(states) {
     const race = tripFacts().race, recap = document.querySelector('.mission-recap'), count = document.querySelector('.live-count');
-    if (recap) recap.textContent = race?.name ? [race.name, date(race.race_date), [tripFacts().origin_city && cityName(tripFacts().origin_city), cityName(race.city)].filter(Boolean).join(' → ')].filter(Boolean).join(' · ') : '';
+    if (recap) recap.textContent = race?.name ? [clean(race.name), date(race.race_date), [tripFacts().origin_city && cityName(tripFacts().origin_city), cityName(race.city)].filter(Boolean).join(' → ')].filter(Boolean).join(' · ') : '';
     if (!count) return;
     const tally = [[t('En action', 'Working'), states.filter(s => s && !terminal.has(s.status)).length, 'working'],
       [t('Prêts', 'Ready'), states.filter(s => s?.status === 'ready_for_payment').length, 'ready'],
@@ -665,7 +784,7 @@
     const names = agentNames(), list = node('ul', 'summary-list'), coverage = $('coverage');
     for (const kind of kinds) {
       const state = agentState[kind], ok = state.status === 'ready_for_payment', item = node('li'), body = node('div', 'summary-body');
-      const [title, next] = ok ? [t('Prêt avant paiement', 'Ready before payment'), t('Il ne reste que vos informations et le paiement, par vous.', 'Only your details and the payment are left, for you.')] : reasonCopy(state.reason, state.status, kind, state.active);
+      const [title, next] = ok ? [readyTitle(state), t('Il ne reste que vos informations et le paiement, par vous.', 'Only your details and the payment are left, for you.')] : reasonCopy(state.reason, state.status, kind, state.active);
       item.dataset.status = ok ? 'ready' : 'stopped';
       body.append(node('strong', '', names[kind]), node('span', 'summary-reason', title), ...(next ? [node('span', 'summary-next', next)] : []));
       const domain = domainOf(state.handoff), go = link(state.handoff, ok ? t(`Payer sur ${domain} ↗`, `Pay on ${domain} ↗`) : t(`Continuer sur ${domain} ↗`, `Continue on ${domain} ↗`), 'summary-link');
@@ -734,12 +853,14 @@
     }
     if (activity) state.activity = activity.code === null && state.activity?.code ? {...state.activity, step: activity.step} : activity;
     if (e.type === 'step_progress' && (e.alternative === true || activity?.code === 'alternative')) state.alternative = true;
+    if (e.status === 'prefilled') { e.status = 'ready_for_payment'; e.prefilled = true; }
     if (terminal.has(e.status)) state.status = e.status;
     else if (e.type === 'step_started' && !terminal.has(state.status)) state.status = 'running';
     if (terminal.has(state.status)) { state.ended ||= Date.now(); state.queued = false; clearTimeout(state.freshTimer); }
     if (terminal.has(e.status)) {
       state.reason = e.reason_code || (e.checkpoint_reached === true && e.status !== 'ready_for_payment' ? 'checkpoint_reached' : null) || state.reason;
       state.total = shownTotal(e.summary) || state.total; state.alternative = false; state.activity = null;
+      if (e.status === 'ready_for_payment') { state.prefilled = e.prefilled === true || state.prefilled === true; state.stopLabel = typeof e.stop_label === 'string' ? clean(e.stop_label).replace(/[{}[\]<>]/g, '').trim().slice(0, 80) : state.stopLabel || ''; }
     }
     const visited = domainOf(e.final_url) || domainOf(e.site_url) || domainOf(e.start_url);
     if (visited) state.site = visited;
@@ -804,7 +925,7 @@
   $('mode').onchange = () => {
     generation++; clearTimeout(timer); mission = null; after = 0; language = globalThis.navigator?.language?.startsWith('en') ? 'en' : 'fr'; loading(false);
     resetStage(); document.querySelectorAll('.message').forEach(el => el.remove());
-    $('welcome').hidden = false; $('message').value = ''; $('toast').hidden = true; localize(); badge();
+    $('welcome').hidden = false; $('message').value = ''; $('toast').hidden = true; profile = {mission: null, state: 'open'}; placeholder(); localize(); badge();
   };
   document.querySelectorAll('.agent').forEach(card => {
     const kind = card.dataset.agent, button = card.querySelector('.focus-toggle'), stage = card.querySelector('.stage');
@@ -852,7 +973,7 @@
     return true;
   }
   globalThis.__runai = {event, consume, frameMeta, safeURL, reason, reasonCopy, reasons, flag, detectLanguage: value => { detectLanguage(value); return language; }, demo: demoStage, focus: focusAgent, cityName, translate, setLanguage: value => { language = value; localize(); badge(); }};
-  localize(); badge(); const initialGeneration = generation;
+  placeholder(); localize(); badge(); const initialGeneration = generation;
   api('/api/health').then(health => {
     liveReady = health.live_ready || null;
     if (generation === initialGeneration && !mission && !busy && ['demo', 'replay', 'live'].includes(health.mode)) $('mode').value = health.mode;
