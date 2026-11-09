@@ -65,15 +65,17 @@ def official_search_hint(name: str, distance: float | None = None) -> dict:
     if "marathon" not in words or words & {"half", "semi"}:
         return {}
     if "berlin" in words:
-        return {"race_name": "Berlin Marathon", "country": "Germany",
+        canonical = _slug(name) in {"berlin-marathon", "bmw-berlin-marathon", "generali-berlin-marathon"}
+        return {"race_name": "Berlin Marathon" if canonical else name, "country": "Germany",
                 "official_domains": "bmw-berlin-marathon.com berlin-marathon.com generali-berlin-marathon.com"}
     if words & {"milan", "milano"}:
-        return {"race_name": "Milano Marathon", "country": "Italy",
+        canonical = _slug(name) in {"milan-marathon", "milano-marathon", "wizz-air-milano-marathon"}
+        return {"race_name": "Milano Marathon" if canonical else name, "country": "Italy",
                 "official_domains": "milanomarathon.it"}
     for country, seeds in RACE_SEARCH_SEEDS.items():
         for seed in seeds:
             if set(_slug(seed).split("-")) <= words:
-                return {"race_name": seed, "country": country, "official_domains": ""}
+                return {"race_name": name, "country": country, "official_domains": ""}
     return {}
 
 

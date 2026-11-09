@@ -1111,6 +1111,25 @@ def test_same_country_official_precedes_foreign_preparable(monkeypatch):
     assert turn.candidates[0].country == "Germany"
 
 
+@pytest.mark.parametrize("event_type", ["Relay", "Staffetta", "Relais"])
+def test_individual_verification_does_not_verify_same_distance_relay(event_type):
+    async def discover(query, hints):
+        return [{"id": "individual", "name": "Wizz Air Milano Marathon", "country": "Italy",
+                 "distance_km": 42.195, "race_date": "2027-04-04", "date_status": "official",
+                 "official_url": "https://www.milanomarathon.it/",
+                 "source_urls": ["https://www.milanomarathon.it/individual"]},
+                {"id": "relay", "name": "Milano Marathon " + event_type, "country": "Italy",
+                 "distance_km": 42.195, "race_date": "2027-04-04", "date_status": "unverified",
+                 "official_url": "https://www.milanomarathon.it/",
+                 "source_urls": ["https://directory.example/relay"]}]
+
+    state, turn = run(engine(discover).start("a marathon in Italy"))
+    assert len(turn.candidates) == 2
+    relay = next(r for r in state.candidates if r.id == "relay")
+    assert relay.date_status == "unverified"
+    assert relay.source_urls == ["https://directory.example/relay"]
+
+
 @pytest.mark.parametrize("outcome", ["official", "empty", "error", "foreign"])
 def test_selected_unverified_edition_verifies_before_country_fallback(monkeypatch, outcome):
     covered_offline(monkeypatch)
