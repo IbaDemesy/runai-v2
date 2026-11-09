@@ -34,20 +34,24 @@ not a substitute for design work.
 The conversation should feel natural in French and English, with chat bubbles,
 streaming-like replies, a bottom composer, one-click defaults and typed corrections.
 
-## Architecture and round-5 ownership
-- R5-01: queue-aware H startup, P11 observed checkpoints/force_answer,
-  P12 gateway city/fragment routes, safe redirect diagnostics, Njuko scrubbing,
-  core/shared docs and final integrated acceptance.
-- R5-02: hotel/transport P11 checkpoints, Vueling redirect diagnostics, rail/air
-  coverage with alternatives, P12 gateway city and city aliases.
-- R5-03: registration P11 checkpoints, NL/CH/Spain/France/Berlin/Porto coverage
-  and fresh availability via `registration_coverage()` (P8).
-- R5-04: no guide dead-end loops, deterministic named races, mind/origin changes,
-  preparation-aware deduped proposals and >=130 adversarial FR/EN conversations.
-- R5-05: Strava-grade polish to 9/10: data-rich cards, preparation badges,
-  honest live stage, specific blocked reasons, success celebration.
+## Architecture and round-6 ownership
+- R6-01: core integration and shared docs/queue; IHG zero-based dates/verification,
+  P13 checkpoint_unverified, frame-gap heartbeat, browser-error diagnosis and
+  validated observed_at. Hotel-only live evidence is not integrated acceptance.
+- R6-02: transport provider ordering, Vueling site_unreachable_in_h recovery
+  coordination, reviewed rail/air coverage, generic policy/base registry.
+- R6-03: guide/discovery dead ends, chip ping-pong, unconfirmed-date proposals,
+  mind/origin changes and >=130 FR/EN adversarial conversations.
+- R6-04: registration safe stops, honest waiting-list/closed/policy boundaries
+  and reviewed preparable coverage using its registration policy shard.
+- R6-05: >=8.5/10 Strava-grade design, SVG flags, energetic opening, honest
+  EN DIRECT, friendly P13 states, ChatGPT-style pills, chronological questions,
+  mobile density and live-view-only stage.
 
-CONTRACTS.md (owned by R5-01) pins P1–P12. Import sibling modules lazily and
+R6-02..R6-04 specs are inferred from round-5 evaluation; planner may amend.
+Exact disjoint file lists in index.json take precedence. Legacy base registry
+amendments go through R6-02; core retry/timestamp changes through R6-01.
+CONTRACTS.md (owned by R6-01) pins P1–P13. Import sibling modules lazily and
 fail closed when absent.
 
 ## Modes and truthfulness
@@ -81,9 +85,12 @@ The exact live-success definition is in
 date, explicit confirmation, three overlapping live H agents, changing on-page
 screenshots and verified safe pre-payment stops for all three. An earlier
 mandatory safety stop is a blocker. Never quietly swap a named request to force
-a pass. Round-5 target: >=1 complete success. Record >=5 UI-driven live cases
+a pass. Round-5 verdict: score 41, 0/5 live successes, design 7.5/10
+(docs/eval/round-5.md). Round-6 target: >=1 complete visible success; >=8.5/10
+design. After the independent tickets merge, R6-01 coordinates >=5 UI-driven cases
 (Milan marathon, Lisbon/Porto, Barcelona/Spain half, Swiss trail, Netherlands
-10K) in docs/eval/round-5-acceptance.md after R5-02..R5-05 merge.
+10K), recording only in its allowed evidence/handoff files. Do not invent a
+future acceptance report or treat individual backend smokes as complete success.
 
 ## Safety and evidence boundary
 The owner has approved read/prepare-only live H runs, not transactions. Never
@@ -91,15 +98,18 @@ pay, book, create accounts, accept terms/consent or medical declarations, submit
 forms, enter personal data or bypass captchas. Cookie banners may only be
 dismissed without consent. Prefer sites without captchas and whose terms permit
 agents; document the selection and stop honestly if authorization is unclear.
+Accor/prohibited entries stay denied; unknown/expired reviews block before H.
+robots.txt is not authorization; H/site frames are in_session_only.
 H budget is not a constraint: run agents live in parallel whenever useful. Never include secrets, tokens, private H URLs,
 emails or personal data in code, fixtures, logs or evidence. Use only safe public
 handoff links and scrubbed evidence. Never claim unobserved results.
 
 ## Continuous implementation loop
 Each ticket has one branch/PR and non-overlapping allowed files listed in
-docs/tickets/index.json (validated by tests/test_r5_scope_contract.py). Round
-5: R5-01..R5-05 merge in any order; R5-01 PR-B integrates and certifies live last.
-R3-*, R2-*, R1-* and T* ticket files are history and grant no current scope.
+docs/tickets/index.json (validated by tests/test_r6_scope_contract.py). Round
+6: R6-01..R6-05 merge in any order; R6-01 owns core integration/shared docs and
+coordinates final visible live acceptance after all merge.
+R5/R4/R3/R2/R1/T ticket files are history and grant no current scope.
 
 Keep main green: Python 3.12, `uv sync --frozen`,
 `uv run ruff check . && uv run pytest -q`, including the journey E2E tests.
