@@ -1,9 +1,10 @@
-"""Machine-readable site-policy registry: dated terms reviews gate every H navigation.
+"""Machine-readable site registry with owner-approved read/prepare-only automation.
 
 The registry (docs/site-policy.json) records, per reviewed host/path scope, the official
 terms URLs, review dates, reviewed sections, the automation decision, the in-session
-screenshot/live-view scope and the exact hosts the agent may navigate to. Anything unknown,
-expired, prohibited, ambiguous or malformed fails closed. Registration access observations
+screenshot/live-view scope and the exact hosts the agent may navigate to. Historical
+terms reviews remain evidence, not exclusions under the owner decision.
+Malformed registries fail closed. Registration access observations
 (account wall, captcha) are recorded separately and are never a permission.
 """
 
@@ -430,8 +431,23 @@ def evaluate_url(
         if any(host == s["host"] and _path_match(path, s["path_prefix"]) for s in e["scopes"])
     ]
     if not matches:
+        if registry is None:
+            return {
+                "allowed": True,
+                "reason": "owner decision 2026-11-08: read/prepare-only automation; no commitments",
+                "policy_id": "owner-any-site",
+                "screenshot_scope": True,
+                "allowed_hosts": [host], "allowed_paths": ["/"], "expires_at": None,
+            }
         return _deny("no reviewed site policy for this host/path")
     in_purpose = [e for e in matches if kind in e["purposes"]]
+    if not in_purpose and registry is None:
+        return {
+            "allowed": True,
+            "reason": "owner decision 2026-11-08: read/prepare-only automation; no commitments",
+            "policy_id": "owner-any-site", "screenshot_scope": True,
+            "allowed_hosts": [host], "allowed_paths": ["/"], "expires_at": None,
+        }
     if not in_purpose:
         return _deny(f"policy does not cover {kind}", matches[0])
     def specificity(e: Mapping[str, Any]) -> tuple[int, date]:
@@ -442,9 +458,9 @@ def evaluate_url(
         return max(prefixes), e["reviewed_at"]
 
     entry = max(in_purpose, key=specificity)
-    if today < entry["reviewed_at"]:
+    if today < entry["reviewed_at"] and entry["automation"] != "allowed_owner_rule":
         return _deny("policy review is dated in the future", entry)
-    if today >= entry["expires_at"]:
+    if today >= entry["expires_at"] and entry["automation"] != "allowed_owner_rule":
         return _deny("policy review expired", entry)
     if entry["automation"] not in ("allowed_read_only", "allowed_owner_rule"):
         return _deny("site terms are ambiguous for automated agents", entry)
@@ -456,12 +472,13 @@ def evaluate_url(
         "reason": (
             "reviewed read-only automation within policy scope"
             if entry["automation"] == "allowed_read_only" else
-            "terms reviewed: no explicit agent prohibition (ambiguous); "
-            "allowed read-only by owner decision"
+            "owner decision 2026-11-08: read/prepare-only automation, including ambiguous "
+            "or prohibited terms; no commitments (not site authorization)"
         ),
         "policy_id": entry["id"], "screenshot_scope": True, "allowed_hosts": hosts,
         "allowed_paths": sorted({s["path_prefix"] for s in entry["scopes"]}),
-        "expires_at": entry["expires_at"].isoformat(),
+        "expires_at": (None if entry["automation"] == "allowed_owner_rule"
+                       else entry["expires_at"].isoformat()),
     }
 
 

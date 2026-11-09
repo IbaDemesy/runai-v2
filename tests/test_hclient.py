@@ -761,15 +761,20 @@ def test_missing_policy_fails_closed(monkeypatch):
 
 
 @pytest.mark.parametrize("task", [
-    {**TASK, "start_url": "https://all.accor.com/"},
+    {**TASK, "start_url": "http://all.accor.com/"},
     {**TASK, "allowed_hosts": []},
     {**TASK, "allowed_hosts": ["other.example.org"]},
-    {**TASK, "fallback_url": "https://all.accor.com/"},
+    {**TASK, "fallback_url": "http://all.accor.com/"},
 ])
 def test_planned_hosts_and_fallback_checked_before_create(task):
     provider = Provider()
     result, _ = run(provider, task)
-    assert result["status"] == "blocked" and not provider.requests
+    assert result["status"] in {"blocked", "failed"} and not provider.requests
+
+
+def test_accor_no_longer_has_hclient_specific_exclusion():
+    assert _policy({**TASK, "start_url": "https://all.accor.com/",
+                    "fallback_url": "https://all.accor.com/"})
 
 
 @pytest.mark.parametrize("budget,expected", [(1, 1), (80, 80), (100, 80), (120, 80), (500, 80)])

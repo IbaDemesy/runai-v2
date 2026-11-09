@@ -96,7 +96,7 @@ def _policy(task):
             if not url:
                 continue
             host = urlsplit(url).hostname or ""
-            if not _public_https(url) or host == "accor.com" or host.endswith(".accor.com"):
+            if not _public_https(url):
                 raise _PolicyBlocked
             review = evaluate(url, task.get("kind"))
             decision = _field(review, "allowed", _field(review, "decision", _field(review, "status")))
@@ -126,8 +126,6 @@ def _policy(task):
                 if not set(task["allowed_hosts"]).issubset(hosts):
                     raise _PolicyBlocked
                 hosts = set(hosts) & set(task["allowed_hosts"])
-            if any(host == "accor.com" or host.endswith(".accor.com") for host in hosts):
-                raise _PolicyBlocked
             paths = _field(review, "allowed_paths", ["/"])
             if host not in hosts or not paths or not any(
                 _path_in_scope(urlsplit(url).path, path) for path in paths

@@ -210,10 +210,9 @@ def test_prohibited_organizer_adapter_is_not_used():
         build(_trip(registration_url=None), reg)
 
 
-def test_expired_organizer_adapter_is_not_used():
+def test_owner_decision_outlives_organizer_review():
     reg = registry(_organizer(expires_at="2026-11-08", reviewed_at="2026-08-01"), _njuko())
-    with pytest.raises(ValueError):
-        build(_trip(registration_url=None), reg)
+    assert build(_trip(registration_url=None), reg)["start_url"]
 
 
 @pytest.mark.parametrize("adapter_change", [
@@ -337,7 +336,11 @@ def test_merged_organizer_official_url_reaches_platform():
      "https://www.lausanne-marathon.com/", "https://onreg.datasport.com/lausanne-marathon-2027"),
     ("Unknown Hill Race", "2027-05-01", 10.0, "Bern", "Switzerland", "https://hill-race.example/"),
 ])
-def test_merged_registry_blocks_prohibited_or_unreviewed(race):
+def test_merged_registry_requires_existing_adapter(race):
+    if race[3] in {"Valencia", "Rotterdam"} or race[0] == "Zurich Marató Barcelona":
+        assert build_task(_race_trip(*race), today=MERGED_TODAY,
+                          registry=_merged())["start_url"]
+        return
     with pytest.raises(ValueError, match="not policy-reviewed"):
         build_task(_race_trip(*race), today=MERGED_TODAY, registry=_merged())
 
@@ -349,11 +352,10 @@ def test_merged_registry_still_needs_distance():
         build_task(trip, today=MERGED_TODAY, registry=_merged())
 
 
-def test_merged_registry_expires_fail_closed():
+def test_owner_decision_does_not_expire_with_terms_review():
     trip = _race_trip("Wizz Air Milano Marathon", "2027-04-04", 42.195, "Milano", "Italy",
                       "https://www.milanomarathon.it/")
-    with pytest.raises(ValueError):
-        build_task(trip, today=date(2027, 2, 6), registry=_merged())
+    assert build_task(trip, today=date(2027, 2, 6), registry=_merged())["start_url"]
 
 
 def test_fragment_entries_are_dated_unique_and_documented():
@@ -590,25 +592,24 @@ def test_merged_coverage_lisbon_half_sold_out_still_builds():
 
 
 @pytest.mark.parametrize("race", [VALENCIA_10K, BARCELONA_HALF, IRONTRAIL])
-def test_merged_coverage_prohibited_registration_is_not_covered(race):
+def test_lifted_registration_policy_does_not_invent_adapters(race):
     result = _merged_coverage(race)
-    assert result["covered"] is False and result["prohibited"] is True
-    assert result["policy_id"] and result["status"] == "unknown"
-    with pytest.raises(ValueError, match="not policy-reviewed"):
-        build_task(_race_trip(*race), today=MERGED_TODAY, registry=_merged())
+    assert result["prohibited"] is False
+    assert result["covered"] is True
+    assert result["preparable_open"] is False
+    assert build_task(_race_trip(*race), today=MERGED_TODAY, registry=_merged())["start_url"]
 
 
 @pytest.mark.parametrize("race", [BARCELONA_HALF, IRONTRAIL])
 @pytest.mark.parametrize("registration_url", [None, "", "https://in.njuko.com/example-2027"])
-def test_prohibited_registration_flow_cannot_start_on_organizer(race, registration_url):
+def test_registration_without_adapter_still_cannot_start(race, registration_url):
     trip = _race_trip(*race)
     trip["race"]["registration_url"] = registration_url
     coverage = registration_coverage(trip["race"], today=MERGED_TODAY, registry=_merged())
-    assert coverage["covered"] is False
-    assert coverage["prohibited"] is True
-    assert coverage["policy_id"] in {"mitjamarato-barcelona", "irontrail-ch"}
-    with pytest.raises(ValueError, match="denied"):
-        build_task(trip, today=MERGED_TODAY, registry=_merged())
+    assert coverage["covered"] is True
+    assert coverage["prohibited"] is False
+    assert coverage["preparable_open"] is False
+    assert build_task(trip, today=MERGED_TODAY, registry=_merged())["start_url"]
 
 
 def test_merged_den_haag_builds_on_reviewed_njuko_with_sold_out_first():
@@ -908,11 +909,14 @@ def test_not_yet_open_registration_url_is_not_preparable():
     ("Run In Lyon", "2027-10-03", 42.195, "Lyon", "France", "https://www.runinlyon.com/"),
     VALENCIA_10K, BARCELONA_HALF, IRONTRAIL,
 ])
-def test_prohibited_races_stay_policy_denied(race):
+def test_lifted_policy_does_not_invent_registration_coverage(race):
     coverage = _merged_coverage(race)
+    assert coverage["prohibited"] is False
+    if race in (VALENCIA_10K, BARCELONA_HALF, IRONTRAIL):
+        assert coverage["covered"] is True
+        assert coverage["preparable_open"] is False
+        return
     assert coverage["covered"] is False and coverage["preparable_open"] is False
-    if race[3] != "Berlin":
-        assert coverage["prohibited"] is True and coverage["registration"] == "prohibited"
     with pytest.raises(ValueError, match="not policy-reviewed"):
         build_task(_race_trip(*race), today=MERGED_TODAY, registry=_merged())
 

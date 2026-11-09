@@ -136,6 +136,19 @@ KEYS = {"allowed", "reason", "policy_id", "screenshot_scope", "allowed_hosts", "
         "expires_at"}
 
 
+def test_owner_decision_covers_unknown_site_without_claiming_adapter():
+    result = evaluate_url("https://new-race.example/registration", "registration")
+    assert result["allowed"] is True
+    assert result["allowed_hosts"] == ["new-race.example"]
+    assert result["expires_at"] is None
+    assert result["policy_id"] == "owner-any-site"
+
+
+@pytest.mark.parametrize("url", ["", None, "http://example.com/", "https://user:pass@example.com/"])
+def test_owner_decision_keeps_invalid_url_guard(url):
+    assert not evaluate_url(url, "hotel")["allowed"]
+
+
 @pytest.mark.parametrize("checkpoint", [
     None, {}, [], {"url_patterns": [], "beyond_patterns": ["payment"]},
     {"url_patterns": ["review"], "beyond_patterns": []},
@@ -428,9 +441,9 @@ def test_committed_registry_is_valid_and_dated():
     "https://all.accor.com/", "https://all.accor.com/hotel/1234/index.en.shtml",
     "https://ibis.accor.com/", "https://www.accor.com/", "https://group.accor.com/",
 ])
-def test_accor_denied(url):
+def test_accor_allowed_by_owner_decision(url):
     result = evaluate_url(url, "hotel", today=TODAY)
-    assert result["allowed"] is False and "prohibit" in result["reason"]
+    assert result["allowed"] is True and "owner" in result["reason"]
 
 
 @pytest.mark.parametrize("url,kind", [
@@ -442,8 +455,8 @@ def test_accor_denied(url):
     ("https://www.ihg.com/", "transport"),
     ("https://www.sncf-connect.com/", "transport"),
 ])
-def test_official_chains_and_operators_not_allowed_without_review(url, kind):
-    assert evaluate_url(url, kind, today=TODAY)["allowed"] is False
+def test_official_chains_and_operators_allowed_by_owner(url, kind):
+    assert evaluate_url(url, kind, today=TODAY)["allowed"] is True
 
 
 def test_committed_allow_entries_are_narrow():
@@ -486,9 +499,9 @@ def test_committed_owner_rule_sites_are_allowed_and_labelled(url, kind):
     assert result["allowed"] is True and "owner" in result["reason"]
 
 
-def test_explicit_prohibition_beats_owner_rule():
-    assert evaluate_url("https://www.booking.com/", "hotel", today=TODAY)["allowed"] is False
-    assert evaluate_url("https://all.accor.com/", "hotel", today=TODAY)["allowed"] is False
+def test_owner_decision_lifts_recorded_prohibitions():
+    assert evaluate_url("https://www.booking.com/", "hotel", today=TODAY)["allowed"] is True
+    assert evaluate_url("https://all.accor.com/", "hotel", today=TODAY)["allowed"] is True
 
 
 def _place_registry(**adapter_changes):
@@ -770,8 +783,8 @@ def test_origin_lookup_and_coverage():
 
 
 @pytest.mark.parametrize("host", ["www.flixbus.com", "www.sncf-connect.com", "www.omio.com"])
-def test_unreviewed_transport_stays_denied(host):
-    assert not evaluate_url(f"https://{host}/", "transport", today=TODAY)["allowed"]
+def test_unreviewed_transport_allowed_by_owner(host):
+    assert evaluate_url(f"https://{host}/", "transport", today=TODAY)["allowed"]
 
 
 def test_registration_adapter_on_platform_host_or_without_platform():
@@ -904,8 +917,8 @@ def test_transport_verified_primary_and_stable_alternatives(verified):
     ("www.transavia.com", "transport"), ("www.flixbus.com", "transport"),
     ("all.accor.com", "hotel"), ("unknown-provider.example", "transport"),
 ])
-def test_render_ranking_never_relaxes_provider_policy(host, kind):
-    assert not evaluate_url(f"https://{host}/", kind, today=TODAY)["allowed"]
+def test_owner_rule_allows_sites_independently_of_render_ranking(host, kind):
+    assert evaluate_url(f"https://{host}/", kind, today=TODAY)["allowed"]
 
 
 def test_expired_verified_primary_cannot_promote_unverified_fallback():
@@ -920,13 +933,14 @@ def test_expired_verified_primary_cannot_promote_unverified_fallback():
                                     origin_country="FR", today=TODAY, registry=reg)
 
 
-def test_sbb_same_operator_shop_review_is_exact_host_and_still_expires():
+def test_sbb_owner_rule_and_unknown_host_decisions_remain_exact_host():
     url = "https://shop.sbb.ch/customer/en/alw/onboarding?su=redacted&cu=redacted"
     decision = evaluate_url(url, "transport", today=TODAY)
     assert decision["allowed"] and decision["policy_id"] == "sbb-ch"
     assert set(decision["allowed_hosts"]) == {"sbb.ch", "www.sbb.ch", "shop.sbb.ch"}
-    assert not evaluate_url("https://other.sbb.ch/en/offer", "transport", today=TODAY)["allowed"]
-    assert not evaluate_url("https://shop.sbb.ch.other.example/en/offer", "transport",
-                            today=TODAY)["allowed"]
-    assert not evaluate_url(url, "hotel", today=TODAY)["allowed"]
-    assert not evaluate_url(url, "transport", today=date(2027, 2, 7))["allowed"]
+    for host in ("other.sbb.ch", "shop.sbb.ch.other.example"):
+        unknown = evaluate_url(f"https://{host}/en/offer", "transport", today=TODAY)
+        assert unknown["allowed"] and unknown["allowed_hosts"] == [host]
+        assert unknown["policy_id"] == "owner-any-site"
+    assert evaluate_url(url, "hotel", today=TODAY)["allowed"]
+    assert evaluate_url(url, "transport", today=date(2027, 2, 7))["allowed"]

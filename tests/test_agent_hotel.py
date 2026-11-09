@@ -198,8 +198,8 @@ def test_committed_seven_city_exact_date_links(city, country, travelers):
     assert task["expected"]["departure_date"] == "2027-01-11"
 
 
-def test_committed_accor_stays_denied():
-    assert not evaluate_url("https://all.accor.com/", "hotel", today=TODAY)["allowed"]
+def test_committed_accor_allowed_by_owner():
+    assert evaluate_url("https://all.accor.com/", "hotel", today=TODAY)["allowed"]
 
 
 @pytest.mark.parametrize("city", ["Freiburg", "FREIBURG IM BREISGAU"])
