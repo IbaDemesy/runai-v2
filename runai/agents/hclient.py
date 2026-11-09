@@ -1306,5 +1306,8 @@ class HAgentRunner:
             elif result["status"] == "blocked" and frame_seen:
                 result["stop_label"] = "safe stop"
             elif not frame_seen and not result.get("final_url"):
-                result["stop_label"] = "site unavailable"
+                if "site_unreachable_in_h" in result["steps"]:
+                    result["stop_label"] = "site unavailable"
+                elif result.get("reason_code") == "provider_error":
+                    result["stop_label"] = "agent unavailable"
         return scrub_profile(result, profile, profile_skip)

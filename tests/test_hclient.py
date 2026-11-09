@@ -526,7 +526,7 @@ def test_prefill_requires_explicit_participant_data_disposition(untouched, enter
 
 @pytest.mark.parametrize("state,label", [
     ("checkpoint", "pre-payment stop reached"), ("framed_block", "safe stop"),
-    ("no_site", "site unavailable"), ("no_frame", None), ("legacy_ready", None),
+    ("no_site", None), ("no_frame", None), ("legacy_ready", None),
 ])
 def test_prefill_stop_label_uses_observed_evidence(state, label):
     task = {**TASK, "runner_profile": {"full_name": "Test Runner"},
@@ -541,6 +541,23 @@ def test_prefill_stop_label_uses_observed_evidence(state, label):
         answer["verification"] = {**ANSWER["verification"], "selected": False}
     result, _ = run(Provider(events=events, answer=answer), task)
     assert result.get("stop_label") == label
+
+
+@pytest.mark.parametrize("site_failed", [False, True])
+def test_no_page_stop_label_distinguishes_site_from_agent_failure(site_failed):
+    task = {**TASK, "runner_profile": {"full_name": "Test Runner"},
+            "prefill_fields": ["full_name"]}
+    event = observation()
+    event["data"]["metadata"] = {"url": "chrome-error://chromewebdata/"}
+    provider = Provider(events=[event])
+
+    def handle(request):
+        if not site_failed:
+            return httpx.Response(503)
+        return provider(request)
+
+    result, _ = run(handle, task)
+    assert result["stop_label"] == ("site unavailable" if site_failed else "agent unavailable")
 
 
 @pytest.mark.parametrize("url,unsafe", [
