@@ -46,6 +46,25 @@ _OMIO_REDIRECT_RESULT = re.compile(
 )
 
 
+def _omio_public_id(host, path, index):
+    return host in {
+        "omio.com", "www.omio.com", "omio.fr", "www.omio.fr", "omio.de", "www.omio.de",
+    } and ((index == 2 and _OMIO_RESULT.fullmatch(path)) or (
+        index == 4 and _OMIO_REDIRECT_RESULT.fullmatch(path)
+    ))
+
+
+def _google_flights_path(host, path):
+    return re.fullmatch(r"(?:www\.)?google\.(?:com|[a-z]{2})", host) and path in {
+        "/travel/flights/booking", "/travel/flights/search",
+    }
+
+
+def _google_flights_token(host, path, name, value):
+    return (_google_flights_path(host, path) and name in {"tfs", "tfu"}
+            and re.fullmatch(r"[A-Za-z0-9_-]{1,600}", value))
+
+
 def _njuko_public_id(host, segments, index):
     if host not in {"in.njuko.com", "www.njuko.net", "njuko.net", "njuko.com"} and not (
         re.fullmatch(r"(?:[a-z0-9-]+\.)*[a-z0-9]+(?:-[a-z0-9]+)*-registrations\.com", host)
@@ -74,19 +93,12 @@ def scrub_url(url: str | None) -> str | None:
             host = f"[{host}]"
         netloc = host + (f":{parts.port}" if parts.port else "")
         path = re.sub(r";jsessionid=[^/;?]*", "", parts.path, flags=re.IGNORECASE)
-        omio_host = host in {
-            "omio.com", "www.omio.com", "omio.fr", "www.omio.fr", "omio.de", "www.omio.de",
-        }
-        omio_result = omio_host and _OMIO_RESULT.fullmatch(path)
-        omio_redirect_result = omio_host and _OMIO_REDIRECT_RESULT.fullmatch(path)
-        google_flights = re.fullmatch(r"(?:www\.)?google\.(?:com|[a-z]{2})", host) and path in {
-            "/travel/flights/booking", "/travel/flights/search",
-        }
+        google_flights = _google_flights_path(host, path)
         if host not in {"agp.eu.hcompany.ai", "agp.hcompany.ai"}:
             segments = unquote(path).split("/")
             for index, segment in enumerate(segments):
-                if (_njuko_public_id(host, segments, index) or (omio_result and index == 2)
-                        or (omio_redirect_result and index == 4)):
+                if (_njuko_public_id(host, segments, index)
+                        or _omio_public_id(host, path, index)):
                     continue
                 if _PRIVATE_PATH.fullmatch(segment) or (
                     _OPAQUE_PATH.fullmatch(segment) and not _PUBLIC_SLUG.fullmatch(segment)
@@ -101,7 +113,7 @@ def scrub_url(url: str | None) -> str | None:
             (name, value) for name, value in parse_qsl(parts.query, keep_blank_values=True)
             if not _SENSITIVE_PARAM.search(name)
             and not re.fullmatch(r"utm_.*|gclid|fbclid|cm_mmc|icdv|tracking", name, re.IGNORECASE)
-            and (re.fullmatch(r"[A-Za-z0-9_-]{1,600}", value)
+            and (_google_flights_token(host, path, name, value)
                  if google_flights and name in {"tfs", "tfu"} else (
                      not _EMAIL.search(value) and not _KEY.search(value)
                      and not _IBAN.search(value) and not _JWT.search(value)

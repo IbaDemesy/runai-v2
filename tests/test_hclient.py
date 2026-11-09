@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from test_scrub import GOOGLE_FLIGHTS
 
 from runai.agents import hotel as hotel_builder
 from runai.agents import registration as registration_builder
@@ -25,6 +26,9 @@ from runai.agents.hclient import (
     _verification_failures,
 )
 from runai.agents.scrub import scrub_text, scrub_url
+from runai.app import sanitize_state
+from runai.models import Kind
+from runai.providers import LiveRunner
 
 API = "https://agp.eu.hcompany.ai/api/v2"
 START = "https://race.example.org/"
@@ -127,6 +131,32 @@ def run(provider, task=None, **kwargs):
             return result
 
     return asyncio.run(execute()), emitted
+
+
+@pytest.mark.parametrize("url", [GOOGLE_FLIGHTS])
+def test_public_itinerary_ready_handoff_survives_all_passes(monkeypatch, url):
+    event = observation()
+    event["data"]["metadata"]["url"] = url
+    provider = Provider(answer={**ANSWER, "handoff_url": url}, events=[event])
+    task = {**TASK, "start_url": url, "fallback_url": url}
+    monkeypatch.setattr(registration_builder, "build_task", lambda trip: task)
+
+    async def execute():
+        async def emit(event):
+            pass
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(provider)) as client:
+            runner = HAgentRunner("test-api-key", base_url=API, client=client, poll_s=0)
+            monkeypatch.setattr("runai.agents.hclient.HAgentRunner", lambda: runner)
+            result = await LiveRunner().run(Kind.registration, {}, emit)
+            assert result.status == "ready_for_payment"
+            assert str(result.handoff_url) == url
+            for _ in range(2):
+                result = sanitize_state(result)
+                assert result.status == "ready_for_payment"
+                assert str(result.handoff_url) == url
+
+    asyncio.run(execute())
 
 
 @pytest.mark.parametrize("fields", [[], ["full_name"], ["email"]])

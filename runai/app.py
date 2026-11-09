@@ -119,16 +119,24 @@ def sanitize(value, key=""):
             return None
         parsed = urlsplit(url)
         segments = [unquote(segment) for segment in parsed.path.split("/")]
-        queries = [item for _, item in parse_qsl(parsed.query, keep_blank_values=True)]
+        queries = parse_qsl(parsed.query, keep_blank_values=True)
         try:
-            from runai.agents.scrub import _njuko_public_id
+            from runai.agents.scrub import (
+                _google_flights_token,
+                _njuko_public_id,
+                _omio_public_id,
+            )
 
             safe = all(_njuko_public_id(parsed.hostname, segments, index) or
+                       _omio_public_id(parsed.hostname, parsed.path, index) or
                        sanitize(item, "path_segment") == item
                        for index, item in enumerate(segments))
+            safe_query = all(_google_flights_token(parsed.hostname, parsed.path, name, item)
+                             or sanitize(item) == item for name, item in queries)
         except ImportError:
             safe = all(sanitize(item, "path_segment") == item for item in segments)
-        return url if safe and all(sanitize(item) == item for item in queries) else None
+            safe_query = all(sanitize(item) == item for _, item in queries)
+        return url if safe and safe_query else None
     parts = re.split(r"(\b\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)?\b)", value)
     if len(parts) > 1:
         return "".join(part if index % 2 else sanitize(part, key) for index, part in enumerate(parts))

@@ -8,10 +8,50 @@ import httpx
 import pytest
 from pydantic import ValidationError
 from test_api_guided import TRIP
+from test_scrub import GOOGLE_FLIGHTS, OMIO, OMIO_REDIRECT
 
-from runai.app import execution_trip, sanitize_state
+from runai.app import execution_trip, sanitize, sanitize_state
 from runai.models import Kind, StepResult
 from runai.providers import FIXTURE, FakeVoice, LiveRunner, LiveVoice, ReplayRunner
+
+
+@pytest.mark.parametrize("url", [OMIO, OMIO_REDIRECT, GOOGLE_FLIGHTS])
+def test_ready_public_handoff_projection_survives_sanitization(monkeypatch, url):
+    from runai.agents import hclient, transport
+
+    class Client:
+        async def run(self, task, on_event):
+            return {"status": "ready_for_payment", "summary": "Stopped safely",
+                    "handoff_url": url}
+
+    monkeypatch.setattr(transport, "build_task", lambda trip: {"fallback_url": url})
+    monkeypatch.setattr(hclient, "HAgentRunner", Client)
+
+    async def emit(event):
+        pass
+
+    result = asyncio.run(LiveRunner().run(Kind.transport, TRIP, emit))
+    assert result.status == "ready_for_payment"
+    for _ in range(2):
+        result = sanitize_state(result)
+        assert result.status == "ready_for_payment"
+        assert str(result.handoff_url) == url
+
+
+@pytest.mark.parametrize("url", [
+    OMIO.replace("www.omio.com", "example.org"),
+    OMIO.replace("/links/", "/private/"),
+    OMIO_REDIRECT.replace("/results/", "/private/"),
+    OMIO_REDIRECT.replace("/train?", "/taxi?"),
+    GOOGLE_FLIGHTS.replace("www.google.com", "example.org"),
+    GOOGLE_FLIGHTS.replace("/booking?", "/other?"),
+    GOOGLE_FLIGHTS.replace("tfs=", "other="),
+    GOOGLE_FLIGHTS.replace("tfs=CBwQAhoo", "tfs=" + "x" * 601),
+    OMIO + "&email=test.runner%40example.com",
+    GOOGLE_FLIGHTS + "&email=test.runner%40example.com",
+])
+def test_public_itinerary_sanitizer_exemptions_remain_narrow(url):
+    assert sanitize(url, "handoff_url") is None
 
 
 @pytest.mark.parametrize("reason,expected", [
