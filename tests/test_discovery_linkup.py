@@ -717,6 +717,32 @@ def test_cache_bounded_and_empty_results_not_cached(monkeypatch):
     asyncio.run(run())
 
 
+def test_injected_registration_providers_bypass_cached_access(monkeypatch):
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy", None)
+    calls = 0
+
+    def handler(request):
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json={"candidates": [race()]})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            default = await discover("same race", api_key=KEY, client=client)
+            assert default[0]["registration_access"] is None and calls == 2
+            for required in [True, False, True]:
+                def registry(url):
+                    return access(account_required=required)
+                result = await discover("same race", api_key=KEY, client=client,
+                                        registration_info=registry)
+                assert result[0]["registration_access"]["account_required"] is required
+            assert calls == 8
+            assert await discover("same race", api_key=KEY, client=client) == default
+            assert calls == 8
+
+    asyncio.run(run())
+
+
 def test_partial_query_failure_returns_sourced_results_without_caching():
     async def handler(request):
         if "Prioritize the organizers" in json.loads(request.content)["q"]:

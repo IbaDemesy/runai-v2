@@ -381,11 +381,12 @@ async def discover(
         if name in HINT_KEYS and isinstance(value, (str, int, float, bool))
     }
     safe_query = _data_text(query.replace(key, "[redacted]"))
+    cacheable = registration_info is None or registration_info is _site_registration_info
     cache_key = _cache_key(safe_query, constraints, today)
     now = monotonic()
     for expired in [k for k, (expires, _) in _cache.items() if expires <= now]:
         del _cache[expired]
-    if cache_key in _cache:
+    if cacheable and cache_key in _cache:
         _cache.move_to_end(cache_key)
         return copy.deepcopy(_cache[cache_key][1])
     search_terms = {}
@@ -463,7 +464,7 @@ async def discover(
                 url, registration_info or _site_registration_info
             )
         RaceOption.model_validate(candidate)
-    if candidates and not errors:
+    if cacheable and candidates and not errors:
         _cache[cache_key] = (monotonic() + CACHE_TTL_S, copy.deepcopy(candidates))
         _cache.move_to_end(cache_key)
         while len(_cache) > CACHE_MAX_SIZE:
