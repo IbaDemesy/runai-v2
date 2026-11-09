@@ -28,6 +28,23 @@ async def preparation_discovery(query, hints):
     ]
 
 
+@pytest.mark.parametrize("initial,defer", [("un semi", "tu choisis"),
+                                         ("a half marathon", "you choose")])
+def test_delegation_preserves_explicit_later_race(initial, defer):
+    async def discover(query, hints):
+        row = (await preparation_discovery(query, hints))[0]
+        return [row | {"id": "early", "name": "Early Half", "race_date": "2026-03-14"},
+                row | {"id": "late", "name": "Later Half", "race_date": "2026-04-14"}]
+
+    e = engine(discover)
+    state, turn = run(e.start(initial))
+    later = next(s for s in turn.suggestions if s.kind == "choose_race" and s.value == "late")
+    state, turn = run(e.step(state, {"suggestion_id": later.id}))
+    assert state.draft.race.id == "late"
+    state, turn = run(e.step(state, {"text": defer}))
+    assert state.draft.race.id == "late" and turn.ready_to_confirm
+
+
 @pytest.mark.parametrize("text,delegation,label", [
     ("un semi", "tu me conseilles", "Autre distance"),
     ("a half marathon", "you choose", "Another distance"),

@@ -1248,12 +1248,12 @@ class GuideEngine:
             suitable.sort(key=lambda r: bool(r.registration_access and (
                 r.registration_access.account_required is True or r.registration_access.captcha is True
             )))
-        if state.draft.race:
-            suitable.sort(key=lambda r: r.id != state.draft.race.id)
         self._prepare_candidates(state)
         suitable.sort(key=lambda r: self._preparation_rank(state, r))
         suitable.sort(key=lambda r: (not (r.race_date and 0 <= (r.race_date - self.today).days <= 300),
                                      r.race_date or date.max))
+        if state.draft.race:
+            suitable.sort(key=lambda r: r.id != state.draft.race.id)
         if not suitable:
             if not allow_search:
                 return self._turn(state, self._say(
