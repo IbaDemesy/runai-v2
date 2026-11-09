@@ -2,6 +2,102 @@
  "schema_version": 1,
  "entries": [
   {
+   "id": "mitjamarato-barcelona",
+   "name": "Hyundai Mitja Marato Barcelona by Brooks organizer",
+   "purposes": ["registration"],
+   "scopes": [
+    {"host": "mitjamarato.barcelona", "path_prefix": "/"},
+    {"host": "www.mitjamarato.barcelona", "path_prefix": "/"}
+   ],
+   "terms_urls": ["https://www.mitjamarato.barcelona/avis-legal/"],
+   "reviewed_at": "2026-11-09",
+   "expires_at": "2027-02-07",
+   "reviewed_sections": "Avis Legal: identification, intellectual property, links, unauthorized use, liability, privacy, jurisdiction (full text)",
+   "justification": "Registration-purpose denial reviewed 2026-11-09: the organizer notice has no express automation ban, but its registration flow necessarily leads to prohibited RockTheSport, whose terms prohibit 'La extracción y uso de elementos del sitio causando o no un perjuicio cualquiera a Nuonet'. Deny starting registration on the organizer as well, including when no registration_url is supplied; no safe mid-navigation enforcement is available. rpmsports.es corporate terms could not be fetched (403/timeout), so that host is not added.",
+   "automation": "prohibited",
+   "screenshot_scope": "none",
+   "navigation_hosts": [],
+   "registration_observations": [{
+    "host": "www.mitjamarato.barcelona", "path_prefix": "/",
+    "account_required": null, "captcha": null,
+    "source": "https://www.mitjamarato.barcelona/", "observed_at": "2026-11-09",
+    "note": "14 February 2027; Dorsals esgotats. RockTheSport branded inscripciones.rpmsports.es event page also says Inscripciones agotadas. Registration denied by platform policy; no adapter."
+   }],
+   "adapters": []
+  },
+  {
+   "id": "rpmsports-rockthesport-registration",
+   "name": "RPM Sports RockTheSport registration service",
+   "purposes": ["registration"],
+   "scopes": [{"host": "inscripciones.rpmsports.es", "path_prefix": "/"}],
+   "terms_urls": ["https://web.rockthesport.com/es/documentation/legal-notice"],
+   "reviewed_at": "2026-11-09",
+   "expires_at": "2027-02-07",
+   "reviewed_sections": "RockTheSport Aviso legal: intellectual property / prohibited extraction; RPM event landing page platform identity",
+   "justification": "The RPM registration event identifies itself as RockTheSport. Platform legal notice expressly prohibits: 'La extracción y uso de elementos del sitio causando o no un perjuicio cualquiera a Nuonet'. Same prohibition as existing rockthesport-com; no conflicting decision or allowed adapter.",
+   "automation": "prohibited",
+   "screenshot_scope": "none",
+   "navigation_hosts": [],
+   "registration_observations": [{
+    "host": "inscripciones.rpmsports.es", "path_prefix": "/es/evento/hyundai-mitja-marato-barcelona-by-brooks-2027",
+    "account_required": null, "captcha": null,
+    "source": "https://inscripciones.rpmsports.es/es/evento/hyundai-mitja-marato-barcelona-by-brooks-2027",
+    "observed_at": "2026-11-09",
+    "note": "Anonymous GET: RockTheSport title, 14/02/2027 and Inscripciones agotadas. Hidden modal text also contains generic event-ended copy, not evidence the 2027 event occurred. No form interaction."
+   }],
+   "adapters": []
+  },
+  {
+   "id": "irontrail-ch",
+   "name": "Swiss Irontrail organizer (registration platform Datasport denied)",
+   "purposes": ["registration"],
+   "scopes": [{"host": "irontrail.ch", "path_prefix": "/"}, {"host": "www.irontrail.ch", "path_prefix": "/"}],
+   "terms_urls": ["https://www.irontrail.ch/", "https://www.irontrail.ch/rennen-info/anmeldung", "https://www.datasport.com/en/terms-and-conditions/"],
+   "reviewed_at": "2026-11-09",
+   "expires_at": "2027-02-07",
+   "reviewed_sections": "Embedded legal/privacy notice: Wichtige rechtliche Hinweise, Copyright und Markenrechte; Anmeldung; Datasport athlete terms automated-procedure clause",
+   "justification": "Registration-purpose denial reviewed 2026-11-09: organizer notice has no express automation ban, but Anmeldung delegates the entire registration procedure to prohibited Datasport and applies its AGB. Datasport prohibits: 'no crawlers, search robots or other automated procedures may be used in order to review the data stored on myDatasport'. Preserve the existing base denial including onreg.datasport.com. Deny starting registration on the organizer even without registration_url, because no safe mid-navigation enforcement is available; no platform override or adapter.",
+   "automation": "prohibited",
+   "screenshot_scope": "none",
+   "navigation_hosts": [],
+   "registration_observations": [{
+    "host": "www.irontrail.ch", "path_prefix": "/rennen-info/anmeldung",
+    "account_required": null, "captcha": null,
+    "source": "https://www.irontrail.ch/rennen-info/anmeldung", "observed_at": "2026-11-09",
+    "note": "14-15 August 2027; organizer links https://onreg.datasport.com/de/swiss-irontrail-2027. Registration status unknown: platform denied, not traversed. No evidence for mikatiming. T78 78 km, T55 55 km, T22 21.6 km, T20 20.2 km; individual start dates not verified."
+   }],
+   "adapters": []
+  },
+  {
+   "id": "nncpcloopdenhaag-nl",
+   "name": "NN CPC Loop Den Haag organizer",
+   "purposes": ["registration"],
+   "scopes": [{"host": "nncpcloopdenhaag.nl", "path_prefix": "/"}, {"host": "www.nncpcloopdenhaag.nl", "path_prefix": "/"}],
+   "terms_urls": ["https://nncpcloopdenhaag.nl/wp-content/uploads/sites/50/2026/09/Algemene-voorwaarden-NN-CPC-Loop-den-Haag-2027-Individueel.pdf", "https://www.golazo.com/privacy-policies/golazo-the-netherlands/", "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566"],
+   "reviewed_at": "2026-11-09",
+   "expires_at": "2027-02-07",
+   "reviewed_sections": "2027 individual general terms all four pages, Articles 1-7; Golazo Netherlands privacy; organizer footer; Njuko event footer CGU",
+   "justification": "No express bots, scraping or automated-extraction prohibition in individual terms or privacy text. Event Njuko footer CGU modal contains only '....', no additional substantive clause; shared Njuko platform is allowed by existing base review, not a new host authorization. Read-only by owner rule: no forms, accounts, consent or payment; screenshots in-session only. Unlike Rotterdam pre-registration, no automated-multiple-entry clause in this event's reviewed individual terms. Half marathon is sold out.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": ["in.njuko.com"],
+   "registration_observations": [{
+    "host": "in.njuko.com", "path_prefix": "/nn-cpc-loop-den-haag-20261784205635566",
+    "account_required": null, "captcha": false,
+    "source": "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566", "observed_at": "2026-11-09",
+    "note": "Chrome: event title 2027 and 14-03-2027 despite 2026 in slug; NN Halve Marathon EUR 49.50, uitverkocht; 10/5 km have INSCHRIJVEN buttons. Declined cookies (Nee), no login or captcha on selection page. Sold-out half prevents personal-data-page verification; no other race selected."
+   }],
+   "adapters": [{
+    "kind": "registration",
+    "race_match": {"name_patterns": ["(?=.*\\b2027\\b).*(?:nn\\s+cpc|cpc\\s+loop|den\\s+haag\\s+half|hague\\s+half)"], "countries": ["NL"]},
+    "url_template": "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566",
+    "success_evidence": "NN CPC Loop Den Haag 2027, 14 March 2027: select only the confirmed race distance if publicly available, stop untouched at the first participant information page. Do not interpret 5/10 km inventory as half-marathon availability.",
+    "blocked_evidence": "Half marathon observed uitverkocht (sold_out). Also block on closed, not open, waiting list, login, captcha, mandatory consent, unreviewed redirect, or date/distance mismatch. The URL slug contains 2026; visible edition and date must both match 2027.",
+    "platform_hosts": ["in.njuko.com"],
+    "availability": {"status": "sold_out", "distances_km": [21, 21.0975, 21.1], "observed_at": "2026-11-09", "source": "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566", "note": "NN Halve Marathon, 14-03-2027, EUR 49.50: uitverkocht. Applies to half marathon only, not shorter races."}
+   }]
+  },
+  {
    "id": "milanomarathon-it",
    "name": "Wizz Air Milano Marathon organizer (milanomarathon.it)",
    "purposes": [
@@ -59,7 +155,13 @@
      "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition.",
      "platform_hosts": [
       "in.njuko.com"
-     ]
+     ],
+     "availability": {
+      "status": "open",
+      "observed_at": "2026-11-09",
+      "source": "https://in.njuko.com/wizz-air-milano-marathon-20271776152378557",
+      "note": "Chrome: 04/04/2027, two entry categories at EUR 114. Declined cookies; selected the foreign non-competitive category using its public registration button and reached the blank participant form without login or captcha. No data entered or form submitted. Some qualification guidance still mentions 2026; verify edition again at runtime."
+     }
     }
    ]
   },
@@ -126,7 +228,13 @@
      "url_template": "https://meia-maratona.inscricoes.maratonaportugal.com/default.aspx?prova_id=3769",
      "success_evidence": "Registration page for EDP Meia Maratona de Lisboa 2027 (7 March 2027), 21 km selected; the next page is the participant data form (left untouched).",
      "blocked_evidence": "Registration closed / not yet open / sold out (esgotada, agotadas, ausverkauft, sold out), waiting list or lottery only, login or account wall, captcha, consent required first, or another edition. Observed 2026-11-08: Esgotada with a waiting-list form (report sold_out).",
-     "platform_hosts": []
+     "platform_hosts": [],
+     "availability": {
+      "status": "sold_out",
+      "observed_at": "2026-11-08",
+      "source": "https://meia-maratona.inscricoes.maratonaportugal.com/default.aspx?prova_id=3769",
+      "note": "Existing anonymous observation: Esgotada; redirected to waitinglist.aspx. Waiting-list availability is not a race entry."
+     }
     }
    ]
   },

@@ -7,11 +7,11 @@ import pytest
 from test_site_policy import TODAY, registration_entry, registry
 
 from runai.agents import site_policy
-from runai.agents.registration import build_task, policy_view
+from runai.agents.registration import build_task, policy_view, registration_coverage
 from runai.agents.site_policy import evaluate_url
 
 KEYS = {"kind", "site_name", "start_url", "instructions", "stop_before", "success_signal",
-        "fallback_url", "max_steps", "expected", "allowed_hosts"}
+        "fallback_url", "max_steps", "expected", "allowed_hosts", "alternatives"}
 
 
 def _trip(**race):
@@ -396,3 +396,214 @@ def test_malformed_registry_entries_fail_closed_as_value_error(bad):
                       "https://www.milanomarathon.it/")
     with pytest.raises(ValueError, match="registry"):
         build_task(trip, today=MERGED_TODAY, registry=reg)
+
+
+def _with_availability(**availability):
+    organizer = _organizer()
+    organizer["adapters"][0]["availability"] = {
+        "status": "open", "observed_at": "2026-11-08",
+        "source": "https://in.njuko.com/example-marathon-2027", "note": "Open.", **availability}
+    return registry(organizer, _njuko())
+
+
+def _coverage(race=None, reg=None, today=TODAY):
+    race = _trip(registration_url=None)["race"] if race is None else race
+    return registration_coverage(race, today=today, registry=reg)
+
+
+def test_coverage_reports_fresh_open_availability():
+    assert _coverage(reg=_with_availability()) == {
+        "covered": True, "status": "open", "policy_id": "njuko-platform",
+        "observed_at": "2026-11-08", "prohibited": False}
+
+
+@pytest.mark.parametrize(("observed", "status"), [
+    ("2026-10-01", "unknown"), ("2027-01-01", "unknown"), ("2026-10-19", "open"),
+])
+def test_coverage_availability_older_than_21_days_is_unknown(observed, status):
+    result = _coverage(reg=_with_availability(observed_at=observed), today=date(2026, 11, 9))
+    assert result["covered"] is True
+    assert result["status"] == status
+
+
+def test_coverage_without_adapter_or_observation_is_unknown():
+    result = _coverage(_trip()["race"], reg=registry())
+    assert result["covered"] is True and result["status"] == "unknown"
+    assert result["observed_at"] is None
+
+
+@pytest.mark.parametrize("status", ["sold_out", "closed"])
+def test_sold_out_or_closed_still_builds_with_reason_first(status):
+    task = build(_trip(registration_url=None), _with_availability(status=status))
+    code = "sold_out" if status == "sold_out" else "registration_closed"
+    first = task["instructions"].splitlines()[0]
+    assert first.startswith("AVAILABILITY FIRST") and "first 5 steps" in first
+    assert f"BLOCKED {code}" in first
+    assert _coverage(reg=_with_availability(status=status))["status"] == status
+
+
+def test_open_availability_adds_no_reason_first():
+    task = build(_trip(registration_url=None), _with_availability())
+    assert task["instructions"].startswith("Goal:")
+
+
+@pytest.mark.parametrize("bad", [
+    {"status": "maybe"}, {"status": None}, {"observed_at": "yesterday"}, {"observed_at": 20261108},
+    {"source": "http://in.njuko.com/x"}, {"source": None}, {"note": 5},
+])
+def test_malformed_availability_fails_closed(bad):
+    reg = _with_availability(**bad)
+    with pytest.raises(ValueError, match="registry"):
+        build(_trip(registration_url=None), reg)
+    assert _coverage(reg=reg)["covered"] is False
+
+
+def test_malformed_availability_object_fails_closed():
+    organizer = _organizer()
+    organizer["adapters"][0]["availability"] = "open"
+    assert _coverage(reg=registry(organizer, _njuko()))["covered"] is False
+
+
+def test_platform_adapter_with_organizer_path_lists_alternatives():
+    task = build(_trip(), registry(_organizer(), _njuko()))
+    assert task["start_url"].startswith("https://in.njuko.com/example-marathon-2027?d=")
+    assert task["alternatives"] == ["https://in.njuko.com/example-marathon-2027",
+                                    "https://www.example-marathon.test/"]
+    assert "https://www.example-marathon.test/" in task["instructions"]
+    for url in task["alternatives"]:
+        assert evaluate_url(url, "registration", today=TODAY,
+                            registry=registry(_organizer(), _njuko()))["allowed"]
+
+
+def test_no_adapter_means_no_alternatives():
+    assert build(_trip())["alternatives"] == []
+
+
+UNCOVERED = {"covered": False, "status": "unknown", "policy_id": None, "observed_at": None,
+             "prohibited": False}
+
+
+@pytest.mark.parametrize("race", [
+    None, {}, [], "race", {"race_date": "not-a-date"}, {"race_date": None},
+    {**_trip()["race"], "race_date": "2026-01-01"}, {**_trip()["race"], "distance_km": None},
+    {**_trip()["race"], "registration_url": 5},
+])
+def test_coverage_never_raises_on_malformed_race(race):
+    assert registration_coverage(race, today=TODAY, registry=registry()) == UNCOVERED
+
+
+@pytest.mark.parametrize("reg", [{"entries": "x"}, {"schema_version": 1, "entries": [1]}, 5])
+def test_coverage_never_raises_on_malformed_registry(reg):
+    assert _coverage(_trip()["race"], reg=reg) == UNCOVERED
+
+
+def test_coverage_bad_today_uses_current_date():
+    result = registration_coverage(_trip()["race"], today="2026-11-09", registry=registry())
+    assert set(result) == set(UNCOVERED)
+
+
+MILAN = ("Wizz Air Milano Marathon 2027", "2027-04-04", 42.195, "Milano", "Italy",
+         "https://www.milanomarathon.it/")
+LISBON_HALF = ("EDP Meia Maratona de Lisboa 2027", "2027-03-07", 21.0975, "Lisboa", "Portugal",
+               "https://maratonaclubedeportugal.com/corrida-marco/edp-meia-maratona-de-lisboa/")
+BARCELONA_HALF = (
+    "Mitja Marató Barcelona 2027", "2027-02-14", 21.0975, "Barcelona", "Spain",
+    "https://www.mitjamarato.barcelona/",
+    "https://inscripciones.rpmsports.es/es/evento/hyundai-mitja-marato-barcelona-by-brooks-2027")
+IRONTRAIL = ("Swiss Irontrail 2027 T78", "2027-08-14", 78.0, "Davos", "Switzerland",
+             "https://www.irontrail.ch/", "https://onreg.datasport.com/de/swiss-irontrail-2027")
+DEN_HAAG = ("NN CPC Loop Den Haag 2027", "2027-03-14", 21.1, "Den Haag", "Netherlands",
+            "https://nncpcloopdenhaag.nl/")
+VALENCIA_10K = ("10K Valencia Ibercaja", "2027-01-10", 10.0, "Valencia", "Spain",
+                "https://10kvalencia.com/", "https://registration.10kvalencia.com/inscripcion/x/")
+
+
+def _merged_coverage(race):
+    return registration_coverage(_race_trip(*race)["race"], today=MERGED_TODAY,
+                                 registry=_merged())
+
+
+def test_merged_coverage_milan_open():
+    result = _merged_coverage(MILAN)
+    assert result["covered"] is True and result["status"] == "open"
+    assert result["prohibited"] is False and result["observed_at"] == "2026-11-09"
+
+
+def test_merged_coverage_lisbon_half_sold_out_still_builds():
+    assert _merged_coverage(LISBON_HALF)["covered"] is True
+    assert _merged_coverage(LISBON_HALF)["status"] == "sold_out"
+    task = build_task(_race_trip(*LISBON_HALF), today=MERGED_TODAY, registry=_merged())
+    assert task["instructions"].startswith("AVAILABILITY FIRST")
+    assert "BLOCKED sold_out" in task["instructions"].splitlines()[0]
+
+
+@pytest.mark.parametrize("race", [VALENCIA_10K, BARCELONA_HALF, IRONTRAIL])
+def test_merged_coverage_prohibited_registration_is_not_covered(race):
+    result = _merged_coverage(race)
+    assert result["covered"] is False and result["prohibited"] is True
+    assert result["policy_id"] and result["status"] == "unknown"
+    with pytest.raises(ValueError, match="not policy-reviewed"):
+        build_task(_race_trip(*race), today=MERGED_TODAY, registry=_merged())
+
+
+@pytest.mark.parametrize("race", [BARCELONA_HALF, IRONTRAIL])
+@pytest.mark.parametrize("registration_url", [None, "", "https://in.njuko.com/example-2027"])
+def test_prohibited_registration_flow_cannot_start_on_organizer(race, registration_url):
+    trip = _race_trip(*race)
+    trip["race"]["registration_url"] = registration_url
+    coverage = registration_coverage(trip["race"], today=MERGED_TODAY, registry=_merged())
+    assert coverage["covered"] is False
+    assert coverage["prohibited"] is True
+    assert coverage["policy_id"] in {"mitjamarato-barcelona", "irontrail-ch"}
+    with pytest.raises(ValueError, match="denied"):
+        build_task(trip, today=MERGED_TODAY, registry=_merged())
+
+
+def test_merged_den_haag_builds_on_reviewed_njuko_with_sold_out_first():
+    reg = _merged()
+    task = build_task(_race_trip(*DEN_HAAG), today=MERGED_TODAY, registry=reg)
+    assert task["start_url"].startswith("https://in.njuko.com/nn-cpc-loop-den-haag-")
+    assert task["instructions"].startswith("AVAILABILITY FIRST")
+    assert "https://nncpcloopdenhaag.nl/" in task["alternatives"]
+    assert _merged_coverage(DEN_HAAG)["status"] == "sold_out"
+
+
+@pytest.mark.parametrize("distance", [5, 10, 21, 21.0975, 21.1])
+def test_den_haag_availability_is_scoped_to_half_marathon(distance):
+    trip = _race_trip(*DEN_HAAG)
+    trip["race"]["distance_km"] = distance
+    trip["race"]["distance_label"] = f"{distance} km"
+    coverage = registration_coverage(trip["race"], today=MERGED_TODAY, registry=_merged())
+    half = distance in (21, 21.0975, 21.1)
+    assert coverage["covered"] is True
+    assert coverage["prohibited"] is False
+    assert coverage["status"] == ("sold_out" if half else "unknown")
+    assert coverage["observed_at"] == ("2026-11-09" if half else None)
+    task = build_task(trip, today=MERGED_TODAY, registry=_merged())
+    assert task["instructions"].startswith("AVAILABILITY FIRST") is half
+
+
+@pytest.mark.parametrize("distances", [None, [], "21.1", [True], [0], [-1], [float("inf")]])
+def test_malformed_availability_distance_scope_fails_closed(distances):
+    reg = _with_availability()
+    reg["entries"][0]["adapters"][0]["availability"]["distances_km"] = distances
+    assert _coverage(reg=reg)["covered"] is False
+    with pytest.raises(ValueError, match="registry unavailable or invalid"):
+        build(_trip(), reg)
+
+
+def test_merged_coverage_unknown_race():
+    race = ("Unknown Hill Race", "2027-05-01", 10.0, "Bern", "Switzerland",
+            "https://hill-race.example/")
+    assert _merged_coverage(race) == UNCOVERED
+
+
+def test_merged_every_start_and_alternative_url_passes_policy():
+    reg = _merged()
+    view = policy_view(reg)[0]
+    for race in [MILAN, LISBON_HALF, DEN_HAAG] + [r for r, _, _ in SHOWCASE]:
+        task = build_task(_race_trip(*race), today=MERGED_TODAY, registry=reg)
+        for url in [task["start_url"], *task["alternatives"]]:
+            assert evaluate_url(url, "registration", today=MERGED_TODAY,
+                                registry=view)["allowed"], url
+        assert _merged_coverage(race)["covered"] is True

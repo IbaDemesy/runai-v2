@@ -1,5 +1,100 @@
 # Registration path evidence (R2-02, supersedes R1-05 "assumed" claims)
 
+## R4-03 live H registration smokes — 2026-11-09 (UTC 01:32–01:48)
+
+Harness: `runai.agents.registration.build_task` on the committed registry, then
+`runai.agents.hclient.HAgentRunner().run(task)` with `HAI_API_KEY` from the environment, agents
+in parallel. Pending the R4-01 hclient fallback gate fix, the harness (not product code) set
+`fallback_url = start_url`; without it Milan/Geneva/Den Haag are blocked `policy_denied`
+before any H session. Read-only: no data typed, no form submitted, no payment. Only status,
+reason code, step count and scrubbed final URLs are recorded; no H frames or private session
+URLs are committed.
+
+| batch | race | start_url | result / reason_code | steps | actual stop (final URL) |
+|---|---|---|---|---|---|
+| 1 | Wizz Air Milano Marathon 2027 | https://in.njuko.com/wizz-air-milano-marathon-20271776152378557 | failed / session_failed | 9 | `...?currentPage=form_individual-form`: the Njuko participant form (first personal-data page) was reached; the H session then failed before a verified READY answer, so no success is claimed. |
+| 1 | Zurich Maratón de Sevilla 2027 | https://www.zurichmaratonsevilla.es/zms-inscripciones | failed / timeout | 31 | still on `zms-inscripciones`; organizer → Njuko step not reached. |
+| 1, 2 | Generali Genève Marathon 2027 | https://in.njuko.com/generali-geneve-marathon-2027-1782304695994 | failed / provider_error (0 H steps, twice) | 0 | none: `scrub_url` rejects the `-2027-1782304695994` path segment as phone-like, so hclient refuses the start URL before a session (hclient/scrub scope, not fixed here). |
+| 1, 2 | NN CPC Loop Den Haag 2027 (widget URL) | https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566/w/6a58d147a44b09c924dbb429 | failed / provider_error (0 H steps) | 0 | none: `scrub_url` rejects the opaque hex `/w/` segment; adapter moved to the event root URL. |
+| 3 | NN CPC Loop Den Haag 2027 (root URL) | https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566 | failed / step_limit | 12 | `...?currentPage=select-competition`: race list (half marathon observed sold out); no sold_out verdict returned before the limit. |
+| 3 | Jungfrau-Marathon 2027 | https://www.jungfrau-marathon.ch/de/anmeldung.html | failed / session_failed | 3 | `de/anmeldung.html` (2027 registration not open per observation). |
+
+Honest outcome: 0 verified READY stops. Milan reached the first personal-data page untouched.
+Blockers for the next round: H `session_failed`/timeouts, hclient `scrub_url` rejecting real
+Njuko event URLs (Geneva, Den Haag widget) and the R4-01 fallback gate.
+
+## R4-03 reviews and availability observations — 2026-11-09
+
+These rows supersede older unknown/status claims below for the named races only.
+New reviews expire 2027-02-07 (90 days). Anonymous GET/curl and Chrome only;
+cookie banners rejected, no login, account creation, consent acceptance, data entry
+or form submission. No H run or pre-payment success is claimed. Existing Valencia,
+Barcelona marathon, Paris and Rotterdam denials are unchanged. Adapter identifiers
+below are policy entry IDs plus distance (the adapter schema has no separate ID).
+
+| id | decision | terms URL(s) | reviewed sections | reason / clause | registration observation |
+|---|---|---|---|---|---|
+| `mitjamarato-barcelona` | prohibited for registration, including organizer fallback | https://www.mitjamarato.barcelona/avis-legal/<br>https://web.rockthesport.com/es/documentation/legal-notice | Full organizer Avis Legal: identification, IP, unauthorized use, liability, privacy, jurisdiction; platform extraction paragraph | Organizer has general domestic-use/copyright/load restrictions, not an express automation ban. Platform expressly prohibits “La extracción y uso de elementos del sitio causando o no un perjuicio cualquiera a Nuonet”. | Organizer says “Dorsals esgotats”, 14 February 2027. Anonymous platform GET identifies RockTheSport and says “Inscripciones agotadas”. No adapter: platform denied. Corporate https://www.rpmsports.es/ returned 403; /aviso-legal/ timed out, so corporate host remains unknown. |
+| `rpmsports-rockthesport-registration` | prohibited | https://web.rockthesport.com/es/documentation/legal-notice | RockTheSport IP / prohibited extraction; RPM event platform identity | Same extraction clause above; scopes only inscripciones.rpmsports.es, not a conflicting allowance on rockthesport.com. | https://inscripciones.rpmsports.es/es/evento/hyundai-mitja-marato-barcelona-by-brooks-2027 shows 14/02/2027 and sold out. Hidden generic “event ended” modal copy is not reliable edition status. |
+| `irontrail-ch` | prohibited for registration, including organizer fallback (Datasport denied) | https://www.irontrail.ch/<br>https://www.irontrail.ch/rennen-info/anmeldung<br>https://www.datasport.com/en/terms-and-conditions/ | Embedded legal/privacy notice including Copyright und Markenrechte; Anmeldung; Datasport athlete automated-procedure clause | Organizer has no express automation clause. Anmeldung explicitly delegates the entire registration process to Datasport and applies its AGB. Datasport: “no crawlers, search robots or other automated procedures may be used in order to review the data stored on myDatasport”. This clause names myDatasport; the existing broader base denial is preserved, not reinterpreted as an allowance for onreg. | Organizer links https://onreg.datasport.com/de/swiss-irontrail-2027; no Mikati​ming link observed. Platform not traversed: availability, login/captcha and first personal-data page unknown. Dates 14–15 August 2027, T78 78 km / T55 55 km / T22 21.6 km / T20 20.2 km. Individual start dates unverified; no adapter. |
+| `nncpcloopdenhaag-nl` | allowed_owner_rule | https://nncpcloopdenhaag.nl/wp-content/uploads/sites/50/2026/09/Algemene-voorwaarden-NN-CPC-Loop-den-Haag-2027-Individueel.pdf<br>https://www.golazo.com/privacy-policies/golazo-the-netherlands/<br>https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566 | Full individual terms, four pages, Articles 1–7 (participation, liability, portrait/privacy, disputes); privacy; event footer CGU | No express automation/extraction/bot clause in individual terms. Unlike Rotterdam, no automated multiple-entry clause. Njuko CGU modal only displays “....”; shared platform authorization comes from existing base Njuko review, not invented event-specific terms. PDF initially returned browser-check HTML; later curl returned PDF and web content extraction returned all four pages. | Chrome: heading “NN CPC Loop Den Haag 2027”, 14-03-2027; NN Halve Marathon €49.50 “uitverkocht”. No login/captcha before selection; rejected cookies using Nee. Half sold out, so first personal-data page not reachable/verified. Adapter `nncpcloopdenhaag-nl` uses the exact Njuko URL in this row; slug has 2026 but visible edition is 2027. Availability sold_out, 2026-11-09, half only. |
+| Descobrimentos half | unknown → blocked, no allowed entry or adapter | https://meiamaratonadosdescobrimentos.com/<br>https://meiamaratonadosdescobrimentos.com/informacoes/<br>https://login.plataformaxistarca.pt | Organizer landing/information/footer; platform anonymous landing | No retrievable substantive terms/regulations link found: “REGULAMENTO 2026” is not a linked document in fetched HTML. Registration platform exposes login, account creation and recovery only, no public terms. Cannot authorize organizer/platform from missing terms. | Official date 29 November 2026, 21 km (not a verified 2027 edition). Registration link leads to login wall before participant details. Availability unknown: pricing schedule alone does not prove inventory. No login attempted. |
+| Lisbon October marathon 2027 | existing organizer/own-platform allowance unchanged; no new adapter (edition/deep link unverified) | https://maratonaclubedeportugal.com/maratona-de-lisboa/<br>https://maratonaclubedeportugal.com/prova/edp-maratona-de-lisboa-2026/<br>https://rnr.inscricoes.maratonaportugal.com/ | Existing scoped organizer registration pages and own registration landing | Main page title claims 2027 marathon entries open but its actual body is the 7 March half; the marathon-specific published page is still 2026. /prova/edp-maratona-de-lisboa-2027/ returns 404. Do not convert a misleading page title into a 2027 adapter. | Own rnr landing says unavailable/sold out but names EDP Meia/Vodafone/Luso, not a verified 2027 marathon. Availability unknown for October marathon. External course source https://running-portugal.com/lisbon/marathon/en/course.html lists 9 October 2027 marathon, while other listings say 10 October; that host is not reviewed and its registration page still advertises 2026. Exact 2027 date/deep link remains unverified. |
+| `milanomarathon-it` existing adapter | allowed_owner_rule unchanged | https://in.njuko.com/wizz-air-milano-marathon-20271776152378557 | Existing reviewed event; availability recheck only | No new policy scope/terms decision. | Chrome: 04/04/2027, two entry categories €114. Rejected cookies; public S'INSCRIRE on foreign non-competitive category reached blank first participant-information page, no login/captcha. Left untouched, never pressed Next. Availability open, 2026-11-09. Some qualifying-time guidance mentions 2026: runtime must verify edition/date again. |
+| `maratonaclubedeportugal-com` existing EDP half adapter | allowed_owner_rule unchanged | https://meia-maratona.inscricoes.maratonaportugal.com/default.aspx?prova_id=3769 | Existing observation retained, not re-dated | No new terms decision. | Availability sold_out observed 2026-11-08: Esgotada, waitinglist.aspx. Organizer recheck 2026-11-09 still shows Waiting list. |
+
+Chrome root-URL recheck (2026-11-09): opening https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566 renders the 2027 event dated 14-03-2027, half marathon uitverkocht, 10/5 km INSCHRIJVEN, no login/captcha. Cookies had already been rejected; no forms touched. Important: Njuko navigation changes the address to the original widget URL https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566/w/6a58d147a44b09c924dbb429?currentPage=select-competition. The adapter now starts at the root, but a live runtime that rejects that eventual widget URL may still block; root navigation is not proof that the scrubber issue is solved.
+
+### Test source records (only verified dates; not invented 2027 alternatives)
+
+```json
+[
+ {"name":"Mitja Marató Barcelona 2027","country":"ES","race_date":"2027-02-14","distance_km":21.0975,"official_url":"https://www.mitjamarato.barcelona/","registration_url":"https://inscripciones.rpmsports.es/es/evento/hyundai-mitja-marato-barcelona-by-brooks-2027"},
+ {"name":"NN CPC Loop Den Haag 2027","country":"NL","race_date":"2027-03-14","distance_km":21.1,"official_url":"https://nncpcloopdenhaag.nl/","registration_url":"https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566"},
+ {"name":"Meia Maratona dos Descobrimentos 2026","country":"PT","race_date":"2026-11-29","distance_km":21,"official_url":"https://meiamaratonadosdescobrimentos.com/","registration_url":"https://login.plataformaxistarca.pt"},
+ {"name":"Wizz Air Milano Marathon 2027","country":"IT","race_date":"2027-04-04","distance_km":42.195,"official_url":"https://www.milanomarathon.it/","registration_url":"https://in.njuko.com/wizz-air-milano-marathon-20271776152378557"},
+ {"name":"EDP Meia Maratona de Lisboa 2027","country":"PT","race_date":"2027-03-07","distance_km":21,"official_url":"https://maratonaclubedeportugal.com/","registration_url":"https://meia-maratona.inscricoes.maratonaportugal.com/default.aspx?prova_id=3769"}
+]
+```
+
+Swiss Irontrail 2027 T78: country CH, distance_km 78, official_url
+https://www.irontrail.ch/, registration_url https://onreg.datasport.com/de/swiss-irontrail-2027.
+Do not supply a made-up race_date: only the weekend 2027-08-14/15 was verified.
+Lisbon October 2027: no source record with a confirmed exact date or registration URL.
+Best-effort additional cities were time-boxed out; existing Madrid, Zurich and Lausanne
+blocker notes below remain unchanged. No Hamburg/Munich/Eindhoven/Turin/Malaga review claimed.
+
+### Scoped checks
+
+PR #30 safety follow-up: Barcelona half and Irontrail organizer entries are now
+prohibited for the registration purpose, not merely their platforms. No organizer-only
+start is permitted. Both sourced URLs are checked before choosing an adapter, so an
+allowed platform URL cannot override a denied official organizer. CPC availability now
+has an explicit `distances_km: [21, 21.0975, 21.1]` scope: half-marathon coverage remains
+sold_out, while 5/10 km remain covered with unknown status and no AVAILABILITY FIRST
+instruction. Missing scope retains existing behavior; malformed/empty scopes fail closed.
+
+```text
+$ uv run ruff check . && uv run pytest -q
+All checks passed!
+1166 passed, 1 warning in 7.01s
+```
+
+`uv run python -c "import json;json.load(open('docs/site-policy.d/registration.json'))" && uv run pytest -q tests/test_site_policy.py tests/test_agent_registration.py 2>&1 | tail -5`
+
+```text
+........................................................................ [ 34%]
+........................................................................ [ 68%]
+...................................................................      [100%]
+211 passed in 0.52s
+```
+
+Initial run caught the new prohibited RPM entry's screenshot_scope set to
+in_session_only instead of none; corrected the entry, then obtained the output above.
+Concurrent registration builder/test edits are not authored by this research step.
+`git diff --check` produced no output. No pre-commit configuration found.
+
+
 Dated 2026-11-08. Terms reviews: see `docs/evidence/site-policy.md` and `docs/site-policy.json`.
 Observations come from R1-05's public anonymous fetches (2026-11-08, no forms, no login).
 **No live H registration run has been made in R2-02**: live smokes wait for the R2-03 no-share runtime.
