@@ -634,10 +634,15 @@ class GuideEngine:
                 except Exception:  # noqa: BLE001 -- optional alternatives must not discard initial results
                     state.candidates = []
                 official = [r for r in state.candidates if self._eligible(r)]
-                if official:
-                    broadened = "months" if hints.get("months") else "criteria"
                 state.candidates = official + [r for r in original_candidates
                                                if r.id not in {a.id for a in official}]
+                if official:
+                    months = hints.get("months")
+                    if not months:
+                        broadened = "criteria"
+                    elif not any(r.race_date and r.race_date.strftime("%Y-%m") in months
+                                 for r in state.candidates):
+                        broadened = "months"
             if (not state.candidates and not flags["past"] and not flags["unsafe"]
                     and not state.hints.get("exact_date") and not hints.get("retry_count")):
                 broad = {key: value for key, value in hints.items()

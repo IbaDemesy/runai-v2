@@ -1088,6 +1088,22 @@ def test_initial_origin_and_country_reach_discovery():
     assert "city" not in calls[0][1]
 
 
+@pytest.mark.parametrize("official_date,in_season", [
+    ("2027-04-10", True), ("2027-10-10", False),
+])
+def test_named_official_lookup_reports_actual_season_match(official_date, in_season):
+    async def discover(query, hints):
+        return [{"id": "edition", "name": "Milan Marathon", "distance_km": 42.195,
+                 "race_date": official_date if hints.get("official_date_required") else None,
+                 "date_status": "official" if hints.get("official_date_required") else "unknown",
+                 "source_urls": ["https://race.example/edition"]}]
+
+    state, turn = run(engine(discover).start("le marathon de Milan au printemps 2027"))
+    assert (state.draft.race is not None) == in_season
+    assert ("Rien de sourcé sur la période demandée" in turn.message) == (not in_season)
+    assert not turn.ready_to_confirm
+
+
 def test_named_official_alternative_outside_season_requires_explicit_selection():
     async def discover(query, hints):
         return [{"id": "edition", "name": "Milan Marathon", "distance_km": 42.195,
