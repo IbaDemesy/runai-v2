@@ -62,3 +62,22 @@ Python 3.12: uv sync --frozen, then uv run ruff check . && uv run pytest -q,
 including tests/test_r7_scope_contract.py and journey/adversarial coverage.
 CI never calls live providers. Record dated scrubbed live evidence separately;
 never commit site frames. Merge only green reviewed PRs.
+
+## R7-01 integrated live acceptance (2026-11-09)
+
+One API-driven real Milan mission ran on `0d27080` after #47/#48, with a fake
+profile and explicit confirmation; quota was three available before launch.
+All three agents started in parallel. **0/3 READY**: Njuko registration timed
+out after 606.24 s (reported prefilled=true); Booking hotel blocked on an
+unreviewed redirect after 116.35 s; SBB transport blocked policy_denied after
+46.96 s. No additional mission/retry or safety bypass ran. This is not visual
+acceptance or a prepared-checkout success.
+
+Identifying-sentinel rg checks passed for Mission JSON, complete events and
+server logs; public French locale strings predated the profile, and Paris
+remains public route context. Profile metadata cleared at run end. No site
+screenshots were saved; the server was stopped after auditing. See the dated
+[H evidence section](docs/evidence/h-client.md) for public stop paths, exact
+flags, frame/step counts and limitations. Berlin and a third race remain
+pending R7-02/R7-04 merges. The old Frankfurt test blocker above is historical:
+the rebased full suite is green with its sibling-owned fix on main.
