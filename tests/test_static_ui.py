@@ -32,6 +32,21 @@ def test_static_safety_and_accessibility():
     assert not re.search(r"https?://|@import", CSS)
 
 
+def test_svg_flags_and_live_stage_contract():
+    assert "fromCodePoint" not in JS
+    assert "127397" not in JS
+    assert not re.search(r"[\U0001f1e6-\U0001f1ff]", JS)
+    assert "createElementNS" in JS
+    assert "Date.parse(state.observed)" in JS
+    assert "age * 1000 >= FRESH_MS" in JS
+    assert "const FRESH_MS = 15000" in JS
+    assert "clearTimeout(state.freshTimer)" in JS
+    assert "browser-skeleton" in CSS
+    assert "position: sticky; bottom: 0" in CSS
+    assert HTML.index('class="agent-grid"') < HTML.index('id="coverage"')
+    assert "[data-view='coverage'] .agent-grid { display: none" not in CSS
+
+
 DOM_HARNESS = r"""
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
@@ -58,7 +73,7 @@ class Element {
     for (const child of [...this.children]) child.remove();
     this.ownText = ''; this.append(...items);
   }
-  setAttribute(name, value) { this[name] = value; }
+  setAttribute(name, value) { this[name] = value; if (name === 'class') this.className = value; }
   getAttribute(name) { return this[name]; }
   matches(selector) {
     const parts = selector.trim().split(/\s+/), last = parts.pop();
@@ -90,7 +105,8 @@ for (const kind of kinds) {
   ids.agents.append(card);
 }
 const document = {getElementById: id => { assert.ok(ids[id], id); return ids[id]; },
-  createElement: tag => new Element(tag), querySelectorAll: s => root.querySelectorAll(s), querySelector: s => root.querySelector(s)};
+  createElement: tag => new Element(tag), createElementNS: (ns, tag) => new Element(tag),
+  querySelectorAll: s => root.querySelectorAll(s), querySelector: s => root.querySelector(s)};
 const responses = [], calls = [], timers = new Map(), images = [], listeners = {};
 let timerId = 0, now = 1794174000000;
 class Clock extends Date { static now() { return now; } }
@@ -146,7 +162,7 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     assert.ok(!inner.textContent.includes('accès inconnu')); assert.ok(!inner.textContent.includes('access unknown'));
     assert.ok(inner.textContent.includes('Arrival') || inner.textContent.includes('Origin'));
     assert.ok(inner.textContent.includes('Confirm plan'));
-    assert.ok(inner.textContent.includes('🇵🇹')); assert.ok(/in \d+ days/.test(inner.textContent));
+    assert.equal(inner.querySelector('svg').getAttribute('aria-label'), 'PT'); assert.ok(/in \d+ days/.test(inner.textContent));
     const hooks = context.__runai;
     for (const code of ['no_site_coverage', 'policy_denied', 'date_mismatch', 'no_inventory', 'sold_out', 'registration_closed', 'login_required', 'captcha', 'consent_required', 'unreviewed_redirect', 'over_budget', 'step_limit', 'session_failed', 'timeout', 'unsafe_claim', 'provider_error']) {
       assert.equal(hooks.reasons[code].length, 4); assert.ok(hooks.reasons[code].every(x => x.length > 10));
@@ -174,7 +190,7 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     hooks.setLanguage('fr');
     assert.equal(hooks.reason('captcha','blocked'), hooks.reasons.captcha[0]);
     assert.notEqual(hooks.reason(null,'blocked'), hooks.reason(null,'failed'));
-    const titles = Object.keys(hooks.reasons).map(code => hooks.reason(code, 'blocked'));
+    const titles = Object.keys(hooks.reasons).filter(code => !code.startsWith('checkpoint_')).map(code => hooks.reason(code, 'blocked'));
     assert.equal(new Set(titles).size, 16, 'Each reason code has a specific sentence');
     assert.equal(hooks.reason('sold_out', 'blocked', 'registration'), 'Course complète.');
     assert.equal(hooks.reason('no_inventory', 'blocked'), 'Plus de disponibilité à ces dates.');
@@ -194,6 +210,16 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     assert.ok(root.querySelector('.confirm')); assert.equal(ids.agents.hidden, true);
     assert.ok(root.querySelector('.chip').disabled);
     assert.equal(root.querySelectorAll('.assistant').length, 2);
+    const assistants = root.querySelectorAll('.assistant');
+    const nextQuestion = mission(false); nextQuestion.turns[0].question = 'D’où partez-vous ?';
+    respond('/api/missions/m1/messages', nextQuestion); await submit('autre proposition');
+    const latest = root.querySelectorAll('.assistant').at(-1);
+    assert.ok(ids.thread.children.indexOf(latest) > ids.thread.children.indexOf(assistants[0]));
+    assert.ok(ids.thread.children.indexOf(latest) > ids.thread.children.indexOf(assistants[1]));
+    assert.equal(latest.querySelector('.question').textContent, 'D’où partez-vous ?');
+    assert.equal(inner.querySelector('.question').textContent, 'Laquelle vous inspire ?');
+    assert.equal(latest.querySelector('.chips').getAttribute('role'), 'group');
+    assert.ok(latest.querySelector('.chip').getAttribute('aria-describedby'));
   } else if (scenario === 'uncertain') {
     const result = mission(false); result.turns[0].draft = {race: {...race, race_date: null, date_status: 'unknown'}};
     respond('/api/missions', result); await submit('une course');
@@ -350,7 +376,7 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     now += 40000; ui.frameMeta('hotel'); assert.equal(badge.textContent, 'AGENT AU TRAVAIL');
     assert.ok(card('hotel').querySelector('.steps').textContent.includes('image il y a 56 s'));
     assert.equal(card('hotel').querySelector('.preview').dataset.state, 'stale');
-    ui.event(frame('hotel', 'f2', 2)); await loaded(images.at(-1)); assert.equal(badge.textContent, 'EN DIRECT');
+    ui.event({...frame('hotel', 'f2', 2), observed_at:new Date(now).toISOString()}); await loaded(images.at(-1)); assert.equal(badge.textContent, 'EN DIRECT');
     ids.mode.value = 'demo'; ids.mode.onchange();
     ui.event({kind:'hotel', type:'step_started'}); ui.event(frame('hotel', 'd1', 1)); await loaded(images.at(-1));
     assert.ok(!badge.textContent.includes('DIRECT')); assert.ok(badge.textContent.includes('SYNTHÉTIQUE'));
@@ -497,6 +523,66 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     for (const [raw, fr, en] of [['Geneva', 'Genève', 'Geneva'], ['Genève', 'Genève', 'Geneva'], ['Milano', 'Milan', 'Milan'], ['Lisboa', 'Lisbonne', 'Lisbon'], ['Barcelona', 'Barcelone', 'Barcelona'], ['Den Haag', 'La Haye', 'The Hague'], ['Utrecht', 'Utrecht', 'Utrecht']]) {
       hooks.setLanguage('fr'); assert.equal(hooks.cityName(raw), fr); hooks.setLanguage('en'); assert.equal(hooks.cityName(raw), en);
     }
+  } else if (scenario === 'flags') {
+    const hooks = context.__runai;
+    for (const code of ['IT', 'FR', 'DE', 'NL', 'CH', 'ES', 'PT', 'BE']) {
+      const flag = hooks.flag({country_code:code});
+      assert.equal(flag.tag, 'svg'); assert.equal(flag.dataset.country, code);
+      assert.equal(flag.getAttribute('viewBox'), '0 0 24 16');
+      assert.equal(flag.getAttribute('aria-label'), code); assert.ok(flag.children.length >= 2);
+      assert.equal(flag.textContent, '', 'Never rely on emoji glyphs');
+    }
+    const fallback = hooks.flag({country_code:'JP'});
+    assert.equal(fallback.tag, 'span'); assert.equal(fallback.textContent, 'JP');
+    assert.equal(hooks.flag({}), null);
+    assert.equal(hooks.flag({country_code:'<svg>'}), null);
+  } else if (scenario === 'observed-age') {
+    ids.mode.value = 'live'; ids.mode.onchange();
+    ui.event({kind:'hotel', type:'step_started'});
+    const badge = card('hotel').querySelector('.live-badge');
+    for (const [id, observed, expected] of [
+      ['old', now - 120000, 'AGENT AU TRAVAIL'], ['edge', now - 15000, 'AGENT AU TRAVAIL'],
+      ['fresh', now - 14999, 'EN DIRECT'], ['future', now + 30000, 'AGENT AU TRAVAIL'],
+      ['missing', null, 'AGENT AU TRAVAIL']]) {
+      ui.event({...frame('hotel',id,1), observed_at: observed === null ? null : new Date(observed).toISOString()});
+      await loaded(images.at(-1)); assert.equal(badge.textContent, expected, id);
+    }
+    ui.event({...frame('hotel','expires',2), observed_at: new Date(now).toISOString()}); await loaded(images.at(-1));
+    now += 15000; await tick(15000); assert.equal(badge.textContent, 'AGENT AU TRAVAIL', 'Expires without polling');
+  } else if (scenario === 'checkpoints') {
+    const hooks = context.__runai;
+    for (const lang of ['fr', 'en']) {
+      hooks.setLanguage(lang);
+      for (const code of ['checkpoint_unverified', 'checkpoint_reached']) {
+        ui.event({kind:'hotel', type:'step_started'});
+        ui.event({kind:'hotel', type:'step_progress', message:'Essai d’un autre site'});
+        ui.event({kind:'hotel', status:'blocked', reason_code:code, checkpoint_reached:true,
+          summary:'{"task":"RAW_TASK","blocked_url_host":"PRIVATE_HOST"}', handoff_url:'https://example.org/hotel'});
+        const copy = card('hotel').querySelector('.steps').textContent;
+        assert.ok(copy.includes(lang === 'fr' ? 'Étape de réservation atteinte — à vérifier' : 'Booking step reached — please verify'));
+        assert.ok(!/indisponible|unavailable/.test(copy));
+        assert.ok(card('hotel').querySelector('.handoff').textContent.includes(lang === 'fr' ? 'Continuer sur example.org' : 'Continue on example.org'));
+        assert.equal(card('hotel').dataset.status, 'blocked', 'Never upgrade an unverified checkpoint');
+      }
+      assert.ok(!hooks.reason(null, 'failed').includes('indisponible'));
+    }
+    for (const status of ['ready_for_payment', 'blocked', 'failed', 'cancelled']) {
+      ui.event({kind:'transport', type:'step_progress', message:'Essai d’un autre site'});
+      ui.event({kind:'transport', status, reason_code:'captcha', summary:'RAW_TASK JSON blocked_url_host', handoff_url:'https://example.org/transport'});
+      ui.frameMeta('transport');
+      assert.ok(!/Essai|Trying/.test(card('transport').textContent));
+      ui.event({kind:'transport', type:'step_progress', message:'Essai d’un autre site'});
+      assert.ok(!/Essai|Trying/.test(card('transport').textContent), 'Late progress cannot replace terminal copy');
+    }
+    for (const raw of ['RAW_TASK', 'PRIVATE_HOST', 'blocked_url_host', '{"task"']) assert.ok(!root.textContent.includes(raw));
+  } else if (scenario === 'opening') {
+    kinds.forEach(kind => ui.event({kind, type:'step_started'}));
+    for (const kind of kinds) {
+      assert.equal(card(kind).querySelector('.preview').dataset.state, 'starting');
+      assert.ok(card(kind).querySelector('.waiting-copy').textContent.includes('Ouverture du site'));
+      assert.ok(card(kind).querySelector('.browser-skeleton'));
+      assert.equal(card(kind).querySelector('.live-badge').hidden, true);
+    }
   } else if (scenario === 'focus') {
     ids.agents.hidden = false; const hooks = context.__runai;
     kinds.forEach(kind => ui.event({kind, type:'step_started'}));
@@ -520,6 +606,7 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     "generation", "frames", "stale", "decode", "replay", "launch", "disconnect", "polish",
     "snapshot-error", "welcome", "fr-detect", "fresh", "never-started", "coverage", "success", "preparation",
     "crossfade", "activity", "blocked-summary", "ready-ctas", "hero", "cities", "focus",
+    "flags", "observed-age", "checkpoints", "opening",
 ])
 def test_executable_browser_states(scenario):
     result = subprocess.run(
