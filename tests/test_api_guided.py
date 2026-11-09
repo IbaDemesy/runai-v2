@@ -517,3 +517,54 @@ def test_r3_reason_in_api_json():
         assert c.post(url + "/confirm", json={"confirmed": True}).status_code == 202
         mission = terminal(c, url)
         assert all(result["reason_code"] == "no_inventory" for result in mission["results"])
+
+
+@pytest.mark.parametrize("source", ["state", "trip_payload", "draft"])
+@pytest.mark.parametrize("language", ["fr", "en"])
+def test_preparation_is_display_only_in_turns_not_execution(source, language):
+    preparation = {"registration": "covered", "hotel": True, "transport": None,
+                   "origin_city": "Paris"}
+    trip = deepcopy(TRIP)
+    trip["race"]["preparation"] = deepcopy(preparation)
+    trip["preparation"] = deepcopy(preparation)
+    trip["nested"] = [{"preparation": deepcopy(preparation), "keep": "public context"}]
+    original = deepcopy(trip)
+    captured = []
+
+    class PreparationGuide:
+        async def start(self, text):
+            state = {"trip": trip} if source == "state" else {}
+            turn = {"message": "Plan ready", "candidates": [trip["race"]], "draft": trip,
+                    "ready_to_confirm": True, "language": language}
+            return state, turn
+
+        async def step(self, state, answer):
+            return await self.start("")
+
+    guide = PreparationGuide()
+    if source == "trip_payload":
+        guide.trip_payload = lambda state: trip
+
+    class CaptureRunner:
+        async def run(self, kind, trip, emit):
+            captured.append(deepcopy(trip))
+            return StepResult(kind=kind, status="blocked", summary="Synthetic stop",
+                              synthetic=True)
+
+    with TestClient(create_app(guide=guide, runner_factory=lambda mode: CaptureRunner())) as client:
+        response = client.post("/api/missions", json={"text": "race"})
+        assert response.status_code == 201, response.text
+        created = response.json()
+        url = f"/api/missions/{created['id']}"
+        for mission in (created, client.get(url).json(),
+                        client.post(url + "/messages", json={"text": "yes"}).json()):
+            assert mission["turns"][-1]["candidates"][0]["preparation"] == preparation
+            assert mission["turns"][-1]["draft"]["race"]["preparation"] == preparation
+            assert mission["language"] == language
+            assert "preparation" not in str(mission["trip"])
+            assert mission["trip"]["nested"] == [{"keep": "public context"}]
+        assert client.post(url + "/confirm", json={"confirmed": True}).status_code == 202
+        assert len(terminal(client, url)["results"]) == 3
+    assert len(captured) == 3
+    assert all("preparation" not in str(item) for item in captured)
+    assert trip == original

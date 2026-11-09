@@ -2,14 +2,22 @@ import asyncio
 import base64
 import json
 import sys
-from datetime import UTC, datetime, timedelta
-from itertools import pairwise
+from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
 import pytest
 
-from runai.agents.hclient import GUARDRAILS, HAgentRunner, HUnavailable, _payment_claim, _reviewed
+from runai.agents.hclient import (
+    GUARDRAILS,
+    HAgentRunner,
+    HUnavailable,
+    _payment_claim,
+    _policy,
+    _PolicyBlocked,
+    _reviewed,
+)
 from runai.agents.scrub import scrub_text, scrub_url
 
 API = "https://agp.eu.hcompany.ai/api/v2"
@@ -107,6 +115,121 @@ def run(provider, task=None, **kwargs):
             return result
 
     return asyncio.run(execute()), emitted
+
+
+def test_real_milan_registration_fallback_is_handoff_only(monkeypatch):
+    monkeypatch.delitem(sys.modules, "runai.agents.site_policy")
+    from runai.agents.registration import build_task
+
+    task = build_task({"race": {
+        "name": "Wizz Air Milano Marathon", "race_date": "2027-04-04",
+        "country": "IT", "city": "Milano", "distance_km": 42.195,
+        "official_url": "https://www.milanomarathon.it/",
+    }, "arrival_date": "2027-04-03", "departure_date": "2027-04-05",
+        "travelers": 1, "nights": 2}, today=date(2026, 11, 9))
+    assert task["allowed_hosts"] == ["in.njuko.com"]
+    assert task["fallback_url"] == "https://www.milanomarathon.it/"
+    reviews = _policy(task)
+    assert _reviewed(task["start_url"], reviews)
+    assert not _reviewed(task["fallback_url"], reviews)
+
+
+@pytest.mark.parametrize("failure", ["denied", "expired", "unknown", "raises"])
+def test_handoff_fallback_fails_closed(monkeypatch, failure):
+    def evaluate(url, kind):
+        if url == "https://fallback.example/":
+            if failure == "raises":
+                raise ValueError("unknown site")
+            if failure == "unknown":
+                return None
+            return {"allowed": failure != "denied", "expires_at": "2000-01-01"}
+        return {"allowed": True, "policy_id": "reviewed", "screenshot_scope": True,
+                "allowed_hosts": ["race.example.org"]}
+
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy",
+                        SimpleNamespace(evaluate_url=evaluate))
+    with pytest.raises(_PolicyBlocked):
+        _policy({**TASK, "fallback_url": "https://fallback.example/"})
+
+
+def blank_observation(url="about:blank"):
+    event = observation()
+    event["data"]["metadata"] = {} if url is None else {"url": url}
+    return event
+
+
+def test_vueling_blank_startup_then_reviewed_completion():
+    fixture = json.loads((Path(__file__).parent / "fixtures/h_vueling_observations.json").read_text())
+    events = fixture["changes"][0]["new_events"]
+    url = events[1]["data"]["metadata"]["url"]
+    expected = {"origin_city": "Paris", "city": "Barcelona", "arrival_date": "2027-04-03",
+                "departure_date": "2027-04-05", "travelers": 1}
+    provider = Provider(events=events, answer={
+        **ANSWER, "handoff_url": url, "verification": {
+            **expected, "selected": True, "next_safe_boundary": "passenger data",
+            "fare": "Basic", "total": "120 EUR", "outbound_selected": True,
+            "return_selected": True,
+        },
+    })
+
+    def handle(request):
+        response = provider(request)
+        if request.url.path.endswith("/changes"):
+            change = fixture["changes"][min(provider.polls - 1, 1)]
+            return httpx.Response(200, json={**change, "answer": provider.answer})
+        return response
+
+    result, emitted = run(handle, task={**TASK, "kind": "transport", "expected": expected,
+                                       "start_url": url, "fallback_url": url})
+    assert result["status"] == "ready_for_payment"
+    assert result["final_url"] == url
+    assert len([e for e in emitted if e["type"] == "live_frame"]) == 1
+    assert len([e for e in emitted if e.get("message") == "Navigation sur le site"]) == 1
+
+
+@pytest.mark.parametrize("url", ["about:blank", "", None])
+def test_blank_observations_after_reviewed_page_are_ignored(url):
+    provider = Provider(events=[observation(), *[blank_observation(url) for _ in range(4)]])
+    result, emitted = run(provider)
+    assert result["status"] == "ready_for_payment"
+    assert result["final_url"] == HANDOFF
+    assert len([e for e in emitted if e["type"] == "live_frame"]) == 1
+    assert len([e for e in emitted if e.get("message") == "Navigation sur le site"]) == 1
+
+
+@pytest.mark.parametrize("deadline", [False, True])
+def test_blank_startup_count_or_deadline_blocks(monkeypatch, deadline):
+    now = 0
+    provider = Provider(events=[blank_observation()] * (1 if deadline else 3), status="running")
+
+    def handle(request):
+        nonlocal now
+        if deadline and request.url.path.endswith("/changes"):
+            now = 45
+        return provider(request)
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    result, emitted = run(handle)
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == "provider_error"
+    assert result["summary"] == "Le site n'a pas pu s'ouvrir"
+    assert result["final_url"] is None
+    assert not any(e["type"] == "live_frame" for e in emitted)
+    assert provider.cancelled
+
+
+def test_blank_then_unreviewed_redirect_blocks():
+    provider = Provider(events=[blank_observation(), blank_observation("https://evil.example/")])
+    result, _ = run(provider)
+    assert result["reason_code"] == "unreviewed_redirect"
+    assert provider.cancelled
+
+
+def test_blank_is_not_progress_for_retry():
+    provider = Provider(events=[blank_observation()], status="failed")
+    result, _ = run(provider)
+    assert result["reason_code"] == "session_failed"
+    assert sum(r.method == "POST" for r in provider.requests) == 2
 
 
 def test_run_emits_real_api_frames_without_any_public_share():
@@ -259,7 +382,7 @@ def test_provider_blocker_never_becomes_success():
 
 def test_provider_terminal_failure_is_not_success():
     result, _ = run(Provider(status="failed"))
-    assert result["status"] == "failed" and result["error"] == "H session failed"
+    assert result["status"] == "blocked" and result["error"] == "H session failed"
 
 
 def test_scrub_url_removes_credentials_fragments_and_sensitive_queries():
@@ -819,12 +942,12 @@ def test_navigation_login_text_is_not_a_forbidden_page():
     assert any(event["type"] == "live_frame" for event in events)
 
 
-def test_checkout_observation_does_not_cancel_but_handoff_remains_blocked():
+def test_checkout_observation_handoff_remains_blocked_and_terminal_session_stops():
     event = observation()
     event["data"]["metadata"] = {"url": HANDOFF + "/checkout", "title": "Checkout"}
     provider = Provider(events=[event], answer={**ANSWER, "handoff_url": HANDOFF + "/checkout"})
     result, events = run(provider)
-    assert result["status"] == "blocked" and not provider.cancelled
+    assert result["status"] == "blocked" and provider.cancelled
     assert any(event["type"] == "live_frame" for event in events)
 
 
@@ -1111,7 +1234,7 @@ def test_r3_no_retry_after_observation():
     assert sum(r.method == "POST" for r in provider.requests) == 1
 
 
-def test_r3_fake_clock_frame_cadence_latest_only_retry_and_dedupe(monkeypatch):
+def test_fake_clock_new_observation_cadence_retry_and_no_refetch(monkeypatch):
     now = 0.0
     attempts = []
     polls = 0
@@ -1124,18 +1247,19 @@ def test_r3_fake_clock_frame_cadence_latest_only_retry_and_dedupe(monkeypatch):
         if request.url.path.endswith("/changes"):
             polls += 1
             now += int(request.url.params["wait_for_seconds"])
+            new_events = [observation(image)] if polls in {1, 3} else []
+            if polls == 3:
+                new_events[0]["data"]["image"] = {**image, "source": "https://images.example.org/new"}
             return httpx.Response(200, json={
                 "status": "running" if polls < 5 else "completed", "answer": ANSWER,
-                "new_events": [observation({
-                    **image, "source": "https://images.example.org/stale",
-                }), observation(image)] if polls == 1 else [],
+                "new_events": new_events,
             })
         if request.url.host == "images.example.org":
-            assert request.url.path == "/latest"
-            attempts.append(now)
+            attempts.append((request.url.path, now))
             if len(attempts) == 1:
                 return httpx.Response(503)
-            return httpx.Response(200, content=IMAGE, headers={"content-type": "image/png"})
+            return httpx.Response(200, content=IMAGE + request.url.path.encode(),
+                                  headers={"content-type": "image/png"})
         return provider(request)
 
     monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
@@ -1145,16 +1269,18 @@ def test_r3_fake_clock_frame_cadence_latest_only_retry_and_dedupe(monkeypatch):
             events = []
 
             async def emit(event):
-                events.append(event)
+                events.append({**event, "emitted_at": now})
 
             result = await HAgentRunner("key", client=client, base_url=API, poll_s=30).run(TASK, emit)
             return result, events
 
     result, events = asyncio.run(execute())
     assert result["reason_code"] is None
-    assert len(attempts) == 5
-    assert all(b - a <= 3 for a, b in pairwise(attempts))
-    assert len([e for e in events if e["type"] == "live_frame"]) == 1
+    assert attempts == [("/latest", 2), ("/latest", 4), ("/new", 6)]
+    frames = [e for e in events if e["type"] == "live_frame"]
+    assert len(frames) == 2
+    assert frames[0]["emitted_at"] - 2 <= 3
+    assert frames[1]["emitted_at"] - 6 <= 3
 
 
 @pytest.mark.parametrize("status", ["timed_out", "failed"])
@@ -1196,3 +1322,195 @@ def test_next_safe_boundary_description_is_not_an_execution_claim():
         assert _payment_claim({"verification": {"next_safe_boundary": claim}})
     for safe in ("Stop before I have booked the room", "Avant que j'ai payé", "before we paid"):
         assert not _payment_claim({"verification": {"next_safe_boundary": safe}})
+
+
+def alternative_provider(providers):
+    current = -1
+
+    def handle(request):
+        nonlocal current
+        if request.method == "POST" and request.url.path.endswith("/sessions"):
+            current += 1
+        return providers[current](request)
+
+    return handle
+
+
+def test_alternative_after_redirect_returns_ready():
+    first = Provider(events=[blank_observation("https://evil.example/")])
+    second = Provider()
+    result, emitted = run(alternative_provider([first, second]),
+                          task={**TASK, "alternatives": [dict(TASK)]})
+    assert result["status"] == "ready_for_payment"
+    assert first.cancelled
+    assert second.polls == 2
+    assert any(e.get("message") == "Essai d'un autre site" for e in emitted)
+
+
+def test_alternative_policy_failure_skipped_without_session(monkeypatch):
+    evaluate = sys.modules["runai.agents.site_policy"].evaluate_url
+
+    def policy(url, kind):
+        return {"allowed": False} if "denied.example" in url else evaluate(url, kind)
+
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy",
+                        SimpleNamespace(evaluate_url=policy))
+    first, second = Provider(status="failed"), Provider()
+    result, _ = run(alternative_provider([first, second]), task={
+        **TASK, "alternatives": [{**TASK, "start_url": "https://denied.example/"}, dict(TASK)],
+    })
+    assert result["status"] == "ready_for_payment"
+    assert sum(r.method == "POST" for p in (first, second) for r in p.requests) == 2
+
+
+def test_alternatives_all_blocked_return_last_without_upgrade():
+    first = Provider(status="failed")
+    second = Provider(answer={**ANSWER, "status": "blocked", "blocker": "Sold out"})
+    result, _ = run(alternative_provider([first, second]),
+                    task={**TASK, "alternatives": [dict(TASK)]})
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == "sold_out"
+    assert result["handoff_url"] == TASK["fallback_url"]
+    assert first.cancelled and second.cancelled
+
+
+def test_blocked_alternative_uses_its_own_policy_checked_fallback():
+    first = Provider(events=[blank_observation("https://evil.example/")])
+    second = Provider(answer={**ANSWER, "status": "blocked", "blocker": "Sold out"})
+    fallback = "https://alternative.example/registration"
+    result, _ = run(alternative_provider([first, second]), task={
+        **TASK, "alternatives": [{**TASK, "fallback_url": fallback}],
+    })
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == "sold_out"
+    assert result["handoff_url"] == fallback
+    assert result["handoff_url"] != TASK["fallback_url"]
+
+
+@pytest.mark.parametrize("kind,expected", [
+    ("registration", {"race_date": "2027-04-04", "distance_km": 42.195}),
+    ("hotel", {"arrival_date": "2027-04-03", "departure_date": "2027-04-05", "travelers": 1}),
+    ("transport", {"origin_city": "Paris", "city": "Milan", "arrival_date": "2027-04-03",
+                   "departure_date": "2027-04-05", "travelers": 1}),
+])
+@pytest.mark.parametrize("invalid", ["missing", "empty", "partial", "null", "blank"])
+def test_unverifiable_alternatives_are_skipped_without_replacing_primary(kind, expected, invalid):
+    alternative = {**TASK, "kind": kind, "expected": expected}
+    if invalid == "missing":
+        alternative.pop("expected")
+    elif invalid == "empty":
+        alternative["expected"] = {}
+    else:
+        alternative["expected"] = dict(expected)
+        for key in expected:
+            broken = dict(alternative["expected"])
+            if invalid == "partial":
+                broken.pop(key)
+            else:
+                broken[key] = None if invalid == "null" else ""
+            provider = Provider(events=[blank_observation("https://evil.example/")])
+            result, emitted = run(provider, task={
+                **TASK, "kind": kind, "alternatives": [{**alternative, "expected": broken}],
+            })
+            assert result["reason_code"] == "unreviewed_redirect"
+            assert sum(r.method == "POST" for r in provider.requests) == 1
+            assert not any(e.get("message") == "Essai d'un autre site" for e in emitted)
+        return
+    provider = Provider(events=[blank_observation("https://evil.example/")])
+    result, _ = run(provider, task={**TASK, "kind": kind, "alternatives": [alternative]})
+    assert result["reason_code"] == "unreviewed_redirect"
+    assert sum(r.method == "POST" for r in provider.requests) == 1
+
+
+@pytest.mark.parametrize("alternatives", [None, {}, "invalid", [], [None, {},
+    {**TASK, "kind": "hotel"}], [{**TASK, "max_steps": False}]])
+def test_missing_or_invalid_alternatives_ignored(alternatives):
+    provider = Provider(status="failed")
+    result, _ = run(provider, task={**TASK, "alternatives": alternatives})
+    assert result["reason_code"] == "session_failed"
+    assert sum(r.method == "POST" for r in provider.requests) == 1
+
+
+@pytest.mark.parametrize("reason", ["unsafe_claim", "login_required", "policy_denied"])
+def test_nonlisted_reason_never_tries_alternative(reason, monkeypatch):
+    provider = Provider(events=[blank_observation("https://evil.example/")])
+    if reason == "unsafe_claim":
+        provider = Provider(answer={**ANSWER, "reached_step": "I paid"})
+    elif reason == "login_required":
+        provider = Provider(events=[blank_observation(HANDOFF + "/login")])
+    else:
+        monkeypatch.setitem(sys.modules, "runai.agents.site_policy", SimpleNamespace(
+            evaluate_url=lambda *args: {"allowed": False},
+        ))
+    result, emitted = run(provider, task={**TASK, "alternatives": [dict(TASK)]})
+    assert result["reason_code"] == reason
+    assert sum(r.method == "POST" for r in provider.requests) <= 1
+    assert not any(e.get("message") == "Essai d'un autre site" for e in emitted)
+
+
+@pytest.mark.parametrize("status", ["failed", "interrupted"])
+def test_session_failed_after_progress_offers_reviewed_handoff(status):
+    provider = Provider(status=status)
+    result, _ = run(provider)
+    assert result["status"] == "blocked"
+    assert result["reason_code"] == "session_failed"
+    assert result["handoff_url"] == HANDOFF
+    assert result["summary"] == "Le site s'est interrompu ; reprenez depuis le dernier écran"
+    assert provider.cancelled
+
+
+def test_alternatives_share_overall_deadline(monkeypatch):
+    now = 0
+    provider = Provider(status="failed")
+
+    def handle(request):
+        nonlocal now
+        if request.url.path.endswith("/changes") and provider.polls:
+            now = 600
+        return provider(request)
+
+    monkeypatch.setattr("runai.agents.hclient.time.monotonic", lambda: now)
+    result, _ = run(handle, task={**TASK, "alternatives": [dict(TASK)]})
+    assert result["reason_code"] == "session_failed"
+    assert sum(r.method == "POST" for r in provider.requests) == 1
+
+
+def test_only_first_two_alternatives_are_used():
+    providers = [Provider(status="failed") for _ in range(3)]
+    result, _ = run(alternative_provider(providers),
+                    task={**TASK, "alternatives": [dict(TASK)] * 3})
+    assert result["reason_code"] == "session_failed"
+    assert all(sum(r.method == "POST" for r in p.requests) == 1 for p in providers)
+
+
+def test_newest_observation_supersedes_older_pending_frames():
+    provider = Provider()
+    fetched = []
+
+    def image_event(name):
+        return observation({"type": "url", "source": f"https://images.example.org/{name}",
+                            "media_type": "image/png"})
+
+    def handle(request):
+        if request.url.host == "images.example.org":
+            fetched.append(request.url.path)
+            if request.url.path == "/old":
+                return httpx.Response(503)
+            return httpx.Response(200, content=request.url.path.encode(),
+                                  headers={"content-type": "image/png"})
+        response = provider(request)
+        if request.url.path.endswith("/changes"):
+            batches = [[image_event("old")], [image_event("middle"), image_event("newest")],
+                       [image_event("last")], []]
+            return httpx.Response(200, json={
+                "status": "running" if provider.polls < 4 else "completed",
+                "answer": ANSWER, "new_events": batches[provider.polls - 1],
+            })
+        return response
+
+    result, events = run(handle)
+    assert result["status"] == "ready_for_payment"
+    assert fetched == ["/old", "/newest", "/last"]
+    assert [event["image"] for event in events if event["type"] == "live_frame"] == [
+        b"/newest", b"/last",
+    ]

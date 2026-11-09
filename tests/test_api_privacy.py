@@ -201,3 +201,21 @@ def test_long_alphabetic_url_path_words_are_kept():
 
     url = "https://example.org/meiamaratonainternacionaldelisboaedicao/inscricoes"
     assert sanitize(url, "official_url") == url
+
+
+@pytest.mark.parametrize("registration", [
+    "covered", "sold_out", "not_open", "closed", "prohibited", "uncovered", "unknown",
+])
+@pytest.mark.parametrize("availability", [True, False, None])
+def test_preparation_display_values_survive_privacy_scrubbing(registration, availability):
+    preparation = {"registration": registration, "hotel": availability,
+                   "transport": availability, "origin_city": "Paris"}
+    turn = {"candidates": [{"preparation": preparation}]}
+    assert sanitize(turn) == turn
+
+
+def test_preparation_origin_is_still_privacy_scrubbed():
+    turn = {"candidates": [{"preparation": {"origin_city": TEXT}}]}
+    clean = sanitize(turn)
+    assert all(secret not in str(clean) for secret in SENTINELS)
+    assert "budget 800 € le 2027-04-04" in str(clean)

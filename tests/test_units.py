@@ -6,8 +6,19 @@ import pytest
 from pydantic import ValidationError
 from test_api_guided import TRIP
 
+from runai.app import execution_trip
 from runai.models import Kind, StepResult
 from runai.providers import FIXTURE, FakeVoice, LiveRunner, LiveVoice, ReplayRunner
+
+
+@pytest.mark.parametrize("value,expected", [
+    (None, None), ({}, {}), ([], []),
+    ({"race": {"preparation": None}}, {"race": {}}),
+    ({"nested": [{"preparation": {"invalid": "display only"}, "city": "Paris"}]},
+     {"nested": [{"city": "Paris"}]}),
+])
+def test_execution_trip_strips_preparation_recursively(value, expected):
+    assert execution_trip(value) == expected
 
 
 @pytest.mark.parametrize("kind", [Kind.hotel, Kind.transport])

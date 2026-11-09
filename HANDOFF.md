@@ -1,42 +1,44 @@
-# Handoff — round three
+# Handoff — round four
 
 ## Current implementation/evidence boundary (2026-11-09)
-Round 2 recorded **0/5 visible live successes** and a 6.5/10 design score.
-Read [docs/eval/round-2.md](docs/eval/round-2.md) for observed evidence, not
-a claim of generic live readiness. Main failures: no adapters for most cities,
-default Paris origin incompatible with transport coverage, false unsafe
-verdicts, stale live frames, step limits and unavailable inventory.
+Round 3 recorded **0/5 visible live successes** and a 7/10 design score.
+Read [docs/eval/round-3.md](docs/eval/round-3.md) for observed evidence, not
+a claim of generic live readiness. Main verified root causes: the hclient gate
+treated the registration `fallback_url` as a navigation scope (Milan blocked
+before any H session), the first H observation is often `about:blank`
+(transport killed in seconds), frames update only once per H step, thin
+hotel/transport/registration coverage and sold-out editions.
 
 Owner feedback (a)–(d), Strava-first design, adversarial requirements, Accor
 denial and the exact live-success definition remain top priority in
-[docs/feedback/owner.md](docs/feedback/owner.md). Synthetic tests/footage are
-not proof of live success.
+[docs/feedback/owner.md](docs/feedback/owner.md) (Round 4 section first).
+Synthetic tests/footage are not proof of live success.
 
-## Round-three queue
+## Round-four queue
 Exact file ownership is authoritative in [index.json](docs/tickets/index.json).
 
 | Ticket | Scope | Merge |
 | --- | --- | --- |
-| R3-01 | Registry fragments, adapter validation, coverage(), hotel/transport | Any order |
-| R3-02 | Reviewed registration adapters and first-data-page stops | Any order; fails closed until R3-01 |
-| R3-03 | Strava UI, suggestions, live stage, FR/EN friendly reasons | Any order |
-| R3-04 | Guide robustness, distance/origin chips, language | Any order |
-| R3-05 | Core + H runtime, shared docs/contracts, final acceptance | Docs/core any time green; acceptance last |
+| R4-01 | H runtime fixes (P7, P10), core, shared docs/contracts, final acceptance | PR-A any time green; PR-B acceptance last |
+| R4-02 | Hotel + transport coverage to pre-payment, P7 alternatives | Any order |
+| R4-03 | Registration coverage/availability, `registration_coverage()` (P8) | Any order |
+| R4-04 | Preparation-aware guide (P9), adversarial fixes, first-reply latency | Any order |
+| R4-05 | Strava-grade UI polish, preparation badges, honest live stage | Any order |
 
-CONTRACTS.md pins P1–P6. Import lazily and fail closed. Each ticket branches
+CONTRACTS.md pins P1–P10. Import lazily and fail closed. Each ticket branches
 from current main, owns one PR and writes its docs/handoff/<id>.md with pasted
-checks and dated scrubbed evidence. Only R3-05 edits this shared handoff.
-R2/R1/T tickets are history, not current scope.
+checks and dated scrubbed evidence. Only R4-01 edits this shared handoff.
+R3/R2/R1/T tickets are history, not current scope.
 
 ## Acceptance and next steps
-After R3-01..R3-04 merge, R3-05 rebases and records >=5 UI-driven live cases in
-[docs/eval/round-3-acceptance.md](docs/eval/round-3-acceptance.md). That report
-is a planned deliverable, not evidence already produced. Evaluate Milan
-marathon Apr 2027, Lisbon half Mar 2027, Valencia 10K Jan 2027, a Swiss summer
-trail and Freiburg half Apr 2027, default Paris plus Lyon/Bruxelles/Genève.
-Prefer near-term editions for rail horizons (~3–6 months), without inventing
-dates or silently changing a named request. Target >=1 complete success,
-ideally Milan and Lisbon.
+After R4-02..R4-05 merge, R4-01 PR-B rebases and records >=5 UI-driven live cases in
+[docs/eval/round-4-acceptance.md](docs/eval/round-4-acceptance.md). That report
+is a planned deliverable, not evidence already produced. Evaluate the Milan
+marathon, Lisbon/Porto, a Barcelona/Spain half, a Swiss trail and a Netherlands
+10K (plus Valencia/Seville if useful), default Paris plus Lyon/Bruxelles/Genève.
+Organizers whose terms forbid extraction stay prohibited; the guide steers to
+preparable races instead. Never invent dates or silently change a named
+request. Target >=1 complete success.
 
 A complete success requires assistant-proposed official dates, explicit
 confirmation, three real H agents running in parallel, changing visible frames
@@ -49,6 +51,6 @@ sites. H budget is not a constraint.
 ## Offline checks
 Python 3.12: `uv sync --frozen`, then
 `uv run ruff check . && uv run pytest -q`, including journey E2E,
-tests/test_r3_scope_contract.py and >=30 adversarial FR/EN cases.
+tests/test_r4_scope_contract.py and >=30 adversarial FR/EN cases.
 Run configured pre-commit hooks. CI never calls live providers. Merge only
 green reviewed PRs, then turn observed failures into the next scoped queue.
