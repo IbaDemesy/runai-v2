@@ -1171,6 +1171,28 @@ def test_review_named_race_without_city_requires_name_evidence(name, matched):
         assert all(s.group == "Alternatives" for s in turn.suggestions if s.kind == "choose_race")
 
 
+@pytest.mark.parametrize("dodge", ["je sais pas", "whatever"])
+def test_review_dodge_does_not_accept_missing_named_race_alternatives(dodge):
+    calls = []
+
+    async def discover(query, hints):
+        calls.append(query)
+        return [{"id": "nantes", "name": "Nantes Marathon", "city": "Nantes", "country": "France",
+                 "distance_km": 42.195, "race_date": "2027-04-11", "date_status": "official",
+                 "synthetic": True}]
+
+    e = engine(discover)
+    state, turn = run(e.start("marathon d’Atlantis 2027"))
+    count = len(calls)
+    assert state.draft.race is None
+    state, turn = run(e.step(state, {"text": dodge}))
+    assert len(calls) == count and not turn.ready_to_confirm and state.draft.race is None
+    chips = [s for s in turn.suggestions if s.kind == "choose_race"]
+    assert chips and all(s.group == "Alternatives" for s in chips)
+    state, turn = run(e.step(state, {"suggestion_id": chips[0].id}))
+    assert turn.ready_to_confirm and state.draft.race.city == "Nantes"
+
+
 @pytest.mark.parametrize("country,fr", [("Austria", "Autriche"), ("Germany", "Allemagne"),
     ("Switzerland", "Suisse"), ("Spain", "Espagne"), ("Italy", "Italie"),
     ("Portugal", "Portugal"), ("Netherlands", "Pays-Bas"),

@@ -1119,6 +1119,15 @@ class GuideEngine:
 
     async def _recommend(self, state, *, allow_search=True):
         direction = None
+        if (not state.draft.race and state.hints.get("named") and state.hints.get("city")
+                and state.candidates and not any(self._named_match(state, r) for r in state.candidates)):
+            state, turn = self._turn(state, self._named_not_found(state) + self._say(
+                state, " Choisis une alternative ci-dessous pour changer de course.",
+                " Choose an alternative below to change races."))
+            for chip in turn.suggestions:
+                if chip.kind == "choose_race":
+                    chip.group = "Alternatives"
+            return state, turn
         if not state.candidates:
             if state.query and not allow_search:
                 return self._turn(state, self._say(
