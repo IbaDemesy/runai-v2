@@ -52,6 +52,10 @@ STOP_BEFORE = [
 ]
 AVAILABILITY_STATUSES = ("open", "sold_out", "not_open", "closed", "unknown")
 AVAILABILITY_MAX_AGE_DAYS = 21
+PREFILL_FIELDS = (
+    "full_name", "given_name", "family_name", "email", "phone", "birth_date", "gender",
+    "nationality", "address_line", "postal_code", "city", "country",
+)
 REGISTRATION_VOCABULARY = {"open": "covered", "sold_out": "sold_out", "not_open": "not_open",
                            "closed": "closed", "unknown": "unknown"}
 _AVAILABILITY_EVIDENCE = (
@@ -285,6 +289,9 @@ def _registration_adapter(raw: Any, entry: Mapping[str, Any]) -> dict[str, Any]:
     for key in ("success_evidence", "blocked_evidence"):
         if not isinstance(raw.get(key), str) or not raw[key].strip():
             raise site_policy.PolicyError(f"{entry_id}: adapter {key} is required")
+    early_stop = raw.get("early_stop_reason")
+    if early_stop not in (None, "sold_out", "registration_closed", "no_inventory", "login_required"):
+        raise site_policy.PolicyError(f"{entry_id}: invalid early_stop_reason")
     return {
         "policy_id": entry_id, "patterns": compiled,
         "countries": frozenset(countries) if countries else None,
@@ -296,6 +303,7 @@ def _registration_adapter(raw: Any, entry: Mapping[str, Any]) -> dict[str, Any]:
         "success_evidence": raw["success_evidence"].strip(),
         "blocked_evidence": raw["blocked_evidence"].strip(),
         "availability": _availability(raw.get("availability"), entry_id),
+        "early_stop_reason": early_stop,
         "checkpoint": _checkpoint(raw.get("checkpoint"), entry_id),
     }
 
@@ -439,6 +447,7 @@ def _plan(
         if adapter else ""
     )
     status, observed_at = _fresh_status(adapter, today, distance_km, expected["race_date"])
+    early_stop = adapter.get("early_stop_reason") if adapter else None
     seen = f"on {observed_at} ({adapter['availability']['source']})" if adapter and (
         adapter["availability"]) else ""
     evidence = availability_from_evidence(url=start_url)
@@ -452,6 +461,16 @@ def _plan(
             f"{seen}. Within your first 5 steps, "
             f"check whether this is still the case; if it is, STOP and report BLOCKED {code} "
             "with the URL. Never join a waiting list or fill any form.\n"
+        )
+        early_stop = code
+    if early_stop and not availability_first:
+        boundary_hint = (adapter.get("availability") or {}).get("note") or (
+            "Reviewed registration entry requires a bounded handoff."
+        )
+        availability_first = (
+            f"AVAILABILITY FIRST: {boundary_hint} Within your first 5 steps, "
+            f"STOP and report BLOCKED {early_stop} at the account/login, ballot or unavailable "
+            "entry boundary. Never log in, enter a ballot, join a waiting list or type data.\n"
         )
     alternatives_hint = (
         "Other reviewed entry points for this race (human handoff only; do not navigate "
@@ -517,6 +536,24 @@ def _plan(
         "allowed_hosts": hosts,
         "checkpoint": copy.deepcopy(checkpoint),
     }
+    if early_stop:
+        task["max_steps"] = 12
+        task["instructions"] = task["instructions"].replace(
+            f"{DEFAULT_MAX_STEPS} steps", "12 steps")
+        task["success_signal"] = (
+            f"BLOCKED {early_stop}: stop within 5 steps at the unavailable entry or account "
+            "boundary. Never log in, enter a ballot or join a waiting list. Not READY. "
+            "No payment, booking or submission was made."
+        )
+        task["checkpoint"]["url_patterns"] = [r"(?!)"]
+        task["fallback_url"] = (
+            start_url if adapter and adapter.get("early_stop_reason") else
+            official_url if official_url and evaluate_url(
+                official_url, KIND, today=today, registry=view)["allowed"] else fallback_url
+        )
+    profile = trip.get("runner_profile")
+    fields = [field for field in PREFILL_FIELDS if isinstance(profile, dict)
+              and isinstance(profile.get(field), str) and profile[field].strip()]
     task["alternatives"] = []
     for url in alternatives[:2]:
         review = evaluate_url(url, KIND, today=today, registry=view)
@@ -534,7 +571,54 @@ def _plan(
                 f"{review['policy_id']}): {', '.join(alternative_hosts)}."),
             "allowed_hosts": alternative_hosts,
         })
+    if fields and not early_stop:
+        for candidate in [task, *task["alternatives"]]:
+            _prefill_task(candidate, fields)
     return task, adapter
+
+
+def _prefill_task(task: dict[str, Any], fields: list[str]) -> None:
+    checkpoint = task["checkpoint"]
+    checkpoint["prefill_patterns"] = checkpoint["url_patterns"].copy()
+    boundary = (
+        r"(?:/(?:[^?]*/)?(?:terms|consent|waiver|medical|health[-_]?declaration|account|login|"
+        r"sign[-_]?in|payment|checkout)(?:[/?]|$)|"
+        r"[?&](?:currentPage|step)=(?:terms|consent|medical|account|login|payment)(?:[&#]|$))"
+    )
+    checkpoint["url_patterns"] = [boundary]
+    checkpoint["beyond_patterns"] = [r"/(?:[^?]*/)?(?:confirm|complete|submit)(?:[/?]|$)"]
+    task["prefill_fields"] = fields.copy()
+    task["prefill_scope"] = "participant form"
+    task["stop_before"] = [item for item in STOP_BEFORE if item not in (
+        STOP_BEFORE[0], "any form submission")]
+    task["stop_before"].append("final registration submission")
+    task["instructions"] = (
+        f"Select the confirmed edition and distance only: {task['expected']}. "
+        f"Start at {task['start_url']}; allowed hosts: {', '.join(task['allowed_hosts'])}. "
+        "Within 10 steps check availability: sold out or waiting list means BLOCKED sold_out; "
+        "closed/not open means BLOCKED registration_closed. Never join a waiting list or ballot. "
+        "Cookie banners: reject or necessary-only, never accept optional consent. "
+        "Open the participant form and type only the provided participant fields; leave missing "
+        "values blank. Use only intermediate Next/Continue buttons, never final submission. "
+        "STOP at the first page with terms, medical consent, account/login or payment; "
+        "report READY with prefilled info only if edition/distance/date match and provided fields "
+        "were entered before that boundary. Never echo field values in the answer. "
+        "If login/consent comes before the participant form, report BLOCKED login_required or "
+        "consent_required, not READY. Never tick terms/marketing, accept declarations, upload "
+        "documents, log in, create accounts, pay or bypass captchas. "
+        f"Participant prefill patterns (do not force an answer): {checkpoint['prefill_patterns']}. "
+        f"Stop patterns: {checkpoint['url_patterns']}; forbidden: {checkpoint['beyond_patterns']}. "
+        "Match case-insensitively against unquoted URL path + '?' + query. "
+        "Wrong edition/date/distance: BLOCKED date_mismatch; other hosts: BLOCKED "
+        "unreviewed_redirect; captcha: BLOCKED captcha. Include the last safe public URL. "
+        "No payment, booking or submission was made."
+    )
+    task["success_signal"] = (
+        "READY only with confirmed edition/distance/date and provided participant fields "
+        "prefilled, stopped at the first terms/medical consent/account/login/payment page, "
+        "without touching that boundary. Never echo personal values. An earlier boundary "
+        "is BLOCKED, not READY. No payment, booking or submission was made."
+    )
 
 
 def _coverage_trip(race: Mapping[str, Any], today: date) -> dict[str, Any]:

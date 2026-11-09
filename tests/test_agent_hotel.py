@@ -1,6 +1,8 @@
+import json
 import re
 from datetime import date
-from urllib.parse import parse_qs, urlsplit
+from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlsplit
 
 import pytest
 from test_site_policy import (
@@ -13,11 +15,27 @@ from test_site_policy import (
 )
 
 from runai.agents import hclient
-from runai.agents.hotel import build_task
+from runai.agents.hotel import build_task as build_current_task
+from runai.agents.scrub import scrub_url
 from runai.agents.site_policy import city_name, evaluate_url, load_registry
 
 KEYS = {"kind", "site_name", "start_url", "instructions", "stop_before", "success_signal",
         "fallback_url", "max_steps", "expected", "allowed_hosts", "checkpoint"}
+
+
+def legacy_registry():
+    paths = [Path("docs/site-policy.json"),
+             *sorted(Path("docs/site-policy.d").glob("*.json"))]
+    return {"schema_version": 1, "entries": [
+        e for path in paths if path.name != "hotel.json"
+        for e in json.loads(path.read_text())["entries"]
+    ]}
+
+
+def build_task(data, **kwargs):
+    """Keep historical adapter assertions against their original registry."""
+    kwargs.setdefault("registry", legacy_registry())
+    return build_current_task(data, **kwargs)
 
 
 def test_hotel_prompt_pins_verification_and_ihg_month_interpretation():
@@ -363,3 +381,108 @@ def test_hotel_alternatives_limit_skip_denied_expired_and_do_not_mutate(monkeypa
     assert task["expected"]["city"] == "Milan"
     one = build(trip(), registry(items[0], items[1], items[2]))
     assert set(one) == KEYS
+
+
+CITY_MATRIX = [
+    ("Milan", "IT"), ("Berlin", "DE"), ("Den Haag", "NL"), ("Amsterdam", "NL"),
+    ("Lisbon", "PT"), ("Valencia", "ES"), ("Madrid", "ES"), ("Zurich", "CH"),
+    ("Stoos", "CH"), ("Brunnen", "CH"), ("Lucerne", "CH"),
+]
+
+
+@pytest.mark.parametrize("city,country", CITY_MATRIX)
+@pytest.mark.parametrize("travelers", [1, 2, 3])
+def test_new_direct_hotel_candidates(city, country, travelers):
+    task = build_current_task(trip(city=city, country=country, travelers=travelers), today=TODAY)
+    candidates = [task, *task.get("alternatives", [])]
+    assert len(candidates) >= 2
+    assert task["site_name"] == "r7-booking-hotel"
+    assert candidates[1]["site_name"] == "r7-hilton-hotel"
+    assert parse_qs(urlsplit(task["start_url"]).query)["ss"] == [f"{city}, {country}"]
+    for candidate in candidates:
+        assert candidate["expected"]["city"] == city
+        if candidate["site_name"].startswith("r7-"):
+            url = candidate["start_url"]
+            assert "2027-04-03" in url and "2027-04-05" in url
+            assert str(travelers) in parse_qs(urlsplit(url).query).get(
+                "group_adults", parse_qs(urlsplit(url).query).get(
+                    "numAdults", parse_qs(urlsplit(url).query).get("compositions")))
+            parts = urlsplit(url)
+            for path in [parts.path + "?" + parts.query, "/hotel/it/example.html?guests=1",
+                         "/en/search/?guests=1", "/ssr/app/accor/hotels/milan-italy"]:
+                assert not any(re.search(p, unquote(path), re.IGNORECASE)
+                               for p in candidate["checkpoint"]["url_patterns"])
+    if city == "Stoos":
+        assert "Lucerne" not in task["start_url"] and "Zurich" not in task["start_url"]
+        assert "gateway_city" not in task["expected"]
+
+
+def test_booking_berlin_search_checkout_date_is_not_a_payment_boundary():
+    data = {
+        "race": {"name": "Generali Berlin-Marathon", "edition": "2027",
+                 "race_date": "2027-09-26", "distance_km": 42.195,
+                 "city": "Berlin", "country": "DE",
+                 "official_url": "https://www.generali-berlin-marathon.com/en/"},
+        "origin_city": "Paris", "arrival_date": "2027-09-25",
+        "departure_date": "2027-09-27", "travelers": 1, "nights": 2, "budget_eur": 600,
+    }
+    task = build_current_task(data, today=TODAY)
+    assert task["site_name"] == "r7-booking-hotel"
+    reviews = hclient._policy(task)
+    checkpoint = hclient._checkpoint(task)
+    for key in ("start_url", "fallback_url"):
+        raw = task[key]
+        cleaned = scrub_url(raw)
+        assert evaluate_url(raw, "hotel")["allowed"]
+        assert hclient._reviewed(cleaned, reviews)
+        for url in (raw, cleaned, cleaned.replace("searchresults.html", "searchresults.en-gb.html")):
+            assert not hclient._checkpoint_matches(checkpoint, "url_patterns", url)
+            assert not hclient._checkpoint_matches(checkpoint, "beyond_patterns", url)
+    assert not hclient._checkpoint_matches(checkpoint, "beyond_patterns", None)
+    assert not hclient._checkpoint_matches(checkpoint, "beyond_patterns", "")
+
+
+@pytest.mark.parametrize("path", [
+    "/checkout/", "/CHECKOUT?checkout=2027-09-27", "/hotel/checkout/details",
+    "/check%6fut/", "/payment", "/pay", "/guests/details", "/book/confirm",
+    "/booking/review?next=/checkout/", "/select-enhance-stay?next=/%63heckout/",
+])
+def test_booking_keeps_real_unsafe_paths_blocked(path):
+    task = build_current_task(trip(city="Berlin", country="DE"), today=TODAY)
+    assert hclient._checkpoint_matches(
+        hclient._checkpoint(task), "beyond_patterns", "https://www.booking.com" + path)
+
+
+def test_guest_profile_names_only_and_payment_boundary():
+    profile = {"full_name": "Test Runner", "email": "test.runner@example.com",
+               "phone": "+33 6 00 00 00 00", "birth_date": "1990-01-01"}
+    task = build_current_task(trip(runner_profile=profile), today=TODAY)
+    assert all(value not in json.dumps(task) for value in profile.values())
+    for candidate in [task, *task["alternatives"]]:
+        assert candidate["prefill_fields"] == ["full_name", "email", "phone"]
+        assert candidate["prefill_scope"] == "guest details"
+        assert candidate["checkpoint"]["prefill_patterns"]
+        assert "guest details / personal data form" not in candidate["stop_before"]
+        assert "payment page" in candidate["stop_before"]
+        assert "Never tick terms/marketing" in candidate["instructions"]
+        assert "reject or necessary-only" in candidate["instructions"]
+        assert any(re.search(p, "/payment", re.IGNORECASE)
+                   for p in candidate["checkpoint"]["url_patterns"])
+        for p in candidate["checkpoint"]["url_patterns"]:
+            assert not re.search(p, "/book.html?guests=1", re.IGNORECASE)
+
+
+@pytest.mark.parametrize("profile", [None, {}, [], "bad", 1, {"email": []},
+                                     {"email": "  "}, {"birth_date": "1990-01-01"}])
+def test_empty_or_malformed_profile_preserves_task(profile):
+    reg = legacy_registry()
+    original = build_current_task(trip(), today=TODAY, registry=reg)
+    result = build_current_task(trip(runner_profile=profile), today=TODAY, registry=reg)
+    assert json.dumps(result) == json.dumps(original)
+    assert "prefill_fields" not in result
+
+
+def test_profile_cannot_bypass_policy_error():
+    with pytest.raises(ValueError, match="no policy-reviewed hotel"):
+        build_current_task(trip(runner_profile={"given_name": "Example"}), today=TODAY,
+                           registry={"schema_version": 1, "entries": []})

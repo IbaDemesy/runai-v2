@@ -1,3 +1,129 @@
+# R7-03 Booking offline diagnosis — 2026-11-09
+
+No further H sessions. Rebuilt the exact Berlin task from the smoke: same race,
+dates, one adult and EUR600 budget, same Booking adapter, alternatives removed.
+Found a deterministic adapter false positive: the bare `checkout` alternative
+in beyond_patterns matches `checkout=2027-09-27` in the search URL. P11 matches
+unquoted path plus query, not just the path. The original pattern matches both
+the raw and scrub-normalized search URL before any room/rate selection.
+
+### Gates and attempted disproof
+
+| Check | Exact start and fallback result |
+|---|---|
+| evaluate_url | allowed; policy r7-booking-hotel; hosts www.booking.com; paths / |
+| hclient._policy | ALLOW: [({'www.booking.com'}, ('/',))] |
+| Task allowed_hosts subset of reviewed hosts | true |
+| scrub_url(raw) == raw | false: `%2C%20DE` canonicalizes to `%2C+DE` |
+| _reviewed(raw) / _reviewed(scrub_url(raw)) | false / true |
+| Original beyond_patterns against raw/cleaned search | true: bare checkout matches the departure-date query key |
+| Fixed beyond_patterns against raw/cleaned search | false |
+
+The raw scrub inequality is not a blocking scrub rejection: hclient._attempt
+uses clean_url at startup and for observations before _reviewed. Normalized
+URLs pass review. Creation in the real smoke independently rules out a
+pre-session denial. No core scrub/hclient change is needed for this defect.
+
+The reachable observation dispatch in hclient._attempt checks _reviewed, then
+beyond_patterns, then title/URL restrictions, and only afterward assigns
+final_url or emits a frame. Thus an observation retaining the checkout date
+query deterministically raises policy_denied with no final page/frame. This
+explains the symptom for that input, but **the original first H observation
+was not retained: its actual URL/title, and therefore the historical causal
+link, remain unverified**. Title restrictions could also yield policy_denied;
+the live trigger cannot be conclusively identified from the retained result.
+
+Anonymous `curl -sI -L --max-time 45 --max-redirs 10` of the exact deep link:
+```
+HTTP/2 301
+location: https://www.booking.com/searchresults.html
+HTTP/2 202
+```
+The Location omitted the original query; only www.booking.com was observed.
+HEAD redirects are not proof of the H browser's redirect chain or UI state.
+Hypothetical www.booking.com/searchresults.en-gb.html passes the existing /
+scope. secure.booking.com/book.html and account.booking.com are not reviewed,
+but would raise unreviewed_redirect, not the reported policy_denied. Neither
+host appeared in this curl chain; no speculative scopes were added.
+
+### Fix and limits
+
+docs/site-policy.d/hotel.json: Booking's bare `checkout` becomes `/checkout`.
+This excludes the date query key while still blocking real checkout paths,
+including nested next=/checkout/ URLs and encoded/case-insensitive variants.
+Guest, payment, confirmation and selected-room checkpoint rules are unchanged.
+tests/test_agent_hotel.py reproduces the exact task, reviews normalized URLs,
+excludes search/localized search from both stop patterns, and preserves unsafe
+path blocking. Initial tests exposed that a path-only anchor would miss unsafe
+nested next URLs; used `/checkout` instead and kept all existing tests intact.
+**Offline fix only; not re-verified live. Booking remains a blocked smoke.**
+
+### B&B Milan follow-up
+
+Reviewed the existing selected-state observation below and the read-only base
+adapter. The property path /en/hotel/milano-sant-ambrogio was identical before
+and after room/rate selection, with no distinguishing URL state recorded.
+/booking/(?:extras|review) remains guessed; the other historical /checkout/
+observation was beyond the safe boundary and did not verify a selected stop.
+No safe URL discriminator was found in existing evidence. No shard/hotel.py
+override or unselected-property checkpoint was added, and docs/site-policy.json
+was not edited. State-based verification needs core support or new safe public
+URL evidence, not a broadened URL checkpoint. No new browser/H observation.
+
+Final checks (also covering Frankfurt merge-order-compatible tests):
+```
+uv run ruff check .
+All checks passed!
+uv run pytest -q
+2353 passed, 1 warning in 69.02s (0:01:09)
+uv run pytest -q tests/test_agent_hotel.py tests/test_agent_registration.py tests/test_site_policy.py
+820 passed in 9.41s
+```
+Existing Starlette httpx TestClient deprecation warning. JSON shard formatting
+matches json.dumps(indent=1, ensure_ascii=False). Visually/live unverified.
+
+# R7-03 live hotel smoke — 2026-11-09
+
+Real `hotel.build_task` -> `HAgentRunner.run`, without runner_profile. Selected
+the Booking adapter and removed alternatives only, limiting this smoke to one
+provider/session. Berlin race 2027-09-26, stay 2027-09-25 to 2027-09-27, one
+adult, EUR600 budget, Paris origin. API key bound through exec environment;
+no key, private H URL, session ID, query, personal data or image was logged.
+
+| Adapter | Public requested host/path | Quota available | Status | reason_code | Accepted final/stop page | Max reported provider steps | Emitted frames | Elapsed |
+|---|---|---:|---|---|---|---:|---:|---:|
+| r7-booking-hotel | www.booking.com/searchresults.html | 2 | blocked | policy_denied | unavailable; final/handoff URLs null | 0 | 0 | 9.9s |
+
+Quota immediately before the run: org limit=3, active=1, available=2. Exactly
+one H session was created. Runner cancellation and explicit DELETE cleanup
+both returned HTTP204 before the Milano registration smoke began.
+
+This is **not READY** and provides no verified selected-room/rate boundary.
+The session was created, so this was not the builder/pre-session review gate.
+No accepted page/frame was emitted; the launcher did not retain rejected
+observation metadata, so the particular policy/title/URL trigger and stop page
+are unknown. Zero is the maximum returned metrics.steps value, not an audit
+proving no hosted actions occurred. No adapter/checkpoint fix is justified by
+this evidence; no speculative relaxation was made and no retry was run.
+
+The normal task prohibits personal-data entry, login, consent, submission and
+payment. No profile was supplied. No screenshot was saved or independently
+reviewed; no comprehensive hosted-action audit is claimed. All three allowed
+ticket sessions were used (one hotel, two registration), yielding zero hotel
+READY results; the two-hotel target including Booking remains unmet.
+
+Final implementation checks (including the separately committed registration
+freshness fix):
+```
+uv run ruff check .
+All checks passed!
+uv run pytest -q
+2340 passed, 1 warning in 63.08s (0:01:03)
+uv run pytest -q tests/test_agent_hotel.py tests/test_agent_registration.py tests/test_site_policy.py
+807 passed in 8.73s
+```
+Warning: existing Starlette httpx TestClient deprecation.
+
 # R6-01 live IHG hotel acceptance — 2026-11-09
 
 Runtime commit: `84e301e`. Real `hotel.build_task` → `HAgentRunner.run`;
@@ -579,3 +705,50 @@ session_failed and preserves the last reviewed public URL. That condition can no
 trigger P7 alternatives. It does not change the historical IHG step_limit result into
 READY, nor verify the refined Add Extras stop instruction. No applicable new live
 evidence or independent visual check was obtained.
+
+## R7-03 hotel offline coverage — 2026-11-09
+
+Added owner-rule policies r7-booking-hotel, r7-hilton-hotel and r7-accor-hotel,
+reviewed 2026-11-09, expiring 2027-02-07. Authorization is the owner decision in
+docs/handoff/lift-site-exclusions.md, not permission granted by these sites.
+Booking/Hilton cover IT, DE, NL, PT, ES, CH, FR, BE, AT, GB, CZ. Accor is
+Milan-only: the loader forbids path placeholders, so its destination path is static
+and a reviewed place-name lookup gates it to Milan/Milano.
+
+Templates:
+- Booking: https://www.booking.com/searchresults.html?ss={city_query}%2C%20{country}&checkin={arrival_date}&checkout={departure_date}&group_adults={travelers}&no_rooms=1&group_children=0
+- Hilton: https://www.hilton.com/en/search/?query={city_query}%2C%20{country}&arrivalDate={arrival_date}&departureDate={departure_date}&numAdults={travelers}&numRooms=1
+- Accor: https://all.accor.com/ssr/app/accor/hotels/milan-italy?destination={place_name}&dateIn={arrival_date}&dateOut={departure_date}&compositions={travelers}
+
+Selection checkpoints (case-insensitive unquoted path + query):
+- Booking: ^/book\.html(?:[/?]|$)
+- Hilton: ^/en/book/reservation/review(?:[/?]|$)
+- Accor: ^/ssr/app/accor/booking/review(?:[/?]|$)
+
+These are conservative PROVISIONAL patterns, not observed live stops. No pattern
+matches search results or an unselected hotel/list page. Standard guest-form,
+checkout, pay/payment, confirmation and card-details navigation is blocked without
+a profile. With a usable guest profile, tasks contain field names only, separate
+guest prefill patterns and payment/card-details stop patterns; terms, marketing,
+submissions and payment entry remain forbidden. P14 runtime enforcement belongs
+to R7-01 and was not proven by these offline task-builder checks.
+
+Anonymous curl HEAD/GET of the Accor Milan URL returned HTTP 200 and an SSR shell
+(base href /ssr/, dateIn/dateOut state keys). This does NOT establish date/party
+hydration, inventory, room selection or a checkout boundary. No forms, consent or
+H sessions were used. Booking/Hilton rendering and every checkpoint need later
+live validation. Visually unverified; no site screenshots recorded.
+
+Checks after fixing conservative beyond-pattern coverage:
+```
+uv run ruff check .
+All checks passed!
+uv run pytest -q
+2307 passed, 1 warning in 63.45s (0:01:03)
+uv run pytest -q tests/test_agent_hotel.py tests/test_site_policy.py
+563 passed in 2.12s
+```
+The warning is the existing Starlette httpx TestClient deprecation.
+Initial full-suite check found 13 failures because new beyond-patterns omitted
+generic guest/checkout/pay boundaries; fixed the shard, not shared tests.
+No configured pre-commit file or active pre-commit hook is present.

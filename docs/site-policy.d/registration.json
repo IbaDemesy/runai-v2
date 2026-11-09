@@ -3,6 +3,270 @@
  "comment": "Owner decision 2026-11-08 lifts site exclusions for read/prepare-only automation; historical terms findings are not site authorization. All action, consent, payment and CAPTCHA stops remain unchanged.",
  "entries": [
   {
+   "id": "r7-berlin-marathon",
+   "name": "Berlin Marathon official lottery and SCC account boundary",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "www.generali-berlin-marathon.com",
+     "path_prefix": "/"
+    },
+    {
+     "host": "www.bmw-berlin-marathon.com",
+     "path_prefix": "/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.generali-berlin-marathon.com/en/registration/run"
+   ],
+   "reviewed_at": "2026-11-09",
+   "expires_at": "2027-02-07",
+   "reviewed_sections": "Public organizer registration information and account/availability boundary; historical terms findings remain in the base registry.",
+   "justification": "Read/prepare-only by owner decision in docs/handoff/lift-site-exclusions.md, not site-granted authorization. No login, accounts, ballot entry, waiting-list entry, consent, submission or payment. In-session screenshots only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [
+    "login.scc-events.com"
+   ],
+   "registration_observations": [],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "(?:bmw\\s+|generali\\s+)?berlin[-\\s]+marathon"
+      ],
+      "countries": [
+       "DE"
+      ],
+      "distances_km": [
+       42.195
+      ]
+     },
+     "url_template": "https://www.generali-berlin-marathon.com/en/registration/run",
+     "checkpoint": {
+      "url_patterns": [
+       "(?!)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in|consent|terms)"
+      ]
+     },
+     "success_evidence": "No READY claim: stop at the recorded unavailable or account-gated registration boundary.",
+     "blocked_evidence": "Anonymous GET 2026-11-09: 2027 lottery registration October 1 to November 12, 2026; personal SCC account required, linked login.scc-events.com/s/login/. Ballot access is not an allocated race entry. Never log in or enter the ballot.",
+     "early_stop_reason": "login_required",
+     "availability": {
+      "status": "unknown",
+      "distances_km": [
+       42.195
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://www.generali-berlin-marathon.com/en/registration/run",
+      "note": "Anonymous GET 2026-11-09: 2027 lottery registration October 1 to November 12, 2026; personal SCC account required, linked login.scc-events.com/s/login/. Ballot access is not an allocated race entry. Never log in or enter the ballot.",
+      "race_dates": [
+       "2027-09-26"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "r7-valencia-marathon-2026",
+   "name": "Valencia Marathon 2026 official registration information",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "www.valenciaciudaddelrunning.com",
+     "path_prefix": "/en/marathon/info-registration-2026/"
+    },
+    {
+     "host": "valenciaciudaddelrunning.com",
+     "path_prefix": "/en/marathon/info-registration-2026/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.valenciaciudaddelrunning.com/terminos-y-condiciones-vcr/"
+   ],
+   "reviewed_at": "2026-11-09",
+   "expires_at": "2027-02-07",
+   "reviewed_sections": "Public organizer registration information and account/availability boundary; historical terms findings remain in the base registry.",
+   "justification": "Read/prepare-only by owner decision in docs/handoff/lift-site-exclusions.md, not site-granted authorization. No login, accounts, ballot entry, waiting-list entry, consent, submission or payment. In-session screenshots only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "(?=.*\\b2026\\b).*valencia.*marat(?:hon|on|ón)"
+      ],
+      "countries": [
+       "ES"
+      ],
+      "distances_km": [
+       42.195
+      ]
+     },
+     "url_template": "https://www.valenciaciudaddelrunning.com/en/marathon/info-registration-2026/",
+     "checkpoint": {
+      "url_patterns": [
+       "(?!)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in|consent|terms)"
+      ]
+     },
+     "success_evidence": "No READY claim: stop at the recorded unavailable or account-gated registration boundary.",
+     "blocked_evidence": "Anonymous GET 2026-11-09: official registration information describes the 2026 ballot. Official FAQ says waiting list consists of unsuccessful ballot entrants and no new waiting-list registrations are currently accepted.",
+     "early_stop_reason": "sold_out",
+     "availability": {
+      "status": "sold_out",
+      "distances_km": [
+       42.195
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://www.valenciaciudaddelrunning.com/en/marathon/faq-valencia-marathon-waiting-list/",
+      "note": "Anonymous GET 2026-11-09: official registration information describes the 2026 ballot. Official FAQ says waiting list consists of unsuccessful ballot entrants and no new waiting-list registrations are currently accepted.",
+      "race_dates": [
+       "2026-12-06"
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "id": "r7-valencia-marathon-2027",
+   "name": "Valencia Marathon 2027 unverified entry handoff",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "www.valenciaciudaddelrunning.com",
+     "path_prefix": "/en/marathon/"
+    }
+   ],
+   "terms_urls": [
+    "https://www.valenciaciudaddelrunning.com/terminos-y-condiciones-vcr/"
+   ],
+   "reviewed_at": "2026-11-09",
+   "expires_at": "2027-02-07",
+   "reviewed_sections": "Public organizer registration information and account/availability boundary; historical terms findings remain in the base registry.",
+   "justification": "Read/prepare-only by owner decision in docs/handoff/lift-site-exclusions.md, not site-granted authorization. No login, accounts, ballot entry, waiting-list entry, consent, submission or payment. In-session screenshots only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "(?=.*\\b2027\\b).*valencia.*marat(?:hon|on|ón)"
+      ],
+      "countries": [
+       "ES"
+      ],
+      "distances_km": [
+       42.195
+      ]
+     },
+     "url_template": "https://www.valenciaciudaddelrunning.com/en/marathon/",
+     "checkpoint": {
+      "url_patterns": [
+       "(?!)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in|consent|terms)"
+      ]
+     },
+     "success_evidence": "No READY claim: stop at the recorded unavailable or account-gated registration boundary.",
+     "blocked_evidence": "Anonymous GET 2026-11-09: official navigation exposes Registration 2026 and 2026 regulations, not a verified 2027 entry or registration platform. Check the requested edition first; if unavailable report no_inventory within five steps. No claim that 2027 is sold out or closed.",
+     "early_stop_reason": "no_inventory",
+     "availability": {
+      "status": "unknown",
+      "distances_km": [
+       42.195
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://www.valenciaciudaddelrunning.com/en/marathon/",
+      "note": "Anonymous GET 2026-11-09: official navigation exposes Registration 2026 and 2026 regulations, not a verified 2027 entry or registration platform. Check the requested edition first; if unavailable report no_inventory within five steps. No claim that 2027 is sold out or closed."
+     }
+    }
+   ]
+  },
+  {
+   "id": "r7-lisbon-marathon-2027",
+   "name": "EDP Lisbon Marathon 2027 unverified entry handoff",
+   "purposes": [
+    "registration"
+   ],
+   "scopes": [
+    {
+     "host": "maratonaclubedeportugal.com",
+     "path_prefix": "/maratona-de-lisboa/"
+    },
+    {
+     "host": "www.maratonaclubedeportugal.com",
+     "path_prefix": "/maratona-de-lisboa/"
+    }
+   ],
+   "terms_urls": [
+    "https://maratonaclubedeportugal.com/politica_de_privacidade.pdf"
+   ],
+   "reviewed_at": "2026-11-09",
+   "expires_at": "2027-02-07",
+   "reviewed_sections": "Public organizer registration information and account/availability boundary; historical terms findings remain in the base registry.",
+   "justification": "Read/prepare-only by owner decision in docs/handoff/lift-site-exclusions.md, not site-granted authorization. No login, accounts, ballot entry, waiting-list entry, consent, submission or payment. In-session screenshots only.",
+   "automation": "allowed_owner_rule",
+   "screenshot_scope": "in_session_only",
+   "navigation_hosts": [],
+   "registration_observations": [],
+   "adapters": [
+    {
+     "kind": "registration",
+     "race_match": {
+      "name_patterns": [
+       "(?=.*\\b2027\\b).*(?:edp\\s+(?:lisbon|lisboa)\\s+marathon|edp\\s+maratona\\s+de\\s+lisboa)"
+      ],
+      "countries": [
+       "PT"
+      ],
+      "distances_km": [
+       42.195
+      ]
+     },
+     "url_template": "https://maratonaclubedeportugal.com/maratona-de-lisboa/",
+     "checkpoint": {
+      "url_patterns": [
+       "(?!)"
+      ],
+      "beyond_patterns": [
+       "(?i)(?:payment|summary|cart|basket|checkout|login|sign[-_]?in|consent|terms)"
+      ]
+     },
+     "success_evidence": "No READY claim: stop at the recorded unavailable or account-gated registration boundary.",
+     "blocked_evidence": "Anonymous GET 2026-11-09: organizer navigation exposes EDP Maratona de Lisboa 2026, not a verified 2027 marathon registration. Check requested edition first; if unavailable report no_inventory within five steps. Do not confuse the sold-out March 2027 half marathon with the full marathon.",
+     "early_stop_reason": "no_inventory",
+     "availability": {
+      "status": "unknown",
+      "distances_km": [
+       42.195
+      ],
+      "observed_at": "2026-11-09",
+      "source": "https://maratonaclubedeportugal.com/maratona-de-lisboa/",
+      "note": "Anonymous GET 2026-11-09: organizer navigation exposes EDP Maratona de Lisboa 2026, not a verified 2027 marathon registration. Check requested edition first; if unavailable report no_inventory within five steps. Do not confuse the sold-out March 2027 half marathon with the full marathon."
+     }
+    }
+   ]
+  },
+  {
    "id": "mitjamarato-barcelona",
    "name": "Hyundai Mitja Marato Barcelona by Brooks organizer",
    "purposes": [
@@ -155,7 +419,7 @@
      "captcha": false,
      "source": "https://in.njuko.com/nn-cpc-loop-den-haag-20261784205635566",
      "observed_at": "2026-11-09",
-     "note": "Chrome: event title 2027 and 14-03-2027 despite 2026 in slug; NN Halve Marathon EUR 49.50, uitverkocht; 10/5 km have INSCHRIJVEN buttons. Declined cookies (Nee), no login or captcha on selection page. Sold-out half prevents personal-data-page verification; no other race selected."
+     "note": "Chrome: event title 2027 and 14-03-2027 despite 2026 in slug; NN Halve Marathon EUR 49.50, uitverkocht; 10/5 km have INSCHRIJVEN buttons. Declined cookies (Nee), no login or captcha on selection page. Sold-out half prevents personal-data-page verification; no other race selected. R7 anonymous GET 2026-11-09: official 10-km page still links this exact event slug with /w/6a58d147a44b09c924dbb429, alongside 2027 entry deadlines. The slug year alone is not evidence of an edition mismatch."
     }
    ],
    "adapters": [

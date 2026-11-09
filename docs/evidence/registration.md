@@ -1,5 +1,63 @@
 # Registration path evidence (R2-02, supersedes R1-05 "assumed" claims)
 
+## R7-03 live registration smokes — 2026-11-09
+
+Real `registration.build_task` -> `HAgentRunner.run`, without runner_profile.
+Only alternatives were removed to keep each invocation to one reviewed
+provider/session; no checkpoint, safety rule or verification gate was relaxed.
+The H key was bound through exec environment. Each run had a fresh quota GET
+immediately before it: org limit=3, active=1, available=2. Both ran sequentially,
+after the Booking hotel smoke, with HTTP204 cancellation/explicit DELETE cleanup
+before the next run. Exactly three ticket sessions total; no fourth/retry.
+
+| Race/date/distance | Public requested and final host/path | Quota available | Status | reason_code | Stop evidence | Max reported provider steps | Emitted frames | Elapsed |
+|---|---|---:|---|---|---|---:|---:|---:|
+| Milano Marathon, 2027-04-04, 42.195km | in.njuko.com/wizz-air-milano-marathon-20271776152378557 | 2 | ready_for_payment | null | First participant personal-data boundary accepted by hclient verification; public handoff same host/path | 5 | 4 | 41.6s |
+| NN CPC Loop Den Haag, 2027-03-14, 10km | in.njuko.com/nn-cpc-loop-den-haag-20261784205635566 | 2 | failed | timeout | Same event URL last observed; no verified safe stop or handoff | 27 | 5 | 486.4s |
+
+Milano returned genuine runtime READY with changing/deduplicated live_frame
+events and no verify_failed gates. It is not a registration/submission or a
+payment claim. Frames were counted then discarded, not independently visually
+reviewed; no screenshots were persisted and no comprehensive hosted-action
+audit is claimed. The normal instructions stop before personal data, login,
+consent, submission or payment; no profile/identity was provided.
+
+CPC did not reproduce the historical `Site blocked preparation` policy denial:
+this run reached observed/framed Njuko content but timed out. Sanitized
+observation metadata showed only the same public event path, with no recorded
+forbidden-title/URL or beyond-pattern trigger. No structured answer or
+verification-failure list explains why it stalled; the timeout is not evidence
+of sold-out status, the wrong edition, a captcha or consent. The exact UI stage
+is unverified because the event is a same-URL flow and frames were not reviewed.
+No URL/checkpoint correction was supported; none was made. One of two requested
+registration READY results was achieved; the three-run cap is exhausted.
+
+No private H links, queries, session IDs, personal data or image payloads were
+retained. Each run created one session and cleanup returned HTTP204 twice
+(runner stop plus explicit cleanup).
+
+### Review follow-up: bounded stops survive stale observations
+
+Commit `2dfba91` decouples adapter-level early_stop_reason from the 21-day
+availability freshness window. Berlin's account wall and Valencia/Lisbon
+unverified entry boundaries retain max_steps=12, first-five-step BLOCKED,
+disabled READY checkpoints and no prefill even after observations expire.
+Availability coverage still becomes unknown when stale; this does not renew
+or promote old observations. Added fresh/day-22 tests for all four explicit
+early-stop adapters plus a missing-observation case. Ordinary adapters keep
+their existing freshness behavior. No core files or policy shards changed.
+
+Final implementation checks:
+```
+uv run ruff check .
+All checks passed!
+uv run pytest -q
+2340 passed, 1 warning in 63.08s (0:01:03)
+uv run pytest -q tests/test_agent_hotel.py tests/test_agent_registration.py tests/test_site_policy.py
+807 passed in 8.73s
+```
+Warning: existing Starlette httpx TestClient deprecation.
+
 ## R6-03 read-only observations and coverage — 2026-11-09
 
 Normal Chrome (the session browser), anonymous, read-only: pages rendered, cookie banners
@@ -292,3 +350,66 @@ registration platforms beyond the listed CGU clauses. Valencia, Swiss Canyon Tra
 Paris, Lyon and Rotterdam are explicitly denied because their terms forbid automated extraction/bots.
 Lisbon half 2027 was observed sold out (Esgotada, waiting list) on 2026-11-08: the agent must report
 `sold_out`, not READY.
+
+## R7-03 offline registration coverage — 2026-11-09
+
+Owner-rule scope: docs/handoff/lift-site-exclusions.md overrides the historical
+exclusion table above, not any account/consent/submission/payment safety stop.
+New entries (reviewed 2026-11-09, expires 2027-02-07):
+- `r7-berlin-marathon`: official GENERALI organizer /en/registration/run,
+  including www BMW alias scope. Anonymous GET says lottery runs October 1 to
+  November 12, 2026, for September 26, 2027; a personal SCC account is required.
+  Linked public login URL: https://login.scc-events.com/s/login/?language=en_US.
+  Task stops BLOCKED login_required; no ballot, account or login action.
+- `r7-valencia-marathon-2026`: official
+  https://www.valenciaciudaddelrunning.com/en/marathon/info-registration-2026/.
+  Anonymous GET of its linked /en/marathon/faq-valencia-marathon-waiting-list/
+  says only unsuccessful ballot entrants are on the waiting list and new
+  waiting-list registrations are not accepted. Treat as sold_out, never join.
+- `r7-valencia-marathon-2027`: official /en/marathon/ information handoff.
+  No verified 2027 entry/platform was found; availability stays unknown, with
+  bounded no_inventory task rather than inheriting 2026 sold-out status.
+- `r7-lisbon-marathon-2027`: official organizer /maratona-de-lisboa/ handoff.
+  Organizer navigation still links the 2026 full marathon; no verified 2027
+  full-marathon platform/date was found. Unknown, bounded no_inventory task;
+  this does not assert that the full marathon is sold out.
+
+Lisbon HALF: anonymous GET of the existing prova_id=3769 registration URL
+again returned waitinglist.aspx, Lista de Espera, Esgotada, 07/03/2027. Bounded
+sold_out task checks availability within five steps (max_steps 12), not 60.
+
+CPC edition check: the old observation explicitly records rendered title 2027
+and date 14-03-2027 despite the 2026 slug. A new anonymous GET of official
+https://nncpcloopdenhaag.nl/inschrijven/10-km-loop/ still links that exact event
+with /w/6a58d147a44b09c924dbb429 and 2027 entry deadlines. Do not rewrite the
+slug based on its year. Current builder, evaluate_url, scrub and _policy gates
+allow it. The historical live denial is not reproduced; session redirect/task
+evidence is needed to identify its actual cause. Half remains sold_out;
+5/10 km observations remain separate.
+
+Frankfurt builder and _policy allow the reviewed white-label event. scrub_url
+still returns None; HAgentRunner cleans start_url then rejects a non-public
+result before session creation. Core scrub amendment belongs R7-01.
+
+Stoos anonymous GET still identifies Stoos Trail 2027, 2027-07-10, Brunnen.
+The existing observed participant checkpoint is retained; earlier required
+consent is an honest blocker, never consent acceptance or invented READY.
+
+All unavailable tasks retain safe official handoffs and bounded steps, but
+these are H tasks, NOT pre-H short-circuit results. Core support is required
+for a true pre-H result. Profile-bearing normal tasks emit P14 field names only;
+actual runtime prefill and new boundary enforcement need R7-01 integration.
+No H sessions, personal-data entry, submissions or visual checks performed.
+
+Offline checks after final code/policy edits:
+```
+uv run ruff check .
+All checks passed!
+uv run pytest -q
+2331 passed, 1 warning in 60.05s (0:01:00)
+uv run pytest -q tests/test_agent_hotel.py tests/test_agent_registration.py tests/test_site_policy.py
+798 passed in 8.27s
+```
+The warning is the existing Starlette httpx TestClient deprecation. All ten
+generated scenario tasks passed hclient._policy; Frankfurt separately fails
+scrub_url, as above. This is offline evidence, not successful preparation.
