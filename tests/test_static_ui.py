@@ -718,6 +718,7 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
     assert.deepEqual(success('registration').querySelectorAll('.milestones li').map(x => x.dataset.done), ['true', 'true', 'true', 'false', 'false']);
     assert.deepEqual(success('registration').querySelectorAll('.milestones li').map(x => x.dataset.skipped), ['false', 'false', 'false', 'false', 'false']);
     assert.equal(success('registration').querySelector('.bilan-stat').textContent, '3/5 étapes');
+    assert.equal(ids['mission-banner'].hidden, false);
     for (const mode of ['demo', 'replay', 'live']) {
       ids.mode.value = mode; ids.mode.onchange();
       for (const synthetic of [true, false]) {
@@ -732,7 +733,6 @@ const initial = async (ready = false) => { respond('/api/missions', mission(read
       ui.event({kind:'hotel', status:'ready_for_payment', synthetic:true, stop_label:'Page de paiement'});
       assert.equal(card('hotel').querySelectorAll('.milestones li')[4].dataset.done, 'true');
     }
-    assert.equal(ids['mission-banner'].hidden, false);
   } else if (scenario === 'live-clean') {
     ids.agents.hidden = false;
     kinds.forEach(kind => ui.event({kind, type: 'step_started'}));
