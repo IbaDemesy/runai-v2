@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="theme-color" content="#111211" />
+    <meta name="theme-color" content="#fc4c02" />
     <title>RunAI — votre prochaine ligne de départ</title>
     <link rel="stylesheet" href="/static/styles.css" />
     <script src="/static/app.js" defer></script>
@@ -76,38 +76,52 @@
           <h2>Trois agents. Un départ.</h2>
           <p>Préparation en parallèle · arrêt avant paiement</p>
         </div>
+        <div id="mission-banner" role="status" hidden></div>
+        <section id="coverage" hidden aria-live="polite"></section>
         <div class="agent-grid">
-          <article class="agent" data-agent="registration">
+          <article class="agent" data-agent="registration" data-status="pending">
             <header>
-              <span>↗</span>
-              <h3>Dossard</h3>
+              <span class="agent-icon" aria-hidden="true">↗</span>
+              <div class="agent-title"><h3>Dossard</h3><p class="site">Site choisi au lancement</p></div>
               <span class="status" data-status="pending">En attente</span>
             </header>
-            <div class="preview">En attente de la première capture</div>
+            <ol class="stepper" aria-label="Progression"></ol>
+            <div class="stage">
+              <div class="preview" data-state="unavailable">En attente de la première capture</div>
+              <span class="live-badge" hidden></span>
+            </div>
             <p class="frame-meta" aria-live="polite">Aucune image reçue</p>
-            <p class="steps" aria-live="polite">L’agent se prépare.</p>
+            <div class="steps" aria-live="polite">L’agent se prépare.</div>
             <div class="handoff"></div>
           </article>
-          <article class="agent" data-agent="hotel">
+          <article class="agent" data-agent="hotel" data-status="pending">
             <header>
-              <span>⌂</span>
-              <h3>Hôtel</h3>
+              <span class="agent-icon" aria-hidden="true">⌂</span>
+              <div class="agent-title"><h3>Hôtel</h3><p class="site">Site choisi au lancement</p></div>
               <span class="status" data-status="pending">En attente</span>
             </header>
-            <div class="preview">En attente de la première capture</div>
+            <ol class="stepper" aria-label="Progression"></ol>
+            <div class="stage">
+              <div class="preview" data-state="unavailable">En attente de la première capture</div>
+              <span class="live-badge" hidden></span>
+            </div>
             <p class="frame-meta" aria-live="polite">Aucune image reçue</p>
-            <p class="steps" aria-live="polite">L’agent se prépare.</p>
+            <div class="steps" aria-live="polite">L’agent se prépare.</div>
             <div class="handoff"></div>
           </article>
-          <article class="agent" data-agent="transport">
+          <article class="agent" data-agent="transport" data-status="pending">
             <header>
-              <span>→</span>
-              <h3>Transport</h3>
+              <span class="agent-icon" aria-hidden="true">→</span>
+              <div class="agent-title"><h3>Transport</h3><p class="site">Site choisi au lancement</p></div>
               <span class="status" data-status="pending">En attente</span>
             </header>
-            <div class="preview">En attente de la première capture</div>
+            <ol class="stepper" aria-label="Progression"></ol>
+            <div class="stage">
+              <div class="preview" data-state="unavailable">En attente de la première capture</div>
+              <span class="live-badge" hidden></span>
+            </div>
             <p class="frame-meta" aria-live="polite">Aucune image reçue</p>
-            <p class="steps" aria-live="polite">L’agent se prépare.</p>
+            <div class="steps" aria-live="polite">L’agent se prépare.</div>
             <div class="handoff"></div>
           </article>
         </div>
