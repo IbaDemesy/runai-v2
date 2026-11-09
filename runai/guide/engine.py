@@ -375,8 +375,8 @@ class GuideEngine:
             if not d.race and not any(self._eligible(r) and not self._unavailable(r) and (
                 not state.hints.get("prefer_requested_country") or self._same_country(state, r)
             ) for r in state.candidates):
-                chips = [self._chip("alternative", self._say(
-                    state, "Chercher une course préparable", "Find a preparable race"), "retry")]
+                chips = ([] if state.hints.get("retry_count") else [self._chip("alternative", self._say(
+                    state, "Chercher une course préparable", "Find a preparable race"), "retry")])
                 chips += self._recovery_chips(state) + self._race_chips(state)
             if not d.race and (
                 state.hints.get("retry_count") and not any(self._eligible(r) for r in state.candidates)

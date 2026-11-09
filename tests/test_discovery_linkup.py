@@ -184,7 +184,7 @@ def test_normal_multi_candidate_and_structured_request():
 
     results = asyncio.run(run())
     assert len(results) == 2
-    assert results[0]["id"] == f"example-marathon-{YEAR}"
+    assert results[0]["id"] == f"example-marathon-{YEAR}-example-city"
     for candidate in results:
         assert set(candidate) == EXPECTED_KEYS
         assert candidate["date_status"] == "official"
@@ -262,7 +262,9 @@ def test_review_candidate_ids_distinguish_cities_and_missing_city_dates():
             race(city="", sources=[{"url": "https://race.example/other", "race_date": other_day}])]
     result = search(rows)
     assert len(result) == 4 and len({r["id"] for r in result}) == 4
-    by_location_date = lambda rs: {(r["city"], r["race_date"]): r["id"] for r in rs}
+    def by_location_date(rs):
+        return {(r["city"], r["race_date"]): r["id"] for r in rs}
+
     assert by_location_date(result) == by_location_date(search(list(reversed(rows))))
 
 
@@ -689,7 +691,7 @@ def test_one_malformed_row_does_not_hide_valid_candidates():
 
 def test_blank_edition_falls_back_to_single_sourced_year():
     results = search([race(edition="")])
-    assert len(results) == 1 and results[0]["id"] == f"example-marathon-{YEAR}"
+    assert len(results) == 1 and results[0]["id"] == f"example-marathon-{YEAR}-example-city"
 
 
 @pytest.mark.parametrize("changes,expected", [
