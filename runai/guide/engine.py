@@ -163,7 +163,7 @@ class GuideEngine:
                 registration = import_module("runai.agents.registration").registration_coverage
                 result = registration(race.model_dump(mode="json", exclude={"preparation"}))
                 if isinstance(result, dict):
-                    status = result.get("status", result.get("registration"))
+                    status = result.get("registration", result.get("status"))
                     result = ("covered" if result.get("covered") is True
                               and status == "open" else status)
                     if result == "open":

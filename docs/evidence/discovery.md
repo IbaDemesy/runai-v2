@@ -783,4 +783,10 @@ All checks passed!
 ```
 
 The warning remains the baseline Starlette/httpx deprecation. No code changed
-between this check and batch 2; subsequent changes only append scoped evidence.
+between this check and batch 2 (verification revision `cfe60e2`). Subsequent
+PR #43 review fixes retain different official verification results only as
+explicit alternatives and preserve negative P9 registration verdicts over
+`status=unknown`. Batch-2 coverage snapshots predate that P9 reader fix: an
+observed "unknown" can have hidden a P9 "uncovered"/"prohibited" verdict and is
+not evidence of current unknown coverage. The review fixes have offline
+regressions, not another live batch. Date/source observations above are unchanged.

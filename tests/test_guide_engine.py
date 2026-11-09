@@ -1302,6 +1302,39 @@ def test_p8_open_coverage_is_not_mislabelled(monkeypatch, outcome):
         assert "To check: registration" in message
 
 
+@pytest.mark.parametrize("lang", ["fr", "en"])
+@pytest.mark.parametrize("verdict", ["prohibited", "uncovered"])
+def test_p9_negative_verdict_survives_unknown_availability(monkeypatch, lang, verdict):
+    def registration(race):
+        if race["id"] == "blocked":
+            return {"covered": False, "status": "unknown", "registration": verdict,
+                    "prohibited": verdict == "prohibited", "preparable_open": False}
+        return {"covered": True, "status": "open", "registration": "covered", "preparable_open": True}
+
+    async def discover(query, hints):
+        return [{"id": race_id, "name": race_id + " Marathon", "distance_km": 42.195,
+                 "race_date": "2027-04-11", "date_status": "official",
+                 "source_urls": ["https://race.example/" + race_id]}
+                for race_id in ["blocked", "open"]]
+
+    monkeypatch.setitem(sys.modules, "runai.agents.registration",
+                        SimpleNamespace(registration_coverage=registration))
+    monkeypatch.setitem(sys.modules, "runai.agents.site_policy",
+                        SimpleNamespace(coverage=lambda *args, **kwargs: {"covered": True}))
+    e = engine(discover)
+    state, turn = run(e.start("un marathon" if lang == "fr" else "I'd love to run a marathon"))
+    blocked = next(r for r in state.candidates if r.id == "blocked")
+    assert blocked.preparation.registration == verdict
+    assert not e._default_race(state, blocked)
+    assert turn.suggestions[0].value == "open"
+    message = e._preparation_message(state, blocked)
+    assert ("Non couverts : l'inscription" if lang == "fr" else "Not covered: registration") in message
+    assert ("À vérifier" if lang == "fr" else "To check") not in message
+    chip = next(s for s in turn.suggestions if s.value == "blocked")
+    assert (e._say(state, "préparation interdite", "preparation prohibited") if verdict == "prohibited"
+            else e._say(state, "inscription non couverte", "registration not covered")) in chip.label
+
+
 def test_delegated_empty_named_search_escalates_instead_of_repeating():
     calls = []
 
