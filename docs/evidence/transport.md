@@ -1288,6 +1288,95 @@ bypass, policy widening or fabricated READY. Recommend core owner fix the known
 public-link handling, then rerun the same builder pipeline before integrated
 acceptance. No UI changes or independent screenshot visual review.
 
+# R8-02 offline diagnosis and two authorized probes — 2026-11-09
+
+**Later offline integration update:** R8-01 `bb3acdd` added the narrow Google
+booking/search tfs/tfu and Omio results-ID scrub exemptions. A real local merge
+with this transport branch passes3143 tests. The realistic Google sample now
+preserves tfs and matches our unchanged checkpoint; bare booking?hl=en still
+does not. Main without that core still strips tfs. No live rerun was made with
+the new exemptions; failed probes below remain failures, and no route dates
+or coverage counts were upgraded based on offline integration tests.
+
+## Google selected checkpoint: exact offline finding
+
+The supplied realistic booking URL with a long base64-like tfs value was passed
+through the actual main `scrub.scrub_url`, `hclient._checkpoint`, and
+`hclient._checkpoint_matches`. Output:
+
+```text
+raw matches: True
+scrub_url: https://www.google.com/travel/flights/booking?tfu=EgYIABAAGAA&hl=en
+matcher input: /travel/flights/booking?tfu=EgYIABAAGAA&hl=en
+clean matches: False
+tfs _KEY.search: True
+bare matches: False
+```
+
+Cause for this sample: scrub_url's query comprehension rejects values matching
+`_KEY`, whose generic `[A-Za-z0-9_-]{32,}` branch matches tfs. This is query-value
+filtering, NOT `_OPAQUE_PATH` (that applies to path segments). It removes the
+whole tfs pair, not just part of the token. tfu/hl survive. Actual runtime path:
+`HAgentRunner._attempt` observation_event → `clean_url(metadata.url)` →
+`scrub_url` → `_reviewed(observed)` → `_checkpoint_matches(..., observed)`.
+The matcher unquotes path+'?'+query. The same cleaned URL also becomes final_url
+used by verification. These gates run for Google transport observations; there
+is no provider/mode bypass for Google.
+
+Disproof check: the identical raw URL DOES match, and a bare `?hl=en` does NOT.
+Thus our pattern itself accepts a genuine nonempty tfs once core preserves it;
+no weakening/change to the selected-checkpoint pattern is needed. The precise
+old Paris→Valencia URL was not retained, so this reproduces a reachable failure
+mechanism, not proof that the prior live URL contained that exact tfs value.
+Core was notified to consider a narrow Google booking tfs exemption; no scrub
+or hclient code was edited here. No new Google H run was used for this diagnosis.
+
+## Frankfurt and Rome: real failures before fare evidence
+
+Both runs loaded the exact R8-01 scrub source from commit
+`fc02e27fde8f1ee847169b473d084fa2e3a14181` into the Python scrub module BEFORE
+importing hclient. No scrub.py filesystem edit, broad monkeypatch or committed
+exemption. This snapshot preserves Omio /links UUIDs, not opaque results IDs.
+
+Undated routes cannot pass build_task's mandatory verified-primary gate. These
+were explicitly research tasks produced by `_candidates` → `_candidate_task`
+with the registry's UNVERIFIED adapter, then executed by the unchanged H runner;
+neither was a product-builder acceptance smoke or a primary promotion. A fake
+profile was attached only in memory for privacy scrubbing, without declared
+prefill_fields (the normal selected-summary stop was retained, no passenger
+typing authorized). One adult, EUR800, January28–30 2027, synthetic race January29;
+40-step cap and 360-second timeout per run; no alternatives, sequential sessions.
+
+| Route | Quota before creation | Actual result | Steps | Observed host/path sequence | Gate |
+|---|---|---|---|---|---|
+| Paris→Frankfurt | limit3/active1/available2 | blocked / unreviewed_redirect | 1 | www.omio.com/links/{public-id} → /app/search-frontend/results/{id}/train | `_reviewed(observed)` before results-frame delivery |
+| Paris→Rome | limit3/active1/available2 | blocked / unreviewed_redirect | 1 | www.omio.com/links/{public-id} → /app/search-frontend/results/{id}/train | hook explicitly measured scrub_url(raw results URL) == None, then `_reviewed(observed)` |
+
+Each had two provider observation events. No structured answer/verify_failed
+gates were returned: the privacy/review gate stopped both before the answer
+verification stage. No selected fare, numeric fare result, READY, or rendered-fare
+verification is established. The last accepted public location was the /links
+entry; the results location above was rejected. No image files were saved;
+no independent visual review or consent-action audit was performed. Opaque IDs,
+query values, session identifiers, profile values and frames are not retained.
+
+The Rome launch was already in flight and completed when the later instruction
+to preserve the final run arrived; this timing was reported immediately. No
+further session was created. Both additionally authorized runs are consumed.
+No h_render_verified_at dates were added for Frankfurt, Rome or Seville.
+
+Registry policy already authorizes www.omio.com `/` navigation under the owner
+rule. New tests pin that results paths for train/bus/flight and inbound-selection
+paths are allowed navigation, never a selected checkpoint and never a forbidden
+boundary. No policy/checkpoint widening is needed for results. Core needs a
+narrow reviewed results-ID scrub exception before a rerun can reach this page;
+selected journey IDs may require separate analysis, not a blanket exemption.
+
+Coverage counts remain unchanged (no registry evidence dates changed): revised
+48-case matrix has9 verified primaries/7 alternatives without exemption and
+36 primaries/36 alternatives with /links exemption. Frankfurt/Rome/Seville still
+account for the12 revised-matrix gaps under the exemption.
+
 # R8-02 transport update — 2026-11-09
 
 ## Real builder smoke, not a readiness claim

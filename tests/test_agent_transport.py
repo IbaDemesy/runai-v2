@@ -28,6 +28,12 @@ OMIO_START = (
     "&returnDate=2027-01-31&adults=1"
 )
 OMIO_RUNNABLE = hclient._public_https(hclient.scrub_url(OMIO_START))
+GOOGLE_SELECTED_URL = (
+    "https://www.google.com/travel/flights/booking?tfs="
+    "CBwQAhooEgoyMDI3LTAxLTI4agwIAhIIL20vMDVxdGpyDAgDEggvbS8wcjBsbRoo"
+    "EgoyMDI3LTAxLTMwagwIAxIIL20vMHIwbG1yDAgCEggvbS8wNXF0akABSAFwAYIB"
+    "Cwj___________8BmAEB&tfu=EgYIABAAGAA&hl=en"
+)
 GOOGLE_VERIFIED = {("Paris", city) for city in ("Milan", "Berlin", "Lisbon", "Valencia")} | {
     ("Geneva", "Barcelona"),
 }
@@ -928,6 +934,38 @@ def test_r7_selected_checkpoints_exclude_observed_results(policy, summary, resul
             assert not any(re.search(p, path, re.IGNORECASE) for p in cp["url_patterns"])
         for path in ("/login", "/account", "/payment", "/passenger-details"):
             assert any(re.search(p, path, re.IGNORECASE) for p in cp["beyond_patterns"])
+
+
+def test_google_selected_checkpoint_with_realistic_long_tfs():
+    from runai.agents import scrub
+
+    item = next(e for e in site_policy.load_registry()
+                if e["id"] == "google-travel-google-terms")
+    for adapter in item["adapters"]:
+        checkpoint = hclient._checkpoint({"checkpoint": adapter["checkpoint"]})
+        assert hclient._checkpoint_matches(checkpoint, "url_patterns", GOOGLE_SELECTED_URL)
+        clean = scrub.scrub_url(GOOGLE_SELECTED_URL)
+        preserved = bool(parse_qs(urlsplit(clean).query).get("tfs"))
+        assert hclient._checkpoint_matches(checkpoint, "url_patterns", clean) is preserved
+        assert not hclient._checkpoint_matches(
+            checkpoint, "url_patterns", "https://www.google.com/travel/flights/booking?hl=en",
+        )
+
+
+@pytest.mark.parametrize("mode", ["train", "bus", "flight"])
+def test_omio_results_are_reviewed_navigation_never_selected_checkpoints(mode):
+    item = next(e for e in site_policy.load_registry() if e["id"] == "omio-com")
+    for suffix in ("", "/outbound-id/inbound"):
+        url = ("https://www.omio.com/app/search-frontend/results/"
+               f"12345678-abcd-4321-abcd-123456789abc/{mode}{suffix}")
+        decision = site_policy.evaluate_url(url, "transport", today=TODAY)
+        assert decision["allowed"]
+        assert decision["policy_id"] == item["id"]
+        assert item["automation"] == "allowed_owner_rule"
+        for adapter in item["adapters"]:
+            checkpoint = hclient._checkpoint({"checkpoint": adapter["checkpoint"]})
+            assert not hclient._checkpoint_matches(checkpoint, "url_patterns", url)
+            assert not hclient._checkpoint_matches(checkpoint, "beyond_patterns", url)
 
 
 @pytest.mark.parametrize("profile", [None, {}, [], {"email": ""}, {"email": "   "},
