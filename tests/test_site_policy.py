@@ -16,6 +16,11 @@ from runai.agents.site_policy import (
 )
 
 TODAY = date(2026, 11, 9)
+UNSAFE_PATHS = (
+    "/pay", "/payments", "/payment", "/guest-details", "/passenger", "/pax", "/guest-info",
+    "/checkout/", "/CHECKOUT/", "/book/confirm", "/booking/confirm", "/booking/confirmation",
+    "/guest", "/guest-form", "/guest/forms", "/guestdetails",
+)
 
 
 def entry(**changes):
@@ -108,10 +113,10 @@ def assert_task_policy(task, monkeypatch, reg=None):
                     assert checkpoint[field]
                     for pattern in checkpoint[field]:
                         re.compile(pattern, re.IGNORECASE)
-                for path in ("/pay", "/payments", "/payment", "/guest-details", "/passenger"):
+                for path in UNSAFE_PATHS:
                     url = "https://www.example.test" + path
-                    assert any(re.search(p, url, re.IGNORECASE) for p in checkpoint["beyond_patterns"])
-                    assert not any(re.search(p, url, re.IGNORECASE) for p in checkpoint["url_patterns"])
+                    assert hclient._checkpoint_matches(compiled, "beyond_patterns", url)
+                    assert not hclient._checkpoint_matches(compiled, "url_patterns", url)
                 assert candidate["max_steps"] == 60
                 assert "Finish within 60 steps" in candidate["instructions"]
             decision = evaluate_url(candidate["start_url"], candidate["kind"],
@@ -171,11 +176,27 @@ def test_all_committed_checkpoints_exclude_unsafe_urls():
                 assert patterns and all(isinstance(p, str) for p in patterns)
                 for pattern in patterns:
                     re.compile(pattern, re.IGNORECASE)
-            for path in ("/pay", "/payments", "/payment", "/guest-details", "/passenger",
-                         "/pax", "/guest-info"):
+            compiled = hclient._checkpoint({"checkpoint": checkpoint})
+            for path in UNSAFE_PATHS:
                 url = "https://example.test" + path
-                assert any(re.search(p, url, re.IGNORECASE) for p in checkpoint["beyond_patterns"])
-                assert not any(re.search(p, url, re.IGNORECASE) for p in checkpoint["url_patterns"])
+                assert hclient._checkpoint_matches(compiled, "beyond_patterns", url)
+                assert not hclient._checkpoint_matches(compiled, "url_patterns", url)
+
+
+@pytest.mark.parametrize("adapter", [
+    adapter for item in load_registry() for adapter in item["adapters"]
+    if adapter["kind"] in ("hotel", "transport")
+] + [{}])
+@pytest.mark.parametrize("path", [
+    "/checkout/", "/%63heckout/", "/book/confirm", "/booking/confirm", "/guest/form",
+])
+def test_checkout_boundaries_override_ready_paths(adapter, path):
+    checkpoint = hclient._checkpoint({"checkpoint": site_policy.task_checkpoint(adapter)})
+    for url in ("https://example.test" + path,
+                "https://example.test/booking/review?next=" + path,
+                "https://example.test/select-enhance-stay?next=" + path):
+        assert hclient._checkpoint_matches(checkpoint, "beyond_patterns", url)
+        assert not hclient._checkpoint_matches(checkpoint, "url_patterns", url)
 
 
 @pytest.mark.parametrize("policy_id,url", [

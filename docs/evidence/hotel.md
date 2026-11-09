@@ -1,3 +1,15 @@
+# Safety correction — 2026-11-09
+
+The Milan B&B run below reached /checkout/ without URL-boundary cancellation.
+**Checkout is beyond, never a checkpoint.** Every hotel/transport adapter and
+legacy task fallback now blocks checkout, /book(?:ing)?/confirm and guest forms,
+in addition to payment/passenger paths. Ready-pattern negative lookaheads use
+the same expression, including query matches. Existing start URLs remain outside
+both lists. Tests cover every committed adapter and every tested task/alternative,
+encoded checkout and unsafe queries appended to otherwise-ready paths.
+The historical run still returned blocked/provider_error, not policy_denied;
+this offline correction does not rewrite that observation or claim a live retest.
+
 # R5-02 step 5 live hotel smokes — 2026-11-09
 
 Real merged HAgentRunner.run with branch build_task output; only alternatives
@@ -10,7 +22,7 @@ by hclient), not simulated footage. Tasks retain all normal safety guardrails.
 
 | Task | Adapter/policy | Frames | Final observed host/path | Checkpoint | hclient status | reason_code |
 |---|---|---:|---|---|---|---|
-| Hotel Milan | hotel-bb-com | 7 | www.hotel-bb.com/checkout/ | no | blocked | provider_error |
+| Hotel Milan | hotel-bb-com | 7 | www.hotel-bb.com/checkout/ (beyond, not checkpoint) | no | blocked | provider_error |
 | Hotel Amsterdam | ihg-com | 9 | www.ihg.com/hotels/gb/en/find-hotels/select-enhance-stay | yes | ready_for_payment | null |
 
 Both runs were strictly sequential. GET /api/v2/sessions/quota returned available=3
@@ -27,7 +39,8 @@ does not establish whether guest details, a site error or incomplete evidence
 caused the stop. Ordinary Chrome GET of /checkout/ without H's selection state
 redirected to /en, so it could not verify a post-selection/pre-personal-data
 boundary. **Do not promote /checkout/ to a checkpoint on this evidence.** No
-pattern changed and no extra H reproduction was run. A stateful boundary review
+pattern had changed at that time and no extra H reproduction was run. The safety
+correction above now forbids checkout explicitly. A stateful boundary review
 is still required; task guardrails prohibit personal data, consent and forms,
 but these summary-only measurements are not an audit of every hosted action.
 

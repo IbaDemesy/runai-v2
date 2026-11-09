@@ -1,3 +1,17 @@
+# Checkout safety correction — 2026-11-09
+
+Every hotel/transport adapter's shared beyond expression and ready-pattern
+exclusion now use:
+```regex
+guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm
+```
+The legacy task fallback uses the same beyond expression. Checkout and guest
+forms are forbidden boundaries, not selected-stop success evidence. Regression
+tests use the actual unquoted path/query matcher, including encoded checkout,
+confirmation paths and unsafe query values on otherwise-ready paths. Existing
+task/alternative start URLs match neither ready nor beyond patterns. No runtime
+or registration adapter changes, and no live retest in this safety-fix step.
+
 # P11/P12 integration correction — 2026-11-09
 
 Merged origin/main containing R5-01 and reread CONTRACTS.md P11/P12 and hclient

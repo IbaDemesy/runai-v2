@@ -79,10 +79,10 @@
           "blocked_evidence": "Observed Spanish no-inventory text: Lo sentimos, no hay disponibilidad para estas fechas (tested at NH Collection Milano Touring with 9 adults). Also block on mismatched dates/party, login, captcha, consent acceptance, form submission or guest details.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/step2-(?:extras|services)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/step2-(?:extras|services)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         }
@@ -138,10 +138,10 @@
           "blocked_evidence": "Observed on B&B search: No hotels match your search criteria. Freiburg has rates on the tested dates; no property-specific sold-out message was observed this round. Block empty rates, wrong city/dates/party, member login, consent, captcha, form submission or guest details.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -167,10 +167,10 @@
           "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -193,10 +193,10 @@
           "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -225,10 +225,10 @@
           "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -257,10 +257,10 @@
           "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -283,10 +283,10 @@
           "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -309,10 +309,10 @@
           "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         }
@@ -367,10 +367,10 @@
           "blocked_evidence": "Observed empty/error search text: 0 Hotel Found. An error has occurred. Please contact your nearest reservation office and a representative will be able to assist you. Treat as blocked, not proof of sold-out inventory. Also block on no hotel in the confirmed city or explicitly reviewed hotel gateway city, Your search results contain properties in neighboring countries/regions without a matching city hotel, mismatched dates/party, login, captcha, consent acceptance, form submission, unreviewed redirect or guest details.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/select-enhance-stay(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/select-enhance-stay(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -398,10 +398,10 @@
           "blocked_evidence": "Rendered dates are one month off or otherwise differ (date_mismatch), no availability, IHG One Rewards sign-in required to see the rate, captcha, or the next step is guest details.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/select-enhance-stay(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/select-enhance-stay(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         }
@@ -505,10 +505,10 @@
           "blocked_evidence": "'Não foram encontrados resultados' (no inventory / sales horizon not open, observed for March 2027), wrong dates or one-way only, login, captcha, or passenger-data step.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/pt/(?:resumo-viagem|resumo-compra)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/pt/(?:resumo-viagem|resumo-compra)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         }
@@ -1211,10 +1211,10 @@
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -1262,10 +1262,10 @@
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -1315,10 +1315,10 @@
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -1362,10 +1362,10 @@
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -1415,10 +1415,10 @@
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -1458,10 +1458,10 @@
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -1495,10 +1495,10 @@
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -1541,10 +1541,10 @@
           "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -1588,10 +1588,10 @@
           "blocked_evidence": "Block reset/stale search, missing or wrong route/dates/party, overnight arrival after arrival_date, no flights, sales horizon, login, captcha, required consent, form submission or passenger details. Never substitute an unreviewed gateway, claim onward travel is included, or continue past the safe selected state.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         }
@@ -2852,10 +2852,10 @@
           "blocked_evidence": "At the first loaded NS booking page, if the reviewed route, both dates or party are absent/reset, STOP BLOCKED date_mismatch immediately. Never submit search forms or reconstruct a lost route. Block reset/stale search, wrong dates/party, no connections/fares, sales horizon, unmatched age category, non-reviewed gateway, login, captcha, required consent or form submission. R4-02's fragment-loss startup limitation is fixed by merged P12 plus task keep_fragment=true, not live-retested here. The remaining distinct checkpoint URL is unverified: never open passenger details to find it. Never follow a prohibited carrier-host redirect even when that carrier is named on an NS fare.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -2898,10 +2898,10 @@
           "blocked_evidence": "Block blank/reset route or dates, wrong party/age category, timetable-only journeys without fares, no connections, sold out or sales horizon, login, captcha, required consent, form submission, passenger details or a non-reviewed carrier redirect. Never change dates. Fragment must be retained by P12; do not reconstruct a missing route by submitting a search.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -2934,10 +2934,10 @@
           "blocked_evidence": "Block blank/reset route or dates, wrong party/age category, timetable-only journeys without fares, no connections, sold out or sales horizon, login, captcha, required consent, form submission, passenger details or a non-reviewed carrier redirect. Never change dates. Fragment must be retained by P12; do not reconstruct a missing route by submitting a search.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -2970,10 +2970,10 @@
           "blocked_evidence": "Block blank/reset route or dates, wrong party/age category, timetable-only journeys without fares, no connections, sold out or sales horizon, login, captcha, required consent, form submission, passenger details or a non-reviewed carrier redirect. Never change dates. Fragment must be retained by P12; do not reconstruct a missing route by submitting a search.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         },
@@ -3006,10 +3006,10 @@
           "blocked_evidence": "Block blank/reset route or dates, wrong party/age category, timetable-only journeys without fares, no connections, sold out or sales horizon, login, captcha, required consent, form submission, passenger details or a non-reviewed carrier redirect. Never change dates. Fragment must be retained by P12; do not reconstruct a missing route by submitting a search.",
           "checkpoint": {
             "url_patterns": [
-              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
+              "^(?!.*(?:guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm))[^\\n]*/en/traintickets-v3/(?:overview|review)(?:[/?#]|$)"
             ],
             "beyond_patterns": [
-              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+              "guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"
             ]
           }
         }

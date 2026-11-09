@@ -590,7 +590,7 @@ def task_checkpoint(adapter: Mapping[str, Any]) -> dict[str, list[str]]:
     """Legacy adapters without checkpoints cannot claim a URL-based ready boundary."""
     checkpoint = adapter.get("checkpoint") or {
         "url_patterns": [r"(?!)"],
-        "beyond_patterns": [r"guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"],
+        "beyond_patterns": [r"guest|passenger|/pax|payment|/pay|checkout|/book(?:ing)?/confirm"],
     }
     return {key: list(checkpoint[key]) for key in ("url_patterns", "beyond_patterns")}
 
