@@ -3,13 +3,21 @@ import re
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from test_site_policy import TODAY, assert_task_policy, distinct_entry, registry, transport_entry
+from test_site_policy import (
+    CITY_ALIAS_CASES,
+    TODAY,
+    assert_task_policy,
+    distinct_entry,
+    registry,
+    transport_entry,
+)
 
 from runai.agents import hclient
+from runai.agents.site_policy import city_name
 from runai.agents.transport import build_task
 
 KEYS = {"kind", "site_name", "start_url", "instructions", "stop_before", "success_signal",
-        "fallback_url", "max_steps", "expected", "allowed_hosts"}
+        "fallback_url", "max_steps", "expected", "allowed_hosts", "checkpoint"}
 
 
 def trip(**changes):
@@ -30,6 +38,27 @@ def build(data, reg=None):
     return build_task(data, today=TODAY, registry=registry() if reg is None else reg)
 
 
+@pytest.mark.parametrize("alias,canonical,country", CITY_ALIAS_CASES)
+def test_transport_alias_tasks(alias, canonical, country):
+    reg = registry(transport_entry())
+    reg["entries"][0]["adapters"][0]["destination_countries"] = [country]
+    reg["entries"][0]["adapters"][0]["places"] = {canonical: {"station_code": "TEST"}}
+    reg["entries"][0]["adapters"][0]["url_template"] += "&station={station_code}"
+    a = build(trip(city=alias, country=country), reg)
+    b = build(trip(city=canonical, country=country), reg)
+    assert a["start_url"] == b["start_url"]
+    assert a["expected"]["city"] == alias and b["expected"]["city"] == canonical
+
+
+@pytest.mark.parametrize("city", ["Den Haag", "The Hague", "'s-Gravenhage"])
+def test_transport_gateway_city_keeps_race_city(city, monkeypatch):
+    task = build_task(trip(city=city, country="NL", origin_city="Paris", travelers=1),
+                      today=TODAY)
+    assert task["expected"]["city"] == city
+    assert task["expected"]["gateway_city"] == "Amsterdam"
+    assert_task_policy(task, monkeypatch)
+
+
 @pytest.mark.parametrize("origin,city,country", [
     ("Porto", "Lisbon", "Portugal"), ("Paris", "Milan", "Italy"), ("Zürich", "Berlin", "DE"),
 ])
@@ -37,11 +66,12 @@ def test_round_trip_deep_link(origin, city, country):
     task = build(trip(origin_city=origin, city=city, country=country))
     assert set(task) == KEYS
     assert parse_qs(urlsplit(task["start_url"]).query) == {
-        "from": [origin], "to": [city], "out": ["2027-03-20"], "ret": ["2027-03-22"],
+        "from": [city_name(origin)], "to": [city_name(city)],
+        "out": ["2027-03-20"], "ret": ["2027-03-22"],
         "pax": ["2"],
     }
     assert task["start_url"].isascii()
-    assert task["max_steps"] == 40
+    assert task["max_steps"] == 60
     assert task["allowed_hosts"] == ["tickets.rail.example"]
     assert task["expected"]["origin_city"] == origin
     assert task["expected"]["kind"] == "transport"
@@ -147,7 +177,7 @@ def test_numbered_prompt_p4_reasons_and_early_inventory_stop():
     assert "full round-trip total" in task["success_signal"]
     assert "before passenger details, personal data or payment" in task["success_signal"]
     assert "report BLOCKED unsafe_claim" in task["success_signal"]
-    assert set(task) == KEYS and task["max_steps"] <= 40
+    assert set(task) == KEYS and task["max_steps"] == 60
     assert task["fallback_url"] == task["start_url"]
     assert urlsplit(task["fallback_url"]).hostname == "tickets.rail.example"
     assert urlsplit(task["fallback_url"]).path not in ("", "/")

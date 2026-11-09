@@ -12,10 +12,16 @@ from datetime import date
 from math import isfinite
 from typing import Any
 
-from runai.agents.site_policy import select_adapters, trip_expected
+from runai.agents.site_policy import (
+    city_key,
+    hotel_search_city,
+    select_adapters,
+    task_checkpoint,
+    trip_expected,
+)
 
 KIND = "hotel"
-MAX_STEPS = 40
+MAX_STEPS = 60
 STOP_BEFORE = [
     "guest details / personal data form", "login or account creation", "payment page",
     "booking confirmation", "terms or consent checkbox", "cookie consent acceptance",
@@ -46,6 +52,10 @@ def build_task(
 
 
 def _candidate_task(expected, budget, adapter, url, decision):
+    search_city = hotel_search_city(expected)
+    if city_key(search_city) != city_key(expected["city"]):
+        expected["gateway_city"] = search_city
+    checkpoint = task_checkpoint(adapter)
     arrival, departure, adults = (
         expected["arrival_date"], expected["departure_date"], expected["travelers"]
     )
@@ -72,18 +82,20 @@ def _candidate_task(expected, budget, adapter, url, decision):
         "Search results without a selected room and rate are NOT ready.\n"
         f"5. Site-specific success evidence: {adapter['success_evidence']}\n"
         f"6. Site-specific blocked evidence: {adapter['blocked_evidence']}\n"
-        "7. On the reviewed selection/review page (IHG: Add Extras / select-enhance-stay), "
-        "STOP and report READY immediately only "
-        "when the selected room, rate, dates, party and full-stay total are visible. "
-        "For IHG, /select-enhance-stay is a terminal checkpoint: inspect its selection summary "
-        "once, then finish READY if all required evidence is present, otherwise finish "
-        "BLOCKED unsafe_claim immediately. Never add extras, navigate back or keep browsing. "
+        f"7. Checkpoint URL patterns: {checkpoint['url_patterns']}. Match with case-insensitive "
+        "re.search against the full current URL. When matched, STOP and answer immediately: "
+        "READY if selected room, rate, dates, party and full-stay total evidence is complete, "
+        "else BLOCKED unsafe_claim. Never add extras, navigate back or keep browsing. "
+        f"Never navigate to a URL matching beyond patterns: {checkpoint['beyond_patterns']}. "
+        f"Hotel search city: {search_city}. Only the race city {expected['city']} or reviewed "
+        f"gateway city {expected.get('gateway_city', expected['city'])} is acceptable; "
+        "outside both, report BLOCKED date_mismatch. Any onward local transfer is not included. "
         "Do not continue to guest details. Stop before opening guest details or payment. "
         "Never type personal data, log in, "
         "create accounts, tick terms, solve captchas or pay. For login/account walls report "
         "BLOCKED login_required; for captcha report BLOCKED captcha; for required consent "
         "report BLOCKED consent_required. Safety rules override site evidence.\n"
-        "8. Finish within 40 steps; otherwise report BLOCKED step_limit. For missing site "
+        f"8. Finish within {MAX_STEPS} steps; otherwise report BLOCKED step_limit. For missing site "
         "coverage report BLOCKED no_site_coverage; denied policy report BLOCKED policy_denied; "
         "session failure report BLOCKED session_failed; timeout report BLOCKED timeout; "
         "site error report BLOCKED provider_error. Never invent success: report BLOCKED "
@@ -91,6 +103,7 @@ def _candidate_task(expected, budget, adapter, url, decision):
     )
     return {
         "kind": KIND,
+        "checkpoint": checkpoint,
         "site_name": decision["policy_id"],
         "start_url": url,
         "instructions": instructions,
@@ -99,8 +112,8 @@ def _candidate_task(expected, budget, adapter, url, decision):
             f"READY only on the reviewed selection page where a selected room and rate show "
             f"check-in {arrival}, check-out {departure}, {adults} adults and the full-stay "
             "total for the whole party, before guest details, personal data or payment. "
-            "For IHG this is the Add Extras / select-enhance-stay page: STOP there and report "
-            "READY immediately when all selection evidence is visible. "
+            f"Checkpoint patterns: {checkpoint['url_patterns']}; STOP and answer immediately "
+            "READY only with complete evidence, otherwise BLOCKED unsafe_claim. "
             "Report that safe public URL. For incomplete evidence report BLOCKED unsafe_claim; "
             "for other stops use the exact BLOCKED reason from the instructions."
         ),

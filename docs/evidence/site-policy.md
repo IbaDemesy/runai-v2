@@ -1,3 +1,31 @@
+# R5-02 offline checkpoint contract (2026-11-09)
+
+Optional adapter `checkpoint` has non-empty string lists `url_patterns` and
+`beyond_patterns`. Load compiles each regex with IGNORECASE to validate it and
+retains plain strings for task JSON. Match using re.search on the full URL.
+Missing is compatible; malformed, empty, non-string or invalid regex fails closed.
+Legacy adapters without this metadata receive an impossible `(?!)` ready pattern
+and the generic unsafe boundary; this is not evidence of a selected review page.
+Hotel/transport tasks and P7 alternatives carry independent copies. A checkpoint
+requires an immediate answer: READY only with complete evidence, else BLOCKED
+unsafe_claim. Never navigate beyond; all earlier safety boundaries still win.
+This handoff changes instructions/metadata only, not hclient runtime enforcement.
+
+All checkpoint patterns exclude URLs containing the shared beyond expression:
+`guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay`.
+Unknown/expired/prohibited policy reviews and Accor remain denied.
+
+City aliases are accent/case-insensitive for countries, place IDs and URL queries.
+Expected race/origin strings remain unchanged. Reviewed regional hotel bases:
+Stoos/Morschach → Lucerne (Lake Lucerne regional lodging base), Savognin → Chur
+(regional transport/lodging base), Grindelwald → Interlaken (valley gateway).
+These are desk-reviewed geographic allowances within Switzerland, not observed
+hotel inventory, proximity guarantees or included transfers. Search only that
+gateway; a property outside both race city and gateway blocks date_mismatch.
+No wider neighboring-city substitution is allowed. Transport `via` exposes its
+reviewed gateway city without replacing expected.city; hclient acceptance of that
+extra field is outside this ticket's runtime scope.
+
 # Site policy review: R2-02
 
 Machine-readable registry: `docs/site-policy.json`, enforced by `runai/agents/site_policy.py`

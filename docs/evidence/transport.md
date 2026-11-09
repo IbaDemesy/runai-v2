@@ -1,3 +1,22 @@
+# R5-02 offline checkpoint additions (2026-11-09)
+
+All transport adapters carry independent task/P7 checkpoint metadata; 60 steps.
+Patterns are full-URL case-insensitive searches with a negative lookahead excluding
+the generic unsafe expression in site-policy.md and `(?:[/?#]|$)` suffix.
+
+| Adapter | Checkpoint expression | Evidence status |
+| --- | --- | --- |
+| Vueling (all route variants) | `/booking/(?:selectFare|fareSelection|review)` | **Guessed, unverified.** Only /booking/selectFlight lists were observed; this is a prospective next-step fare review with both legs selected, never the unselected list. |
+| NS International | `#/(?:overview|review)` | **Guessed, unverified.** Selected two-leg fare overview URL was not observed; search fragment is not a checkpoint. |
+| CP | `/pt/(?:resumo-viagem|resumo-compra)` | **Guessed, unverified.** Public results are documented, selected round-trip review URL is unknown. |
+
+On matching the checkpoint, stop and answer immediately: READY with complete
+two-leg evidence, otherwise BLOCKED unsafe_claim. Never navigate beyond patterns.
+No live provider called in this step; guessed paths are not authorization or proof
+of real stops. Reviewed Den Haag via Amsterdam exposes expected.gateway_city
+Amsterdam while preserving the original race city, including aliases. Onward
+transfer remains excluded. Runtime verifier gateway support is not changed here.
+
 # Transport site evidence: R2-02 (supersedes R1-06)
 
 The R1 heuristic routing (country rail sites + Google Flights fallback) is **withdrawn**. Prohibited by their

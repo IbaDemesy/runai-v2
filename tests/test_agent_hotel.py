@@ -3,13 +3,20 @@ from datetime import date
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from test_site_policy import TODAY, assert_task_policy, distinct_entry, entry, registry
+from test_site_policy import (
+    CITY_ALIAS_CASES,
+    TODAY,
+    assert_task_policy,
+    distinct_entry,
+    entry,
+    registry,
+)
 
 from runai.agents.hotel import build_task
-from runai.agents.site_policy import evaluate_url, load_registry
+from runai.agents.site_policy import city_name, evaluate_url, load_registry
 
 KEYS = {"kind", "site_name", "start_url", "instructions", "stop_before", "success_signal",
-        "fallback_url", "max_steps", "expected", "allowed_hosts"}
+        "fallback_url", "max_steps", "expected", "allowed_hosts", "checkpoint"}
 
 
 def trip(**changes):
@@ -30,6 +37,37 @@ def build(data, reg=None):
     return build_task(data, today=TODAY, registry=registry() if reg is None else reg)
 
 
+@pytest.mark.parametrize("alias,canonical,country", CITY_ALIAS_CASES)
+def test_alias_tasks_same_search_and_adapters(alias, canonical, country, monkeypatch):
+    tasks = [build_task(trip(city=city, country=country, travelers=1), today=TODAY)
+             for city in (alias, canonical)]
+    for task, city in zip(tasks, (alias, canonical), strict=True):
+        assert task["expected"]["city"] == city
+        assert_task_policy(task, monkeypatch)
+    for a, b in zip([tasks[0], *tasks[0].get("alternatives", [])],
+                    [tasks[1], *tasks[1].get("alternatives", [])], strict=True):
+        assert a["start_url"] == b["start_url"]
+        assert a["site_name"] == b["site_name"]
+
+
+@pytest.mark.parametrize("city,gateway", [
+    ("Stoos", "Lucerne"), ("Morschach", "Lucerne"), ("Savognin", "Chur"),
+    ("Grindelwald", "Interlaken"),
+])
+def test_reviewed_hotel_gateway(city, gateway, monkeypatch):
+    task = build_task(trip(city=city, country="CH", travelers=1), today=TODAY)
+    assert task["expected"]["city"] == city
+    assert task["expected"]["gateway_city"] == gateway
+    assert parse_qs(urlsplit(task["start_url"]).query)["qDest"] == [gateway + ", CH"]
+    assert "outside both, report BLOCKED date_mismatch" in task["instructions"]
+    assert_task_policy(task, monkeypatch)
+
+
+def test_hotel_gateway_does_not_apply_to_wrong_country():
+    task = build_task(trip(city="Stoos", country="IT"), today=TODAY)
+    assert "gateway_city" not in task["expected"]
+
+
 @pytest.mark.parametrize("city,country", [
     ("Milan", "Italy"), ("Lisbon", "Portugal"), ("München", "Germany"), ("Lisboa", "PT"),
 ])
@@ -37,11 +75,11 @@ def test_deep_link_encodes_exact_stay(city, country):
     task = build(trip(city=city, country=country))
     assert set(task) == KEYS
     query = parse_qs(urlsplit(task["start_url"]).query)
-    assert query == {"city": [city], "in": ["2027-04-03"], "out": ["2027-04-05"],
+    assert query == {"city": [city_name(city)], "in": ["2027-04-03"], "out": ["2027-04-05"],
                      "adults": ["2"]}
     assert task["start_url"].isascii()
     assert task["fallback_url"] == task["start_url"]
-    assert task["max_steps"] == 40
+    assert task["max_steps"] == 60
     assert task["allowed_hosts"] == ["secure.hotels.example", "www.hotels.example"]
     assert task["site_name"] == "example-hotels"
     assert task["expected"] == {
@@ -238,7 +276,7 @@ def test_numbered_prompt_p4_reasons_and_early_inventory_stop():
     assert "full-stay total for the whole party" in task["success_signal"]
     assert "before guest details, personal data or payment" in task["success_signal"]
     assert "report BLOCKED unsafe_claim" in task["success_signal"]
-    assert set(task) == KEYS and task["max_steps"] <= 40
+    assert set(task) == KEYS and task["max_steps"] == 60
     assert task["fallback_url"] == task["start_url"]
     assert urlsplit(task["fallback_url"]).hostname == "www.hotels.example"
     assert urlsplit(task["fallback_url"]).path not in ("", "/")
@@ -276,8 +314,8 @@ def test_r4_committed_hotel_matrix_and_policy(city, country, monkeypatch):
         if candidate["site_name"] == "ihg-com":
             assert "select-enhance-stay" in candidate["success_signal"]
             assert "STOP" in candidate["instructions"] and "READY immediately" in candidate["instructions"]
-            assert "terminal checkpoint" in candidate["instructions"]
-            assert "otherwise finish BLOCKED unsafe_claim immediately" in candidate["instructions"]
+            assert "STOP and answer immediately" in candidate["instructions"]
+            assert "else BLOCKED unsafe_claim" in candidate["instructions"]
             assert "no hotel in the confirmed city" in candidate["instructions"]
 
 

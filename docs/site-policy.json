@@ -76,7 +76,15 @@
             }
           },
           "success_evidence": "NH step1-rates shows the hotel's city, Jan 9-Jan 11 and 1 adulto / 1 habitación or 2 adultos / 1 habitación for the tested 2027-01-09..11 stay; six priced room categories at NH Collection Lisboa Liberdade were observed 2026-11-09. Open Ver tarifas only if it is not a form submission, then verify a selected room AND rate and full-stay total before guest data. A room list alone is not ready.",
-          "blocked_evidence": "Observed Spanish no-inventory text: Lo sentimos, no hay disponibilidad para estas fechas (tested at NH Collection Milano Touring with 9 adults). Also block on mismatched dates/party, login, captcha, consent acceptance, form submission or guest details."
+          "blocked_evidence": "Observed Spanish no-inventory text: Lo sentimos, no hay disponibilidad para estas fechas (tested at NH Collection Milano Touring with 9 adults). Also block on mismatched dates/party, login, captcha, consent acceptance, form submission or guest details.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/step2-(?:extras|services)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         }
       ]
     },
@@ -127,7 +135,15 @@
             }
           },
           "success_evidence": "Observed 2026-11-09: B&B HOTEL Freiburg-Nord, Tullastraße 87c, 79108 Freiburg, Germany; 1 room | 1 adult | From 09 Jan. 2027 to 11 Jan. 2027. Double and twin rooms list public SUPERSAVER and FLEX rates with date-by-date prices and Select controls. One adult only; rooms parameter is not verified for larger parties. Verify selected room, rate, party and full-stay total before guest data. Never submit the room-selection form or use member login rates.",
-          "blocked_evidence": "Observed on B&B search: No hotels match your search criteria. Freiburg has rates on the tested dates; no property-specific sold-out message was observed this round. Block empty rates, wrong city/dates/party, member login, consent, captcha, form submission or guest details."
+          "blocked_evidence": "Observed on B&B search: No hotels match your search criteria. Freiburg has rates on the tested dates; no property-specific sold-out message was observed this round. Block empty rates, wrong city/dates/party, member login, consent, captcha, form submission or guest details.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         },
         {
           "kind": "hotel",
@@ -148,7 +164,15 @@
             }
           },
           "success_evidence": "Observed 2026-11-09: milano-sant-ambrogio renders 1 room, 1 adult, From 09 Jan. 2027 to 11 Jan. 2027 and public room/rate prices with Select controls. One adult only. These unselected rates are not READY: require selected room AND public rate, exact city/dates/party and full-stay total on a review page before guest data. Stop if selection would submit a form; that safe selected state was not observed.",
-          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form."
+          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         },
         {
           "kind": "hotel",
@@ -166,7 +190,15 @@
             }
           },
           "success_evidence": "Observed 2026-11-09: paris-porte-des-lilas renders 1 room, 1 adult, From 09 Jan. 2027 to 11 Jan. 2027 and public room/rate prices with Select controls. One adult only. These unselected rates are not READY: require selected room AND public rate, exact city/dates/party and full-stay total on a review page before guest data. Stop if selection would submit a form; that safe selected state was not observed.",
-          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form."
+          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         },
         {
           "kind": "hotel",
@@ -190,7 +222,15 @@
             }
           },
           "success_evidence": "Observed 2026-11-09: bruxelles-centre-gare-midi renders 1 room, 1 adult, From 09 Jan. 2027 to 11 Jan. 2027 and public room/rate prices with Select controls. One adult only. These unselected rates are not READY: require selected room AND public rate, exact city/dates/party and full-stay total on a review page before guest data. Stop if selection would submit a form; that safe selected state was not observed.",
-          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form."
+          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         },
         {
           "kind": "hotel",
@@ -214,7 +254,15 @@
             }
           },
           "success_evidence": "Observed 2026-11-09: wien-hbf renders 1 room, 1 adult, From 09 Jan. 2027 to 11 Jan. 2027 and public room/rate prices with Select controls. One adult only. These unselected rates are not READY: require selected room AND public rate, exact city/dates/party and full-stay total on a review page before guest data. Stop if selection would submit a form; that safe selected state was not observed.",
-          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form."
+          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         },
         {
           "kind": "hotel",
@@ -232,7 +280,15 @@
             }
           },
           "success_evidence": "Observed 2026-11-09: prague-city renders 1 room, 1 adult, From 09 Jan. 2027 to 11 Jan. 2027 and public room/rate prices with Select controls. One adult only. These unselected rates are not READY: require selected room AND public rate, exact city/dates/party and full-stay total on a review page before guest data. Stop if selection would submit a form; that safe selected state was not observed.",
-          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form."
+          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         },
         {
           "kind": "hotel",
@@ -250,7 +306,15 @@
             }
           },
           "success_evidence": "Observed 2026-11-09: birmingham-centre renders 1 room, 1 adult, From 09 Jan. 2027 to 11 Jan. 2027 and public room/rate prices with Select controls. One adult only. These unselected rates are not READY: require selected room AND public rate, exact city/dates/party and full-stay total on a review page before guest data. Stop if selection would submit a form; that safe selected state was not observed.",
-          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form."
+          "blocked_evidence": "Block on missing rates, fully booked message, wrong city/dates/party, member-only prices, login, consent, captcha, form submission or guest details. Never change dates or submit the room-selection form.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:extras|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         }
       ]
     },
@@ -299,8 +363,16 @@
             "GB"
           ],
           "url_template": "https://www.ihg.com/hotels/gb/en/find-hotels/hotel/list?qDest={city_query}%2C%20{country}&qCiD={arrival_day}&qCiMy={arrival_monthyear0}&qCoD={departure_day}&qCoMy={departure_monthyear0}&qAdlt={travelers}&qChld=0&qRms=1",
-          "success_evidence": "IHG redirects to hotel-search on www.ihg.com. The rendered destination, DD/MM/YYYY dates and Rooms & Guests must match the confirmed trip (month-year URL values are zero-based). Observed 2026-11-09: priced hotel results for Milan, Lisbon, Valencia, Zurich and Geneva with 1 and 2 adults, 2027-01-09..11. Lausanne and Freiburg queries returned only distant hotels: verify the hotel's actual city, not just the search field; do not substitute Geneva or Ringsheim for the confirmed city. Results and From nightly prices alone are not ready: only a selected room AND rate showing the exact stay, party and stay total before guest data can qualify. READY boundary: Add Extras / select-enhance-stay review page after selecting room AND rate, showing hotel in the confirmed city, exact check-in/check-out dates, party and full-stay total. STOP there and report READY immediately, before guest details or any form submission. This boundary comes from prior R3 navigation. The 2026-11-09 R4-02 live smoke reached select-enhance-stay but failed step_limit at 40, not READY; full selected evidence was not independently verified. Treat this page as terminal: inspect the selection summary once, then finish READY only with all required evidence, otherwise BLOCKED unsafe_claim immediately; never add extras or keep browsing. This tightened instruction was not rerun live.",
-          "blocked_evidence": "Observed empty/error search text: 0 Hotel Found. An error has occurred. Please contact your nearest reservation office and a representative will be able to assist you. Treat as blocked, not proof of sold-out inventory. Also block on no hotel in the confirmed city, Your search results contain properties in neighboring countries/regions without a matching city hotel, mismatched dates/party, login, captcha, consent acceptance, form submission, unreviewed redirect or guest details."
+          "success_evidence": "IHG redirects to hotel-search on www.ihg.com. The rendered destination, DD/MM/YYYY dates and Rooms & Guests must match the confirmed trip (month-year URL values are zero-based). Observed 2026-11-09: priced hotel results for Milan, Lisbon, Valencia, Zurich and Geneva with 1 and 2 adults, 2027-01-09..11. Lausanne and Freiburg queries returned only distant hotels: verify the hotel's actual city, not just the search field; do not substitute Geneva or Ringsheim for the confirmed city. Results and From nightly prices alone are not ready: only a selected room AND rate showing the exact stay, party and stay total before guest data can qualify. READY boundary: Add Extras / select-enhance-stay review page after selecting room AND rate, showing hotel in the confirmed city or explicitly reviewed hotel gateway city, exact check-in/check-out dates, party and full-stay total. STOP there and report READY immediately, before guest details or any form submission. This boundary comes from prior R3 navigation. The 2026-11-09 R4-02 live smoke reached select-enhance-stay but failed step_limit at 40, not READY; full selected evidence was not independently verified. Treat this page as terminal: inspect the selection summary once, then finish READY only with all required evidence, otherwise BLOCKED unsafe_claim immediately; never add extras or keep browsing. This tightened instruction was not rerun live.",
+          "blocked_evidence": "Observed empty/error search text: 0 Hotel Found. An error has occurred. Please contact your nearest reservation office and a representative will be able to assist you. Treat as blocked, not proof of sold-out inventory. Also block on no hotel in the confirmed city or explicitly reviewed hotel gateway city, Your search results contain properties in neighboring countries/regions without a matching city hotel, mismatched dates/party, login, captcha, consent acceptance, form submission, unreviewed redirect or guest details.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/select-enhance-stay(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         },
         {
           "kind": "hotel",
@@ -322,8 +394,16 @@
               "place_code": "6C"
             }
           },
-          "success_evidence": "IHG rates page for the hotel shows the exact check-in/check-out dates (IHG encodes months zero-based in the URL; verify the rendered dates, not the URL), the adults count, and a selected room AND rate with the stay total (observed 2026-11-08: 8 room options for Holiday Inn Lisbon 13-15 March 2027). READY boundary: Add Extras / select-enhance-stay review page after selecting room AND rate, showing hotel in the confirmed city, exact check-in/check-out dates, party and full-stay total. STOP there and report READY immediately, before guest details or any form submission. This boundary comes from prior R3 navigation. The 2026-11-09 R4-02 live smoke reached select-enhance-stay but failed step_limit at 40, not READY; full selected evidence was not independently verified. Treat this page as terminal: inspect the selection summary once, then finish READY only with all required evidence, otherwise BLOCKED unsafe_claim immediately; never add extras or keep browsing. This tightened instruction was not rerun live.",
-          "blocked_evidence": "Rendered dates are one month off or otherwise differ (date_mismatch), no availability, IHG One Rewards sign-in required to see the rate, captcha, or the next step is guest details."
+          "success_evidence": "IHG rates page for the hotel shows the exact check-in/check-out dates (IHG encodes months zero-based in the URL; verify the rendered dates, not the URL), the adults count, and a selected room AND rate with the stay total (observed 2026-11-08: 8 room options for Holiday Inn Lisbon 13-15 March 2027). READY boundary: Add Extras / select-enhance-stay review page after selecting room AND rate, showing hotel in the confirmed city or explicitly reviewed hotel gateway city, exact check-in/check-out dates, party and full-stay total. STOP there and report READY immediately, before guest details or any form submission. This boundary comes from prior R3 navigation. The 2026-11-09 R4-02 live smoke reached select-enhance-stay but failed step_limit at 40, not READY; full selected evidence was not independently verified. Treat this page as terminal: inspect the selection summary once, then finish READY only with all required evidence, otherwise BLOCKED unsafe_claim immediately; never add extras or keep browsing. This tightened instruction was not rerun live.",
+          "blocked_evidence": "Rendered dates are one month off or otherwise differ (date_mismatch), no availability, IHG One Rewards sign-in required to see the rate, captcha, or the next step is guest details.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/select-enhance-stay(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         }
       ]
     },
@@ -422,7 +502,15 @@
             }
           },
           "success_evidence": "CP results show the outbound date = arrival date and return date = departure date, the passenger count, a selected outbound train AND a selected return train with fares/total, before passenger data (observed 2026-11-08: one-way Lisboa Oriente-Porto Campanhã fares for 2026-11-23).",
-          "blocked_evidence": "'Não foram encontrados resultados' (no inventory / sales horizon not open, observed for March 2027), wrong dates or one-way only, login, captcha, or passenger-data step."
+          "blocked_evidence": "'Não foram encontrados resultados' (no inventory / sales horizon not open, observed for March 2027), wrong dates or one-way only, login, captcha, or passenger-data step.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/pt/(?:resumo-viagem|resumo-compra)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         }
       ]
     },
@@ -1120,7 +1208,15 @@
             }
           },
           "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping. READY boundary: stop immediately on fare selection with both legs selected, exact dates and party and full round-trip total visible, before passenger details; never continue to passenger forms.",
-          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
+          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         },
         {
           "kind": "transport",
@@ -1163,7 +1259,15 @@
             }
           },
           "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping. Lyon's January 11 return had no flights for all three destinations: report no_inventory, not ready. READY boundary: stop immediately on fare selection with both legs selected, exact dates and party and full round-trip total visible, before passenger details; never continue to passenger forms.",
-          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
+          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         },
         {
           "kind": "transport",
@@ -1208,7 +1312,15 @@
             }
           },
           "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping. READY boundary: stop immediately on fare selection with both legs selected, exact dates and party and full round-trip total visible, before passenger details; never continue to passenger forms.",
-          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
+          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         },
         {
           "kind": "transport",
@@ -1247,7 +1359,15 @@
             }
           },
           "success_evidence": "Observed 2026-11-09: public /booking/selectFlight renders OUTBOUND and RETURN for the reviewed airport pair, Return with the requested adults, and active date tabs for the exact outbound/return dates. January 9-11 2027 was checked for each listed origin/destination pair; Paris routes were also checked with 2 adults. Only matching active dates count, not nearby-day suggestions. Where inventory exists, each leg lists times, flight numbers, connections and SELECT FLIGHT FOR EUR prices. This is not ready: verify a selected outbound arriving by arrival_date AND return departing departure_date, fare and full-party round-trip total before passenger data. Never substitute another airport or route except an explicitly reviewed airport mapping. BSL is Basel EuroAirport, an explicitly reviewed airport-only fallback for Freiburg, not a flight to Freiburg city or an included onward ground transfer. Brussels-Basel January 9 had no outbound flights; January 11 listed return fares. Report no_inventory for that stay, not a prepared round trip. READY boundary: stop immediately on fare selection with both legs selected, exact dates and party and full round-trip total visible, before passenger details; never continue to passenger forms.",
-          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
+          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         },
         {
           "kind": "transport",
@@ -1292,7 +1412,15 @@
             }
           },
           "success_evidence": "Observed 2026-11-09: /booking/selectFlight rendered both route headers, Return with 1 Adult, active Sat 9 Jan and Mon 11 Jan 2027 tabs and public EUR fares. This list is NOT READY. READY only on the fare-selection page with outbound AND return selected, exact dates, arrival by the requested arrival_date, party, fare and full-party round-trip total visible. STOP and report READY immediately before passenger details, personal data, consent, form submission or payment; this selected state was not observed in this research.",
-          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
+          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         },
         {
           "kind": "transport",
@@ -1327,7 +1455,15 @@
             }
           },
           "success_evidence": "Observed 2026-11-09: /booking/selectFlight rendered both route headers, Return with 1 Adult, active Sat 9 Jan and Mon 11 Jan 2027 tabs and public EUR fares. This list is NOT READY. READY only on the fare-selection page with outbound AND return selected, exact dates, arrival by the requested arrival_date, party, fare and full-party round-trip total visible. STOP and report READY immediately before passenger details, personal data, consent, form submission or payment; this selected state was not observed in this research.",
-          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
+          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         },
         {
           "kind": "transport",
@@ -1356,7 +1492,15 @@
             }
           },
           "success_evidence": "Observed 2026-11-09: /booking/selectFlight rendered both route headers, Return with 1 Adult, active Sat 9 Jan and Mon 11 Jan 2027 tabs and public EUR fares. This list is NOT READY. READY only on the fare-selection page with outbound AND return selected, exact dates, arrival by the requested arrival_date, party, fare and full-party round-trip total visible. STOP and report READY immediately before passenger details, personal data, consent, form submission or payment; this selected state was not observed in this research.",
-          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
+          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         },
         {
           "kind": "transport",
@@ -1394,7 +1538,15 @@
             }
           },
           "success_evidence": "Observed 2026-11-09: /booking/selectFlight rendered both route headers, Return with 1 Adult, active Sat 9 Jan and Mon 11 Jan 2027 tabs and public EUR fares. This list is NOT READY. READY only on the fare-selection page with outbound AND return selected, exact dates, arrival by the requested arrival_date, party, fare and full-party round-trip total visible. STOP and report READY immediately before passenger details, personal data, consent, form submission or payment; this selected state was not observed in this research.",
-          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect."
+          "blocked_evidence": "Observed no_inventory text: NO FLIGHTS ON THIS DAY. NO WORRIES, YOU STILL HAVE PLENTY TO PICK FROM. Date tabs also show No flights. Seen on some January legs and on both legs for Paris-Milan January 9-11 2028; April 9-11 2027 already had fares, not a closed sale horizon. If the URL returns /booking/flightSearch with blank dates or stale route, block date_mismatch, not no_inventory. Also block wrong party, overnight outbound arriving after arrival_date, missing return, login, captcha, consent acceptance, form submission, passenger data or unreviewed redirect.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*/booking/(?:selectFare|fareSelection|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         }
       ]
     },
@@ -2650,7 +2802,15 @@
             }
           },
           "success_evidence": "Observed 2026-11-09: Paris Gare du Nord to Amsterdam Central, Sat 09 Jan / Mon 11 Jan 2027, 1 Adult (26-59 years), outbound train times and public EUR prices on NS International. Only this one-adult default age category is reviewed; stop if it does not match the traveler. For Den Haag, reviewed Amsterdam Centraal is the arrival gateway: READY covers the selected round trip to/from that gateway. The onward local transfer is out of scope and must be mentioned in the final report, never claimed as booked or included. Never substitute a non-reviewed gateway or replace expected.city. The unchanged hclient city verifier currently rejects Amsterdam-only city evidence for expected.city Den Haag; never fabricate Den Haag evidence to pass it. READY boundary is the NS journey/fare review after selecting outward AND return, with both routes/dates, party and full round-trip fare visible, before opening passenger details. STOP and report READY immediately there. That selected return/review state was not observed; unselected outbound fares and EUR 0.00 are not READY.",
-          "blocked_evidence": "At the first loaded NS booking page, if the reviewed route, both dates or party are absent/reset, STOP BLOCKED date_mismatch immediately. Never fill or submit search forms, reconstruct missing routing or keep browsing to the step limit. Block blank search, reset/stale route, missing or wrong dates/party, no connections/fares, sales horizon, unmatched age category, non-reviewed gateway, login, captcha, consent or any required form submission. The R4-02 live smoke failed step_limit at 40; the runner strips the public search fragment before session start. No selected NS review or READY was verified; the tightened early-stop instruction is not live-retested. A prohibited carrier host redirect is never allowed even if that carrier is named on an NS fare."
+          "blocked_evidence": "At the first loaded NS booking page, if the reviewed route, both dates or party are absent/reset, STOP BLOCKED date_mismatch immediately. Never fill or submit search forms, reconstruct missing routing or keep browsing to the step limit. Block blank search, reset/stale route, missing or wrong dates/party, no connections/fares, sales horizon, unmatched age category, non-reviewed gateway, login, captcha, consent or any required form submission. The R4-02 live smoke failed step_limit at 40; the runner strips the public search fragment before session start. No selected NS review or READY was verified; the tightened early-stop instruction is not live-retested. A prohibited carrier host redirect is never allowed even if that carrier is named on an NS fare.",
+          "checkpoint": {
+            "url_patterns": [
+              "^(?!.*(?:guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay))[^\\n]*#/(?:overview|review)(?:[/?#]|$)"
+            ],
+            "beyond_patterns": [
+              "guest[-_/ ]?(?:details|info)|passenger|/pax|payment|/pay"
+            ]
+          }
         }
       ]
     },

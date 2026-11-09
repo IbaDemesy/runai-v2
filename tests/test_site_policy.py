@@ -1,5 +1,6 @@
 import copy
 import json
+import re
 from datetime import date, datetime
 from urllib.parse import urlsplit
 
@@ -94,6 +95,19 @@ def assert_task_policy(task, monkeypatch, reg=None):
         patch.setattr(site_policy, "evaluate_url", lambda url, kind: evaluate_url(
             url, kind, today=TODAY, registry=reg))
         for candidate in [task, *task.get("alternatives", [])]:
+            if candidate["kind"] in ("hotel", "transport"):
+                checkpoint = candidate["checkpoint"]
+                assert json.loads(json.dumps(checkpoint)) == checkpoint
+                for field in ("url_patterns", "beyond_patterns"):
+                    assert checkpoint[field]
+                    for pattern in checkpoint[field]:
+                        re.compile(pattern, re.IGNORECASE)
+                for path in ("/pay", "/payments", "/payment", "/guest-details", "/passenger"):
+                    url = "https://www.example.test" + path
+                    assert any(re.search(p, url, re.IGNORECASE) for p in checkpoint["beyond_patterns"])
+                    assert not any(re.search(p, url, re.IGNORECASE) for p in checkpoint["url_patterns"])
+                assert candidate["max_steps"] == 60
+                assert "Finish within 60 steps" in candidate["instructions"]
             decision = evaluate_url(candidate["start_url"], candidate["kind"],
                                     today=TODAY, registry=reg)
             assert decision["allowed"] and decision["policy_id"] == candidate["site_name"]
@@ -108,6 +122,81 @@ def assert_task_policy(task, monkeypatch, reg=None):
 
 KEYS = {"allowed", "reason", "policy_id", "screenshot_scope", "allowed_hosts", "allowed_paths",
         "expires_at"}
+
+
+@pytest.mark.parametrize("checkpoint", [
+    None, {}, [], {"url_patterns": [], "beyond_patterns": ["payment"]},
+    {"url_patterns": ["review"], "beyond_patterns": []},
+    {"url_patterns": ["["], "beyond_patterns": ["payment"]},
+    {"url_patterns": ["review"], "beyond_patterns": ["("]},
+    {"url_patterns": [1], "beyond_patterns": ["payment"]},
+    {"url_patterns": ["review"], "beyond_patterns": [None]},
+    {"url_patterns": [" "], "beyond_patterns": ["payment"]},
+    {"url_patterns": "review", "beyond_patterns": ["payment"]},
+])
+def test_checkpoint_invalid_fails_closed(checkpoint):
+    item = entry()
+    item["adapters"][0]["checkpoint"] = checkpoint
+    reg = registry(item)
+    with pytest.raises(PolicyError, match="checkpoint"):
+        parse_registry(reg)
+    assert not evaluate_url("https://www.hotels.example/search", "hotel",
+                            today=TODAY, registry=reg)["allowed"]
+
+
+def test_checkpoint_optional_and_plain_patterns_retained():
+    assert parse_registry(registry(entry()))[0]["adapters"][0]["checkpoint"] is None
+    item = entry()
+    checkpoint = {"url_patterns": ["/review"], "beyond_patterns": ["payment"]}
+    item["adapters"][0]["checkpoint"] = checkpoint
+    parsed = parse_registry(registry(item))[0]["adapters"][0]["checkpoint"]
+    assert parsed == checkpoint and parsed is not checkpoint
+    assert re.search(parsed["url_patterns"][0], "https://example.test/REVIEW", re.IGNORECASE)
+
+
+def test_all_committed_checkpoints_exclude_unsafe_urls():
+    for item in load_registry():
+        for adapter in item["adapters"]:
+            if adapter["kind"] not in ("hotel", "transport"):
+                continue
+            checkpoint = adapter["checkpoint"]
+            assert set(checkpoint) == {"url_patterns", "beyond_patterns"}
+            for patterns in checkpoint.values():
+                assert patterns and all(isinstance(p, str) for p in patterns)
+                for pattern in patterns:
+                    re.compile(pattern, re.IGNORECASE)
+            for path in ("/pay", "/payments", "/payment", "/guest-details", "/passenger",
+                         "/pax", "/guest-info"):
+                url = "https://example.test" + path
+                assert any(re.search(p, url, re.IGNORECASE) for p in checkpoint["beyond_patterns"])
+                assert not any(re.search(p, url, re.IGNORECASE) for p in checkpoint["url_patterns"])
+
+
+CITY_ALIAS_CASES = [
+    ("Amsterdam-Zuidoost", "Amsterdam", "NL"), ("BIJLMER", "Amsterdam", "NL"),
+    ("The Hague", "Den Haag", "NL"), ("'s-Gravenhage", "Den Haag", "NL"),
+    ("Genève", "Geneva", "CH"), ("GENF", "Geneva", "CH"),
+    ("Lisboa", "Lisbon", "PT"), ("Milano", "Milan", "IT"),
+    ("Sevilla", "Seville", "ES"), ("València", "Valencia", "ES"),
+    ("ZÜRICH", "Zurich", "CH"), ("Bruxelles", "Brussels", "BE"),
+    ("Torino", "Turin", "IT"),
+]
+
+
+@pytest.mark.parametrize("alias,canonical,country", CITY_ALIAS_CASES)
+def test_city_alias_country_and_adapter_places(alias, canonical, country):
+    assert site_policy.city_country(alias) == site_policy.city_country(canonical) == country
+    reg = _place_registry(places={canonical: {"place_id": "reviewed"}})
+    a = site_policy.select_adapter("hotel", {**EXPECTED, "city": alias},
+                                   today=TODAY, registry=reg)
+    b = site_policy.select_adapter("hotel", {**EXPECTED, "city": canonical},
+                                   today=TODAY, registry=reg)
+    assert a == b
+
+
+@pytest.mark.parametrize("city", [None, "", "unknown town", 123])
+def test_empty_unknown_city_alias(city):
+    assert site_policy.city_country(city) is None
 
 
 def check(url, kind="hotel", reg=None, today=TODAY):
@@ -429,7 +518,7 @@ def test_free_text_lookup_defaults_overrides_and_dates():
     )
     expected = {**EXPECTED, "origin_city": "Bâle"}
     url = site_policy.select_adapter("hotel", expected, today=TODAY, registry=reg)[1]
-    assert "c=z%C3%BCrich&o=B%C3%A2le&a=20270313&d=15-03-2027" in url
+    assert "c=Zurich&o=B%C3%A2le&a=20270313&d=15-03-2027" in url
     reg["entries"][0]["adapters"][0]["places"] = {"ZÜRICH": {"city_query": "Zurich, CH"}}
     assert "c=Zurich%2C%20CH" in site_policy.select_adapter(
         "hotel", expected, today=TODAY, registry=reg,
@@ -442,8 +531,12 @@ def test_iata_requires_reviewed_city_and_field():
     assert "to=ZRH" in site_policy.select_adapter(
         "hotel", {**EXPECTED, "city": "Zurich"}, today=TODAY, registry=reg,
     )[1]
+    assert "to=ZRH" in site_policy.select_adapter(
+        "hotel", EXPECTED, today=TODAY, registry=reg,
+    )[1]
     with pytest.raises(ValueError, match="no reviewed place IDs"):
-        site_policy.select_adapter("hotel", EXPECTED, today=TODAY, registry=reg)
+        site_policy.select_adapter("hotel", {**EXPECTED, "city": "Basel"},
+                                   today=TODAY, registry=reg)
 
 
 @pytest.mark.parametrize("counts", [[], [0], [True], ["1"], "1"])

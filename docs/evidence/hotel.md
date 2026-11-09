@@ -1,3 +1,22 @@
+# R5-02 offline checkpoint additions (2026-11-09)
+
+Every hotel adapter now carries checkpoint patterns. All are case-insensitive
+full-URL searches, prefixed with a negative lookahead excluding the shared unsafe
+expression documented in site-policy.md, and end with `(?:[/?#]|$)`.
+
+| Adapter | Checkpoint path expression | Evidence status |
+| --- | --- | --- |
+| IHG (both adapters) | `/select-enhance-stay` | Observed URL in prior R3/R4 navigation below; complete READY evidence still unverified. |
+| NH | `/booking/step2-(?:extras|services)` | **Guessed, unverified.** Only step1-rates is documented below. This is a prospective post-room/rate checkpoint, not an observed route. |
+| B&B (all fixed properties) | `/booking/(?:extras|review)` | **Guessed, unverified.** Only property rate lists were observed; selected review URL unknown. |
+
+No live runs in R5-02 step 1. Guessed routes do not authorize navigation or prove
+that these pages exist. Earlier guest/consent/form boundaries still block.
+Hotel tasks use 60 steps and require an immediate terminal answer on checkpoint,
+READY only with complete selected evidence, otherwise BLOCKED unsafe_claim.
+Swiss regional hotel gateway mappings and geographic limitations are documented
+in site-policy.md. They have no live inventory verification.
+
 # Hotel site evidence: R2-02 (supersedes R1-06)
 
 The R1 "assumed" rows (Accor default, Hilton homepage) are **withdrawn**. Accor is explicitly
