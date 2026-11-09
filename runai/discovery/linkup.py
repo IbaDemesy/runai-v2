@@ -79,13 +79,14 @@ MAJOR_ORGANIZERS = {
 }
 
 
-def official_search_hint(name: str, distance: float | None = None, edition_year: int | None = None) -> dict:
+def official_search_hint(name: str, distance: float | None = None, edition_year: int | None = None,
+                         *, include_half: bool = False) -> dict:
     if edition_year is not None:
         name = re.sub(rf"\b{edition_year}\b", "", name).strip()
     slug = _slug(name)
     words = set(slug.split("-"))
     if words & {"half", "semi"} or distance is not None and 20 <= distance <= 22:
-        if distance is not None and not 20 <= distance <= 22:
+        if not include_half or distance is not None and not 20 <= distance <= 22:
             return {}
         for aliases, country, domain in [
             ({"lisbon", "lisbonne", "lisboa"}, "Portugal", "maratonaclubedeportugal.com"),

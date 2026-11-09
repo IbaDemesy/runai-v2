@@ -41,7 +41,8 @@ EXPECTED_KEYS = {
     ("Lisbon Half Marathon", 10, None),
 ])
 def test_half_organizer_hints_do_not_reuse_unrelated_marathon_domains(name, km, domain):
-    hint = linkup.official_search_hint(name, km)
+    hint = linkup.official_search_hint(name, km, include_half=True)
+    assert not linkup.official_search_hint(name, km)
     if domain:
         assert hint["official_domains"] == domain
         assert hint["race_name"] == name

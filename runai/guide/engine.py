@@ -936,7 +936,8 @@ class GuideEngine:
                     raise
                 narrowed = dict(hints, depth="standard", official_date_required=True,
                                 alternative_scope="organizer domain only; preserve city and distance")
-                hint = import_module("runai.discovery.linkup").official_search_hint(state.query)
+                hint = import_module("runai.discovery.linkup").official_search_hint(
+                    state.query, include_half=True)
                 narrowed.update(hint)
                 state.hints["_timeout_recovery"] = True
                 state.query += " organizer official date retry"
