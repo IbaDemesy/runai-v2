@@ -78,6 +78,12 @@ still means route-scoped render evidence, not guaranteed checkout preparation.
 Eight session creations total, including automatic fallbacks; all cleaned up
 HTTP204. Final organization quota: `limit=3, active=0, available=3`.
 
+Evidence version boundary: these live smokes preceded the requested rebase onto
+origin/main `b9a6fb685dae3c3073c3a421e089331bfecb6b01`, which brought upstream H
+runtime changes. The rebase was conflict-free and the new tree passed lint and
+2091 tests, but no post-rebase live sessions were authorized/run here. Do not
+present the pre-rebase statuses as observed acceptance of the updated runtime.
+
 # R6-02 transport render gate — 2026-11-09
 
 This section supersedes historical coverage claims below. Owner-rule authorization
