@@ -315,9 +315,6 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
         edition = _edition_key(row.edition, row.sources)
         name = re.sub(rf"\b{re.escape(edition)}\b", "", row.name)
         key = (_slug(name), edition, _slug(row.city))
-        if not key[2]:
-            key += ("_".join(sorted({day.isoformat() for source in row.sources
-                                    if (day := _day(source.race_date))})),)
         if key[0] and key[1]:
             groups.setdefault(key, []).append(row)
 

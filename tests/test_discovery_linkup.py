@@ -247,25 +247,35 @@ def test_review_sourced_candidates_without_city_are_preserved(omit_city):
     first = race(city="")
     if omit_city:
         first.pop("city")
-    other_day = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
-    rows = [first, dict(first), dict(first, sources=[{
-        "url": "https://race.example/other-edition", "race_date": other_day}])]
+    rows = [first, dict(first)]
     result = search(rows)
-    assert len(result) == 2
-    assert {r["race_date"] for r in result} == {DAY, other_day}
+    assert len(result) == 1
+    assert result[0]["race_date"] == DAY
     assert all(not r["city"] and r["source_urls"] for r in result)
 
 
-def test_review_candidate_ids_distinguish_cities_and_missing_city_dates():
-    other_day = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
-    rows = [race(city="Paris"), race(city="Lyon"), race(city=""),
-            race(city="", sources=[{"url": "https://race.example/other", "race_date": other_day}])]
+def test_review_candidate_ids_distinguish_cities_and_missing_city():
+    rows = [race(city="Paris"), race(city="Lyon"), race(city="")]
     result = search(rows)
-    assert len(result) == 4 and len({r["id"] for r in result}) == 4
+    assert len(result) == 3 and len({r["id"] for r in result}) == 3
     def by_location_date(rs):
         return {(r["city"], r["race_date"]): r["id"] for r in rs}
 
     assert by_location_date(result) == by_location_date(search(list(reversed(rows))))
+
+
+@pytest.mark.parametrize("evidence", ["same_host", "two_hosts", "calendar"])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_review_cityless_date_disagreements_merge_before_official_resolution(evidence, reverse):
+    other_day = (datetime.fromisoformat(DAY).date() + timedelta(days=1)).isoformat()
+    host = "race.example" if evidence == "same_host" else "second.example"
+    rows = [race(city=""), race(city="", official_url=f"https://{host}/" if evidence != "calendar"
+                              else None, sources=[{
+                                  "url": f"https://{host}/other", "race_date": other_day}])]
+    result = search(list(reversed(rows)) if reverse else rows)
+    assert len(result) == 1
+    assert result[0]["date_status"] == ("official" if evidence == "calendar" else "conflicting")
+    assert result[0]["race_date"] == (DAY if evidence == "calendar" else None)
 
 
 @pytest.mark.parametrize("city,domain", [
