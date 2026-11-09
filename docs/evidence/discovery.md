@@ -301,3 +301,38 @@ not establish registration availability, account/captcha absence, authorization
 or prepared checkout states. No H calls were made. Observed latency of roughly
 **29–46 s** supports the R2-05 need for background discovery and honest loading
 states rather than a shorter timeout or fabricated fallback.
+
+## R3-04 — 2026-11-08 read-only live smoke: "un semi en Espagne"
+
+Run 2026-11-08T23:55:35Z → 23:56:24Z (UTC) through the real guide path:
+`GuideEngine.start("un semi en Espagne")` → `runai.app._discovery_hints` →
+`runai.discovery.linkup.discover` (Linkup structured search, key from the
+environment only, never printed). No H session, no registration/hotel/transport
+site was opened. Output below is scrubbed to public organizer hosts and dates.
+
+Parsed hints: `distance=half`, `country=Spain` (the alias "Espagne" now maps to
+Spain/ES). One Linkup call, **47.9 s**, 6 raw rows, **4 upcoming candidates**
+shown (past-only or unsourced rows dropped). No broadened retry was needed
+because the first sourced query was not empty. Reply language `fr`, no error.
+
+| Candidate | Date | date_status | Distance (km) | City | Source hosts (dedup by domain) | Registration host |
+| --- | --- | --- | --- | --- | --- | --- |
+| Medio Maratón de Sevilla | 2026-12-13 | official | 21.0975 | Seville | mediomaratondesevilla.es, promo.deporticket.com | promo.deporticket.com |
+| Media Maratón Ciudad de Getafe | 2027-01-31 | official | 21.0975 | Getafe | mediadegetafe.com | — |
+| Hyundai Mitja Marató Barcelona by Brooks | 2027-02-14 | official | 21.0975 | Barcelona | mitjamarato.barcelona | — |
+| TotalEnergies Medio Maratón Ciudad de Málaga | 2027-03-07 | official | 21.097 | Málaga | mediamaratonmalaga.com | — |
+
+Chips: four `choose_race` chips (`<name> — <date>`), no "accès inconnu"
+suffix. The Seville registration URL was accepted only because it is linked
+from the official organizer page and appears in the cited sources; it is a
+sourced link, not proof of open registration, authorization or availability.
+
+An earlier same-day diagnostic call (direct `discover`, not through the guide)
+returned six Spanish half-marathon candidates (Sevilla, Santa Pola,
+Granollers, Getafe, Barcelona, Madrid). Together these show the round-2 "no
+race" outcome was not an absence of races. Fixes: country alias
+normalisation, distance synonyms in the query (medio maratón / mitja marató /
+meia maratona), per-row validation so one malformed row no longer discards the
+whole reply, edition year derived from sourced dates, and one broadened
+sourced retry (no month window, close distance variants) before any "no race"
+answer. Dates still come only from sources; nothing was invented.

@@ -38,8 +38,9 @@ class Suggestion(Model):
     id: str
     label: str
     value: str
-    kind: Literal["choose_race", "answer", "confirm", "edit", "retry"]
+    kind: Literal["choose_race", "answer", "distance", "confirm", "edit", "retry"]
     provenance: Literal["source", "suggested_default", "synthetic"]
+    group: str | None = None
 
 
 class TripDraft(Model):
@@ -63,6 +64,7 @@ class GuidedTurn(Model):
     draft: TripDraft
     ready_to_confirm: bool = False
     error: str | None = None
+    language: Literal["fr", "en"] | None = None
 
 
 class GuideState(Model):

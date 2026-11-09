@@ -88,6 +88,20 @@ MONTHS = [
 ]
 
 
+def country_name(value: str | None) -> str | None:
+    """Canonical English country name for an English/French/local name or ISO2 code."""
+    if not value:
+        return None
+    text = normalize(value).strip(" .")
+    codes = {"it": "Italy", "fr": "France", "es": "Spain", "pt": "Portugal", "ch": "Switzerland",
+             "de": "Germany", "be": "Belgium", "nl": "Netherlands", "at": "Austria",
+             "gb": "United Kingdom", "uk": "United Kingdom", "ie": "Ireland"}
+    if text in codes:
+        return codes[text]
+    return next((country for country, aliases in COUNTRIES.items()
+                 if text in {normalize(country), *aliases.split()}), None)
+
+
 def contains(text: str, phrase: str) -> bool:
     return bool(re.search(r"(?<!\w)" + re.escape(phrase) + r"(?!\w)", text))
 
@@ -95,6 +109,20 @@ def contains(text: str, phrase: str) -> bool:
 def bare_city(text: str) -> str | None:
     match = CITIES.get(normalize(text).strip(" .!"))
     return match[0] if match else None
+
+
+FR_CUES = (
+    r"\b(?P<fr>le|la|les|un|une|en|au|aux|des|du|de|depuis|pour|avec|et|ou|mais|pas|oui|non|"
+    r"printemps|ete|automne|hiver|nuits?|plutot|finalement|bonjour|merci|je|tu|peu|veux|voudrais|"
+    r"courir|cherche|quel|quelle|quoi|payer|creer|accepter|raconte|salut|parle|sans|"
+    r"ignore(?=\s+les))\b"
+)
+EN_CUES = (
+    r"\b(?P<en>the|in|from|next|this|summer|spring|winter|autumn|fall|half|nights?|actually|"
+    r"instead|i|i'?m|want|would|like|run|looking|for|and|with|without|please|thanks|tell|what|"
+    r"which|hello|whatever|you|my|to|of|yes|but|ignore(?=\s+previous)|pay|create|accept|submit|"
+    r"bypass)\b"
+)
 
 
 class Intent(Model):
@@ -110,6 +138,8 @@ class Intent(Model):
     travelers: int | None = None
     correction: bool = False
     lang: str = "fr"
+    fr_cues: int = 0
+    en_cues: int = 0
     problem: str | None = None
     problems: list[str] = Field(default_factory=list)
     deferred: bool = False
@@ -119,16 +149,20 @@ class Intent(Model):
 def parse_intent(text: str, *, today: date) -> Intent:
     text = scrub_text(text)
     t = normalize(text)
-    for wrong, right in {"marathn": "marathon", "itali": "italie", "printemp": "printemps"}.items():
+    for wrong, right in {
+        "marathn": "marathon", "marat+h?o+n+": "marathon", "itali": "italie",
+        "printemp": "printemps", "semi+": "semi", "espagn+e*": "espagne", "spai+n+": "spain",
+        "lisbone": "lisbonne", "suise": "suisse", "trai+l+": "trail",
+    }.items():
         t = re.sub(r"\b" + wrong + r"\b", right, t)
-    language_cue = re.search(
-        r"\b(?P<fr>le|la|les|un|une|en|au|aux|depuis|printemps|ete|nuits|plutot|bonjour|je|peu|"
-        r"payer|creer|accepter|raconte|salut|parle|ignore(?=\s+les))\b|"
-        r"\b(?P<en>the|in|from|next|this|summer|spring|half|nights|actually|instead|i|whatever|you|"
-        r"ignore(?=\s+previous)|pay|with|please|tell|what|hello|create|accept|submit|bypass)\b",
-        t,
-    )
-    result = Intent(lang="en" if language_cue and language_cue.lastgroup == "en" else "fr")
+    cues = list(re.finditer(FR_CUES + "|" + EN_CUES, t))
+    fr_cues = sum(1 for cue in cues if cue.lastgroup == "fr")
+    en_cues = len(cues) - fr_cues
+    if en_cues != fr_cues:
+        lang = "en" if en_cues > fr_cues else "fr"
+    else:
+        lang = "en" if cues and cues[0].lastgroup == "en" else "fr"
+    result = Intent(lang=lang, fr_cues=fr_cues, en_cues=en_cues)
     result.correction = bool(re.search(r"\b(plutot|actually|instead)\b", t))
     result.deferred = bool(re.search(
         r"peu importe|je (?:ne )?sais pas|tu en penses quoi|whatever|i don.?t know|"
