@@ -197,7 +197,8 @@ def _normalize(rows: list[_Race], today: date, retrieved_at: str) -> list[dict]:
     candidates = []
     for key, group in groups.items():
         row = max(group, key=lambda item: _distance(item.distance_km) is not None)
-        sources = [source for item in group for source in item.sources if _url(source.url)]
+        sources = sorted((source for item in group for source in item.sources
+                          if _url(source.url)), key=lambda source: source.race_date is None)
         source_urls = list(dict.fromkeys(source.url for source in sources))
         if not source_urls:
             continue

@@ -549,3 +549,19 @@ def test_broaden_hint_is_forwarded_as_wider_window():
 
     assert asyncio.run(run()) == []
     assert "Broadened search" in seen["q"] and "20-22 km" in seen["q"]
+
+
+def test_dated_source_survives_per_domain_provenance_dedupe():
+    from runai.guide.engine import GuideEngine
+
+    rows = [race(sources=[{"url": "https://race.example/", "race_date": None},
+                          {"url": "https://race.example/2027-announcement", "race_date": DAY}])]
+    result = search(rows)[0]
+    assert result["source_urls"][0] == "https://race.example/2027-announcement"
+
+    async def provider(query, hints):
+        return [result]
+
+    _state, turn = asyncio.run(GuideEngine(provider, today=datetime.now(UTC).date())
+                               .start("le marathon Example"))
+    assert turn.candidates[0].source_urls == ["https://race.example/2027-announcement"]
