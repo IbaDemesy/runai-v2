@@ -1,6 +1,7 @@
 import asyncio
 import json
 import sys
+from datetime import date
 from types import SimpleNamespace
 
 import httpx
@@ -76,6 +77,46 @@ def test_empty_preflight_block_is_uncovered(monkeypatch, block):
     assert result.status == "blocked"
     assert result.reason_code == "no_site_coverage"
     assert result.handoff_url is None
+
+
+def test_real_transport_horizon_preflight_never_launches_h(monkeypatch):
+    from runai.agents import hclient, transport
+
+    trip = {
+        **TRIP, "arrival_date": "2027-12-14", "departure_date": "2027-12-16",
+        "race": {**TRIP["race"], "race_date": "2027-12-15"},
+    }
+    build_task = transport.build_task
+    tasks = []
+    requests = []
+
+    def build(plan):
+        task = build_task(plan, today=date(2026, 11, 9))
+        tasks.append(task)
+        return task
+
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(500)
+
+    client = httpx.AsyncClient
+    monkeypatch.setattr(hclient.httpx, "AsyncClient", lambda **kwargs: client(
+        **{**kwargs, "transport": httpx.MockTransport(handle)},
+    ))
+    monkeypatch.setattr(transport, "build_task", build)
+
+    async def emit(event):
+        pytest.fail("Transport preflight must not emit launched-agent events")
+
+    result = asyncio.run(LiveRunner().run(Kind.transport, trip, emit))
+    assert len(tasks) == 1
+    block = tasks[0]["preflight_block"]
+    assert block["reason_code"] == "not_yet_bookable"
+    assert result.status == "blocked" and not result.synthetic
+    assert result.reason_code == block["reason_code"]
+    assert result.summary == block["summary"]
+    assert str(result.handoff_url) == block["handoff_url"]
+    assert requests == []
 
 
 @pytest.mark.parametrize("stale", [None, False, True])
