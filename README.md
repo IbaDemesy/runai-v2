@@ -1,28 +1,23 @@
 # RunAI v2
 
-**Dis-moi ton envie de course, je prépare ton déplacement.**
+**Plan a race trip from a vague idea, then prepare the next steps without making a booking.**
 
-A guided race travel assistant: describe a wish like « un marathon au printemps
-en Italie », « un trail en Suisse cet été » or « le semi de Lisbonne ». RunAI's
-target is to propose real races and official dates through Linkup, suggest
-editable travel defaults, and ask one focused question at a time. You do not
-need to know the race date.
+Describe the race you have in mind. RunAI uses Linkup to find sourced race options, presents a plan for your explicit confirmation, then starts three H Company browser agents in parallel to prepare registration, hotel and transport. In live mode, the agents show genuine browser frames and stop before payment or any other commitment.
 
-After explicit plan confirmation, three H Company browser agents prepare race
-registration, hotel and transport **in parallel**, with genuine streamed screenshots and short friendly status lines, then hand off before payment or any earlier
-consent/commitment boundary. A premium, responsive Strava-inspired chat with
-chips, plan cards and three agent panels is the design priority.
-The chat should feel natural in French and English, with streaming-like replies,
-a bottom composer and one-click defaults or free-text corrections.
+## Key features
 
-**Status:** round 6 scored **38/100, 0/5 visible live successes**, design 8/10
-([docs/eval/round-6.md](docs/eval/round-6.md)). The current R7 queue targets
-transport coverage, verified safe checkpoints, owner-approved private profile
-prefill, fewer questions and >=9/10 design. R7-01 owns core + integration
-acceptance/shared docs; R7-02 transport + generic policy/base registry;
-R7-03 hotel + registration and their shards; R7-04 guide/discovery;
-R7-05 UI/profile card. No complete live success is claimed. Read
-[HANDOFF.md](HANDOFF.md) for evidence and remaining integration work.
+- Guided race and trip planning, with editable plan details
+- Linkup-sourced race options and clear demo/replay labels for synthetic results
+- Explicit plan confirmation before agent launch
+- Parallel browser preparation for race registration, accommodation and transport
+- Live browser frames and progress updates, with a safe handoff before commitment
+- Demo, replay and live modes
+
+## Tech stack
+
+Python 3.12, FastAPI, Pydantic, httpx, a vanilla JavaScript/CSS frontend, and pytest.
+
+**Status:** Early prototype; a complete live end-to-end success has not yet been demonstrated. See [HANDOFF.md](HANDOFF.md) for evidence and remaining work.
 
 ## Run locally (Python 3.12)
 ```sh
