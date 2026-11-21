@@ -19,6 +19,17 @@ Python 3.12, FastAPI, Pydantic, httpx, a vanilla JavaScript/CSS frontend, and py
 
 **Status:** Early prototype; a complete live end-to-end success has not yet been demonstrated. See [HANDOFF.md](HANDOFF.md) for evidence and remaining work.
 
+## Project structure
+
+- `runai/guide/` — conversation flow, intent parsing and trip-plan state.
+- `runai/discovery/` — sourced race discovery and candidate normalization.
+- `runai/agents/` — registration, hotel and transport task builders, site policy and browser client.
+- `static/` — browser interface HTML, JavaScript and CSS.
+- `tests/` — unit, API, journey, safety and frontend checks.
+- `docs/` — product policy and feedback alongside evaluation and engineering records.
+
+For a map of product documentation and internal development records, see [docs/README.md](docs/README.md).
+
 ## Run locally (Python 3.12)
 ```sh
 uv sync --frozen --python 3.12
